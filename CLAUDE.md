@@ -39,6 +39,7 @@ Levels: 0 go, 1 caution, 2 stay off. An hour's level is the worst of its reasons
 - Dark (sun below civil twilight) is 2. Twilight before sunrise or after sunset is 1 (lights required).
 - Thunderstorm codes 95/96/99 are 2. CAPE >= 1000 with rain chance >= 30% is 1.
 - Freezing rain is 2. Snow is 1. Precip >= 0.15 in/hr is 1.
+- Rain chance against the settings thresholds (`rainCaution`, `rainOff`, defaults 60% and 90%). Either can be blank, which turns that level off.
 - Wind and gusts against the settings thresholds.
 - Visibility < 0.25 mi is 2, < 1 mi is 1. Otherwise likely fog from `fogRisk()` is 1. Possible fog is shown but does not change the call.
 - Air below 32°F is 2. Air plus water below the cold line is 1.

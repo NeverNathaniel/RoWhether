@@ -205,6 +205,11 @@ export function assess(m, h, lightT) {
   if ([56, 57, 66, 67].includes(c)) add(2, 'ice', 'Freezing rain');
   else if ([71, 73, 75, 77, 85, 86].includes(c)) add(1, 'snow', 'Snow');
   if (h.precip != null && h.precip >= 0.15) add(1, 'rain', 'Heavy rain');
+  if (h.pop != null) {
+    const pop = Math.round(h.pop), on = v => v !== '' && v != null && !isNaN(v);
+    if (on(S.rainOff) && pop >= S.rainOff) add(2, 'pop', `Rain chance ${pop}%`);
+    else if (on(S.rainCaution) && pop >= S.rainCaution) add(1, 'pop', `Rain chance ${pop}%`);
+  }
 
   const w = r0(h.wind), g = r0(h.gust);
   if (w != null) {

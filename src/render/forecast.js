@@ -56,7 +56,7 @@ export function forecastPanel(m, p) {
 
   f.push(fact('Rain', `${r0(p.pop)}% chance`,
     p.precip >= 0.01 ? `About ${p.precip.toFixed(2)} in expected.` : (p.pop >= 30 ? 'Light amounts at most.' : 'None expected.'),
-    maxLvl(['rain', 'storm', 'stormrisk', 'snow', 'ice'])));
+    maxLvl(['rain', 'pop', 'storm', 'stormrisk', 'snow', 'ice'])));
 
   const fl = flowNow(m);
   if (fl != null) {

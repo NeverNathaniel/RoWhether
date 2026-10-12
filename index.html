@@ -82,6 +82,12 @@
       <label>Stay off at <input name="gustOff" type="number" min="1" max="80" step="1" inputmode="numeric" required></label>
     </fieldset>
     <fieldset>
+      <legend>Rain chance, %</legend>
+      <p class="note" style="margin:0 0 .25rem">The forecast chance of rain in an hour. Leave a box empty to turn it off.</p>
+      <label>Caution at <input name="rainCaution" type="number" min="0" max="100" step="5" inputmode="numeric" placeholder="Off"></label>
+      <label>Stay off at <input name="rainOff" type="number" min="0" max="100" step="5" inputmode="numeric" placeholder="Off"></label>
+    </fieldset>
+    <fieldset>
       <legend>Cold water</legend>
       <label>Caution when air plus water is under, °F <input name="coldCombined" type="number" min="0" max="200" step="1" inputmode="numeric" required></label>
       <label>Water temperature override, °F <input name="waterOverride" type="number" min="32" max="90" step="0.1" inputmode="decimal" placeholder="Use gauge"></label>

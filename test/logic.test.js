@@ -100,6 +100,16 @@ describe('assess', () => {
     expect(lvl(5, 18)).toBe(1);
     expect(lvl(5, 25)).toBe(2);
   });
+  it('applies rain chance thresholds from settings', () => {
+    const at = (pop, S = DEFAULTS) => hourAt(model((i, t) => (t === NOON ? { pop } : {}), S), 12).a;
+    expect(at(55).lvl).toBe(0);
+    expect(at(60).lvl).toBe(1);
+    expect(at(60).reasons[0]).toMatchObject({ key: 'pop', text: 'Rain chance 60%' });
+    expect(at(90).lvl).toBe(2);
+    // A blank level is off.
+    expect(at(95, { ...DEFAULTS, rainOff: '' }).lvl).toBe(1);
+    expect(at(95, { ...DEFAULTS, rainCaution: '', rainOff: '' }).lvl).toBe(0);
+  });
   it('flags thunderstorms, storm risk, freezing rain and snow', () => {
     const at = o => hourAt(model((i, t) => (t === NOON ? o : {})), 12).a;
     expect(at({ code: 95 }).lvl).toBe(2);

@@ -4,6 +4,7 @@ export const LOC = { lat: 42.9607, lon: -72.5219, tz: 'America/New_York' };
 
 export const DEFAULTS = {
   heading: 15, windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25,
+  rainCaution: 60, rainOff: 90, // percent chance; blank turns a level off
   coldCombined: 100, flowCaution: 20000, flowOff: 28000, waterOverride: ''
 };
 
@@ -66,6 +67,6 @@ export const SRC = {
 export const SOURCE_NAMES = { wx: 'the forecast', alerts: 'NWS alerts', obs: 'Keene observations', river: 'USGS river gauges', flow: 'USGS flow history' };
 
 // Short phrases for "then ..." in the hero
-export const THEN = { dark: 'dark', twilight: 'lights needed', storm: 'thunderstorms', stormrisk: 'a storm risk', ice: 'freezing rain', snow: 'snow', rain: 'heavy rain', wind: 'the wind builds', gust: 'gusts build', fog: 'fog', freeze: 'freezing temps', cold: 'cold-water caution', flow: 'high water', alert: 'an NWS alert' };
+export const THEN = { dark: 'dark', twilight: 'lights needed', storm: 'thunderstorms', stormrisk: 'a storm risk', ice: 'freezing rain', snow: 'snow', rain: 'heavy rain', wind: 'the wind builds', pop: 'rain likely', gust: 'gusts build', fog: 'fog', freeze: 'freezing temps', cold: 'cold-water caution', flow: 'high water', alert: 'an NWS alert' };
 export const WORD = ['Go.', 'Caution.', 'Stay off.'];
 export const WORD_PLAIN = ['Go', 'Caution', 'Stay off'];

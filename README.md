@@ -11,7 +11,7 @@ Night is not shown. The rowing day runs from first light to sunset.
 - A fog forecast: valley fog after clear, calm nights and steam fog when cold air sits over warmer water, with an estimate of when it lifts. Shown for now, the next morning, and each morning in Day by day.
 - Water state: flat, light chop, chop or rough, from wind along the straight, how long it has blown, and wind against the current. Warns about floating debris when the river is rising fast.
 - Day by day for 7 days: morning (first light to 10 AM), midday (10 AM to 3 PM) and afternoon (3 PM to sunset), each with its call, wind against the course, temperature, rain and fog. Tap a row for the full forecast: compass, wind against the course, air, water, the cold check, visibility and fog, rain, flow, daylight, and an hour by hour table.
-- Settings for course heading, wind and gust limits, the cold-water line, flow limits, and a water temperature override. Saved in the browser.
+- Settings for course heading, wind and gust limits, rain chance limits, the cold-water line, flow limits, and a water temperature override. Saved in the browser.
 
 ## Data sources
 
@@ -74,6 +74,7 @@ New versions install in the background and apply the next time the app opens.
 | Upstream heading | 15° | Estimate of the reach at Putney Landing |
 | Sustained wind | caution 10, stay off 15 mph | Common sculling limits |
 | Gusts | caution 18, stay off 25 mph | Model gusts run high for a sheltered river |
+| Rain chance | caution 60%, stay off 90% | Starting points. Leave either blank to turn it off |
 | Cold water | caution when air + water < 100°F | Common rowing guideline |
 | Flow (North Walpole) | caution 20,000, stay off 28,000 cfs | About the top 10% and top 5% of days since 2016. Median is about 6,900 |
 
