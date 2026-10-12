@@ -1,0 +1,222 @@
+// The call logic. Pure functions over a model built from fetched data and settings.
+// Nothing here touches the DOM or storage, so it can be unit tested.
+import SunCalc from 'suncalc';
+import { LOC, HOUR, MIN, LIGHT_KEYS, CHIP } from './config.js';
+import { dayKey, localHour, r0, fmtInt, cToF } from './format.js';
+
+// ---------- Sun ----------
+export function sunFor(m, key) {
+  if (m.sunCache[key]) return m.sunCache[key];
+  const d = m.days.find(x => x.key === key);
+  if (!d) return null;
+  const st = SunCalc.getTimes(new Date(d.t + 12 * HOUR), LOC.lat, LOC.lon);
+  const s = { dawn: +st.dawn, sunrise: +st.sunrise, sunset: +st.sunset, dusk: +st.dusk };
+  m.sunCache[key] = s;
+  return s;
+}
+export function lightAt(m, t) {
+  const s = sunFor(m, dayKey(t));
+  if (!s) return 'day';
+  if (t < s.dawn || t > s.dusk) return 'dark';
+  if (t < s.sunrise || t > s.sunset) return 'twilight';
+  return 'day';
+}
+export function nextDawn(m) {
+  for (const d of m.days) { const s = sunFor(m, d.key); if (s && s.dawn > m.now) return s.dawn; }
+  return null;
+}
+
+// ---------- River and water ----------
+export function flowNow(m) { return m.data.river && m.data.river.flow ? m.data.river.flow.v : null; }
+export function waterOverridden(S) { return !isNaN(parseFloat(S.waterOverride)); }
+export function waterTemp(m) {
+  const o = parseFloat(m.S.waterOverride);
+  if (!isNaN(o)) return o;
+  return m.data.river && m.data.river.waterC ? cToF(m.data.river.waterC.v) : null;
+}
+export function flowTrend(ser) {
+  if (!ser || ser.length < 4) return null;
+  const last = ser[ser.length - 1];
+  const target = last.t - 6 * HOUR;
+  let prev = ser[0];
+  for (const p of ser) { if (Math.abs(p.t - target) < Math.abs(prev.t - target)) prev = p; }
+  if (!prev.v) return null;
+  const pct = (last.v - prev.v) / prev.v * 100;
+  if (pct > 10) return `Rising, up ${Math.round(pct)}% in 6 hours`;
+  if (pct < -10) return `Falling, down ${Math.round(-pct)}% in 6 hours`;
+  return 'Steady over 6 hours';
+}
+
+// ---------- Wind vs. course ----------
+export function relWind(dir, heading) { return ((dir - heading + 540) % 360) - 180; } // 0 = wind from upstream
+export function windVsCourse(m, dir, speed) {
+  if (speed == null || dir == null) return '';
+  if (Math.round(speed) < 3) return 'Near calm on the course.';
+  const rel = relWind(dir, m.S.heading);
+  const c = Math.cos(rel * Math.PI / 180);
+  const along = Math.abs(speed * c);
+  let s;
+  if (c >= 0.5) s = 'Headwind rowing upstream, tailwind coming back.';
+  else if (c <= -0.5) s = 'Tailwind rowing upstream, headwind coming back.';
+  else s = rel > 0 ? 'Crosswind off the New Hampshire bank.' : 'Crosswind off the Vermont bank.';
+  if (Math.abs(c) >= 0.5 && along >= 8) s += ' Chop builds along the straight.';
+  const f = flowNow(m);
+  if (c <= -0.5 && along >= 8 && f != null && f >= 10000) s += ' Wind against current steepens it.';
+  return s;
+}
+export function meanDir(hs) {
+  let sx = 0, sy = 0;
+  for (const h of hs) { const w = Math.max(h.wind || 0, 0.5), a = h.dir * Math.PI / 180; sx += w * Math.sin(a); sy += w * Math.cos(a); }
+  return (Math.atan2(sx, sy) * 180 / Math.PI + 360) % 360;
+}
+export function angDev(a, b) { return Math.abs(((a - b + 540) % 360) - 180); }
+
+// ---------- Assessment ----------
+export function fogLikely(h) {
+  const hr = localHour(h.t);
+  return h.temp != null && h.dew != null && h.wind != null && (h.temp - h.dew) <= 2 && h.wind <= 4 && hr <= 10;
+}
+
+// Level for one hour (or the current moment): 0 go, 1 caution, 2 stay off.
+// The level is the worst of its reasons.
+export function assess(m, h, lightT) {
+  const S = m.S;
+  const r = [];
+  const add = (lvl, key, text) => r.push({ lvl, key, text });
+  const light = lightAt(m, lightT != null ? lightT : h.t + 30 * MIN);
+  if (light === 'dark') add(2, 'dark', 'Dark');
+  else if (light === 'twilight') add(1, 'twilight', 'Outside sunrise to sunset, lights required');
+
+  const c = h.code;
+  if ([95, 96, 99].includes(c)) add(2, 'storm', 'Thunderstorms');
+  else if (h.cape != null && h.cape >= 1000 && (h.pop || 0) >= 30) add(1, 'stormrisk', 'Thunderstorms possible');
+  if ([56, 57, 66, 67].includes(c)) add(2, 'ice', 'Freezing rain');
+  else if ([71, 73, 75, 77, 85, 86].includes(c)) add(1, 'snow', 'Snow');
+  if (h.precip != null && h.precip >= 0.15) add(1, 'rain', 'Heavy rain');
+
+  const w = r0(h.wind), g = r0(h.gust);
+  if (w != null) {
+    if (w >= S.windOff) add(2, 'wind', `Wind ${w} mph`);
+    else if (w >= S.windCaution) add(1, 'wind', `Wind ${w} mph`);
+  }
+  if (g != null) {
+    if (g >= S.gustOff) add(2, 'gust', `Gusts to ${g} mph`);
+    else if (g >= S.gustCaution) add(1, 'gust', `Gusts to ${g} mph`);
+  }
+
+  const vm = h.vis != null ? h.vis / 1609.34 : null;
+  if (vm != null && vm < 0.25) add(2, 'fog', 'Fog, visibility under a quarter mile');
+  else if (vm != null && vm < 1) add(1, 'fog', `Visibility ${vm.toFixed(1)} mi`);
+  else if (fogLikely(h)) add(1, 'fog', 'Valley fog likely');
+
+  if (h.temp != null && h.temp < 32) add(2, 'freeze', `Below freezing at ${r0(h.temp)}°F, ice on docks and oarlocks`);
+  const wt = waterTemp(m);
+  if (wt != null && h.temp != null) {
+    const sum = Math.round(h.temp + wt);
+    if (sum < S.coldCombined) add(1, 'cold', `Cold water, air plus water ${sum}°F`);
+  }
+  const f = flowNow(m);
+  if (f != null) {
+    if (f >= S.flowOff) add(2, 'flow', `High water at ${fmtInt(f)} cfs`);
+    else if (f >= S.flowCaution) add(1, 'flow', `Elevated flow at ${fmtInt(f)} cfs`);
+  }
+  for (const a of m.alerts) {
+    if (h.t >= a.start && h.t < a.end) add(a.lvl, 'alert', a.event);
+  }
+  r.sort((a, b) => b.lvl - a.lvl);
+  return { lvl: r.reduce((mx, x) => Math.max(mx, x.lvl), 0), reasons: r };
+}
+export const lvlExcept = (a, keys) => a.reasons.filter(x => !keys.includes(x.key)).reduce((m, x) => Math.max(m, x.lvl), 0);
+
+// ---------- Model ----------
+// Build everything the UI needs from raw data and settings. Returns null if
+// there is no usable forecast.
+export function buildModel(data, S, now = Date.now()) {
+  const d = data.wx;
+  if (!d || !d.hourly || !d.daily) return null;
+  const m = {
+    S, data, now, sunCache: {},
+    alerts: (data.alerts || []).filter(a => a.end > now),
+    hours: [], days: [], h72: [], cur: null, windows: []
+  };
+  const H = d.hourly;
+  m.hours = H.time.map((s, i) => ({
+    t: s * 1000, temp: H.temperature_2m[i], feels: H.apparent_temperature[i], dew: H.dew_point_2m[i],
+    pop: H.precipitation_probability[i], precip: H.precipitation[i], code: H.weather_code[i],
+    wind: H.wind_speed_10m[i], gust: H.wind_gusts_10m[i], dir: H.wind_direction_10m[i],
+    vis: H.visibility[i], cape: H.cape[i]
+  }));
+  const D = d.daily;
+  m.days = D.time.map((s, i) => ({
+    t: s * 1000, key: dayKey(s * 1000 + 12 * HOUR), sunrise: D.sunrise[i] * 1000, sunset: D.sunset[i] * 1000,
+    hi: D.temperature_2m_max[i], lo: D.temperature_2m_min[i], pop: D.precipitation_probability_max[i]
+  }));
+  for (const h of m.hours) h.a = assess(m, h);
+
+  const h0 = Math.floor(now / HOUR) * HOUR;
+  m.h72 = m.hours.filter(h => h.t >= h0).slice(0, 72);
+  if (!m.h72.length) return null;
+
+  // Current conditions: 15-minute model values if fresh, otherwise the current hour
+  const base = m.hours.filter(h => h.t <= now).pop() || m.h72[0];
+  const c = d.current;
+  if (c && now - c.time * 1000 < 90 * MIN) {
+    m.cur = { ...base, t: now, temp: c.temperature_2m, feels: c.apparent_temperature, dew: c.dew_point_2m,
+      wind: c.wind_speed_10m, gust: c.wind_gusts_10m, dir: c.wind_direction_10m, code: c.weather_code, vis: c.visibility };
+  } else {
+    m.cur = { ...base, t: now };
+  }
+  m.cur.a = assess(m, m.cur, now);
+  m.windows = computeWindows(m, m.h72);
+  return m;
+}
+
+// Best windows: runs of go hours at least 45 minutes long, edges snapped to
+// sunrise and sunset. Falls back to caution runs when there are none.
+export function computeWindows(m, hs) {
+  const runs = [];
+  let run = null;
+  hs.forEach((h, i) => {
+    const lv = h.a.lvl;
+    if (run && lv === run.lvl) run.idx.push(i);
+    else { if (run) runs.push(run); run = { lvl: lv, idx: [i] }; }
+  });
+  if (run) runs.push(run);
+
+  const build = r => {
+    const first = hs[r.idx[0]], last = hs[r.idx[r.idx.length - 1]];
+    let start = first.t, end = last.t + HOUR;
+    const s1 = sunFor(m, dayKey(first.t)), s2 = sunFor(m, dayKey(last.t));
+    if (r.lvl === 0) {
+      // Snap edges to sunrise and sunset when the neighbouring hour is clear apart from light.
+      const prev = hs[r.idx[0] - 1], next = hs[r.idx[r.idx.length - 1] + 1];
+      if (s1 && s1.sunrise > start && s1.sunrise < start + HOUR) start = s1.sunrise;
+      else if (s1 && prev && s1.sunrise >= start - HOUR && s1.sunrise < start && lvlExcept(prev.a, LIGHT_KEYS) === 0) start = s1.sunrise;
+      if (s2 && next && s2.sunset >= end && s2.sunset < end + HOUR && lvlExcept(next.a, LIGHT_KEYS) === 0) end = s2.sunset;
+    }
+    start = Math.max(start, m.now);
+    const sub = r.idx.map(i => hs[i]);
+    const ws = sub.map(h => h.wind), gs = sub.map(h => h.gust), ts = sub.map(h => h.temp);
+    const why = r.lvl === 0 ? null : sub.flatMap(h => h.a.reasons).find(x => x.lvl === r.lvl);
+    return { key: first.t, i0: r.idx[0], hs: sub, lvl: r.lvl, start, end, wmin: Math.min(...ws), wmax: Math.max(...ws), gmax: Math.max(...gs), tmin: Math.min(...ts), tmax: Math.max(...ts), dir: sub[Math.floor(sub.length / 2)].dir, why };
+  };
+
+  let wins = runs.filter(r => r.lvl === 0).map(build).filter(w => w.end - w.start >= 45 * MIN);
+  if (!wins.length) {
+    wins = runs.filter(r => r.lvl === 1)
+      .filter(r => r.idx.some(i => !hs[i].a.reasons.every(x => x.key === 'twilight')))
+      .map(build).filter(w => w.end - w.start >= 45 * MIN);
+  }
+  return wins.slice(0, 6);
+}
+
+// Summary for a dawn or evening session in the week view, ignoring light.
+export function session(m, hs) {
+  if (!hs.length) return null;
+  if (hs[hs.length - 1].t + HOUR < m.now) return { past: true };
+  const live = hs.filter(h => h.t + HOUR >= m.now);
+  const lv = Math.max(...live.map(h => lvlExcept(h.a, LIGHT_KEYS)));
+  if (lv === 0) return { lvl: 0, label: 'go' };
+  const r = live.flatMap(h => h.a.reasons).find(x => !LIGHT_KEYS.includes(x.key) && x.lvl === lv);
+  return { lvl: lv, label: r ? (CHIP[r.key] || r.text.toLowerCase()) : 'caution' };
+}

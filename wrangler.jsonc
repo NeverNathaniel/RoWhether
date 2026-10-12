@@ -1,0 +1,11 @@
+// Cloudflare Worker that serves the built static site from ./dist.
+// No Worker script yet. Add "main" here if the app ever needs server code,
+// for example to proxy or cache an API.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rowhether",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}

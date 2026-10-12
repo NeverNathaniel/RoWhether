@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#EEF3F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F2329" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Putney Row">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="description" content="Go, caution or stay-off calls for rowing on the Connecticut River at Putney Landing, VT.">
+<title>Putney Landing rowing conditions</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231E4A52'/%3E%3Cpath d='M7 25L19 13' stroke='%23EEF3F2' stroke-width='2.5' stroke-linecap='round'/%3E%3Cpath d='M18 14C19 9 23 5 27 5C27 9 24 13 19 15Z' fill='%23EEF3F2'/%3E%3C/svg%3E">
+<script type="module" src="/src/main.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Putney Landing</h1>
+      <p class="sub">Connecticut River at the Putney Rowing Club docks. All times Eastern.</p>
+    </div>
+    <div class="actions">
+      <span class="updated" id="updated">Loading</span>
+      <button type="button" id="refreshBtn">Refresh</button>
+      <button type="button" id="settingsBtn">Settings</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="hero" aria-live="polite" style="margin-top:0">
+      <p class="verdict" id="verdict">&nbsp;</p>
+      <p class="why" id="why">Loading conditions.</p>
+      <p class="holds" id="holds"></p>
+      <p class="status-note" id="statusNote" hidden></p>
+    </section>
+    <div id="alerts"></div>
+
+    <section aria-labelledby="nowTitle">
+      <h2 id="nowTitle">On the water now</h2>
+      <div class="now-grid">
+        <figure class="compass">
+          <svg id="compass" viewBox="-70 -70 140 140" role="img" aria-label="Wind direction relative to the river"></svg>
+          <figcaption id="compassCap"></figcaption>
+        </figure>
+        <dl class="facts" id="facts"></dl>
+      </div>
+    </section>
+
+    <section aria-labelledby="winTitle">
+      <h2 id="winTitle">Best windows, next 3 days</h2>
+      <p class="lede">Tap a window to see its forecast conditions.</p>
+      <ol class="windows" id="windows"></ol>
+    </section>
+
+    <section aria-labelledby="stripTitle">
+      <h2 id="stripTitle">Next 72 hours</h2>
+      <p class="legend">
+        <span><i class="b0"></i>Go</span>
+        <span><i class="b1"></i>Caution</span>
+        <span><i class="b2"></i>Stay off</span>
+        <span><i class="bn"></i>Dark</span>
+        <span>Bar is wind speed, tick is gust, dashed lines are your wind limits. Tap an hour.</span>
+      </p>
+      <div class="strip-wrap" id="stripWrap" tabindex="0" aria-label="Hourly conditions. Use left and right arrow keys to move between hours.">
+        <svg id="strip" role="img" aria-label="Hourly wind and rowing status for the next 72 hours"></svg>
+      </div>
+      <p class="hour-detail" id="hourDetail" aria-live="polite"></p>
+    </section>
+
+    <section aria-labelledby="weekTitle">
+      <h2 id="weekTitle">Week ahead</h2>
+      <p class="lede">Dawn covers the first three hours after sunrise. Evening covers the three hours before sunset.</p>
+      <ol class="week" id="week"></ol>
+    </section>
+  </main>
+
+  <footer>
+    <p>Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (NOAA HRRR and GFS models). Alerts and Keene observations from the <a href="https://www.weather.gov/aly/" target="_blank" rel="noopener">National Weather Service, Albany</a>. River flow from USGS gauge <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01154500/" target="_blank" rel="noopener">01154500 at North Walpole</a>, water temperature from <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01161280/" target="_blank" rel="noopener">01161280 near Northfield</a>.</p>
+    <p>Thresholds are starting points, not club rules. Lightning: off the water at the first thunder, back on 30 minutes after the last. Look at the water before you launch.</p>
+  </footer>
+</div>
+
+<dialog id="settings" aria-labelledby="setTitle">
+  <form method="dialog" id="setForm">
+    <h2 id="setTitle">Settings</h2>
+    <p class="note">Match these to your program, boat class and coach coverage. Saved in this browser.</p>
+    <fieldset>
+      <legend>Course</legend>
+      <label>Upstream heading, degrees <input name="heading" type="number" min="0" max="359" step="1" inputmode="numeric" required></label>
+    </fieldset>
+    <fieldset>
+      <legend>Wind, mph</legend>
+      <label>Caution at <input name="windCaution" type="number" min="1" max="60" step="1" inputmode="numeric" required></label>
+      <label>Stay off at <input name="windOff" type="number" min="1" max="60" step="1" inputmode="numeric" required></label>
+      <label>Gust caution at <input name="gustCaution" type="number" min="1" max="80" step="1" inputmode="numeric" required></label>
+      <label>Gust stay off at <input name="gustOff" type="number" min="1" max="80" step="1" inputmode="numeric" required></label>
+    </fieldset>
+    <fieldset>
+      <legend>Cold water</legend>
+      <label>Caution when air plus water is under, °F <input name="coldCombined" type="number" min="0" max="200" step="1" inputmode="numeric" required></label>
+      <label>Water temperature override, °F <input name="waterOverride" type="number" min="32" max="90" step="0.1" inputmode="decimal" placeholder="Use gauge"></label>
+    </fieldset>
+    <fieldset>
+      <legend>River flow at North Walpole, cfs</legend>
+      <label>Caution at <input name="flowCaution" type="number" min="0" step="100" inputmode="numeric" required></label>
+      <label>Stay off at <input name="flowOff" type="number" min="0" step="100" inputmode="numeric" required></label>
+      <p class="note" style="margin:.4rem 0 0">Since 2016 the median day is about 6,900 cfs. 20,000 is roughly the top 10% of days, 28,000 the top 5%.</p>
+    </fieldset>
+    <div class="dlg-actions">
+      <button type="button" id="resetSet">Reset defaults</button>
+      <span class="spacer"></span>
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button value="save" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+</body>
+</html>

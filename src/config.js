@@ -1,0 +1,40 @@
+// Location, endpoints, defaults and copy shared across the app.
+
+export const LOC = { lat: 42.9607, lon: -72.5219, tz: 'America/New_York' };
+
+export const DEFAULTS = {
+  heading: 15, windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25,
+  coldCombined: 100, flowCaution: 20000, flowOff: 28000, waterOverride: ''
+};
+
+export const SET_KEY = 'putney-rowing-settings-v1';
+export const CACHE_KEY = 'putney-rowing-cache-v1';
+export const REFRESH_MS = 10 * 60 * 1000;
+export const HOUR = 3600e3, MIN = 60e3;
+export const LIGHT_KEYS = ['dark', 'twilight'];
+
+export const GAUGE_FLOW = 'USGS-01154500';
+export const GAUGE_TEMP = 'USGS-01161280';
+
+export const SRC = {
+  wx: () => 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
+    latitude: LOC.lat, longitude: LOC.lon,
+    current: 'temperature_2m,apparent_temperature,dew_point_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,visibility',
+    hourly: 'temperature_2m,apparent_temperature,dew_point_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,visibility,cape',
+    daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
+    wind_speed_unit: 'mph', temperature_unit: 'fahrenheit', precipitation_unit: 'inch',
+    timezone: LOC.tz, timeformat: 'unixtime', forecast_days: '7'
+  }).toString(),
+  alerts: () => `https://api.weather.gov/alerts/active?point=${LOC.lat},${LOC.lon}`,
+  obs: () => 'https://api.weather.gov/stations/KEEN/observations/latest',
+  river: () => `https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items?monitoring_location_id=${GAUGE_FLOW},${GAUGE_TEMP}&parameter_code=00060,00010&f=json`,
+  flow: () => `https://api.waterdata.usgs.gov/ogcapi/v0/collections/continuous/items?monitoring_location_id=${GAUGE_FLOW}&parameter_code=00060&time=P2D&limit=1000&properties=time,value&f=json`
+};
+
+export const SOURCE_NAMES = { wx: 'the forecast', alerts: 'NWS alerts', obs: 'Keene observations', river: 'USGS river gauges', flow: 'USGS flow history' };
+
+// Short labels for chips and "then ..." phrases
+export const CHIP = { dark: 'dark', twilight: 'lights', storm: 'storms', stormrisk: 'storm risk', ice: 'ice', snow: 'snow', rain: 'heavy rain', wind: 'wind', gust: 'gusts', fog: 'fog', freeze: 'freezing', cold: 'cold water', flow: 'high water', alert: 'NWS alert' };
+export const THEN = { dark: 'dark', twilight: 'lights needed', storm: 'thunderstorms', stormrisk: 'a storm risk', ice: 'freezing rain', snow: 'snow', rain: 'heavy rain', wind: 'the wind builds', gust: 'gusts build', fog: 'fog', freeze: 'freezing temps', cold: 'cold-water caution', flow: 'high water', alert: 'an NWS alert' };
+export const WORD = ['Go.', 'Caution.', 'Stay off.'];
+export const WORD_PLAIN = ['Go', 'Caution', 'Stay off'];
