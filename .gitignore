@@ -5,3 +5,4 @@ dev-dist/
 .wrangler/
 screenshots/
 test-results/
+.dev.vars

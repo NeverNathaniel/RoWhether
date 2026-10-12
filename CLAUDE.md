@@ -11,12 +11,12 @@ Context for working on this repo. Read before making changes.
 
 ## What this is
 
-A single-page rowing conditions app for the Connecticut River at the Putney Rowing Club docks, Putney Landing, VT. Used mostly on phones, installed to the home screen as a PWA. Vanilla JS ES modules bundled with Vite. No framework, no backend. Deployed as a Cloudflare Worker that serves the built static files.
+A single-page rowing conditions app for the Connecticut River at the Putney Rowing Club docks, Putney Landing, VT. Used mostly on phones, installed to the home screen as a PWA. Vanilla JS ES modules bundled with Vite. No framework. Deployed as a Cloudflare Worker that serves the built static files. The Worker has one API route, `/api/suggest`, for the suggestion form; everything else is static.
 
 ## Hard constraints
 
-- No runtime loads from third-party CDNs. SunCalc 1.9.0 and the Archivo variable font (`@fontsource-variable/archivo`) are npm dependencies bundled into the build, so the app shell works offline. Pin exact versions in `package.json` for anything added.
-- All data is fetched client-side from keyless APIs that send `Access-Control-Allow-Origin: *`. Do not add anything that needs an API key. If a proxy is ever needed, it goes in a Worker script (`main` in `wrangler.jsonc`), not a third-party service.
+- No runtime loads from third-party CDNs. SunCalc 1.9.0 and the Archivo variable font (`@fontsource-variable/archivo`) are npm dependencies bundled into the build, so the app shell works offline. Pin exact versions in `package.json` for anything added. One exception: the Cloudflare Turnstile script, which cannot be bundled. It loads only when the suggestion form is first opened.
+- Weather and river data is fetched client-side from keyless APIs that send `Access-Control-Allow-Origin: *`. The browser never holds an API key. Anything that needs a key goes in the Worker (`worker/`), with the key stored as a Worker secret, never in the repo or `wrangler.jsonc`.
 - The service worker precaches the app shell only. It does not cache API responses. Freshness of data is handled by the app's own localStorage cache.
 - Must build to plain static files in `dist/` that any static host can serve. Cloudflare Workers static assets is the target.
 - `localStorage` holds settings and a cache of the last good data. Every access is wrapped in try/catch.
@@ -83,7 +83,13 @@ Wind vs course uses `relWind()`: the angle between where the wind comes from and
 - `src/main.js`: styles, service worker registration, `refresh`, event listeners, startup.
 - `src/styles/tokens.css` (colors) and `src/styles/app.css` (everything else).
 - `public/`: icons and Cloudflare `_headers`, copied to `dist/` as is.
-- `vite.config.js`: PWA manifest and Workbox settings. `wrangler.jsonc`: the Worker.
+- `src/suggest.js`: the suggestion dialog. Asks `GET /api/suggest` whether the feature is configured, shows the button if so, lazy-loads Turnstile, posts the text plus app context (version, screen, browser, settings).
+- `vite.config.js`: PWA manifest and Workbox settings (the service worker never handles `/api/*`), and `__APP_VERSION__` (package version plus commit when built on Cloudflare). `wrangler.jsonc`: the Worker, its asset binding, `run_worker_first: ["/api/*"]`, the `GITHUB_REPO` var and the `SUGGEST_LIMIT` rate limiter (3 a minute per connection).
+- `worker/index.js`: routes `/api/suggest`, 404s other `/api/*`, serves everything else from `env.ASSETS`.
+- `worker/suggest.js`: `handleSuggest()`. Checks in order: secrets configured, rate limit, text length (10 to 2,000), Turnstile, Claude, then files the issue. Dependencies are injectable for tests. `buildIssue()` quotes the original, neutralizes `@mentions`, adds app context to bugs only, labels `bug` or `enhancement` plus `from app` and `needs review`.
+- `worker/claude.js`: one `client.beta.messages.create` call to `claude-opus-5-5` at `effort: "low"`, with a JSON schema in `output_config.format` and `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`) so a safety decline retries on Anthropic's recommended fallback. `parseRewrite()` treats a refusal as a rejection.
+- `worker/github.js`, `worker/turnstile.js`: the issue create call and siteverify (action must be `suggest`).
+- Worker secrets, set in the Cloudflare dashboard: `ANTHROPIC_API_KEY`, `GITHUB_TOKEN` (fine-grained, Issues write on this repo only), `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`. Local dev reads `.dev.vars` (git ignored).
 
 ## Design system
 
@@ -98,6 +104,7 @@ Wind vs course uses `relWind()`: the angle between where the wind comes from and
 
 - `npm test` runs Vitest unit tests in `test/` for the call logic and parsers. Add a test when changing `src/logic.js` or `src/data.js`.
 - `npm run build` must pass. CI runs both on every push and pull request.
+- `test/suggest.test.js` covers the Worker with Turnstile, Claude and GitHub stubbed. Nothing in the tests calls a paid API. `npx wrangler deploy --dry-run` checks the Worker bundles.
 
 For UI changes, also check in a browser with `npm run dev` or `npm run build && npm run preview`, or with Playwright:
 

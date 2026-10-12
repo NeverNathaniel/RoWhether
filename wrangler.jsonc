@@ -1,11 +1,23 @@
-// Cloudflare Worker that serves the built static site from ./dist.
-// No Worker script yet. Add "main" here if the app ever needs server code,
-// for example to proxy or cache an API.
+// Cloudflare Worker: serves the built app from ./dist and runs worker/index.js
+// for /api/* (the suggestion form). Secrets are set in the Cloudflare
+// dashboard, never in this file: ANTHROPIC_API_KEY, GITHUB_TOKEN,
+// TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY. See README.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "rowhether",
+  "main": "worker/index.js",
   "compatibility_date": "2026-09-01",
   "assets": {
-    "directory": "./dist"
-  }
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "GITHUB_REPO": "NeverNathaniel/RoWhether"
+  },
+  // Per-connection limit on suggestions. Periods can only be 10 or 60 seconds.
+  "ratelimits": [
+    { "name": "SUGGEST_LIMIT", "namespace_id": "1001", "simple": { "limit": 3, "period": 60 } }
+  ],
+  "observability": { "enabled": true }
 }

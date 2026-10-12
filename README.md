@@ -11,6 +11,7 @@ Night is not shown. The rowing day runs from first light to sunset.
 - A fog forecast: valley fog after clear, calm nights and steam fog when cold air sits over warmer water, with an estimate of when it lifts. Shown for now, the next morning, and each morning in Day by day.
 - Water state: flat, light chop, chop or rough, from wind along the straight, how long it has blown, and wind against the current. Warns about floating debris when the river is rising fast.
 - Day by day for 7 days: morning (first light to 10 AM), midday (10 AM to 3 PM) and afternoon (3 PM to sunset), each with its call, wind against the course, temperature, rain and fog. Tap a row for the full forecast: compass, wind against the course, air, water, the cold check, visibility and fog, rain, flow, daylight, and an hour by hour table.
+- A suggestion form at the bottom. Claude rewrites each suggestion as a GitHub issue, labeled for the maintainer to review. Hidden until it is set up (see below).
 - Settings for course heading, wind and gust limits, rain chance limits, the cold-water line, flow limits, and a water temperature override. Saved in the browser.
 
 ## Data sources
@@ -57,6 +58,25 @@ Or connect the repo in the Cloudflare dashboard under Workers and Pages, Create,
 `npm run cf:dev` runs the built site in Wrangler's local Workers runtime.
 
 `public/_headers` sets long cache lifetimes on hashed build files and keeps the service worker uncached.
+
+## Set up the suggestion form
+
+The form at the bottom of the page sends text to `/api/suggest` on the Worker (`worker/`). The Worker checks Cloudflare Turnstile, asks Claude (Claude Opus 5.5) to classify the text as a feature, a bug or spam and rewrite it, then opens a GitHub issue labeled `from app` and `needs review`. The person sees a thank-you, not a link. The button stays hidden until all four secrets below are set.
+
+1. **Anthropic API key.** At [console.anthropic.com](https://console.anthropic.com), create an API key. Under limits, set a monthly spend limit, for example $10. Each suggestion costs about 2 cents.
+2. **GitHub token.** At GitHub, Settings, Developer settings, Personal access tokens, Fine-grained tokens, generate a token. Repository access: only `NeverNathaniel/RoWhether`. Permissions: Issues, read and write. Nothing else. Note the expiry date and renew it before then.
+3. **Labels.** In the repository, under Issues, Labels, create `from app` and `needs review`. `bug` and `enhancement` exist by default.
+4. **Turnstile.** In the Cloudflare dashboard, open Turnstile and add a widget. Hostnames: `rowhether.nathansol.com` and the `workers.dev` address. Mode: Managed. Copy the site key and the secret key.
+5. **Add the secrets to the Worker.** In Workers and Pages, open `rowhether`, then Settings, Variables and Secrets. Add each of these with type **Secret** (secrets survive deploys; plain text variables added in the dashboard do not):
+   - `ANTHROPIC_API_KEY`
+   - `GITHUB_TOKEN`
+   - `TURNSTILE_SITE_KEY`
+   - `TURNSTILE_SECRET_KEY`
+6. Reload the app. The "Suggest a change or report a bug" button appears above the footer.
+
+Protection against abuse: Turnstile on every send, a limit of 3 sends a minute per connection, a 2,000 character cap, and Claude rejecting spam. Claude only fills in the title, summary and details; the original text is always quoted in the issue, and `@mentions` are neutralized so nobody gets pinged.
+
+For local testing with `npm run cf:dev`, put the four values in a `.dev.vars` file (it is git ignored). Cloudflare's Turnstile test keys work there.
 
 ## Install on a phone
 

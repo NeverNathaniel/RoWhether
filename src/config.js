@@ -10,6 +10,8 @@ export const DEFAULTS = {
 
 export const SET_KEY = 'putney-rowing-settings-v1';
 export const CACHE_KEY = 'putney-rowing-cache-v1';
+// Longest suggestion the form accepts. worker/suggest.js has the same limit.
+export const MAX_TEXT = 2000;
 export const REFRESH_MS = 10 * 60 * 1000;
 export const HOUR = 3600e3, MIN = 60e3;
 export const LIGHT_KEYS = ['dark', 'twilight'];

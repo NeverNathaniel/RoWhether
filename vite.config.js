@@ -1,7 +1,15 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync } from 'node:fs';
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
+// Cloudflare Workers Builds sets WORKERS_CI_COMMIT_SHA. Locally there is none.
+const sha = (process.env.WORKERS_CI_COMMIT_SHA || '').slice(0, 7);
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(sha ? `${pkg.version}+${sha}` : pkg.version)
+  },
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
@@ -28,6 +36,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,woff2}'],
         globIgnores: ['**/*vietnamese*', '**/*latin-ext*'],
         navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true
       }
     })

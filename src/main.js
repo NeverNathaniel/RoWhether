@@ -11,6 +11,7 @@ import { loadCache, saveCache } from './storage.js';
 import { render } from './render/index.js';
 import { fillPeriod } from './render/days.js';
 import { initSettings } from './settings.js';
+import { initSuggest } from './suggest.js';
 
 // The service worker caches the app shell so it opens offline. Data still
 // comes from the network, with the last good copy kept in localStorage.
@@ -52,6 +53,7 @@ document.addEventListener('visibilitychange', () => {
 setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, REFRESH_MS);
 
 initSettings(render);
+initSuggest();
 
 // ---------- Start ----------
 const cached = loadCache();

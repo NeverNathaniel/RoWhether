@@ -57,6 +57,7 @@
   </main>
 
   <footer>
+    <p class="suggest-row" id="suggestRow" hidden><button type="button" id="suggestBtn">Suggest a change or report a bug</button></p>
     <p>Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (NOAA HRRR and GFS models). Alerts and Keene observations from the <a href="https://www.weather.gov/aly/" target="_blank" rel="noopener">National Weather Service, Albany</a>. River flow from USGS gauge <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01154500/" target="_blank" rel="noopener">01154500 at North Walpole</a>, water temperature from <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01161280/" target="_blank" rel="noopener">01161280 near Northfield</a>.</p>
     <p>Thresholds are starting points, not club rules. Lightning: off the water at the first thunder, back on 30 minutes after the last. Look at the water before you launch.</p>
   </footer>
@@ -103,6 +104,24 @@
       <span class="spacer"></span>
       <button value="cancel" formnovalidate>Cancel</button>
       <button value="save" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="suggest" aria-labelledby="sugTitle">
+  <form id="sugForm" novalidate>
+    <h2 id="sugTitle">Suggest a change</h2>
+    <div id="sugBody">
+      <p class="note">Describe what you would like added, or what went wrong. Claude rewrites it as an issue on the app's public GitHub page for the maintainer to review, so leave out names and personal details. Bug reports include the app version, screen size, browser and your settings.</p>
+      <label class="sug-label" for="sugText">Your suggestion</label>
+      <textarea id="sugText" name="text" rows="6" maxlength="2000" required></textarea>
+      <p class="sug-count" id="sugCount" aria-live="polite"></p>
+      <div id="sugCheck" class="sug-check"></div>
+      <p class="sug-status" id="sugStatus" role="status" aria-live="polite"></p>
+    </div>
+    <div class="dlg-actions">
+      <button type="button" id="sugCancel">Cancel</button>
+      <button type="submit" class="primary" id="sugSend">Send</button>
     </div>
   </form>
 </dialog>
