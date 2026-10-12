@@ -82,7 +82,7 @@ Wind vs course uses `relWind()`: the angle between where the wind comes from and
 - `src/settings.js`: settings dialog wiring.
 - `src/main.js`: styles, service worker registration, `refresh`, event listeners, startup.
 - `src/styles/tokens.css` (colors) and `src/styles/app.css` (everything else).
-- `public/`: icons and Cloudflare `_headers`, copied to `dist/` as is.
+- `public/`: icons and Cloudflare `_headers`, copied to `dist/` as is. `icon.svg` is the app icon source (a sculler crossing a low sun at dawn); `npm run icons` renders the PNGs from it. `favicon.svg` is a simplified version for browser tabs. Keep icon artwork inside the maskable safe zone, a circle of radius 205 around the center of the 512 canvas.
 - `src/suggest.js`: the suggestion dialog. Asks `GET /api/suggest` whether the feature is configured, shows the button if so, lazy-loads Turnstile, posts the text plus app context (version, screen, browser, settings).
 - `vite.config.js`: PWA manifest and Workbox settings (the service worker never handles `/api/*`), and `__APP_VERSION__` (package version plus commit when built on Cloudflare). `wrangler.jsonc`: the Worker, its asset binding, `run_worker_first: ["/api/*"]`, the `GITHUB_REPO` var and the `SUGGEST_LIMIT` rate limiter (3 a minute per connection).
 - `worker/index.js`: routes `/api/suggest`, 404s other `/api/*`, serves everything else from `env.ASSETS`.

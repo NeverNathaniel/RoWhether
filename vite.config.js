@@ -14,7 +14,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false, // registered in src/main.js
-      includeAssets: ['apple-touch-icon.png'],
+      includeAssets: ['apple-touch-icon.png', 'favicon.svg'],
       manifest: {
         name: 'Putney Landing rowing conditions',
         short_name: 'Putney Row',
@@ -33,7 +33,7 @@ export default defineConfig({
       workbox: {
         // Precache the app shell only. API responses are not cached by the
         // service worker; the app keeps its own last-good copy.
-        globPatterns: ['**/*.{js,css,html,png,woff2}'],
+        globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
         globIgnores: ['**/*vietnamese*', '**/*latin-ext*'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- RoWhether app icon: a sculler crossing a low sun on the river at dawn.
+       Source for public/*.png. All artwork sits inside the maskable safe zone
+       (a circle of radius 205 around the center), so one image serves every
+       platform. Regenerate the PNGs with: npm run icons -->
+  <rect width="512" height="512" fill="#1E4A52"/>
+  <g transform="translate(0 -29) translate(256 256) scale(1.12) translate(-256 -256)">
+  <!-- low sun on the horizon -->
+  <path d="M146 292a110 110 0 0 1 220 0z" fill="#E6AE45"/>
+  <!-- its reflection on the river -->
+  <g stroke="#E6AE45" stroke-linecap="round">
+    <path d="M178 326h156" stroke-width="12" opacity=".9"/>
+    <path d="M208 352h96" stroke-width="11" opacity=".7"/>
+    <path d="M232 376h48" stroke-width="10" opacity=".5"/>
+  </g>
+  <!-- river edge, either side of the sun -->
+  <g stroke="#86C1C8" stroke-width="10" stroke-linecap="round" opacity=".75">
+    <path d="M104 326h48"/><path d="M360 326h48"/>
+  </g>
+  <!-- sculler: shell, body, oar -->
+  <g fill="#EEF3F2" stroke="#EEF3F2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M84 292 C190 282 322 282 428 292 C322 299 190 299 84 292z" stroke="none"/>
+    <path d="M244 286 L230 246" stroke-width="15" fill="none"/>
+    <circle cx="226" cy="230" r="13" stroke="none"/>
+    <path d="M234 254 L266 266" stroke-width="9" fill="none"/>
+    <path d="M266 266 L330 318" stroke-width="7" fill="none"/>
+    <ellipse cx="336" cy="322" rx="17" ry="7" transform="rotate(30 336 322)" stroke="none"/>
+  </g>
+  </g>
+</svg>

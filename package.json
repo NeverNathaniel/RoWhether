@@ -12,6 +12,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "icons": "node scripts/icons.mjs",
     "cf:dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy"
   },
