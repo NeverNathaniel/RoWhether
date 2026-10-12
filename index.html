@@ -92,11 +92,15 @@
       <label>Upstream heading, degrees <input name="heading" type="number" min="0" max="359" step="1" inputmode="numeric" required></label>
     </fieldset>
     <fieldset>
-      <legend>Wind, mph</legend>
+      <legend>Sustained wind, mph</legend>
+      <p class="note" style="margin:0 0 .25rem">The steady wind speed, averaged over the hour.</p>
       <label>Caution at <input name="windCaution" type="number" min="1" max="60" step="1" inputmode="numeric" required></label>
       <label>Stay off at <input name="windOff" type="number" min="1" max="60" step="1" inputmode="numeric" required></label>
-      <label>Gust caution at <input name="gustCaution" type="number" min="1" max="80" step="1" inputmode="numeric" required></label>
-      <label>Gust stay off at <input name="gustOff" type="number" min="1" max="80" step="1" inputmode="numeric" required></label>
+    </fieldset>
+    <fieldset>
+      <legend>Gusts, mph</legend>
+      <label>Caution at <input name="gustCaution" type="number" min="1" max="80" step="1" inputmode="numeric" required></label>
+      <label>Stay off at <input name="gustOff" type="number" min="1" max="80" step="1" inputmode="numeric" required></label>
     </fieldset>
     <fieldset>
       <legend>Cold water</legend>

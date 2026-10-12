@@ -1,8 +1,8 @@
 // The call logic. Pure functions over a model built from fetched data and settings.
 // Nothing here touches the DOM or storage, so it can be unit tested.
 import SunCalc from 'suncalc';
-import { LOC, HOUR, MIN, LIGHT_KEYS, CHIP } from './config.js';
-import { dayKey, localHour, r0, fmtInt, cToF } from './format.js';
+import { LOC, HOUR, MIN, LIGHT_KEYS, CHIP, FOG } from './config.js';
+import { dayKey, localHour, hm, r0, fmtInt, cToF } from './format.js';
 
 // ---------- Sun ----------
 export function sunFor(m, key) {
@@ -72,9 +72,72 @@ export function meanDir(hs) {
 export function angDev(a, b) { return Math.abs(((a - b + 540) % 360) - 180); }
 
 // ---------- Assessment ----------
-export function fogLikely(h) {
-  const hr = localHour(h.t);
-  return h.temp != null && h.dew != null && h.wind != null && (h.temp - h.dew) <= 2 && h.wind <= 4 && hr <= 10;
+// ---------- Fog ----------
+const FOG_NAME = { valley: 'Valley fog', steam: 'Steam fog', model: 'Fog' };
+
+// Relative humidity from air and dew point in °F (Magnus formula).
+export function relHumidity(tF, dF) {
+  const t = (tF - 32) * 5 / 9, d = (dF - 32) * 5 / 9;
+  return 100 * Math.exp(17.625 * d / (243.04 + d)) / Math.exp(17.625 * t / (243.04 + t));
+}
+
+// Fog risk for one hour: risk 0 none, 1 possible, 2 likely, with the fog type
+// and a short reason. Only a likely risk feeds into the call (as caution).
+export function fogRisk(m, h) {
+  const none = { risk: 0 };
+  const hits = [];
+  if (FOG.codes.includes(h.code) || (h.vis != null && h.vis < 1609.34)) {
+    hits.push({ risk: 2, type: 'model', why: 'The forecast model shows fog.' });
+  }
+  const early = localHour(h.t) <= FOG.lastHour;
+  if (early && h.temp != null && h.dew != null && h.wind != null) {
+    const spread = h.temp - h.dew;
+    const v = FOG.valley;
+    const clear = lim => h.nightCloud == null || h.nightCloud <= lim;
+    if (spread <= v.likely.spread && h.wind <= v.likely.wind && clear(v.likely.cloud)) {
+      hits.push({ risk: 2, type: 'valley', why: 'Air at the dew point, light wind and a clear night.' });
+    } else if (spread <= v.possible.spread && h.wind <= v.possible.wind && clear(v.possible.cloud)) {
+      hits.push({ risk: 1, type: 'valley', why: 'Air near the dew point and light wind.' });
+    }
+    const wt = waterTemp(m);
+    if (wt != null) {
+      const diff = wt - h.temp, rh = relHumidity(h.temp, h.dew);
+      const st = FOG.steam;
+      const why = `Water ${r0(wt)}°F under ${r0(h.temp)}°F air.`;
+      if (diff >= st.likely.diff && h.wind <= st.likely.wind && rh >= st.likely.rh) hits.push({ risk: 2, type: 'steam', why });
+      else if (diff >= st.possible.diff && h.wind <= st.possible.wind && rh >= st.possible.rh) hits.push({ risk: 1, type: 'steam', why });
+    }
+  }
+  if (!hits.length) return none;
+  const top = hits.reduce((a, b) => (b.risk > a.risk ? b : a));
+  return { ...top, text: `${FOG_NAME[top.type]} ${top.risk === 2 ? 'likely' : 'possible'}` };
+}
+
+// Fog for one morning (from an hour before first light through the 10 AM
+// hour): the strongest risk and when it should lift. Null if none.
+export function morningFog(m, key) {
+  const s = sunFor(m, key);
+  if (!s) return null;
+  const hs = m.hours.filter(h => dayKey(h.t) === key && h.t + HOUR > s.dawn - HOUR && localHour(h.t) <= FOG.lastHour);
+  const foggy = hs.map(h => ({ h, f: fogRisk(m, h) })).filter(x => x.f.risk > 0);
+  if (!foggy.length) return null;
+  const top = foggy.reduce((a, b) => (b.f.risk > a.f.risk ? b : a)).f;
+  const last = foggy[foggy.length - 1].h;
+  return { ...top, until: last.t + HOUR, lingers: localHour(last.t) === FOG.lastHour };
+}
+
+// "lifting about 9 AM" or "lingering into late morning"
+export function fogLift(mf) {
+  return mf.lingers ? 'lingering into late morning' : `lifting about ${hm(mf.until)}`;
+}
+
+// The next morning that has not finished yet, with its fog (or null fog).
+export function nextMorning(m) {
+  for (const d of m.days) {
+    const end = m.hours.find(h => dayKey(h.t) === d.key && localHour(h.t) === FOG.lastHour + 1);
+    if (end && end.t > m.now) return { key: d.key, t: end.t, fog: morningFog(m, d.key) };
+  }
+  return null;
 }
 
 // Level for one hour (or the current moment): 0 go, 1 caution, 2 stay off.
@@ -107,7 +170,10 @@ export function assess(m, h, lightT) {
   const vm = h.vis != null ? h.vis / 1609.34 : null;
   if (vm != null && vm < 0.25) add(2, 'fog', 'Fog, visibility under a quarter mile');
   else if (vm != null && vm < 1) add(1, 'fog', `Visibility ${vm.toFixed(1)} mi`);
-  else if (fogLikely(h)) add(1, 'fog', 'Valley fog likely');
+  else {
+    const fr = fogRisk(m, h);
+    if (fr.risk === 2) add(1, 'fog', fr.text);
+  }
 
   if (h.temp != null && h.temp < 32) add(2, 'freeze', `Below freezing at ${r0(h.temp)}°F, ice on docks and oarlocks`);
   const wt = waterTemp(m);
@@ -144,8 +210,13 @@ export function buildModel(data, S, now = Date.now()) {
     t: s * 1000, temp: H.temperature_2m[i], feels: H.apparent_temperature[i], dew: H.dew_point_2m[i],
     pop: H.precipitation_probability[i], precip: H.precipitation[i], code: H.weather_code[i],
     wind: H.wind_speed_10m[i], gust: H.wind_gusts_10m[i], dir: H.wind_direction_10m[i],
-    vis: H.visibility[i], cape: H.cape[i]
+    vis: H.visibility[i], cape: H.cape[i], cloud: H.cloud_cover ? H.cloud_cover[i] : null
   }));
+  // Mean cloud cover over the last 6 hours, for valley fog. Null if not available.
+  m.hours.forEach((h, i) => {
+    const cs = m.hours.slice(Math.max(0, i - 5), i + 1).map(x => x.cloud).filter(v => v != null);
+    h.nightCloud = cs.length ? cs.reduce((a, b) => a + b, 0) / cs.length : null;
+  });
   const D = d.daily;
   m.days = D.time.map((s, i) => ({
     t: s * 1000, key: dayKey(s * 1000 + 12 * HOUR), sunrise: D.sunrise[i] * 1000, sunset: D.sunset[i] * 1000,
@@ -218,5 +289,5 @@ export function session(m, hs) {
   const lv = Math.max(...live.map(h => lvlExcept(h.a, LIGHT_KEYS)));
   if (lv === 0) return { lvl: 0, label: 'go' };
   const r = live.flatMap(h => h.a.reasons).find(x => !LIGHT_KEYS.includes(x.key) && x.lvl === lv);
-  return { lvl: lv, label: r ? (CHIP[r.key] || r.text.toLowerCase()) : 'caution' };
+  return { lvl: lv, key: r ? r.key : null, label: r ? (CHIP[r.key] || r.text.toLowerCase()) : 'caution' };
 }

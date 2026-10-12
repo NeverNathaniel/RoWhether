@@ -13,6 +13,16 @@ export const REFRESH_MS = 10 * 60 * 1000;
 export const HOUR = 3600e3, MIN = 60e3;
 export const LIGHT_KEYS = ['dark', 'twilight'];
 
+// Fog thresholds. Valley (radiation) fog needs air near the dew point, light
+// wind and a clear night. Steam fog needs cold air over much warmer water.
+// Both are only checked from midnight through the 10 AM hour.
+export const FOG = {
+  lastHour: 10,
+  valley: { likely: { spread: 2, wind: 4, cloud: 50 }, possible: { spread: 4, wind: 6, cloud: 80 } },
+  steam: { likely: { diff: 18, wind: 6, rh: 75 }, possible: { diff: 10, wind: 8, rh: 60 } },
+  codes: [45, 48] // Open-Meteo fog and rime fog
+};
+
 export const GAUGE_FLOW = 'USGS-01154500';
 export const GAUGE_TEMP = 'USGS-01161280';
 
@@ -20,7 +30,7 @@ export const SRC = {
   wx: () => 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
     latitude: LOC.lat, longitude: LOC.lon,
     current: 'temperature_2m,apparent_temperature,dew_point_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,visibility',
-    hourly: 'temperature_2m,apparent_temperature,dew_point_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,visibility,cape',
+    hourly: 'temperature_2m,apparent_temperature,dew_point_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,visibility,cape,cloud_cover',
     daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
     wind_speed_unit: 'mph', temperature_unit: 'fahrenheit', precipitation_unit: 'inch',
     timezone: LOC.tz, timeformat: 'unixtime', forecast_days: '7'

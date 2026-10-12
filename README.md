@@ -5,7 +5,8 @@ Rowing conditions for the Connecticut River at the Putney Rowing Club docks, Put
 ## What it shows
 
 - A go, caution or stay-off call for right now, how long it holds, and the next go window.
-- On the water now: wind against the course (headwind upstream, crosswind off the VT or NH bank, chop on the straight), air and water temperature, the air plus water cold check, visibility and valley fog risk, river flow with a 48 hour trend, daylight, and a measured reading from Keene airport for comparison.
+- On the water now: wind against the course (headwind upstream, crosswind off the VT or NH bank, chop on the straight), air and water temperature, the air plus water cold check, visibility, river flow with a 48 hour trend, daylight, and a measured reading from Keene airport for comparison.
+- A fog forecast: valley fog after clear, calm nights and steam fog when cold air sits over warmer water, with an estimate of when it lifts. Shown for now, the next morning, each window and each day of the week.
 - Best windows for the next 3 days. Tap one to see its forecast laid out the same way, with an hour by hour table.
 - A 72 hour strip: bar height is wind, the tick is gust, color is the call, shaded columns are dark.
 - Week ahead: dawn and evening calls for 7 days.
@@ -70,7 +71,7 @@ New versions install in the background and apply the next time the app opens.
 | Setting | Default | Why |
 | --- | --- | --- |
 | Upstream heading | 15° | Estimate of the reach at Putney Landing |
-| Wind | caution 10, stay off 15 mph | Common sculling limits |
+| Sustained wind | caution 10, stay off 15 mph | Common sculling limits |
 | Gusts | caution 18, stay off 25 mph | Model gusts run high for a sheltered river |
 | Cold water | caution when air + water < 100°F | Common rowing guideline |
 | Flow (North Walpole) | caution 20,000, stay off 28,000 cfs | About the top 10% and top 5% of days since 2016. Median is about 6,900 |

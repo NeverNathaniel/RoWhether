@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULTS, HOUR, MIN } from '../src/config.js';
 import { dayKey, localHour } from '../src/format.js';
-import { buildModel, assess, relWind, windVsCourse, flowTrend, sunFor, lightAt, session, lvlExcept } from '../src/logic.js';
+import { buildModel, relWind, windVsCourse, flowTrend, sunFor, lightAt, session, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
 import { parseAlerts, parseObs, parseRiver, parseFlow, alertLevel } from '../src/data.js';
 
 // Midnight Eastern (EDT, UTC-4) on Mon 15 June 2026.
@@ -12,16 +12,16 @@ const NOON = T0 + 12 * HOUR;
 function wx(over = () => ({}), days = 3) {
   const n = days * 24, H = {
     time: [], temperature_2m: [], apparent_temperature: [], dew_point_2m: [], precipitation_probability: [],
-    precipitation: [], weather_code: [], wind_speed_10m: [], wind_gusts_10m: [], wind_direction_10m: [], visibility: [], cape: []
+    precipitation: [], weather_code: [], wind_speed_10m: [], wind_gusts_10m: [], wind_direction_10m: [], visibility: [], cape: [], cloud_cover: []
   };
   for (let i = 0; i < n; i++) {
     const t = T0 + i * HOUR;
-    const h = { temp: 72, feels: 72, dew: 55, pop: 0, precip: 0, code: 0, wind: 4, gust: 8, dir: 200, vis: 24000, cape: 0, ...over(i, t) };
+    const h = { temp: 72, feels: 72, dew: 55, pop: 0, precip: 0, code: 0, wind: 4, gust: 8, dir: 200, vis: 24000, cape: 0, cloud: 10, ...over(i, t) };
     H.time.push(t / 1000);
     H.temperature_2m.push(h.temp); H.apparent_temperature.push(h.feels); H.dew_point_2m.push(h.dew);
     H.precipitation_probability.push(h.pop); H.precipitation.push(h.precip); H.weather_code.push(h.code);
     H.wind_speed_10m.push(h.wind); H.wind_gusts_10m.push(h.gust); H.wind_direction_10m.push(h.dir);
-    H.visibility.push(h.vis); H.cape.push(h.cape);
+    H.visibility.push(h.vis); H.cape.push(h.cape); H.cloud_cover.push(h.cloud);
   }
   const D = { time: [], sunrise: [], sunset: [], temperature_2m_max: [], temperature_2m_min: [], precipitation_probability_max: [] };
   for (let d = 0; d < days; d++) {
@@ -223,5 +223,78 @@ describe('parsers', () => {
       { properties: { time: 'bad', value: '3' } }
     ] });
     expect(s.map(p => p.v)).toEqual([1, 2]);
+  });
+});
+
+describe('fog', () => {
+  // Morning hours (0 to 10 local) on day one get `o`. Water is 68°F from RIVER.
+  const morning = (o, extra) => model((i, t) => (dayKey(t) === '2026-06-15' && localHour(t) <= 10 ? o : {}), extra);
+  const fogAt = (m, hr) => fogRisk(m, hourAt(m, hr));
+
+  it('computes relative humidity from air and dew point', () => {
+    expect(relHumidity(60, 60)).toBeCloseTo(100, 5);
+    expect(relHumidity(70, 50)).toBeGreaterThan(45);
+    expect(relHumidity(70, 50)).toBeLessThan(55);
+  });
+  it('calls valley fog likely on a clear, calm, saturated morning', () => {
+    const f = fogAt(morning({ temp: 55, dew: 54, wind: 2, cloud: 10 }), 6);
+    expect(f).toMatchObject({ risk: 2, type: 'valley', text: 'Valley fog likely' });
+  });
+  it('downgrades valley fog to possible after a cloudy night', () => {
+    const f = fogAt(morning({ temp: 55, dew: 54, wind: 2, cloud: 70 }), 6);
+    expect(f).toMatchObject({ risk: 1, type: 'valley' });
+  });
+  it('treats missing cloud cover as clear, matching the old rule', () => {
+    const m = buildModel({ wx: (() => { const d = wx((i, t) => (localHour(t) <= 10 ? { temp: 55, dew: 54, wind: 2 } : {})); delete d.hourly.cloud_cover; return d; })(), river: RIVER }, { ...DEFAULTS }, NOON);
+    expect(fogAt(m, 6).risk).toBe(2);
+  });
+  it('calls steam fog when cold, moist air sits over warmer water', () => {
+    // Water 68°F. Air 45°F is 23°F colder.
+    expect(fogAt(morning({ temp: 45, dew: 42, wind: 3 }), 6)).toMatchObject({ risk: 2, type: 'steam' });
+    // Air 56°F is 12°F colder: possible.
+    expect(fogAt(morning({ temp: 56, dew: 50, wind: 5 }), 6)).toMatchObject({ risk: 1, type: 'steam' });
+    // Windy mixes it out.
+    expect(fogAt(morning({ temp: 45, dew: 42, wind: 12 }), 6).risk).toBe(0);
+  });
+  it('uses the water override for steam fog', () => {
+    const air = { temp: 60, dew: 57, wind: 3 };
+    // Gauge water 68°F is only 8°F warmer than the air: no steam fog.
+    expect(fogAt(morning(air), 6).type).not.toBe('steam');
+    // A dock reading of 80°F is 20°F warmer: steam fog likely.
+    const m = model((i, t) => (localHour(t) <= 10 ? air : {}), { ...DEFAULTS, waterOverride: '80' });
+    expect(fogAt(m, 6)).toMatchObject({ risk: 2, type: 'steam' });
+  });
+  it('does not flag valley or steam fog after the 10 AM hour', () => {
+    const m = model(() => ({ temp: 45, dew: 44, wind: 2 }));
+    expect(fogAt(m, 10).risk).toBe(2);
+    expect(fogAt(m, 11).risk).toBe(0);
+  });
+  it('takes fog from the model weather code at any hour', () => {
+    const m = model((i, t) => (t === NOON ? { code: 45 } : {}));
+    expect(fogAt(m, 12)).toMatchObject({ risk: 2, type: 'model' });
+  });
+  it('makes likely fog a caution and leaves possible fog out of the call', () => {
+    expect(hourAt(morning({ temp: 55, dew: 54, wind: 2 }), 8).a.reasons.map(r => r.text)).toContain('Valley fog likely');
+    const possible = hourAt(morning({ temp: 55, dew: 54, wind: 2, cloud: 70 }), 8).a;
+    expect(possible.reasons.map(r => r.key)).not.toContain('fog');
+  });
+  it('estimates when morning fog lifts', () => {
+    // Saturated through the 8 AM hour, dry after.
+    const m = model((i, t) => (dayKey(t) === '2026-06-16' && localHour(t) <= 8 ? { temp: 55, dew: 54, wind: 2 } : {}));
+    const mf = morningFog(m, '2026-06-16');
+    expect(mf).toMatchObject({ risk: 2, type: 'valley', lingers: false });
+    expect(localHour(mf.until)).toBe(9);
+    expect(fogLift(mf)).toBe('lifting about 9 AM');
+    expect(morningFog(m, '2026-06-17')).toBeNull();
+  });
+  it('says fog lingers when it lasts through the 10 AM hour', () => {
+    const m = model((i, t) => (dayKey(t) === '2026-06-16' && localHour(t) <= 11 ? { temp: 55, dew: 54, wind: 2 } : {}));
+    expect(fogLift(morningFog(m, '2026-06-16'))).toBe('lingering into late morning');
+  });
+  it('finds the next morning that is still ahead', () => {
+    const m = model((i, t) => (dayKey(t) === '2026-06-16' && localHour(t) <= 8 ? { temp: 55, dew: 54, wind: 2 } : {}));
+    const nm = nextMorning(m); // it is noon on the 15th, so the 16th is next
+    expect(nm.key).toBe('2026-06-16');
+    expect(nm.fog.type).toBe('valley');
   });
 });

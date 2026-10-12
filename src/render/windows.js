@@ -2,7 +2,7 @@
 import { HOUR, WORD_PLAIN } from '../config.js';
 import { app, $ } from '../state.js';
 import { esc, hm, r0, card, rng, dayWord, dayKey, fmtInt, visText } from '../format.js';
-import { fogLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, meanDir, angDev } from '../logic.js';
+import { fogRisk, morningFog, fogLift, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, meanDir, angDev } from '../logic.js';
 import { fact, compassSVG, sparkline } from './parts.js';
 
 export function renderWindows() {
@@ -32,6 +32,15 @@ export function renderWindows() {
     items.splice(at + 1, 0, windowPanel(m, m.windows[selIdx]));
   }
   el.innerHTML = items.join('');
+}
+
+function windowFogNote(m, hs) {
+  const foggy = hs.map(h => ({ h, f: fogRisk(m, h) })).filter(x => x.f.risk > 0);
+  if (!foggy.length) return 'Fog risk low.';
+  const first = foggy.reduce((a, b) => (b.f.risk > a.f.risk ? b : a));
+  const mf = morningFog(m, dayKey(first.h.t));
+  const lift = mf && first.f.type !== 'model' ? `, ${fogLift(mf)}` : '';
+  return `${first.f.text} around ${hm(foggy[0].h.t)}${lift}. ${first.f.why}`;
 }
 
 function windowPanel(m, w) {
@@ -64,9 +73,7 @@ function windowPanel(m, w) {
   }
 
   const vis = nums('vis');
-  const fogHours = hs.filter(fogLikely);
-  f.push(fact('Visibility', visText(vis.length ? Math.min(...vis) : null),
-    fogHours.length ? `Valley fog likely around ${hm(fogHours[0].t)}.` : 'Fog risk low.', maxLvl(['fog'])));
+  f.push(fact('Visibility', visText(vis.length ? Math.min(...vis) : null), windowFogNote(m, hs), maxLvl(['fog'])));
 
   const pop = Math.max(0, ...nums('pop'));
   const total = nums('precip').reduce((a, b) => a + b, 0);

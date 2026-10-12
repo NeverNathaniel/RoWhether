@@ -2,7 +2,7 @@
 import { MIN, LIGHT_KEYS, WORD_PLAIN } from '../config.js';
 import { app, $ } from '../state.js';
 import { esc, hm, r0, card, dayWord, localHour, visText } from '../format.js';
-import { lightAt, lvlExcept, windVsCourse } from '../logic.js';
+import { lightAt, lvlExcept, windVsCourse, fogRisk } from '../logic.js';
 
 export function renderStrip() {
   const m = app.model, S = m.S;
@@ -56,13 +56,20 @@ export function renderStrip() {
   app.colW = colW; app.padX = padX;
 }
 
+// Possible fog is not part of the call, so name it here. Likely fog is
+// already in the reasons above.
+function fogNote(m, h) {
+  const fr = fogRisk(m, h);
+  return fr.risk === 1 ? `, ${fr.text.toLowerCase()}` : '';
+}
+
 export function renderHourDetail() {
   const m = app.model, h = m.h72[app.sel];
   if (!h) return;
   const a = h.a;
   const reasons = a.lvl > 0 ? a.reasons.filter(x => x.lvl === a.lvl).map(x => x.text) : [];
   const head = `${dayWord(h.t)} ${hm(h.t)}: ${WORD_PLAIN[a.lvl]}${reasons.length ? '. ' + reasons.join('. ') : ''}.`;
-  const l2 = `Wind ${r0(h.wind)} mph from ${card(h.dir)}, gusts ${r0(h.gust)}. ${windVsCourse(m, h.dir, h.wind)} ${r0(h.temp)}°F, ${r0(h.pop) ?? 0}% chance of rain. Visibility ${visText(h.vis)}.`;
+  const l2 = `Wind ${r0(h.wind)} mph from ${card(h.dir)}, gusts ${r0(h.gust)}. ${windVsCourse(m, h.dir, h.wind)} ${r0(h.temp)}°F, ${r0(h.pop) ?? 0}% chance of rain. Visibility ${visText(h.vis)}${fogNote(m, h)}.`;
   $('hourDetail').innerHTML = `<strong>${esc(head)}</strong><span class="l2">${esc(l2.replace(/\s+/g, ' '))}</span>`;
 }
 

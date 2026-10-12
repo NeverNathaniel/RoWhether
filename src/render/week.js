@@ -1,8 +1,8 @@
 // Week ahead: dawn and evening calls for each day.
 import { HOUR, MIN } from '../config.js';
 import { app, $ } from '../state.js';
-import { esc, r0, dayKey, dayWord, fDayLong } from '../format.js';
-import { lightAt, session, sunFor } from '../logic.js';
+import { esc, hm, r0, dayKey, dayWord, fDayLong } from '../format.js';
+import { lightAt, session, sunFor, morningFog, fogLift } from '../logic.js';
 
 function chip(name, s) {
   if (!s) return '';
@@ -17,6 +17,9 @@ export function renderWeek() {
     const dh = m.hours.filter(h => dayKey(h.t) === d.key);
     if (!s || !dh.length) return '';
     const dawn = session(m, dh.filter(h => h.t >= s.sunrise - 30 * MIN && h.t < s.sunrise + 150 * MIN));
+    const mf = morningFog(m, d.key);
+    if (dawn && mf && dawn.key === 'fog') dawn.label = mf.lingers ? 'fog all morning' : `fog until ${hm(mf.until)}`;
+    const fog = mf && !(dawn && dawn.past) ? ` ${mf.text}, ${fogLift(mf)}.` : '';
     const eve = session(m, dh.filter(h => h.t >= s.sunset - 200 * MIN && h.t < s.sunset - 20 * MIN));
     const lit = dh.filter(h => lightAt(m, h.t + 30 * MIN) === 'day');
     const ws = lit.map(h => h.wind), gs = lit.map(h => h.gust);
@@ -26,7 +29,7 @@ export function renderWeek() {
     return `<li class="day">
       <span class="dname">${esc(label)}</span>
       <span class="sessions">${chip('Dawn', dawn)}${chip('Evening', eve)}</span>
-      <span class="dstats">${r0(d.hi)}° / ${r0(d.lo)}°. ${wind} Rain ${r0(d.pop) ?? 0}%.</span>
+      <span class="dstats">${r0(d.hi)}° / ${r0(d.lo)}°. ${wind} Rain ${r0(d.pop) ?? 0}%.${esc(fog)}</span>
     </li>`;
   }).join('');
 }

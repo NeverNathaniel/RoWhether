@@ -1,9 +1,23 @@
 // "On the water now": compass and current facts.
 import { HOUR } from '../config.js';
 import { app, $ } from '../state.js';
-import { r0, card, fmtInt, ago, visText, hm, dayKey } from '../format.js';
-import { fogLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor } from '../logic.js';
+import { r0, card, fmtInt, ago, visText, hm, dayKey, dayWord } from '../format.js';
+import { fogRisk, nextMorning, fogLift, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor } from '../logic.js';
 import { fact, compassSVG, sparkline } from './parts.js';
+
+// Fog now if there is any, otherwise the outlook for the next morning.
+function visibilityNote(m) {
+  const fr = fogRisk(m, m.cur);
+  const nm = nextMorning(m);
+  if (fr.risk) {
+    const today = nm && nm.key === dayKey(m.now) && nm.fog ? `, ${fogLift(nm.fog)}` : '';
+    return `${fr.text} now${today}. ${fr.why}`;
+  }
+  if (!nm) return 'Fog risk low.';
+  const when = nm.key === dayKey(m.now) ? 'this morning' : `${dayWord(nm.t, true)} morning`;
+  if (!nm.fog) return `Fog risk low now and ${when}.`;
+  return `Fog risk low now. ${when[0].toUpperCase() + when.slice(1)}: ${nm.fog.text.toLowerCase()}, ${fogLift(nm.fog)}. ${nm.fog.why}`;
+}
 
 export function renderNow() {
   const m = app.model, S = m.S, cur = m.cur, a = cur.a;
@@ -33,8 +47,7 @@ export function renderNow() {
     f.push(fact('Water', '--', 'Gauge unavailable. Add a dock reading in Settings.'));
   }
 
-  const fog = fogLikely(cur);
-  f.push(fact('Visibility', visText(cur.vis), fog ? 'Valley fog likely: air at the dew point and calm wind.' : 'Fog risk low.', lvlOf('fog')));
+  f.push(fact('Visibility', visText(cur.vis), visibilityNote(m), lvlOf('fog')));
 
   const fl = flowNow(m);
   if (fl != null) {

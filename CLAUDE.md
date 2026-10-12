@@ -25,7 +25,7 @@ A single-page rowing conditions app for the Connecticut River at the Putney Rowi
 ## Location and endpoints
 
 - Dock: 42.9607, -72.5219. NWS office ALY, grid 111,85, forecast zone VTZ015 (Windham County).
-- Open-Meteo forecast: `current`, `hourly` (temperature, apparent temp, dew point, precip probability, precip, weather code, wind speed, gusts, direction, visibility, CAPE) and `daily` (sunrise, sunset, max/min temp, max precip probability). Units mph, °F, inches. 7 days.
+- Open-Meteo forecast: `current`, `hourly` (temperature, apparent temp, dew point, precip probability, precip, weather code, wind speed, gusts, direction, visibility, CAPE, cloud cover) and `daily` (sunrise, sunset, max/min temp, max precip probability). Units mph, °F, inches. 7 days.
 - NWS alerts: `https://api.weather.gov/alerts/active?point=42.9607,-72.5219`
 - NWS observation: `https://api.weather.gov/stations/KEEN/observations/latest` (km/h and °C, converted)
 - USGS latest values (newer OGC API, not legacy waterservices): `https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items?monitoring_location_id=USGS-01154500,USGS-01161280&parameter_code=00060,00010&f=json`
@@ -40,10 +40,18 @@ Levels: 0 go, 1 caution, 2 stay off. An hour's level is the worst of its reasons
 - Thunderstorm codes 95/96/99 are 2. CAPE >= 1000 with rain chance >= 30% is 1.
 - Freezing rain is 2. Snow is 1. Precip >= 0.15 in/hr is 1.
 - Wind and gusts against the settings thresholds.
-- Visibility < 0.25 mi is 2, < 1 mi is 1. Otherwise a fog heuristic (air within 2°F of dew point, wind <= 4 mph, before 11 AM) is 1.
+- Visibility < 0.25 mi is 2, < 1 mi is 1. Otherwise likely fog from `fogRisk()` is 1. Possible fog is shown but does not change the call.
 - Air below 32°F is 2. Air plus water below the cold line is 1.
 - Flow against the settings thresholds.
 - Active NWS alerts apply to hours they cover. Thunderstorm, flood, wind, dense fog and winter storm types are 2, others 1.
+
+Fog (`fogRisk()`, thresholds in `FOG` in `src/config.js`) is none, possible or likely, with a type:
+
+- Valley fog, midnight through the 10 AM hour. Likely: air within 2°F of the dew point, wind <= 4 mph, mean cloud cover over the last 6 hours <= 50%. Possible: within 4°F, wind <= 6, cloud <= 80%. Missing cloud cover counts as clear.
+- Steam fog, same hours. Likely: water at least 18°F warmer than the air, wind <= 6, humidity >= 75%. Possible: 10°F, wind <= 8, humidity >= 60%. Uses the gauge or the Settings water reading.
+- Model fog at any hour: weather code 45 or 48, or visibility under 1 mi.
+
+`morningFog()` takes the strongest risk from an hour before first light through the 10 AM hour, and says fog lifts at the end of the last foggy hour. If that is the 10 AM hour it says the fog lingers into late morning. Fog appears in the Visibility fact (now, or the next morning), the hour detail, the window panel and the Week ahead dawn chip and summary.
 
 Best windows are runs of go hours in the next 72 h, at least 45 minutes, with edges snapped to sunrise or sunset. If there are none, caution runs are shown instead. Hourly level is evaluated at mid-hour for daylight.
 
@@ -56,7 +64,7 @@ Wind vs course uses `relWind()`: the angle between where the wind comes from and
 - `src/format.js`: Eastern-time formatters and text helpers (`dayKey`, `hm`, `whenText`, `card`, `rng`, `esc`).
 - `src/storage.js`: `loadSettings`, `saveSettings`, `loadCache`, `saveCache`. All guarded with try/catch.
 - `src/data.js`: `fetchJSON`, the parsers (`parseAlerts`, `parseObs`, `parseRiver`, `parseFlow`) and `fetchAll`.
-- `src/logic.js`: the call logic, pure and DOM free. `buildModel(data, settings, now)` returns the model every render reads: hours, days, `h72`, `cur`, `windows`, `alerts`. Also `assess`, `lvlExcept`, `sunFor`, `lightAt`, `fogLikely`, `windVsCourse`, `flowTrend`, `computeWindows`, `session`.
+- `src/logic.js`: the call logic, pure and DOM free. `buildModel(data, settings, now)` returns the model every render reads: hours, days, `h72`, `cur`, `windows`, `alerts`. Also `assess`, `lvlExcept`, `sunFor`, `lightAt`, `fogRisk`, `morningFog`, `nextMorning`, `windVsCourse`, `flowTrend`, `computeWindows`, `session`.
 - `src/state.js`: the mutable `app` object (settings, data, errors, model, UI selection) and `$`.
 - `src/render/`: one file per section. `index.js` has `render()`, which rebuilds the model and draws everything. `hero.js`, `now.js`, `windows.js` (with the window panel), `strip.js` (with `select`), `week.js`, and shared builders in `parts.js`.
 - `src/settings.js`: settings dialog wiring.
@@ -88,5 +96,6 @@ For UI changes, also check in a browser with `npm run dev` or `npm run build && 
 
 - Keene line: keep as a labeled comparison or remove. Undecided.
 - Course heading of 15° is an estimate. Confirm on site.
+- Fog thresholds are first guesses. Steam fog will mark many calm October mornings as caution. Tune `FOG` against what the dock actually sees.
 - Water temperature is a downstream proxy. A dock reading can be set in Settings.
 - Hours are judged at mid-hour, and window edges are only ever extended to sunrise or sunset, never trimmed. So an evening go window can end up to about 30 minutes after sunset. Decide whether to trim it to sunset.
