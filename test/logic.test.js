@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULTS, HOUR, MIN } from '../src/config.js';
-import { dayKey, localHour } from '../src/format.js';
-import { buildModel, relWind, windVsCourse, flowTrend, sunFor, lightAt, session, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
+import { dayKey, localHour, lowerFirst } from '../src/format.js';
+import { buildModel, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
 import { parseAlerts, parseObs, parseRiver, parseFlow, alertLevel } from '../src/data.js';
 
 // Midnight Eastern (EDT, UTC-4) on Mon 15 June 2026.
@@ -41,6 +41,9 @@ describe('format helpers', () => {
     expect(dayKey(T0)).toBe('2026-06-15');
     expect(localHour(T0)).toBe(0);
     expect(localHour(NOON)).toBe(12);
+  });
+  it('lowercases only the first letter, keeping units', () => {
+    expect(lowerFirst('Cold water, air plus water 97°F')).toBe('cold water, air plus water 97°F');
   });
 });
 
@@ -157,10 +160,8 @@ describe('buildModel and windows', () => {
     const w = m.windows[0];
     expect(w.lvl).toBe(0);
     expect(w.start).toBe(NOON);
-    // Hours are judged at mid-hour, so the last go hour can end shortly after sunset.
-    const sunset = sunFor(m, '2026-06-15').sunset;
-    expect(w.end).toBeGreaterThanOrEqual(sunset);
-    expect(w.end - sunset).toBeLessThan(HOUR);
+    // The last hour is judged at mid-hour and can run past sunset. It is trimmed.
+    expect(w.end).toBe(sunFor(m, '2026-06-15').sunset);
     const next = m.windows[1];
     expect(next.start).toBe(sunFor(m, '2026-06-16').sunrise);
   });
@@ -176,12 +177,8 @@ describe('buildModel and windows', () => {
     expect(m.windows.every(w => w.lvl === 1)).toBe(true);
     expect(m.windows[0].why.key).toBe('wind');
   });
-  it('summarizes sessions ignoring light, and marks past ones done', () => {
-    const m = model();
-    const today = m.hours.filter(h => dayKey(h.t) === '2026-06-15');
-    expect(session(m, today.filter(h => localHour(h.t) < 8))).toEqual({ past: true });
-    expect(session(m, today.filter(h => localHour(h.t) >= 17 && localHour(h.t) < 20))).toEqual({ lvl: 0, label: 'go' });
-    expect(lvlExcept(hourAt(m, 2).a, ['dark', 'twilight'])).toBe(0);
+  it('ignores light when asked', () => {
+    expect(lvlExcept(hourAt(model(), 2).a, ['dark', 'twilight'])).toBe(0);
   });
 });
 
@@ -296,5 +293,58 @@ describe('fog', () => {
     const nm = nextMorning(m); // it is noon on the 15th, so the 16th is next
     expect(nm.key).toBe('2026-06-16');
     expect(nm.fog.type).toBe('valley');
+  });
+});
+
+describe('periods', () => {
+  const day = (m, key) => m.days.find(d => d.key === key);
+  const byKey = (m, key) => Object.fromEntries(day(m, key).periods.map(p => [p.key, p]));
+
+  it('splits a day into morning, midday and afternoon', () => {
+    const m = model();
+    const s = sunFor(m, '2026-06-16');
+    const p = byKey(m, '2026-06-16');
+    expect(Object.keys(p)).toEqual(['morning', 'midday', 'afternoon']);
+    expect(p.morning.start).toBe(s.dawn);
+    expect(localHour(p.morning.end)).toBe(10);
+    expect(localHour(p.midday.start)).toBe(10);
+    expect(localHour(p.midday.end)).toBe(15);
+    expect(localHour(p.afternoon.start)).toBe(15);
+    expect(p.afternoon.end).toBe(s.sunset);
+  });
+  it('marks finished periods past and starts the current one now', () => {
+    const p = byKey(model(), '2026-06-15'); // it is noon
+    expect(p.morning.past).toBe(true);
+    expect(p.midday.past).toBe(false);
+    expect(p.midday.from).toBe(NOON);
+    expect(p.midday.hs[0].t).toBe(NOON);
+  });
+  it('does not count lights against the morning, but notes them', () => {
+    const p = byKey(model(), '2026-06-16').morning;
+    expect(p.lvl).toBe(0);
+    expect(p.lightsUntil).toBe(sunFor(model(), '2026-06-16').sunrise);
+  });
+  it('takes the worst hour and its reason', () => {
+    const m = model((i, t) => (dayKey(t) === '2026-06-16' && localHour(t) === 16 ? { wind: 18, gust: 26 } : {}));
+    const p = byKey(m, '2026-06-16');
+    expect(p.afternoon.lvl).toBe(2);
+    expect(p.afternoon.why.key).toBe('wind');
+    expect(p.afternoon.wmax).toBe(18);
+    expect(p.midday.lvl).toBe(0);
+  });
+  it('carries morning fog with its lift time', () => {
+    const m = model((i, t) => (dayKey(t) === '2026-06-16' && localHour(t) <= 8 ? { temp: 55, dew: 54, wind: 2 } : {}));
+    const p = byKey(m, '2026-06-16').morning;
+    expect(p.lvl).toBe(1);
+    expect(p.why.key).toBe('fog');
+    expect(localHour(p.fog.until)).toBe(9);
+  });
+  it('knows day from night and finds the next period', () => {
+    const noon = model();
+    expect(noon.daytime).toBe(true);
+    expect(noon.next.key).toBe('midday');
+    const late = buildModel({ wx: wx(), river: RIVER }, { ...DEFAULTS }, T0 + 22 * HOUR); // 10 PM
+    expect(late.daytime).toBe(false);
+    expect(late.next).toMatchObject({ key: 'morning', dayKey: '2026-06-16' });
   });
 });

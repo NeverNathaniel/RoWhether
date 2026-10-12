@@ -13,6 +13,14 @@ export const REFRESH_MS = 10 * 60 * 1000;
 export const HOUR = 3600e3, MIN = 60e3;
 export const LIGHT_KEYS = ['dark', 'twilight'];
 
+// Parts of the day. Edges are first light, sunset, or a local clock hour.
+// Night is not shown.
+export const PERIODS = [
+  { key: 'morning', name: 'Morning', from: 'dawn', to: 10 },
+  { key: 'midday', name: 'Midday', from: 10, to: 15 },
+  { key: 'afternoon', name: 'Afternoon', from: 15, to: 'sunset' }
+];
+
 // Fog thresholds. Valley (radiation) fog needs air near the dew point, light
 // wind and a clear night. Steam fog needs cold air over much warmer water.
 // Both are only checked from midnight through the 10 AM hour.
@@ -43,8 +51,7 @@ export const SRC = {
 
 export const SOURCE_NAMES = { wx: 'the forecast', alerts: 'NWS alerts', obs: 'Keene observations', river: 'USGS river gauges', flow: 'USGS flow history' };
 
-// Short labels for chips and "then ..." phrases
-export const CHIP = { dark: 'dark', twilight: 'lights', storm: 'storms', stormrisk: 'storm risk', ice: 'ice', snow: 'snow', rain: 'heavy rain', wind: 'wind', gust: 'gusts', fog: 'fog', freeze: 'freezing', cold: 'cold water', flow: 'high water', alert: 'NWS alert' };
+// Short phrases for "then ..." in the hero
 export const THEN = { dark: 'dark', twilight: 'lights needed', storm: 'thunderstorms', stormrisk: 'a storm risk', ice: 'freezing rain', snow: 'snow', rain: 'heavy rain', wind: 'the wind builds', gust: 'gusts build', fog: 'fog', freeze: 'freezing temps', cold: 'cold-water caution', flow: 'high water', alert: 'an NWS alert' };
 export const WORD = ['Go.', 'Caution.', 'Stay off.'];
 export const WORD_PLAIN = ['Go', 'Caution', 'Stay off'];

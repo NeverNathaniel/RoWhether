@@ -38,7 +38,7 @@
     </section>
     <div id="alerts"></div>
 
-    <section aria-labelledby="nowTitle">
+    <section aria-labelledby="nowTitle" id="nowSection">
       <h2 id="nowTitle">On the water now</h2>
       <div class="now-grid">
         <figure class="compass">
@@ -55,25 +55,10 @@
       <ol class="windows" id="windows"></ol>
     </section>
 
-    <section aria-labelledby="stripTitle">
-      <h2 id="stripTitle">Next 72 hours</h2>
-      <p class="legend">
-        <span><i class="b0"></i>Go</span>
-        <span><i class="b1"></i>Caution</span>
-        <span><i class="b2"></i>Stay off</span>
-        <span><i class="bn"></i>Dark</span>
-        <span>Bar is wind speed, tick is gust, dashed lines are your wind limits. Tap an hour.</span>
-      </p>
-      <div class="strip-wrap" id="stripWrap" tabindex="0" aria-label="Hourly conditions. Use left and right arrow keys to move between hours.">
-        <svg id="strip" role="img" aria-label="Hourly wind and rowing status for the next 72 hours"></svg>
-      </div>
-      <p class="hour-detail" id="hourDetail" aria-live="polite"></p>
-    </section>
-
-    <section aria-labelledby="weekTitle">
-      <h2 id="weekTitle">Week ahead</h2>
-      <p class="lede">Dawn covers the first three hours after sunrise. Evening covers the three hours before sunset.</p>
-      <ol class="week" id="week"></ol>
+    <section aria-labelledby="daysTitle">
+      <h2 id="daysTitle">Day by day</h2>
+      <p class="lede">Morning is first light to 10 AM, midday 10 AM to 3 PM, afternoon 3 PM to sunset. Tap a row for hour by hour.</p>
+      <div id="days"></div>
     </section>
   </main>
 

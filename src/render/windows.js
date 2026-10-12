@@ -1,7 +1,7 @@
 // Best windows list and the expandable forecast panel for one window.
 import { HOUR, WORD_PLAIN } from '../config.js';
 import { app, $ } from '../state.js';
-import { esc, hm, r0, card, rng, dayWord, dayKey, fmtInt, visText } from '../format.js';
+import { esc, hm, r0, card, rng, dayWord, dayKey, fmtInt, visText, lowerFirst } from '../format.js';
 import { fogRisk, morningFog, fogLift, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, meanDir, angDev } from '../logic.js';
 import { fact, compassSVG, sparkline } from './parts.js';
 
@@ -17,7 +17,7 @@ export function renderWindows() {
   const items = m.windows.map((w, k) => {
     const hrs = (w.end - w.start) / HOUR;
     const len = hrs >= 1 ? `${Math.round(hrs * 2) / 2} hr` : `${Math.round(hrs * 60)} min`;
-    const lead = w.lvl === 1 && w.why ? `Caution: ${w.why.text.toLowerCase()}. ` : '';
+    const lead = w.lvl === 1 && w.why ? `Caution: ${lowerFirst(w.why.text)}. ` : '';
     const open = k === selIdx;
     return `<li><button type="button" class="win" data-k="${k}" data-lvl="${w.lvl}" aria-expanded="${open}" aria-controls="winPanel">
       <span class="when">${esc(dayWord(w.start))}, ${esc(hm(w.start))} to ${esc(hm(w.end))} <span class="len">${len}</span></span>
@@ -102,7 +102,7 @@ function windowPanel(m, w) {
     <div class="panel-head">
       <div>
         <h3>${esc(title)}</h3>
-        <span class="chip" data-lvl="${w.lvl}"><i aria-hidden="true"></i>${WORD_PLAIN[w.lvl]}${w.lvl && w.why ? ': ' + esc(w.why.text.toLowerCase()) : ''}</span>
+        <span class="chip" data-lvl="${w.lvl}"><i aria-hidden="true"></i>${WORD_PLAIN[w.lvl]}${w.lvl && w.why ? ': ' + esc(lowerFirst(w.why.text)) : ''}</span>
       </div>
       <button type="button" data-close="1">Close</button>
     </div>

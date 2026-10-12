@@ -8,9 +8,8 @@ export const app = {
   updated: null,   // time of the last good forecast
   fromCache: false,
   model: null,     // output of buildModel()
-  sel: 0,          // selected hour in the strip
   winSel: null,    // key of the open best window
-  colW: 0, padX: 0 // strip geometry, for scrolling the selection into view
+  openPeriods: new Set() // day-by-day rows the viewer has expanded
 };
 
 export const $ = id => document.getElementById(id);

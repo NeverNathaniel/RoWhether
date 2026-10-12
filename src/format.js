@@ -44,3 +44,5 @@ export function rng(a, b, unit) {
   const x = r0(a), y = r0(b);
   return x === y ? `${y}${unit}` : `${x} to ${y}${unit}`;
 }
+// Lowercase the first letter only, so units like °F survive.
+export const lowerFirst = s => (s ? s[0].toLowerCase() + s.slice(1) : s);

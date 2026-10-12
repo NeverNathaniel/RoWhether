@@ -51,9 +51,11 @@ Fog (`fogRisk()`, thresholds in `FOG` in `src/config.js`) is none, possible or l
 - Steam fog, same hours. Likely: water at least 18°F warmer than the air, wind <= 6, humidity >= 75%. Possible: 10°F, wind <= 8, humidity >= 60%. Uses the gauge or the Settings water reading.
 - Model fog at any hour: weather code 45 or 48, or visibility under 1 mi.
 
-`morningFog()` takes the strongest risk from an hour before first light through the 10 AM hour, and says fog lifts at the end of the last foggy hour. If that is the 10 AM hour it says the fog lingers into late morning. Fog appears in the Visibility fact (now, or the next morning), the hour detail, the window panel and the Week ahead dawn chip and summary.
+`morningFog()` takes the strongest risk from an hour before first light through the 10 AM hour, and says fog lifts at the end of the last foggy hour. If that is the 10 AM hour it says the fog lingers into late morning. Fog appears in the Visibility fact (now, or the next morning), the window panel and the morning row in Day by day.
 
-Best windows are runs of go hours in the next 72 h, at least 45 minutes, with edges snapped to sunrise or sunset. If there are none, caution runs are shown instead. Hourly level is evaluated at mid-hour for daylight.
+Best windows are runs of go hours in the next 72 h, at least 45 minutes, with edges snapped to sunrise or sunset and the end trimmed to sunset. If there are none, caution runs are shown instead. Hourly level is evaluated at mid-hour for daylight.
+
+Night is not shown. The rowing day is first light to sunset, split into periods (`PERIODS` in `src/config.js`, built by `periodsFor()`): morning from first light to 10 AM, midday 10 AM to 3 PM, afternoon 3 PM to sunset. A period's call is its worst remaining hour, ignoring light (`lvlExcept(a, LIGHT_KEYS)`); the need for lights before sunrise is a note (`lightsUntil`). Finished periods are hidden. `m.daytime` is true from first light to sunset. Outside it, the hero shows `m.next`, the next period, and On the water now is hidden. In daytime, "holds" looks only as far as sunset.
 
 Wind vs course uses `relWind()`: the angle between where the wind comes from and the upstream heading. Within 60° either way is head or tail; otherwise crosswind, with the side named as the NH (east) or VT (west) bank.
 
@@ -64,9 +66,9 @@ Wind vs course uses `relWind()`: the angle between where the wind comes from and
 - `src/format.js`: Eastern-time formatters and text helpers (`dayKey`, `hm`, `whenText`, `card`, `rng`, `esc`).
 - `src/storage.js`: `loadSettings`, `saveSettings`, `loadCache`, `saveCache`. All guarded with try/catch.
 - `src/data.js`: `fetchJSON`, the parsers (`parseAlerts`, `parseObs`, `parseRiver`, `parseFlow`) and `fetchAll`.
-- `src/logic.js`: the call logic, pure and DOM free. `buildModel(data, settings, now)` returns the model every render reads: hours, days, `h72`, `cur`, `windows`, `alerts`. Also `assess`, `lvlExcept`, `sunFor`, `lightAt`, `fogRisk`, `morningFog`, `nextMorning`, `windVsCourse`, `flowTrend`, `computeWindows`, `session`.
+- `src/logic.js`: the call logic, pure and DOM free. `buildModel(data, settings, now)` returns the model every render reads: hours, days, `h72`, `cur`, `windows`, `alerts`. Also `assess`, `lvlExcept`, `sunFor`, `lightAt`, `fogRisk`, `morningFog`, `nextMorning`, `windVsCourse`, `flowTrend`, `computeWindows`, `periodsFor`. The model also has `daytime`, `next`, and `periods` on each day.
 - `src/state.js`: the mutable `app` object (settings, data, errors, model, UI selection) and `$`.
-- `src/render/`: one file per section. `index.js` has `render()`, which rebuilds the model and draws everything. `hero.js`, `now.js`, `windows.js` (with the window panel), `strip.js` (with `select`), `week.js`, and shared builders in `parts.js`.
+- `src/render/`: one file per section. `index.js` has `render()`, which rebuilds the model and draws everything. `hero.js`, `now.js`, `windows.js` (with the window panel), `days.js` (Day by day, plus period text helpers the hero reuses), and shared builders in `parts.js`.
 - `src/settings.js`: settings dialog wiring.
 - `src/main.js`: styles, service worker registration, `refresh`, event listeners, startup.
 - `src/styles/tokens.css` (colors) and `src/styles/app.css` (everything else).
@@ -79,7 +81,7 @@ Wind vs course uses `relWind()`: the angle between where the wind comes from and
 - Type is Archivo variable (CSS family name `"Archivo Variable"`), one family. Width does the work: the verdict word is width 125%, weight 850. Numbers are width ~78% with tabular figures.
 - The hero verdict is the one loud element. Everything else stays quiet.
 - Avoid: all-caps labels, eyebrow labels, middle-dot separators, monospace data labels, identical rounded card grids, decorative gradients.
-- Responsive to 360 px. Visible keyboard focus. The strip supports arrow keys. Respect reduced motion.
+- Responsive to 360 px. Visible keyboard focus. Day by day rows are native `<details>`, so they work with the keyboard. Respect reduced motion.
 
 ## Testing
 
@@ -90,6 +92,8 @@ For UI changes, also check in a browser with `npm run dev` or `npm run build && 
 
 - Load at 390 px wide (light) and 1280 px (dark) in Chromium and WebKit. Wait for data, screenshot, confirm the console is clean.
 - Click a best window and confirm the panel opens after the clicked row and closes with Close.
+- Pin the page clock (`page.clock.install`) to midday and to 9 PM. Midday shows the live call and On the water now. 9 PM hides On the water now and the hero shows tomorrow morning.
+- Open a Day by day row and confirm the hour table shows.
 - Abort requests to open-meteo, weather.gov and usgs.gov and confirm the "every data source was blocked" message.
 
 ## Open items
@@ -98,4 +102,3 @@ For UI changes, also check in a browser with `npm run dev` or `npm run build && 
 - Course heading of 15° is an estimate. Confirm on site.
 - Fog thresholds are first guesses. Steam fog will mark many calm October mornings as caution. Tune `FOG` against what the dock actually sees.
 - Water temperature is a downstream proxy. A dock reading can be set in Settings.
-- Hours are judged at mid-hour, and window edges are only ever extended to sunrise or sunset, never trimmed. So an evening go window can end up to about 30 minutes after sunset. Decide whether to trim it to sunset.

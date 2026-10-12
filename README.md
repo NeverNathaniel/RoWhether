@@ -4,12 +4,13 @@ Rowing conditions for the Connecticut River at the Putney Rowing Club docks, Put
 
 ## What it shows
 
-- A go, caution or stay-off call for right now, how long it holds, and the next go window.
-- On the water now: wind against the course (headwind upstream, crosswind off the VT or NH bank, chop on the straight), air and water temperature, the air plus water cold check, visibility, river flow with a 48 hour trend, daylight, and a measured reading from Keene airport for comparison.
-- A fog forecast: valley fog after clear, calm nights and steam fog when cold air sits over warmer water, with an estimate of when it lifts. Shown for now, the next morning, each window and each day of the week.
+Night is not shown. The rowing day runs from first light to sunset.
+
+- A go, caution or stay-off call for right now, how long it holds until sunset, and the next go window. Overnight it shows the call for the next morning instead.
+- On the water now (daytime only): wind against the course (headwind upstream, crosswind off the VT or NH bank, chop on the straight), air and water temperature, the air plus water cold check, visibility, river flow with a 48 hour trend, daylight, and a measured reading from Keene airport for comparison.
+- A fog forecast: valley fog after clear, calm nights and steam fog when cold air sits over warmer water, with an estimate of when it lifts. Shown for now, the next morning, each window and each morning in Day by day.
 - Best windows for the next 3 days. Tap one to see its forecast laid out the same way, with an hour by hour table.
-- A 72 hour strip: bar height is wind, the tick is gust, color is the call, shaded columns are dark.
-- Week ahead: dawn and evening calls for 7 days.
+- Day by day for 7 days: morning (first light to 10 AM), midday (10 AM to 3 PM) and afternoon (3 PM to sunset), each with its call, wind against the course, temperature, rain and fog. Tap a row for an hour by hour table.
 - Settings for course heading, wind and gust limits, the cold-water line, flow limits, and a water temperature override. Saved in the browser.
 
 ## Data sources
@@ -76,6 +77,6 @@ New versions install in the background and apply the next time the app opens.
 | Cold water | caution when air + water < 100°F | Common rowing guideline |
 | Flow (North Walpole) | caution 20,000, stay off 28,000 cfs | About the top 10% and top 5% of days since 2016. Median is about 6,900 |
 
-Darkness is stay off. Between first light and sunrise, or sunset and dark, is caution because lights are required.
+Darkness is stay off. Between first light and sunrise, or sunset and dark, is caution because lights are required. In Day by day, morning calls ignore the need for lights and show a note instead, since every morning starts before sunrise.
 
 These are starting points, not club rules. There is no free lightning feed. Thunderstorms come from model weather codes and NWS warnings, so the 30/30 rule still applies. Look at the water before you launch.

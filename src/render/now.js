@@ -21,6 +21,9 @@ function visibilityNote(m) {
 
 export function renderNow() {
   const m = app.model, S = m.S, cur = m.cur, a = cur.a;
+  // Current conditions are only shown in daylight.
+  $('nowSection').hidden = !m.daytime;
+  if (!m.daytime) return;
   const lvlOf = key => { const x = a.reasons.find(r => r.key === key); return x ? x.lvl : 0; };
 
   $('compass').innerHTML = compassSVG(S.heading, cur.dir, cur.wind);

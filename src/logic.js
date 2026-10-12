@@ -1,7 +1,7 @@
 // The call logic. Pure functions over a model built from fetched data and settings.
 // Nothing here touches the DOM or storage, so it can be unit tested.
 import SunCalc from 'suncalc';
-import { LOC, HOUR, MIN, LIGHT_KEYS, CHIP, FOG } from './config.js';
+import { LOC, HOUR, MIN, LIGHT_KEYS, FOG, PERIODS } from './config.js';
 import { dayKey, localHour, hm, r0, fmtInt, cToF } from './format.js';
 
 // ---------- Sun ----------
@@ -20,10 +20,6 @@ export function lightAt(m, t) {
   if (t < s.dawn || t > s.dusk) return 'dark';
   if (t < s.sunrise || t > s.sunset) return 'twilight';
   return 'day';
-}
-export function nextDawn(m) {
-  for (const d of m.days) { const s = sunFor(m, d.key); if (s && s.dawn > m.now) return s.dawn; }
-  return null;
 }
 
 // ---------- River and water ----------
@@ -239,6 +235,11 @@ export function buildModel(data, S, now = Date.now()) {
   }
   m.cur.a = assess(m, m.cur, now);
   m.windows = computeWindows(m, m.h72);
+
+  for (const day of m.days) day.periods = periodsFor(m, day);
+  const s = sunFor(m, dayKey(now));
+  m.daytime = !!s && now >= s.dawn && now < s.sunset;
+  m.next = m.days.flatMap(d => d.periods).find(p => !p.past) || null;
   return m;
 }
 
@@ -264,6 +265,9 @@ export function computeWindows(m, hs) {
       if (s1 && s1.sunrise > start && s1.sunrise < start + HOUR) start = s1.sunrise;
       else if (s1 && prev && s1.sunrise >= start - HOUR && s1.sunrise < start && lvlExcept(prev.a, LIGHT_KEYS) === 0) start = s1.sunrise;
       if (s2 && next && s2.sunset >= end && s2.sunset < end + HOUR && lvlExcept(next.a, LIGHT_KEYS) === 0) end = s2.sunset;
+      // The rowing day ends at sunset. The last hour is judged at mid-hour,
+      // so it can run past sunset; trim it.
+      if (s2 && end > s2.sunset && last.t < s2.sunset) end = s2.sunset;
     }
     start = Math.max(start, m.now);
     const sub = r.idx.map(i => hs[i]);
@@ -281,13 +285,46 @@ export function computeWindows(m, hs) {
   return wins.slice(0, 6);
 }
 
-// Summary for a dawn or evening session in the week view, ignoring light.
-export function session(m, hs) {
-  if (!hs.length) return null;
-  if (hs[hs.length - 1].t + HOUR < m.now) return { past: true };
-  const live = hs.filter(h => h.t + HOUR >= m.now);
-  const lv = Math.max(...live.map(h => lvlExcept(h.a, LIGHT_KEYS)));
-  if (lv === 0) return { lvl: 0, label: 'go' };
-  const r = live.flatMap(h => h.a.reasons).find(x => !LIGHT_KEYS.includes(x.key) && x.lvl === lv);
-  return { lvl: lv, key: r ? r.key : null, label: r ? (CHIP[r.key] || r.text.toLowerCase()) : 'caution' };
+// Morning, midday and afternoon for one day. Each period's call is the worst
+// hour still ahead in it, ignoring light: first light to sunrise always needs
+// lights, so that is a note (lightsUntil) rather than a caution.
+// Periods that are over come back as { past: true }.
+export function periodsFor(m, day) {
+  const s = sunFor(m, day.key);
+  if (!s) return [];
+  const dayHours = m.hours.filter(h => dayKey(h.t) === day.key);
+  const clock = hr => { const h = dayHours.find(x => localHour(x.t) === hr); return h ? h.t : null; };
+  const edge = v => (v === 'dawn' ? s.dawn : v === 'sunset' ? s.sunset : clock(v));
+
+  return PERIODS.map(p => {
+    const start = edge(p.from), end = edge(p.to);
+    if (start == null || end == null || end <= start) return null;
+    const base = { key: p.key, name: p.name, dayKey: day.key, start, end };
+    if (end <= m.now) return { ...base, past: true };
+    const from = Math.max(start, m.now);
+    const hs = dayHours.filter(h => h.t < end && h.t + HOUR > from);
+    if (!hs.length) return null;
+
+    const lvl = Math.max(...hs.map(h => lvlExcept(h.a, LIGHT_KEYS)));
+    const why = lvl ? hs.flatMap(h => h.a.reasons).find(x => x.lvl === lvl && !LIGHT_KEYS.includes(x.key)) : null;
+    const nums = k => hs.map(h => h[k]).filter(v => v != null && !isNaN(v));
+    const ws = nums('wind'), ts = nums('temp');
+    let fog = null;
+    if (p.key === 'morning') {
+      fog = morningFog(m, day.key);
+      if (fog && fog.until <= m.now) fog = null;
+    }
+    else {
+      const fr = hs.map(h => fogRisk(m, h)).reduce((a, b) => (b.risk > a.risk ? b : a), { risk: 0 });
+      if (fr.risk) fog = fr;
+    }
+    return {
+      ...base, past: false, from, hs, lvl, why,
+      wmin: Math.min(...ws), wmax: Math.max(...ws), gmax: Math.max(...nums('gust')),
+      avgWind: ws.reduce((a, b) => a + b, 0) / Math.max(1, ws.length), dir: meanDir(hs),
+      tmin: Math.min(...ts), tmax: Math.max(...ts),
+      pop: Math.max(0, ...nums('pop')), precip: nums('precip').reduce((a, b) => a + b, 0),
+      fog, lightsUntil: from < s.sunrise ? s.sunrise : null
+    };
+  }).filter(Boolean);
 }

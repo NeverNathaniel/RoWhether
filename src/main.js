@@ -9,7 +9,6 @@ import { app, $ } from './state.js';
 import { fetchAll } from './data.js';
 import { loadCache, saveCache } from './storage.js';
 import { render } from './render/index.js';
-import { renderStrip, select } from './render/strip.js';
 import { renderWindows } from './render/windows.js';
 import { initSettings } from './settings.js';
 
@@ -58,29 +57,24 @@ $('windows').addEventListener('click', e => {
   const nb = document.querySelector(`button.win[data-k="${k}"]`);
   if (nb) nb.focus();
   if (app.winSel != null) {
-    select(w.i0);
     const panel = $('winPanel');
     if (panel) panel.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
   }
 });
 
-$('strip').addEventListener('click', e => {
-  const i = e.target && e.target.dataset ? e.target.dataset.i : undefined;
-  if (i != null) select(parseInt(i, 10));
-});
-$('stripWrap').addEventListener('keydown', e => {
-  if (!app.model) return;
-  if (e.key === 'ArrowRight') { select(app.sel + 1); e.preventDefault(); }
-  else if (e.key === 'ArrowLeft') { select(app.sel - 1); e.preventDefault(); }
-  else if (e.key === 'Home') { select(0); e.preventDefault(); }
-  else if (e.key === 'End') { select(app.model.h72.length - 1); e.preventDefault(); }
-});
+// Remember which day-by-day rows are open across refreshes.
+// The toggle event does not bubble, so listen in the capture phase.
+$('days').addEventListener('toggle', e => {
+  const d = e.target.closest('details.period');
+  if (!d) return;
+  if (d.open) app.openPeriods.add(d.dataset.id); else app.openPeriods.delete(d.dataset.id);
+}, true);
 
 let rz;
 window.addEventListener('resize', () => {
   clearTimeout(rz);
   rz = setTimeout(() => {
-    if (app.model) { renderStrip(); if (app.winSel != null) renderWindows(); }
+    if (app.model && app.winSel != null) renderWindows();
   }, 150);
 });
 document.addEventListener('visibilitychange', () => {
