@@ -1,8 +1,8 @@
 // "On the water now": compass and current facts.
-import { HOUR } from '../config.js';
+import { HOUR, WATER } from '../config.js';
 import { app, $ } from '../state.js';
 import { r0, card, fmtInt, ago, visText, hm, dayKey, dayWord } from '../format.js';
-import { fogRisk, nextMorning, fogLift, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor } from '../logic.js';
+import { fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor } from '../logic.js';
 import { fact, compassSVG, sparkline } from './parts.js';
 
 // Fog now if there is any, otherwise the outlook for the next morning.
@@ -34,6 +34,11 @@ export function renderNow() {
   const f = [];
   const windLvl = Math.max(lvlOf('wind'), lvlOf('gust'));
   f.push(fact('Wind', `${r0(cur.wind)} mph, gusts ${r0(cur.gust)}`, `From ${card(cur.dir)}. ${windVsCourse(m, cur.dir, cur.wind)}`, windLvl));
+
+  if (cur.water) {
+    const debris = debrisLikely(m) ? ' River rising fast. Watch for floating debris.' : '';
+    f.push(fact('Water state', WATER.names[cur.water.lvl], waterWhy(cur.water) + debris));
+  }
 
   f.push(fact('Air', `${r0(cur.temp)}°F`, `Feels like ${r0(cur.feels)}°F. Dew point ${r0(cur.dew)}°F.`, lvlOf('freeze')));
 

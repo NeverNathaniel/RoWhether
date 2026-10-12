@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULTS, HOUR, MIN } from '../src/config.js';
 import { dayKey, localHour, lowerFirst } from '../src/format.js';
-import { buildModel, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
+import { buildModel, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
 import { parseAlerts, parseObs, parseRiver, parseFlow, alertLevel } from '../src/data.js';
 
 // Midnight Eastern (EDT, UTC-4) on Mon 15 June 2026.
@@ -323,5 +323,61 @@ describe('periods', () => {
     const late = buildModel({ wx: wx(), river: RIVER }, { ...DEFAULTS }, T0 + 22 * HOUR); // 10 PM
     expect(late.daytime).toBe(false);
     expect(late.next).toMatchObject({ key: 'morning', dayKey: '2026-06-16' });
+  });
+});
+
+describe('water state', () => {
+  // Heading is 15°, so wind from 15° or 195° runs along the course and 105° crosses it.
+  const steady = o => model(() => o);
+  const at = (m, hr) => hourAt(m, hr).water;
+
+  it('calls calm water flat', () => {
+    expect(at(steady({ wind: 2, dir: 15 }), 12).lvl).toBe(0);
+  });
+  it('builds chop from sustained wind along the straight', () => {
+    expect(at(steady({ wind: 7, dir: 15 }), 12).lvl).toBe(1);   // light chop
+    expect(at(steady({ wind: 10, dir: 15 }), 12).lvl).toBe(2);  // chop
+    expect(at(steady({ wind: 14, dir: 15 }), 12).lvl).toBe(3);  // rough
+  });
+  it('counts crosswind for less', () => {
+    const cross = at(steady({ wind: 14, dir: 105 }), 12);
+    expect(cross.lvl).toBe(1);
+    expect(waterWhy(cross)).toMatch(/^Mostly crosswind/);
+  });
+  it('describes the wind the same way as the wind fact', () => {
+    // NW wind is 60° off the 15° course: windVsCourse calls it a headwind.
+    const m = steady({ wind: 7, dir: 315 });
+    expect(windVsCourse(m, 315, 7)).toMatch(/^Headwind/);
+    expect(waterWhy(at(m, 12))).toMatch(/along the straight/);
+  });
+  it('takes a couple of hours to build', () => {
+    // Calm until noon, then 12 mph along the course.
+    const m = model((i, t) => (t >= NOON ? { wind: 12, dir: 15 } : { wind: 1, dir: 15 }));
+    expect(at(m, 12).lvl).toBe(1);
+    expect(waterWhy(at(m, 12))).toMatch(/Building/);
+    expect(at(m, 14).lvl).toBe(2);
+  });
+  it('steepens when wind blows upstream against a strong current', () => {
+    const wx8 = { wind: 8, dir: 195 }; // from downstream
+    const low = at(steady(wx8), 12);
+    const high = at(buildModel({ wx: wx(() => wx8), river: { ...RIVER, flow: { v: 22000, t: NOON } } }, { ...DEFAULTS }, NOON), 12);
+    expect(low.lvl).toBe(1);
+    expect(high.lvl).toBe(2);
+    expect(high.against).toBe(true);
+    expect(waterWhy(high)).toMatch(/against the current/);
+  });
+  it('rates the current moment and each period', () => {
+    const m = model((i, t) => (dayKey(t) === '2026-06-16' && localHour(t) >= 13 ? { wind: 14, dir: 15 } : {}));
+    expect(m.cur.water.lvl).toBe(0);
+    const mid = m.days.find(d => d.key === '2026-06-16').periods.find(p => p.key === 'midday');
+    expect(mid.water.min).toBe(0);
+    expect(mid.water.max).toBeGreaterThanOrEqual(2);
+    expect(localHour(mid.water.peakT)).toBe(14);
+  });
+  it('flags debris when the river rises fast', () => {
+    const ser = (a, b) => Array.from({ length: 25 }, (_, i) => ({ t: T0 + i * 30 * MIN, v: a + (b - a) * i / 24 }));
+    const withFlow = f => buildModel({ wx: wx(), river: RIVER, flow: f }, { ...DEFAULTS }, NOON);
+    expect(debrisLikely(withFlow(ser(5000, 8000)))).toBe(true);
+    expect(debrisLikely(withFlow(ser(5000, 5300)))).toBe(false);
   });
 });

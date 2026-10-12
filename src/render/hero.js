@@ -1,5 +1,5 @@
 // Header timestamp, the hero verdict, and NWS alerts.
-import { SRC, SOURCE_NAMES, THEN, WORD, LIGHT_KEYS } from '../config.js';
+import { SRC, SOURCE_NAMES, THEN, WORD, LIGHT_KEYS, WATER } from '../config.js';
 import { app, $ } from '../state.js';
 import { esc, hm, r0, card, whenText, dayKey, lowerFirst } from '../format.js';
 import { waterTemp, sunFor, lvlExcept } from '../logic.js';
@@ -25,6 +25,7 @@ export function renderNoData() {
 function condSentence(m, h) {
   const parts = [];
   if (h.wind != null) parts.push(`Wind ${r0(h.wind)} mph from ${card(h.dir)}, gusts ${r0(h.gust)}.`);
+  if (h.water) parts.push(`${WATER.names[h.water.lvl]}.`);
   const wt = waterTemp(m);
   if (h.temp != null) parts.push(`${r0(h.temp)}°F air${wt != null ? `, ${r0(wt)}°F water` : ''}.`);
   return parts.join(' ');
@@ -44,7 +45,8 @@ function renderNextPeriod(m) {
   $('verdict').textContent = WORD[p.lvl];
   const when = `${dayLabel(p.start)} ${p.name.toLowerCase()}, ${periodTime(p)}.`;
   const lead = p.lvl && p.why ? ` ${p.why.text}.` : '';
-  $('why').innerHTML = `${esc(when + lead)}<span class="cond">${esc(periodSummary(p))}</span>`;
+  const water = p.water ? ` ${WATER.names[p.water.max]}.` : '';
+  $('why').innerHTML = `${esc(when + lead)}<span class="cond">${esc(periodSummary(p) + water)}</span>`;
   $('holds').textContent = p.lvl ? nextGoText(m, p.start) : '';
 }
 

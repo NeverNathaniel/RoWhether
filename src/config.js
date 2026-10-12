@@ -31,6 +31,20 @@ export const FOG = {
   codes: [45, 48] // Open-Meteo fog and rime fog
 };
 
+// Water state: chop from wind. Wind along the straight has a long fetch and
+// counts fully; crosswind only crosses the river and counts for less. Chop
+// builds and settles over a couple of hours, so recent hours are blended in.
+// Wind blowing upstream against a strong current steepens it.
+export const WATER = {
+  levels: [5, 9, 13],          // chop wind, mph: light chop, chop, rough
+  cross: 0.4,                  // weight of crosswind
+  blend: [0.5, 0.3, 0.2],      // this hour, 1 hour ago, 2 hours ago
+  against: [[20000, 1.4], [10000, 1.25]], // flow cfs and multiplier
+  debrisRise: 20,              // % flow rise in 6 hours that suggests debris
+  names: ['Flat water', 'Light chop', 'Chop', 'Rough water'],
+  short: ['Flat', 'Light', 'Chop', 'Rough']
+};
+
 export const GAUGE_FLOW = 'USGS-01154500';
 export const GAUGE_TEMP = 'USGS-01161280';
 

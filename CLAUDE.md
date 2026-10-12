@@ -57,6 +57,15 @@ Hourly level is evaluated at mid-hour for daylight.
 
 Night is not shown. The rowing day is first light to sunset, split into periods (`PERIODS` in `src/config.js`, built by `periodsFor()`): morning from first light to 10 AM, midday 10 AM to 3 PM, afternoon 3 PM to sunset. A period's call is its worst remaining hour, ignoring light (`lvlExcept(a, LIGHT_KEYS)`); the need for lights before sunrise is a note (`lightsUntil`). Finished periods are hidden. `m.daytime` is true from first light to sunset. Outside it, the hero shows `m.next`, the next period, and On the water now is hidden. In daytime, "holds" looks only as far as sunset. When the call is not go, the hero names the next go period.
 
+Water state (`waterState()`, thresholds in `WATER` in `src/config.js`) is information only and does not change the call:
+
+- Chop wind for an hour (`chopWind()`) is the along-course wind component plus 0.4 times the crosswind component. Wind blowing upstream (from downstream) against the current is multiplied by 1.25 over 10,000 cfs and 1.4 over 20,000 cfs.
+- The hour's value blends this hour and the two before it (0.5, 0.3, 0.2), since chop builds and settles.
+- Under 5 mph is flat, 5 to 9 light chop, 9 to 13 chop, 13 and up rough.
+- `waterWhy()` names the wind as along the straight or crosswind using the same 60° split as `windVsCourse()`, so the two notes never disagree.
+- A flow rise of 20% or more in 6 hours adds a floating debris warning (`debrisLikely()`), shown now and for today's periods.
+- Shown in the hero, On the water now, a second chip on each Day by day row (worst hour), the full forecast (range and peak time), and a Water column in the hour table.
+
 Wind vs course uses `relWind()`: the angle between where the wind comes from and the upstream heading. Within 60° either way is head or tail; otherwise crosswind, with the side named as the NH (east) or VT (west) bank.
 
 ## Code map
@@ -66,7 +75,7 @@ Wind vs course uses `relWind()`: the angle between where the wind comes from and
 - `src/format.js`: Eastern-time formatters and text helpers (`dayKey`, `hm`, `whenText`, `card`, `rng`, `esc`).
 - `src/storage.js`: `loadSettings`, `saveSettings`, `loadCache`, `saveCache`. All guarded with try/catch.
 - `src/data.js`: `fetchJSON`, the parsers (`parseAlerts`, `parseObs`, `parseRiver`, `parseFlow`) and `fetchAll`.
-- `src/logic.js`: the call logic, pure and DOM free. `buildModel(data, settings, now)` returns the model every render reads: hours, days, `h72`, `cur`, `alerts`. Also `assess`, `lvlExcept`, `sunFor`, `lightAt`, `fogRisk`, `morningFog`, `nextMorning`, `windVsCourse`, `flowTrend`, `periodsFor`. The model also has `daytime`, `next`, and `periods` on each day.
+- `src/logic.js`: the call logic, pure and DOM free. `buildModel(data, settings, now)` returns the model every render reads: hours, days, `h72`, `cur`, `alerts`. Also `assess`, `lvlExcept`, `sunFor`, `lightAt`, `fogRisk`, `morningFog`, `nextMorning`, `windVsCourse`, `flowTrend`, `flowChange`, `chopWind`, `waterState`, `waterWhy`, `debrisLikely`, `periodsFor`. The model also has `daytime`, `next`, and `periods` on each day.
 - `src/state.js`: the mutable `app` object (settings, data, errors, model, UI selection) and `$`.
 - `src/render/`: one file per section. `index.js` has `render()`, which rebuilds the model and draws everything. `hero.js`, `now.js`, `days.js` (Day by day rows, plus period text helpers the hero reuses), `forecast.js` (the full forecast a row opens to, built when opened), and shared builders in `parts.js`.
 - `src/settings.js`: settings dialog wiring.
@@ -100,5 +109,13 @@ For UI changes, also check in a browser with `npm run dev` or `npm run build && 
 
 - Keene line: keep as a labeled comparison or remove. Undecided.
 - Course heading of 15° is an estimate. Confirm on site.
+- Water state thresholds and the crosswind weight are first guesses. Check them against what the dock sees.
 - Fog thresholds are first guesses. Steam fog will mark many calm October mornings as caution. Tune `FOG` against what the dock actually sees.
 - Water temperature is a downstream proxy. A dock reading can be set in Settings.
+
+## Later
+
+Ideas the owner wants to keep for later. Not started.
+
+- Night-before alert. Around 8 PM, a push notification with tomorrow morning's call, wind and fog, and a second one if the call changes overnight. Needs a Worker script, Web Push, a cron trigger, and KV or D1 for subscriptions.
+- Dock reports. One tap at the dock to log real conditions (flat, foggy until a time, debris), shown to everyone for a few hours. Also a way to tune the fog and water state thresholds. Needs a Worker script and D1.

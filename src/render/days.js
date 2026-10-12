@@ -1,6 +1,6 @@
 // Day by day: morning, midday and afternoon for each day. Night is not shown.
 // Each row opens to the full forecast for that period.
-import { WORD_PLAIN } from '../config.js';
+import { WORD_PLAIN, WATER } from '../config.js';
 import { app, $ } from '../state.js';
 import { esc, hm, r0, card, rng, dayWord, fDayLong, lowerFirst } from '../format.js';
 import { fogLift } from '../logic.js';
@@ -49,7 +49,10 @@ export function renderDays() {
             <span class="pname">${p.name}</span>
             <span class="ptime">${esc(periodTime(p))}</span>
           </span>
-          <span class="chip" data-lvl="${p.lvl}"><i aria-hidden="true"></i>${esc(periodCall(p))}</span>
+          <span class="chips">
+            <span class="chip" data-lvl="${p.lvl}"><i aria-hidden="true"></i>${esc(periodCall(p))}</span>
+            ${p.water ? `<span class="chip water" data-w="${p.water.max}">${WATER.names[p.water.max]}</span>` : ''}
+          </span>
           <span class="psum">${esc(periodSummary(p))}</span>
           <span class="more" aria-hidden="true"><span class="show">Full forecast</span><span class="hide">Hide forecast</span></span>
         </summary>

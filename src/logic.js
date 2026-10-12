@@ -1,7 +1,7 @@
 // The call logic. Pure functions over a model built from fetched data and settings.
 // Nothing here touches the DOM or storage, so it can be unit tested.
 import SunCalc from 'suncalc';
-import { LOC, HOUR, MIN, LIGHT_KEYS, FOG, PERIODS } from './config.js';
+import { LOC, HOUR, MIN, LIGHT_KEYS, FOG, PERIODS, WATER } from './config.js';
 import { dayKey, localHour, hm, r0, fmtInt, cToF } from './format.js';
 
 // ---------- Sun ----------
@@ -30,14 +30,19 @@ export function waterTemp(m) {
   if (!isNaN(o)) return o;
   return m.data.river && m.data.river.waterC ? cToF(m.data.river.waterC.v) : null;
 }
-export function flowTrend(ser) {
+// Percent change in flow over the last 6 hours of the series, or null.
+export function flowChange(ser) {
   if (!ser || ser.length < 4) return null;
   const last = ser[ser.length - 1];
   const target = last.t - 6 * HOUR;
   let prev = ser[0];
   for (const p of ser) { if (Math.abs(p.t - target) < Math.abs(prev.t - target)) prev = p; }
   if (!prev.v) return null;
-  const pct = (last.v - prev.v) / prev.v * 100;
+  return (last.v - prev.v) / prev.v * 100;
+}
+export function flowTrend(ser) {
+  const pct = flowChange(ser);
+  if (pct == null) return null;
   if (pct > 10) return `Rising, up ${Math.round(pct)}% in 6 hours`;
   if (pct < -10) return `Falling, down ${Math.round(-pct)}% in 6 hours`;
   return 'Steady over 6 hours';
@@ -66,6 +71,54 @@ export function meanDir(hs) {
   return (Math.atan2(sx, sy) * 180 / Math.PI + 360) % 360;
 }
 export function angDev(a, b) { return Math.abs(((a - b + 540) % 360) - 180); }
+
+// ---------- Water state ----------
+// Chop wind for one hour: along-course wind plus a share of crosswind,
+// raised when the wind blows upstream against a strong current.
+export function chopWind(m, h) {
+  if (h.wind == null || h.dir == null) return null;
+  const rel = relWind(h.dir, m.S.heading) * Math.PI / 180;
+  const along = Math.abs(h.wind * Math.cos(rel)), cross = Math.abs(h.wind * Math.sin(rel));
+  let e = along + WATER.cross * cross;
+  const against = Math.cos(rel) <= -0.5;
+  const f = flowNow(m);
+  if (against && f != null) {
+    const k = WATER.against.find(([cfs]) => f >= cfs);
+    if (k) e *= k[1];
+  }
+  // Same split as windVsCourse(): within 60° of the course is along it.
+  const axis = Math.abs(Math.cos(rel)) >= 0.5 ? 'along' : 'cross';
+  return { e, along, cross, axis, against: against && f != null && WATER.against.some(([cfs]) => f >= cfs) };
+}
+
+// Water state for an hour, given the chop wind of this and the two prior hours.
+export function waterState(m, h, prev) {
+  const now = chopWind(m, h);
+  if (!now) return null;
+  const es = [now.e, ...prev.map(p => (p ? p.e : now.e))];
+  const eff = es.reduce((a, e, i) => a + e * WATER.blend[i], 0);
+  const lvl = WATER.levels.filter(x => eff >= x).length;
+  return { lvl, eff, now: now.e, axis: now.axis, against: now.against };
+}
+
+// True when the river rose fast enough recently to bring down debris.
+export function debrisLikely(m) {
+  const pct = flowChange(m.data.flow);
+  return pct != null && pct >= WATER.debrisRise;
+}
+
+// One sentence on why the water is the way it is.
+export function waterWhy(ws) {
+  if (!ws) return '';
+  const parts = [];
+  if (ws.lvl === 0) parts.push(ws.now < 3 ? 'Little wind on the water.' : 'Not enough wind along the straight to build chop.');
+  else if (ws.axis === 'along') parts.push('Wind runs along the straight, with a long reach to build waves.');
+  else parts.push('Mostly crosswind. It only crosses the width of the river, so chop stays smaller.');
+  if (ws.eff < ws.now * 0.8) parts.push('Building.');
+  else if (ws.eff > ws.now * 1.25 && ws.lvl > 0) parts.push('Settling after earlier wind.');
+  if (ws.against && ws.lvl > 0) parts.push('Wind against the current steepens it.');
+  return parts.join(' ');
+}
 
 // ---------- Assessment ----------
 // ---------- Fog ----------
@@ -219,6 +272,8 @@ export function buildModel(data, S, now = Date.now()) {
     hi: D.temperature_2m_max[i], lo: D.temperature_2m_min[i], pop: D.precipitation_probability_max[i]
   }));
   for (const h of m.hours) h.a = assess(m, h);
+  const chops = m.hours.map(h => chopWind(m, h));
+  m.hours.forEach((h, i) => { h.water = waterState(m, h, [chops[i - 1], chops[i - 2]]); });
 
   const h0 = Math.floor(now / HOUR) * HOUR;
   m.h72 = m.hours.filter(h => h.t >= h0).slice(0, 72);
@@ -234,12 +289,22 @@ export function buildModel(data, S, now = Date.now()) {
     m.cur = { ...base, t: now };
   }
   m.cur.a = assess(m, m.cur, now);
+  const bi = m.hours.indexOf(base);
+  m.cur.water = waterState(m, m.cur, [chopWind(m, m.hours[bi - 1] || base), chopWind(m, m.hours[bi - 2] || base)]);
 
   for (const day of m.days) day.periods = periodsFor(m, day);
   const s = sunFor(m, dayKey(now));
   m.daytime = !!s && now >= s.dawn && now < s.sunset;
   m.next = m.days.flatMap(d => d.periods).find(p => !p.past) || null;
   return m;
+}
+
+// Calmest and roughest water in a period, and when it is roughest.
+function periodWater(hs) {
+  const ws = hs.filter(h => h.water);
+  if (!ws.length) return null;
+  const peak = ws.reduce((a, b) => (b.water.eff > a.water.eff ? b : a));
+  return { min: Math.min(...ws.map(h => h.water.lvl)), max: peak.water.lvl, peakT: peak.t, peak: peak.water };
 }
 
 // Morning, midday and afternoon for one day. Each period's call is the worst
@@ -281,7 +346,8 @@ export function periodsFor(m, day) {
       avgWind: ws.reduce((a, b) => a + b, 0) / Math.max(1, ws.length), dir: meanDir(hs),
       tmin: Math.min(...ts), tmax: Math.max(...ts),
       pop: Math.max(0, ...nums('pop')), precip: nums('precip').reduce((a, b) => a + b, 0),
-      fog, lightsUntil: from < s.sunrise ? s.sunrise : null
+      fog, lightsUntil: from < s.sunrise ? s.sunrise : null,
+      water: periodWater(hs)
     };
   }).filter(Boolean);
 }

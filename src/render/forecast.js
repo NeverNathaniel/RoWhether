@@ -1,18 +1,18 @@
 // The full forecast for one period: compass, facts and an hour by hour table.
 // Shown when a Day by day row is opened.
-import { WORD_PLAIN, LIGHT_KEYS } from '../config.js';
-import { esc, hm, r0, card, rng, fmtInt, visText } from '../format.js';
-import { fogLift, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept } from '../logic.js';
+import { WORD_PLAIN, LIGHT_KEYS, WATER } from '../config.js';
+import { esc, hm, r0, card, rng, fmtInt, visText, dayKey } from '../format.js';
+import { fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept } from '../logic.js';
 import { fact, compassSVG, sparkline } from './parts.js';
 
 function hoursTable(p) {
   const rows = p.hs.map(h => {
     const lv = lvlExcept(h.a, LIGHT_KEYS);
-    return `<tr><td><i class="b${lv}" aria-label="${WORD_PLAIN[lv]}"></i>${esc(hm(Math.max(h.t, p.from)))}</td><td>${r0(h.wind)} mph</td><td>${r0(h.gust)}</td><td>${card(h.dir)}</td><td>${r0(h.temp)}°</td><td>${r0(h.pop) ?? 0}%</td></tr>`;
+    return `<tr><td><i class="b${lv}" aria-label="${WORD_PLAIN[lv]}"></i>${esc(hm(Math.max(h.t, p.from)))}</td><td>${r0(h.wind)} mph</td><td>${r0(h.gust)}</td><td>${card(h.dir)}</td><td>${h.water ? WATER.short[h.water.lvl] : '--'}</td><td>${r0(h.temp)}°</td><td>${r0(h.pop) ?? 0}%</td></tr>`;
   }).join('');
   return `<div class="hours-wrap"><table class="hours">
     <caption>Hour by hour</caption>
-    <thead><tr><th scope="col">Hour</th><th scope="col">Wind</th><th scope="col">Gust</th><th scope="col">From</th><th scope="col">Air</th><th scope="col">Rain</th></tr></thead>
+    <thead><tr><th scope="col">Hour</th><th scope="col">Wind</th><th scope="col">Gust</th><th scope="col">From</th><th scope="col">Water</th><th scope="col">Air</th><th scope="col">Rain</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 
@@ -27,6 +27,13 @@ export function forecastPanel(m, p) {
     ? `Shifting from ${card(hs[0].dir)} to ${card(hs[hs.length - 1].dir)}.`
     : `Mostly from ${card(p.dir)}. ${windVsCourse(m, p.dir, p.avgWind)}`;
   f.push(fact('Wind', `${rng(p.wmin, p.wmax, ' mph')}, gusts to ${r0(p.gmax)}`, dirNote, maxLvl(['wind', 'gust'])));
+
+  if (p.water) {
+    const w = p.water;
+    const range = w.min < w.max ? `${WATER.names[w.min]} at times, ${WATER.names[w.max].toLowerCase()} around ${hm(w.peakT)}. ` : '';
+    const debris = p.dayKey === dayKey(m.now) && debrisLikely(m) ? ' River rising fast. Watch for floating debris.' : '';
+    f.push(fact('Water state', WATER.names[w.max], range + waterWhy(w.peak) + debris));
+  }
 
   f.push(fact('Air', rng(p.tmin, p.tmax, '°F'),
     `Feels like ${rng(Math.min(...nums('feels')), Math.max(...nums('feels')), '°F')}. Dew point ${rng(Math.min(...nums('dew')), Math.max(...nums('dew')), '°F')}.`,
