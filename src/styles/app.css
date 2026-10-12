@@ -49,8 +49,10 @@ button.primary{background:var(--river); border-color:var(--river); color:var(--b
 .alert pre{white-space:pre-wrap; font:inherit; margin:.5rem 0 0}
 
 /* Sections */
-section{margin-top:2.5rem}
-h2{margin:0 0 .75rem; font-size:1.1875rem; font-weight:700; font-stretch:105%; letter-spacing:-.005em}
+section{margin-top:3rem}
+h2{margin:0 0 .75rem; font-size:1.375rem; font-weight:750; font-stretch:110%; letter-spacing:-.01em}
+.panel{background:var(--surface); border-radius:1.25rem; padding:1.25rem 1rem 1rem}
+@media (min-width:46rem){ .panel{padding:1.5rem 1.5rem 1.25rem} }
 .lede{margin:-.4rem 0 .9rem; color:var(--muted); font-size:.9375rem; max-width:62ch}
 
 /* Now */
@@ -80,32 +82,8 @@ dl.facts{margin:0; display:grid; grid-template-columns:1fr}
 .spark{width:7rem; height:1.75rem}
 .spark polyline{fill:none; stroke:var(--river); stroke-width:1.75; stroke-linejoin:round}
 
-/* Windows */
-ol.windows{list-style:none; margin:0; padding:0; display:grid; gap:.6rem}
-@media (min-width:46rem){ ol.windows{grid-template-columns:1fr 1fr} }
-.win{border-left:4px solid var(--go); padding:.35rem 0 .45rem .9rem}
-.win[data-lvl="1"]{border-left-color:var(--caution)}
-.win .when{font-weight:700; font-size:1.0625rem; font-variant-numeric:tabular-nums}
-.win .len{color:var(--muted); font-weight:500}
-.win .note{color:var(--muted); font-size:.875rem; line-height:1.4}
-.empty{color:var(--muted)}
-
-/* Window buttons and detail panel */
-button.win, button.win:hover{
-  display:block; width:100%; text-align:left; color:inherit; font-weight:400; min-height:0;
-  background:transparent; border:0; border-left:4px solid var(--go); border-radius:0 .6rem .6rem 0;
-  padding:.45rem .75rem .55rem .9rem;
-}
-button.win[data-lvl="1"], button.win[data-lvl="1"]:hover{border-left-color:var(--caution)}
-button.win:hover, button.win[aria-expanded="true"]{background:var(--surface)}
-button.win .more{color:var(--river); font-size:.875rem; font-weight:600; margin-top:.15rem; display:block}
-li.win-panel{grid-column:1 / -1; background:var(--surface); border-radius:1rem; padding:1.1rem 1.1rem 1.25rem}
-.panel-head{display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem}
-.panel-head h3{margin:0; font-size:1.125rem; font-weight:700; font-stretch:105%; line-height:1.3}
-.panel-head .chip{margin-top:.35rem}
-.panel-head button{flex:none; min-height:2.25rem; padding:.3rem .8rem; font-size:.875rem; background:var(--bg)}
-.win-panel .fact{border-top-color:var(--line)}
-.hours-wrap{overflow-x:auto; margin-top:.75rem}
+/* Hour table, used in the forecast panel */
+.hours-wrap{overflow-x:auto; margin-top:1rem}
 table.hours{width:100%; border-collapse:collapse; font-size:.9375rem; font-variant-numeric:tabular-nums}
 table.hours caption{text-align:left; color:var(--muted); font-size:.875rem; padding-bottom:.35rem}
 table.hours th{text-align:left; font-weight:600; color:var(--muted); font-size:.8125rem; padding:.3rem .75rem .3rem 0}
@@ -113,22 +91,33 @@ table.hours td{border-top:1px solid var(--line); padding:.4rem .75rem .4rem 0; w
 table.hours i{width:.55rem; height:.55rem; border-radius:50%; display:inline-block; margin-right:.45rem; vertical-align:middle}
 table.hours i.b0{background:var(--go)} table.hours i.b1{background:var(--caution)} table.hours i.b2{background:var(--off)}
 
-/* Day by day */
-.day-block{margin-top:1.5rem}
-.day-block:first-child{margin-top:0}
-.day-block h3{margin:0 0 .25rem; font-size:1.0625rem; font-weight:700; font-stretch:105%}
-ol.periods{list-style:none; margin:0; padding:0}
-.period{border-top:1px solid var(--line)}
-.period summary{display:grid; grid-template-columns:1fr; gap:.3rem; padding:.7rem 0; cursor:pointer; list-style:none}
+/* Day by day: one panel per day, one row per part of the day */
+.days{display:grid; gap:1rem}
+.day-block{margin:0; background:var(--surface); border-radius:1.25rem; padding:1rem .75rem .75rem}
+@media (min-width:46rem){ .day-block{padding:1.25rem 1.25rem 1rem} }
+.day-block h3{margin:0 .25rem .75rem; font-size:1.25rem; font-weight:750; font-stretch:110%; letter-spacing:-.005em}
+ol.periods{list-style:none; margin:0; padding:0; display:grid; gap:.5rem}
+.period{--st:var(--line); background:var(--bg); border-left:4px solid var(--st); border-radius:.25rem .75rem .75rem .25rem}
+.period[data-lvl="0"]{--st:var(--go)}
+.period[data-lvl="1"]{--st:var(--caution)}
+.period[data-lvl="2"]{--st:var(--off)}
+.period summary{
+  display:grid; grid-template-columns:1fr; gap:.4rem; justify-items:start;
+  padding:.75rem .9rem; cursor:pointer; list-style:none; border-radius:inherit;
+}
 .period summary::-webkit-details-marker{display:none}
-@media (min-width:46rem){ .period summary{grid-template-columns:12rem 16rem 1fr; align-items:baseline; gap:1rem} }
-.period .chip{justify-self:start}
-.pname{font-weight:650}
-.ptime{color:var(--muted); font-weight:500; font-variant-numeric:tabular-nums; margin-left:.25rem}
-.pnote{color:var(--muted); font-size:.9375rem; line-height:1.45}
-.pnote .more{color:var(--river); font-size:.875rem; font-weight:600; white-space:nowrap}
-.period[open] .more{display:none}
-.period .hours-wrap{margin:0 0 .9rem}
+.phead{display:flex; flex-wrap:wrap; align-items:baseline; gap:.1rem .5rem}
+.pname{font-weight:700; font-size:1.0625rem}
+.ptime{color:var(--muted); font-size:.9375rem; font-variant-numeric:tabular-nums}
+.psum{color:var(--muted); font-size:.9375rem; line-height:1.45; font-variant-numeric:tabular-nums}
+.more{color:var(--river); font-size:.875rem; font-weight:600}
+.more .hide, .period[open] .more .show{display:none}
+.period[open] .more .hide{display:inline}
+@media (min-width:46rem){
+  .period summary{grid-template-columns:11rem 15rem 1fr auto; gap:1rem; align-items:center}
+  .psum, .more{grid-column:auto}
+}
+.forecast{border-top:1px solid var(--line); margin:0 .9rem; padding:1rem 0 1rem}
 
 /* Status chips */
 .chip{display:inline-flex; align-items:center; gap:.4rem; font-size:.875rem; font-weight:600; padding:.2rem .65rem; border-radius:999px; background:var(--surface); border:1px solid var(--line)}

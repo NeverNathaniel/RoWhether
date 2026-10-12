@@ -144,7 +144,7 @@ describe('assess', () => {
   });
 });
 
-describe('buildModel and windows', () => {
+describe('buildModel', () => {
   it('returns null without a forecast', () => {
     expect(buildModel({}, { ...DEFAULTS }, NOON)).toBeNull();
   });
@@ -153,29 +153,6 @@ describe('buildModel and windows', () => {
     expect(m.h72[0].t).toBe(NOON);
     expect(m.h72.length).toBe(60); // fixture ends 60 hours after noon on day one
     expect(m.cur.a.lvl).toBe(0);
-  });
-  it('finds daylight go windows snapped to sunrise and sunset', () => {
-    const m = model();
-    expect(m.windows.length).toBeGreaterThanOrEqual(2);
-    const w = m.windows[0];
-    expect(w.lvl).toBe(0);
-    expect(w.start).toBe(NOON);
-    // The last hour is judged at mid-hour and can run past sunset. It is trimmed.
-    expect(w.end).toBe(sunFor(m, '2026-06-15').sunset);
-    const next = m.windows[1];
-    expect(next.start).toBe(sunFor(m, '2026-06-16').sunrise);
-  });
-  it('splits a window around a windy stretch', () => {
-    const m = model((i, t) => (t >= NOON + 3 * HOUR && t < NOON + 5 * HOUR ? { wind: 20, gust: 28 } : {}));
-    expect(m.windows[0].end).toBe(NOON + 3 * HOUR);
-    expect(m.windows[1].start).toBe(NOON + 5 * HOUR);
-    expect(m.cur.a.lvl).toBe(0);
-  });
-  it('falls back to caution windows when no hour is a go', () => {
-    const m = model(() => ({ wind: 12, gust: 15 }));
-    expect(m.windows.length).toBeGreaterThan(0);
-    expect(m.windows.every(w => w.lvl === 1)).toBe(true);
-    expect(m.windows[0].why.key).toBe('wind');
   });
   it('ignores light when asked', () => {
     expect(lvlExcept(hourAt(model(), 2).a, ['dark', 'twilight'])).toBe(0);

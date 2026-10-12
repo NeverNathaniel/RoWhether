@@ -8,7 +8,6 @@ export const app = {
   updated: null,   // time of the last good forecast
   fromCache: false,
   model: null,     // output of buildModel()
-  winSel: null,    // key of the open best window
   openPeriods: new Set() // day-by-day rows the viewer has expanded
 };
 

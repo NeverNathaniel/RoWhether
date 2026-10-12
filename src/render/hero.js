@@ -3,7 +3,7 @@ import { SRC, SOURCE_NAMES, THEN, WORD, LIGHT_KEYS } from '../config.js';
 import { app, $ } from '../state.js';
 import { esc, hm, r0, card, whenText, dayKey, lowerFirst } from '../format.js';
 import { waterTemp, sunFor, lvlExcept } from '../logic.js';
-import { dayLabel, periodTime, periodNote } from './days.js';
+import { dayLabel, periodTime, periodSummary } from './days.js';
 
 export function renderHeader() {
   const u = $('updated');
@@ -44,9 +44,15 @@ function renderNextPeriod(m) {
   $('verdict').textContent = WORD[p.lvl];
   const when = `${dayLabel(p.start)} ${p.name.toLowerCase()}, ${periodTime(p)}.`;
   const lead = p.lvl && p.why ? ` ${p.why.text}.` : '';
-  $('why').innerHTML = `${esc(when + lead)}<span class="cond">${esc(periodNote(m, p))}</span>`;
-  const w = m.windows.find(x => x.lvl === 0 && x.start >= p.start);
-  $('holds').textContent = p.lvl && w ? `Next go window: ${whenText(w.start, true)} to ${hm(w.end)}.` : '';
+  $('why').innerHTML = `${esc(when + lead)}<span class="cond">${esc(periodSummary(p))}</span>`;
+  $('holds').textContent = p.lvl ? nextGoText(m, p.start) : '';
+}
+
+// "Next go: tomorrow midday, 10 AM to 3 PM."
+function nextGoText(m, after) {
+  const g = m.days.flatMap(d => d.periods).find(p => !p.past && p.lvl === 0 && p.start > after);
+  if (!g) return 'No go period in the next 7 days.';
+  return `Next go: ${dayLabel(g.start).replace(/^(Today|Tomorrow)$/, s => s.toLowerCase())} ${g.name.toLowerCase()}, ${periodTime(g)}.`;
 }
 
 export function renderHero() {
@@ -74,8 +80,7 @@ export function renderHero() {
       holds = `Holds until about ${whenText(nx.t, true)}, then ${THEN[why.key] || lowerFirst(why.text)}.`;
     }
   } else {
-    const w = m.windows.find(x => x.lvl === 0 && x.start > Date.now());
-    holds = w ? `Next go window: ${whenText(w.start, true)} to ${hm(w.end)}.` : 'No go window in the next 3 days.';
+    holds = nextGoText(m, m.now);
   }
   $('holds').textContent = holds;
 }

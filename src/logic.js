@@ -199,7 +199,7 @@ export function buildModel(data, S, now = Date.now()) {
   const m = {
     S, data, now, sunCache: {},
     alerts: (data.alerts || []).filter(a => a.end > now),
-    hours: [], days: [], h72: [], cur: null, windows: []
+    hours: [], days: [], h72: [], cur: null
   };
   const H = d.hourly;
   m.hours = H.time.map((s, i) => ({
@@ -234,55 +234,12 @@ export function buildModel(data, S, now = Date.now()) {
     m.cur = { ...base, t: now };
   }
   m.cur.a = assess(m, m.cur, now);
-  m.windows = computeWindows(m, m.h72);
 
   for (const day of m.days) day.periods = periodsFor(m, day);
   const s = sunFor(m, dayKey(now));
   m.daytime = !!s && now >= s.dawn && now < s.sunset;
   m.next = m.days.flatMap(d => d.periods).find(p => !p.past) || null;
   return m;
-}
-
-// Best windows: runs of go hours at least 45 minutes long, edges snapped to
-// sunrise and sunset. Falls back to caution runs when there are none.
-export function computeWindows(m, hs) {
-  const runs = [];
-  let run = null;
-  hs.forEach((h, i) => {
-    const lv = h.a.lvl;
-    if (run && lv === run.lvl) run.idx.push(i);
-    else { if (run) runs.push(run); run = { lvl: lv, idx: [i] }; }
-  });
-  if (run) runs.push(run);
-
-  const build = r => {
-    const first = hs[r.idx[0]], last = hs[r.idx[r.idx.length - 1]];
-    let start = first.t, end = last.t + HOUR;
-    const s1 = sunFor(m, dayKey(first.t)), s2 = sunFor(m, dayKey(last.t));
-    if (r.lvl === 0) {
-      // Snap edges to sunrise and sunset when the neighbouring hour is clear apart from light.
-      const prev = hs[r.idx[0] - 1], next = hs[r.idx[r.idx.length - 1] + 1];
-      if (s1 && s1.sunrise > start && s1.sunrise < start + HOUR) start = s1.sunrise;
-      else if (s1 && prev && s1.sunrise >= start - HOUR && s1.sunrise < start && lvlExcept(prev.a, LIGHT_KEYS) === 0) start = s1.sunrise;
-      if (s2 && next && s2.sunset >= end && s2.sunset < end + HOUR && lvlExcept(next.a, LIGHT_KEYS) === 0) end = s2.sunset;
-      // The rowing day ends at sunset. The last hour is judged at mid-hour,
-      // so it can run past sunset; trim it.
-      if (s2 && end > s2.sunset && last.t < s2.sunset) end = s2.sunset;
-    }
-    start = Math.max(start, m.now);
-    const sub = r.idx.map(i => hs[i]);
-    const ws = sub.map(h => h.wind), gs = sub.map(h => h.gust), ts = sub.map(h => h.temp);
-    const why = r.lvl === 0 ? null : sub.flatMap(h => h.a.reasons).find(x => x.lvl === r.lvl);
-    return { key: first.t, i0: r.idx[0], hs: sub, lvl: r.lvl, start, end, wmin: Math.min(...ws), wmax: Math.max(...ws), gmax: Math.max(...gs), tmin: Math.min(...ts), tmax: Math.max(...ts), dir: sub[Math.floor(sub.length / 2)].dir, why };
-  };
-
-  let wins = runs.filter(r => r.lvl === 0).map(build).filter(w => w.end - w.start >= 45 * MIN);
-  if (!wins.length) {
-    wins = runs.filter(r => r.lvl === 1)
-      .filter(r => r.idx.some(i => !hs[i].a.reasons.every(x => x.key === 'twilight')))
-      .map(build).filter(w => w.end - w.start >= 45 * MIN);
-  }
-  return wins.slice(0, 6);
 }
 
 // Morning, midday and afternoon for one day. Each period's call is the worst

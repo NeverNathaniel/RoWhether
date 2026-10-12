@@ -3,7 +3,6 @@ import { app } from '../state.js';
 import { buildModel } from '../logic.js';
 import { renderHeader, renderNoData, renderHero, renderAlerts } from './hero.js';
 import { renderNow } from './now.js';
-import { renderWindows } from './windows.js';
 import { renderDays } from './days.js';
 
 export function render() {
@@ -13,6 +12,5 @@ export function render() {
   renderHero();
   renderAlerts();
   renderNow();
-  renderWindows();
   renderDays();
 }
