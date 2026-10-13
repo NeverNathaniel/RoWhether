@@ -71,8 +71,7 @@ Precipitation is information on top of the rain chance rules above:
 
 - `precipKind()` names what is falling from the weather code (drizzle, rain, showers, snow, freezing rain, thunderstorms). `rateWord()` calls an hourly amount light, moderate or heavy (0.1 and 0.3 in/hr).
 - `precipSummary(hours)` gives the peak chance and its hour, the run of hours within 10 points of the peak ("most likely 1 to 3 PM"), the total amount, and the most common kind among hours with at least 30% or a measurable amount.
-- On the water now has a Precipitation fact: what is falling now, and the highest chance in the next 3 hours.
-- Each full forecast has a Precipitation section: headline chance, timing, kind and amount, and an hourly column chart (`precipChart()` in `src/render/parts.js`). Columns over the rain caution or stay-off setting take that status color, and the settings are drawn as labeled dashed lines. Only the peak is labeled. Tapping, hovering or focusing a column shows that hour under the chart. The hour table keeps the Rain column as the full set of values.
+- The Precipitation section (`precipBlock()` in `src/render/precip.js`) appears in two places. On the water now covers from the current hour to 6 hours ahead or sunset, whichever is first, led by what is falling now. Each full forecast covers its period. The section has a headline chance (colored by the worst precipitation reason in the window), timing, kind and amount, and an hourly column chart (`precipChart()` in `src/render/parts.js`). Columns over the rain caution or stay-off setting take that status color, and the settings are drawn as labeled dashed lines. Only the peak is labeled. Tapping, hovering or focusing a column shows that hour under the chart. The hour table keeps the Rain column as the full set of values.
 
 Wind vs course uses `relWind()`: the angle between where the wind comes from and the upstream heading. Within 60° either way is head or tail; otherwise crosswind, with the side named as the NH (east) or VT (west) bank.
 
@@ -85,7 +84,7 @@ Wind vs course uses `relWind()`: the angle between where the wind comes from and
 - `src/data.js`: `fetchJSON`, the parsers (`parseAlerts`, `parseObs`, `parseRiver`, `parseFlow`) and `fetchAll`.
 - `src/logic.js`: the call logic, pure and DOM free. `buildModel(data, settings, now)` returns the model every render reads: hours, days, `h72`, `cur`, `alerts`. Also `assess`, `lvlExcept`, `sunFor`, `lightAt`, `fogRisk`, `morningFog`, `nextMorning`, `windVsCourse`, `precipKind`, `rateWord`, `precipSummary`, `flowTrend`, `flowChange`, `chopWind`, `waterState`, `waterWhy`, `debrisLikely`, `periodsFor`. The model also has `daytime`, `next`, and `periods` on each day.
 - `src/state.js`: the mutable `app` object (settings, data, errors, model, UI selection) and `$`.
-- `src/render/`: one file per section. `index.js` has `render()`, which rebuilds the model and draws everything. `hero.js`, `now.js`, `days.js` (Day by day rows, plus period text helpers the hero reuses), `forecast.js` (the full forecast a row opens to, built when opened), and shared builders in `parts.js`.
+- `src/render/`: one file per section. `index.js` has `render()`, which rebuilds the model and draws everything. `hero.js`, `now.js`, `days.js` (Day by day rows, plus period text helpers the hero reuses), `forecast.js` (the full forecast a row opens to, built when opened), `precip.js` (the precipitation section both use), and shared builders in `parts.js`.
 - `src/settings.js`: settings dialog wiring.
 - `src/main.js`: styles, service worker registration, `refresh`, event listeners, startup.
 - `src/styles/tokens.css` (colors) and `src/styles/app.css` (everything else).

@@ -1,9 +1,10 @@
 // The full forecast for one period: compass, facts and an hour by hour table.
 // Shown when a Day by day row is opened.
-import { WORD_PLAIN, LIGHT_KEYS, WATER, HOUR } from '../config.js';
+import { WORD_PLAIN, LIGHT_KEYS, WATER } from '../config.js';
 import { esc, hm, r0, card, rng, fmtInt, visText, dayKey } from '../format.js';
-import { precipSummary, precipKind, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept } from '../logic.js';
-import { fact, compassSVG, sparkline, precipChart } from './parts.js';
+import { fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept } from '../logic.js';
+import { fact, compassSVG, sparkline } from './parts.js';
+import { precipBlock } from './precip.js';
 
 function hoursTable(p) {
   const rows = p.hs.map(h => {
@@ -14,31 +15,6 @@ function hoursTable(p) {
     <caption>Hour by hour</caption>
     <thead><tr><th scope="col">Hour</th><th scope="col">Wind</th><th scope="col">Gust</th><th scope="col">From</th><th scope="col">Water</th><th scope="col">Air</th><th scope="col">Rain</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
-}
-
-// Precipitation for the period: a headline chance, when and what, and the
-// hourly chart. Tapping a column shows that hour under the chart.
-function precipBlock(m, p, lvl) {
-  const sum = precipSummary(p.hs);
-  let note;
-  if (sum.peak < 20) note = 'Little chance of rain or snow. Under 20% throughout.';
-  else {
-    const when = sum.toT - sum.fromT <= HOUR ? `around ${hm(sum.fromT)}` : `${hm(Math.max(sum.fromT, p.from))} to ${hm(sum.toT)}`;
-    const kind = sum.kind ? sum.kind[0].toUpperCase() + sum.kind.slice(1) : 'Precipitation';
-    const amt = sum.total >= 0.01 ? `, about ${sum.total.toFixed(2)} in` : ', light amounts at most';
-    note = `Most likely ${when}. ${kind}${amt}.`;
-  }
-  const describe = h => {
-    const k = precipKind(h.code);
-    return `${hm(Math.max(h.t, p.from))}: ${r0(h.pop) ?? 0}% chance${k ? `, ${k}` : ''}${h.precip >= 0.01 ? `, about ${h.precip.toFixed(2)} in` : ''}.`;
-  };
-  return `<div class="fact precip"${lvl ? ` data-lvl="${lvl}"` : ''}>
-    <div class="precip-label">Precipitation</div>
-    <div class="val">${sum.peak}% chance</div>
-    <div class="note">${esc(note)}</div>
-    ${precipChart(p.hs, m.S, p.from, describe)}
-    <p class="precip-hover" aria-live="polite">Tap a column for that hour.</p>
-  </div>`;
 }
 
 export function forecastPanel(m, p) {
@@ -101,7 +77,7 @@ export function forecastPanel(m, p) {
       </figure>
       <div>
         <dl class="facts">${f.join('')}</dl>
-        ${precipBlock(m, p, maxLvl(['rain', 'pop', 'storm', 'stormrisk', 'snow', 'ice']))}
+        ${precipBlock(m, p.hs, p.from, maxLvl(['rain', 'pop', 'storm', 'stormrisk', 'snow', 'ice']))}
         ${hoursTable(p)}
       </div>
     </div>

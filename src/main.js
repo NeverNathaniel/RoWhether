@@ -63,7 +63,10 @@ function showPrecipHour(e) {
   hit.classList.add('on');
   box.querySelector('.precip-hover').textContent = hit.dataset.ptext;
 }
-for (const ev of ['click', 'pointerover', 'focusin']) $('days').addEventListener(ev, showPrecipHour);
+for (const ev of ['click', 'pointerover', 'focusin']) {
+  $('days').addEventListener(ev, showPrecipHour);
+  $('nowPrecip').addEventListener(ev, showPrecipHour);
+}
 
 // Remember which day-by-day rows are open across refreshes.
 // The toggle event does not bubble, so listen in the capture phase.
