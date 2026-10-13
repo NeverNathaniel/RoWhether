@@ -91,6 +91,23 @@ table.hours td{border-top:1px solid var(--line); padding:.4rem .75rem .4rem 0; w
 table.hours i{width:.55rem; height:.55rem; border-radius:50%; display:inline-block; margin-right:.45rem; vertical-align:middle}
 table.hours i.b0{background:var(--go)} table.hours i.b1{background:var(--caution)} table.hours i.b2{background:var(--off)}
 
+/* Precipitation section and chart, in the full forecast */
+.fact.precip{margin-top:.25rem}
+.precip-label{color:var(--muted); font-size:.875rem}
+.pchart{display:block; width:100%; max-width:30rem; height:auto; margin-top:.6rem}
+.pbar{fill:var(--river)}
+.pbar.b1{fill:var(--caution)}
+.pbar.b2{fill:var(--off)}
+.pbase{stroke:var(--line); stroke-width:1}
+.pgrid{stroke:var(--line); stroke-width:1; stroke-dasharray:3 3}
+.pthr1{stroke:var(--caution); stroke-width:1.5; stroke-dasharray:4 3}
+.pthr2{stroke:var(--off); stroke-width:1.5; stroke-dasharray:4 3}
+.paxis{fill:var(--muted); font-size:11px; font-family:inherit; font-variant-numeric:tabular-nums}
+.plabel{fill:var(--ink); font-size:12px; font-weight:650; font-family:inherit; font-variant-numeric:tabular-nums}
+.phit{fill:transparent; cursor:pointer; outline:none}
+.phit.on, .phit:focus-visible{fill:var(--river-soft)}
+.precip-hover{margin:.35rem 0 0; color:var(--muted); font-size:.875rem; min-height:1.3em}
+
 /* Day by day: one panel per day, one row per part of the day */
 .days{display:grid; gap:1rem}
 /* Grid children default to min-width:auto and would stretch to fit the hour

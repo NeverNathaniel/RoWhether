@@ -120,6 +120,42 @@ export function waterWhy(ws) {
   return parts.join(' ');
 }
 
+// ---------- Precipitation ----------
+// Open-Meteo weather codes that mean something is falling, and their name.
+export function precipKind(code) {
+  if ([95, 96, 99].includes(code)) return 'thunderstorms';
+  if ([56, 57, 66, 67].includes(code)) return 'freezing rain';
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snow';
+  if ([80, 81, 82].includes(code)) return 'showers';
+  if ([61, 63, 65].includes(code)) return 'rain';
+  if ([51, 53, 55].includes(code)) return 'drizzle';
+  return null;
+}
+export function rateWord(inPerHr) {
+  return inPerHr >= 0.3 ? 'heavy' : inPerHr >= 0.1 ? 'moderate' : 'light';
+}
+
+// Summary of precipitation over a run of hours: the peak chance and when,
+// the hours near the peak (within 10 points of it), total amount, and the
+// most common kind among the hours with a real chance.
+export function precipSummary(hs) {
+  if (!hs.length) return null;
+  const pops = hs.map(h => (h.pop == null ? 0 : h.pop));
+  const peak = Math.max(...pops);
+  const pi = pops.indexOf(peak);
+  let a = pi, b = pi;
+  while (a > 0 && pops[a - 1] >= peak - 10) a--;
+  while (b < hs.length - 1 && pops[b + 1] >= peak - 10) b++;
+  const total = hs.reduce((t, h) => t + (h.precip || 0), 0);
+  const count = {};
+  for (const h of hs) {
+    const k = precipKind(h.code);
+    if (k && ((h.pop || 0) >= 30 || (h.precip || 0) > 0)) count[k] = (count[k] || 0) + 1;
+  }
+  const kind = Object.keys(count).sort((x, y) => count[y] - count[x])[0] || null;
+  return { peak: Math.round(peak), peakT: hs[pi].t, fromT: hs[a].t, toT: hs[b].t + HOUR, total, kind };
+}
+
 // ---------- Assessment ----------
 // ---------- Fog ----------
 const FOG_NAME = { valley: 'Valley fog', steam: 'Steam fog', model: 'Fog' };

@@ -1,5 +1,5 @@
 // Small HTML and SVG builders shared by the sections.
-import { esc } from '../format.js';
+import { esc, hm } from '../format.js';
 
 export function fact(label, val, note, lvl) {
   return `<div class="fact"${lvl ? ` data-lvl="${lvl}"` : ''}><dt>${esc(label)}</dt><dd><div class="val">${val}</div>${note ? `<div class="note">${esc(note)}</div>` : ''}</dd></div>`;
@@ -30,4 +30,42 @@ export function sparkline(ser) {
   const span = (max - min) || 1;
   const pts = ser.map(p => `${((p.t - t0) / ((t1 - t0) || 1) * W).toFixed(1)},${(Hh - 3 - (p.v - min) / span * (Hh - 6)).toFixed(1)}`).join(' ');
   return `<svg class="spark" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="River flow over the last 48 hours"><polyline points="${pts}"/></svg>`;
+}
+
+// Hourly chance of precipitation as columns, one per hour. Columns over the
+// rain caution or stay-off setting take that status color, and the settings
+// are drawn as labeled dashed lines. Only the peak is labeled; each column has
+// a hit area carrying its hour's text for the tap readout (data-ptext), and the
+// hour table below holds every value.
+const isSet = v => v !== '' && v != null && !isNaN(v);
+const shortHour = t => { const s = hm(t).replace(/ /, ' '); return s.replace(/:\d\d/, '').replace(' AM', 'a').replace(' PM', 'p'); };
+
+export function precipChart(hs, S, from, describe) {
+  const n = hs.length, W = 320, H = 140, top = 22, bottom = 24, left = 2, right = 38;
+  const plotW = W - left - right, plotH = H - top - bottom, base = top + plotH;
+  const slot = plotW / n, bw = Math.min(24, slot - 6);
+  const y = v => base - Math.min(100, Math.max(0, v)) / 100 * plotH;
+  const pops = hs.map(h => Math.round(h.pop || 0));
+  const peak = Math.max(...pops), pi = pops.indexOf(peak);
+  let s = `<line class="pbase" x1="${left}" x2="${W - right}" y1="${base}" y2="${base}"/>`;
+
+  const lines = [[S.rainCaution, 'pthr1'], [S.rainOff, 'pthr2']].filter(([v]) => isSet(v) && v > 0 && v <= 100);
+  if (!lines.length) lines.push([50, 'pgrid']);
+  for (const [v, c] of lines) {
+    s += `<line class="${c}" x1="${left}" x2="${W - right}" y1="${y(v)}" y2="${y(v)}"/>`;
+    s += `<text class="paxis" x="${W - right + 5}" y="${y(v) + 4}">${v}%</text>`;
+  }
+  hs.forEach((h, i) => {
+    const v = pops[i];
+    const lvl = isSet(S.rainOff) && v >= S.rainOff ? 2 : isSet(S.rainCaution) && v >= S.rainCaution ? 1 : 0;
+    const x = left + i * slot + (slot - bw) / 2, yt = Math.min(y(v), base - 2), r = Math.min(4, bw / 2, base - yt);
+    s += `<path class="pbar b${lvl}" data-pi="${i}" d="M${x} ${base}V${yt + r}Q${x} ${yt} ${x + r} ${yt}H${x + bw - r}Q${x + bw} ${yt} ${x + bw} ${yt + r}V${base}Z"/>`;
+    if (i === pi && peak > 0) s += `<text class="plabel" x="${x + bw / 2}" y="${yt - 6}" text-anchor="middle">${v}%</text>`;
+    if (n <= 6 || i % 2 === 0) s += `<text class="paxis" x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${esc(shortHour(Math.max(h.t, from)))}</text>`;
+  });
+  hs.forEach((h, i) => {
+    const text = describe(h, i);
+    s += `<rect class="phit" data-pi="${i}" data-ptext="${esc(text)}" tabindex="0" x="${left + i * slot}" y="0" width="${slot}" height="${H}"><title>${esc(text)}</title></rect>`;
+  });
+  return `<svg class="pchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Chance of precipitation by hour, highest ${peak}% at ${esc(hm(hs[pi].t))}">${s}</svg>`;
 }

@@ -38,6 +38,17 @@ async function refresh() {
 // ---------- Events ----------
 $('refreshBtn').addEventListener('click', refresh);
 
+// Precipitation chart: tapping, hovering or focusing a column shows that hour.
+function showPrecipHour(e) {
+  const hit = e.target.closest && e.target.closest('.phit');
+  if (!hit) return;
+  const box = hit.closest('.precip');
+  box.querySelectorAll('.phit.on').forEach(x => x.classList.remove('on'));
+  hit.classList.add('on');
+  box.querySelector('.precip-hover').textContent = hit.dataset.ptext;
+}
+for (const ev of ['click', 'pointerover', 'focusin']) $('days').addEventListener(ev, showPrecipHour);
+
 // Remember which day-by-day rows are open across refreshes.
 // The toggle event does not bubble, so listen in the capture phase.
 $('days').addEventListener('toggle', e => {

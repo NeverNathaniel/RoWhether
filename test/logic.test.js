@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULTS, HOUR, MIN } from '../src/config.js';
 import { dayKey, localHour, lowerFirst } from '../src/format.js';
-import { buildModel, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
+import { precipKind, rateWord, precipSummary, buildModel, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
 import { parseAlerts, parseObs, parseRiver, parseFlow, alertLevel } from '../src/data.js';
 
 // Midnight Eastern (EDT, UTC-4) on Mon 15 June 2026.
@@ -389,5 +389,39 @@ describe('water state', () => {
     const withFlow = f => buildModel({ wx: wx(), river: RIVER, flow: f }, { ...DEFAULTS }, NOON);
     expect(debrisLikely(withFlow(ser(5000, 8000)))).toBe(true);
     expect(debrisLikely(withFlow(ser(5000, 5300)))).toBe(false);
+  });
+});
+
+describe('precipitation', () => {
+  const hrs = rows => rows.map(([pop, precip = 0, code = 0], i) => ({ t: NOON + i * HOUR, pop, precip, code }));
+  it('names what is falling from the weather code', () => {
+    expect(precipKind(0)).toBeNull();
+    expect(precipKind(61)).toBe('rain');
+    expect(precipKind(81)).toBe('showers');
+    expect(precipKind(73)).toBe('snow');
+    expect(precipKind(95)).toBe('thunderstorms');
+    expect(precipKind(66)).toBe('freezing rain');
+    expect(rateWord(0.02)).toBe('light');
+    expect(rateWord(0.15)).toBe('moderate');
+    expect(rateWord(0.4)).toBe('heavy');
+  });
+  it('finds the peak and the hours close to it', () => {
+    const s = precipSummary(hrs([[10], [30], [65, 0.05, 81], [70, 0.08, 81], [62, 0.02, 61], [20]]));
+    expect(s.peak).toBe(70);
+    expect(s.peakT).toBe(NOON + 3 * HOUR);
+    expect(s.fromT).toBe(NOON + 2 * HOUR);
+    expect(s.toT).toBe(NOON + 5 * HOUR);
+    expect(s.total).toBeCloseTo(0.15);
+    expect(s.kind).toBe('showers');
+  });
+  it('ignores the kind of hours with little chance', () => {
+    expect(precipSummary(hrs([[5, 0, 61], [10, 0, 61]])).kind).toBeNull();
+  });
+  it('shows in the current conditions and in each period', () => {
+    const m = model((i, t) => (t >= NOON + HOUR && t < NOON + 3 * HOUR ? { pop: 70, precip: 0.1, code: 61 } : {}));
+    const mid = m.days.find(d => d.key === '2026-06-15').periods.find(p => p.key === 'midday');
+    const s = precipSummary(mid.hs);
+    expect(s.peak).toBe(70);
+    expect(s.kind).toBe('rain');
   });
 });

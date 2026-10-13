@@ -2,7 +2,7 @@
 import { HOUR, WATER } from '../config.js';
 import { app, $ } from '../state.js';
 import { r0, card, fmtInt, ago, visText, hm, dayKey, dayWord } from '../format.js';
-import { fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor } from '../logic.js';
+import { precipSummary, precipKind, rateWord, fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor } from '../logic.js';
 import { fact, compassSVG, sparkline } from './parts.js';
 
 // Fog now if there is any, otherwise the outlook for the next morning.
@@ -17,6 +17,21 @@ function visibilityNote(m) {
   const when = nm.key === dayKey(m.now) ? 'this morning' : `${dayWord(nm.t, true)} morning`;
   if (!nm.fog) return `Fog risk low now and ${when}.`;
   return `Fog risk low now. ${when[0].toUpperCase() + when.slice(1)}: ${nm.fog.text.toLowerCase()}, ${fogLift(nm.fog)}. ${nm.fog.why}`;
+}
+
+// What is falling now, and the highest chance over the next 3 hours.
+function precipFact(m, lvl) {
+  const cur = m.cur;
+  const next = m.h72.filter(h => h.t + HOUR > m.now && h.t < m.now + 3 * HOUR);
+  const sum = precipSummary(next);
+  const kind = precipKind(cur.code);
+  const nowText = !kind ? 'Dry now.'
+    : kind === 'thunderstorms' || kind === 'freezing rain' ? `${kind[0].toUpperCase() + kind.slice(1)} now.`
+    : `${rateWord(cur.precip || 0)[0].toUpperCase() + rateWord(cur.precip || 0).slice(1)} ${kind} now.`;
+  if (!sum) return fact('Precipitation', '--', nowText);
+  const outlook = sum.peak < 20 ? 'Under 20% chance for the next 3 hours.'
+    : `Highest chance in the next 3 hours around ${sum.peakT <= m.now ? 'now' : hm(sum.peakT)}.`;
+  return fact('Precipitation', `${sum.peak}% chance`, `${nowText} ${outlook}`, lvl);
 }
 
 export function renderNow() {
@@ -41,6 +56,8 @@ export function renderNow() {
   }
 
   f.push(fact('Air', `${r0(cur.temp)}°F`, `Feels like ${r0(cur.feels)}°F. Dew point ${r0(cur.dew)}°F.`, lvlOf('freeze')));
+
+  f.push(precipFact(m, Math.max(lvlOf('pop'), lvlOf('rain'))));
 
   const wt = waterTemp(m);
   if (wt != null) {
