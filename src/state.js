@@ -8,7 +8,11 @@ export const app = {
   updated: null,   // time of the last good forecast
   fromCache: false,
   model: null,     // output of buildModel()
-  openPeriods: new Set() // day-by-day rows the viewer has expanded
+  openPeriods: new Set(), // day-by-day rows the viewer has expanded
+  view: null,      // open detail view, { name, day }, or null on the home screen
+  detailDay: null, // the day last picked in a detail view, kept across views
+  homeScroll: 0,   // home screen scroll position, restored on the way back
+  detailWidth: 0   // width the detail view was drawn at
 };
 
 export const $ = id => document.getElementById(id);

@@ -36,7 +36,7 @@ function nowPrecip(m) {
   const nowText = !kind ? 'Dry now.'
     : kind === 'thunderstorms' || kind === 'freezing rain' ? `${cap(kind)} now.`
     : `${cap(rateWord(cur.precip || 0))} ${kind} now.`;
-  return precipBlock(m, hs, m.now, lvl, { label: `Precipitation, now to ${hm(end)}`, lead: nowText });
+  return precipBlock(m, hs, m.now, lvl, { label: `Precipitation, now to ${hm(end)}`, lead: nowText, href: '#rain' });
 }
 
 export function renderNow() {
@@ -53,38 +53,38 @@ export function renderNow() {
 
   const f = [];
   const windLvl = Math.max(lvlOf('wind'), lvlOf('gust'));
-  f.push(fact('Wind', `${r0(cur.wind)} mph, gusts ${r0(cur.gust)}`, `From ${card(cur.dir)}. ${windVsCourse(m, cur.dir, cur.wind)}`, windLvl));
+  f.push(fact('Wind', `${r0(cur.wind)} mph, gusts ${r0(cur.gust)}`, `From ${card(cur.dir)}. ${windVsCourse(m, cur.dir, cur.wind)}`, windLvl, '#wind'));
 
   if (cur.water) {
     const debris = debrisLikely(m) ? ' River rising fast. Watch for floating debris.' : '';
-    f.push(fact('Water state', WATER.names[cur.water.lvl], waterWhy(cur.water) + debris));
+    f.push(fact('Water state', WATER.names[cur.water.lvl], waterWhy(cur.water) + debris, 0, '#wind'));
   }
 
-  f.push(fact('Air', `${r0(cur.temp)}°F`, `Feels like ${r0(cur.feels)}°F. Dew point ${r0(cur.dew)}°F.`, lvlOf('freeze')));
+  f.push(fact('Air', `${r0(cur.temp)}°F`, `Feels like ${r0(cur.feels)}°F. Dew point ${r0(cur.dew)}°F.`, lvlOf('freeze'), '#temperature'));
 
   const wt = waterTemp(m);
   if (wt != null) {
     const src = waterOverridden(S) ? 'Your reading, set in Settings.' :
       `Nearest main-stem gauge, near Northfield, MA, about 19 mi downstream. ${ago(m.data.river.waterC.t)}.`;
-    f.push(fact('Water', `${r0(wt)}°F`, src));
+    f.push(fact('Water', `${r0(wt)}°F`, src, 0, '#temperature'));
     const sum = Math.round(cur.temp + wt);
     f.push(fact('Air plus water', `${sum}°F`,
       sum < S.coldCombined ? `Under ${S.coldCombined}. Dress for immersion and row with a launch.` : `Above the ${S.coldCombined} cold-water line.`,
-      lvlOf('cold')));
+      lvlOf('cold'), '#temperature'));
   } else {
     f.push(fact('Water', '--', 'Gauge unavailable. Add a dock reading in Settings.'));
   }
 
-  f.push(fact('Visibility', visText(cur.vis), visibilityNote(m), lvlOf('fog')));
+  f.push(fact('Visibility', visText(cur.vis), visibilityNote(m), lvlOf('fog'), '#fog'));
 
   const fl = flowNow(m);
   if (fl != null) {
     const tr = flowTrend(m.data.flow);
     f.push(fact('River flow', `${fmtInt(fl)} cfs ${sparkline(m.data.flow)}`,
       `${tr ? tr + '. ' : ''}North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. ${ago(m.data.river.flow.t)}.`,
-      lvlOf('flow')));
+      lvlOf('flow'), '#river'));
   } else {
-    f.push(fact('River flow', '--', 'USGS gauge unavailable.'));
+    f.push(fact('River flow', '--', 'USGS gauge unavailable.', 0, '#river'));
   }
 
   let s = sunFor(m, dayKey(Date.now())), dayLabel = 'Daylight';

@@ -392,3 +392,36 @@ export function periodsFor(m, day) {
     };
   }).filter(Boolean);
 }
+
+// ---------- Detail views ----------
+// One day's rowing window, first light to sunset, past hours included.
+export function rowingHours(m, key) {
+  const s = sunFor(m, key);
+  if (!s) return [];
+  return m.hours.filter(h => dayKey(h.t) === key && h.t + HOUR > s.dawn && h.t < s.sunset);
+}
+
+// The worst level among an hour's reasons with these keys, and that reason.
+// assess() sorts reasons worst first, so the first match is the worst.
+export function factorLevel(a, keys) {
+  const why = a.reasons.find(x => keys.includes(x.key)) || null;
+  return { lvl: why ? why.lvl : 0, why };
+}
+export const worstOf = (hs, keys) => Math.max(0, ...hs.map(h => factorLevel(h.a, keys).lvl));
+
+// NWS forecast flow at time t, interpolated between forecast points.
+// Null before the first point or after the last.
+export function flowForecastAt(fc, t) {
+  const p = fc && fc.pts;
+  if (!p || !p.length || t < p[0].t || t > p[p.length - 1].t) return null;
+  const i = p.findIndex(x => x.t >= t);
+  if (i === 0 || p[i].t === t) return p[i].v;
+  const a = p[i - 1], b = p[i];
+  return a.v + (b.v - a.v) * (t - a.t) / (b.t - a.t);
+}
+
+// The highest forecast flow at or after a time, or null.
+export function flowForecastPeak(fc, after) {
+  const p = ((fc && fc.pts) || []).filter(x => x.t >= after);
+  return p.length ? p.reduce((a, b) => (b.v > a.v ? b : a)) : null;
+}

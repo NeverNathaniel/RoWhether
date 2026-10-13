@@ -12,6 +12,13 @@ Night is not shown. The rowing day runs from first light to sunset.
 - Precipitation: an hour by hour chart of the chance, with when it is most likely, what kind, and how much. Shown in On the water now for the next 6 hours (or until sunset), and in each full forecast for its period.
 - Water state: flat, light chop, chop or rough, from wind along the straight, how long it has blown, and wind against the current. Warns about floating debris when the river is rising fast.
 - Day by day for 7 days: morning (first light to 10 AM), midday (10 AM to 3 PM) and afternoon (3 PM to sunset), each with its call, wind against the course, temperature, rain and fog. Tap a row for the full forecast: compass, wind against the course, air, water, the cold check, visibility and fog, rain, flow, daylight, and an hour by hour table.
+- Forecast details, from the Details button or by tapping a fact: six views with charts and the reasoning behind each part of the call.
+  - Overview: every hour of the week colored by the call, and for one day, which factor (wind, rain, thunder, fog, cold, river, alerts, light) sets it.
+  - Wind: wind and gusts against your settings, direction relative to the course, and water state, hour by hour.
+  - Rain: chance against your settings, amount, and thunderstorm risk.
+  - Temperature: air and feels like against the freezing and cold-water lines, with water temperature.
+  - Fog: each morning's risk, and the ingredients the fog rules use (dew point spread, wind, cloud, water minus air, visibility), each drawn with its zone.
+  - River: the last 2 days with the NWS forecast for the next 3, and the last 30 days of daily flow.
 - A suggestion form at the bottom. Claude rewrites each suggestion as a GitHub issue, labeled for the maintainer to review. Hidden until it is set up (see below).
 - Settings for course heading, wind and gust limits, rain chance limits, the cold-water line, flow limits, and a water temperature override. Saved in the browser.
 
@@ -24,7 +31,8 @@ All fetched in the browser from free, keyless APIs that allow cross-origin reque
 | Forecast and current model values | [Open-Meteo](https://open-meteo.com/) (NOAA HRRR and GFS). Weather data by Open-Meteo.com, CC BY 4.0 |
 | Alerts | [NWS API](https://www.weather.gov/documentation/services-web-api), alerts for the dock's point |
 | Measured comparison | NWS station KEEN, Keene NH, about 14 mi east |
-| River flow | USGS 01154500, Connecticut River at North Walpole NH, just below Bellows Falls dam |
+| River flow | USGS 01154500, Connecticut River at North Walpole NH, just below Bellows Falls dam. Latest, 48 hours, and 30 days of daily means |
+| River forecast | [NWS National Water Prediction Service](https://water.noaa.gov/gauges/wlpn3), gauge WLPN3 (same site), from the Northeast River Forecast Center |
 | Water temperature | USGS 01161280, Connecticut River near Northfield MA, about 19 mi downstream (nearest main-stem gauge) |
 
 Sunrise, sunset and twilight come from [SunCalc](https://github.com/mourner/suncalc) 1.9.0. Font is [Archivo](https://github.com/Omnibus-Type/Archivo) via Fontsource. Both are bundled, so nothing loads from a CDN.

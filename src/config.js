@@ -50,6 +50,8 @@ export const WATER = {
 
 export const GAUGE_FLOW = 'USGS-01154500';
 export const GAUGE_TEMP = 'USGS-01161280';
+// NWS river forecast point at the same North Walpole gauge (NERFC).
+export const NWS_GAUGE = 'WLPN3';
 
 export const SRC = {
   wx: () => 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
@@ -63,10 +65,23 @@ export const SRC = {
   alerts: () => `https://api.weather.gov/alerts/active?point=${LOC.lat},${LOC.lon}`,
   obs: () => 'https://api.weather.gov/stations/KEEN/observations/latest',
   river: () => `https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items?monitoring_location_id=${GAUGE_FLOW},${GAUGE_TEMP}&parameter_code=00060,00010&f=json`,
-  flow: () => `https://api.waterdata.usgs.gov/ogcapi/v0/collections/continuous/items?monitoring_location_id=${GAUGE_FLOW}&parameter_code=00060&time=P2D&limit=1000&properties=time,value&f=json`
+  flow: () => `https://api.waterdata.usgs.gov/ogcapi/v0/collections/continuous/items?monitoring_location_id=${GAUGE_FLOW}&parameter_code=00060&time=P2D&limit=1000&properties=time,value&f=json`,
+  flowDays: () => `https://api.waterdata.usgs.gov/ogcapi/v0/collections/daily/items?monitoring_location_id=${GAUGE_FLOW}&parameter_code=00060&statistic_id=00003&time=P30D&limit=100&properties=time,value&f=json`,
+  flowFcst: () => `https://api.water.noaa.gov/nwps/v1/gauges/${NWS_GAUGE}/stageflow/forecast`
 };
 
-export const SOURCE_NAMES = { wx: 'the forecast', alerts: 'NWS alerts', obs: 'Keene observations', river: 'USGS river gauges', flow: 'USGS flow history' };
+export const SOURCE_NAMES = { wx: 'the forecast', alerts: 'NWS alerts', obs: 'Keene observations', river: 'USGS river gauges', flow: 'USGS flow history', flowDays: 'USGS daily flow', flowFcst: 'the NWS river forecast' };
+
+// Groups of assess() reasons, one row each in the Overview detail view.
+export const FACTORS = [
+  { key: 'wind', name: 'Wind', keys: ['wind', 'gust'] },
+  { key: 'rain', name: 'Rain', keys: ['pop', 'rain', 'snow', 'ice'] },
+  { key: 'storm', name: 'Thunder', keys: ['storm', 'stormrisk'] },
+  { key: 'fog', name: 'Fog', keys: ['fog'] },
+  { key: 'cold', name: 'Cold', keys: ['freeze', 'cold'] },
+  { key: 'flow', name: 'River', keys: ['flow'] },
+  { key: 'alert', name: 'Alerts', keys: ['alert'] }
+];
 
 // Short phrases for "then ..." in the hero
 export const THEN = { dark: 'dark', twilight: 'lights needed', storm: 'thunderstorms', stormrisk: 'a storm risk', ice: 'freezing rain', snow: 'snow', rain: 'heavy rain', wind: 'the wind builds', pop: 'rain likely', gust: 'gusts build', fog: 'fog', freeze: 'freezing temps', cold: 'cold-water caution', flow: 'high water', alert: 'an NWS alert' };

@@ -10,6 +10,8 @@ import { fetchAll } from './data.js';
 import { loadCache, saveCache } from './storage.js';
 import { render } from './render/index.js';
 import { fillPeriod } from './render/days.js';
+import { renderDetail, renderMenu } from './render/detail/index.js';
+import { initRoutes, goHome, setDay } from './route.js';
 import { initSettings } from './settings.js';
 import { initSuggest } from './suggest.js';
 
@@ -54,19 +56,42 @@ async function refresh() {
 // ---------- Events ----------
 $('refreshBtn').addEventListener('click', refresh);
 
-// Precipitation chart: tapping, hovering or focusing a column shows that hour.
-function showPrecipHour(e) {
-  const hit = e.target.closest && e.target.closest('.phit');
-  if (!hit) return;
-  const box = hit.closest('.precip');
-  box.querySelectorAll('.phit.on').forEach(x => x.classList.remove('on'));
+// Charts: tapping, hovering or focusing a column or cell shows its text in
+// the readout under the chart.
+function showReading(e) {
+  const hit = e.target.closest && e.target.closest('[data-text]');
+  const box = hit && hit.closest('.chart-box');
+  if (!box) return;
+  box.querySelectorAll('.on').forEach(x => x.classList.remove('on'));
   hit.classList.add('on');
-  box.querySelector('.precip-hover').textContent = hit.dataset.ptext;
+  box.querySelector('.readout').textContent = hit.dataset.text;
 }
-for (const ev of ['click', 'pointerover', 'focusin']) {
-  $('days').addEventListener(ev, showPrecipHour);
-  $('nowPrecip').addEventListener(ev, showPrecipHour);
-}
+for (const ev of ['click', 'pointerover', 'focusin']) document.addEventListener(ev, showReading);
+
+// ---------- Detail views ----------
+$('backLink').addEventListener('click', e => { e.preventDefault(); goHome(); });
+$('detail').addEventListener('click', e => {
+  const b = e.target.closest('button[data-day]');
+  if (!b) return;
+  setDay(b.dataset.day);
+  const again = $('detail').querySelector(`button[data-day="${b.dataset.day}"]`);
+  if (again) again.focus({ preventScroll: true });
+});
+
+// The Details menu. Clicking the backdrop or a link closes it.
+const menu = $('menu');
+$('detailsBtn').addEventListener('click', () => { renderMenu(); menu.showModal(); });
+$('menuClose').addEventListener('click', () => menu.close());
+menu.addEventListener('click', e => { if (e.target === menu || e.target.closest('a')) menu.close(); });
+
+// Charts are drawn to the width of the page, so redraw when it changes.
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (app.view && Math.abs($('detail').clientWidth - app.detailWidth) > 24) renderDetail();
+  }, 150);
+});
 
 // Remember which day-by-day rows are open across refreshes.
 // The toggle event does not bubble, so listen in the capture phase.
@@ -84,6 +109,7 @@ setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, RE
 
 initSettings(render);
 initSuggest();
+initRoutes();
 
 // ---------- Start ----------
 const cached = loadCache();

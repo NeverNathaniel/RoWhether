@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULTS, HOUR, MIN } from '../src/config.js';
 import { dayKey, localHour, lowerFirst } from '../src/format.js';
-import { precipKind, rateWord, precipSummary, buildModel, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
-import { parseAlerts, parseObs, parseRiver, parseFlow, alertLevel } from '../src/data.js';
+import { precipKind, rateWord, precipSummary, buildModel, rowingHours, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
+import { parseAlerts, parseObs, parseRiver, parseFlow, parseFlowDays, parseFlowForecast, alertLevel } from '../src/data.js';
 
 // Midnight Eastern (EDT, UTC-4) on Mon 15 June 2026.
 const T0 = Date.UTC(2026, 5, 15, 4);
@@ -423,5 +423,66 @@ describe('precipitation', () => {
     const s = precipSummary(mid.hs);
     expect(s.peak).toBe(70);
     expect(s.kind).toBe('rain');
+  });
+});
+
+describe('detail views', () => {
+  it('covers first light to sunset for a day, past hours included', () => {
+    const m = model();
+    const hs = rowingHours(m, '2026-06-15');
+    const s = sunFor(m, '2026-06-15');
+    expect(hs[0].t + HOUR).toBeGreaterThan(s.dawn);
+    expect(hs[0].t).toBeLessThanOrEqual(s.dawn);
+    expect(hs[hs.length - 1].t).toBeLessThan(s.sunset);
+    expect(hs.some(h => h.t < NOON)).toBe(true);
+    expect(rowingHours(m, '2030-01-01')).toEqual([]);
+  });
+  it('finds the worst level for a group of reasons', () => {
+    const m = model((i, t) => (t === NOON ? { wind: 12, gust: 26, pop: 65 } : {}));
+    const a = hourAt(m, 12).a;
+    expect(factorLevel(a, ['wind', 'gust'])).toMatchObject({ lvl: 2, why: { key: 'gust' } });
+    expect(factorLevel(a, ['pop']).lvl).toBe(1);
+    expect(factorLevel(a, ['fog'])).toEqual({ lvl: 0, why: null });
+    expect(worstOf(rowingHours(m, '2026-06-15'), ['pop'])).toBe(1);
+    expect(worstOf([], ['pop'])).toBe(0);
+  });
+  it('interpolates the NWS flow forecast and finds its peak', () => {
+    const fc = { pts: [{ t: NOON, v: 2000 }, { t: NOON + 6 * HOUR, v: 5000 }, { t: NOON + 12 * HOUR, v: 4000 }] };
+    expect(flowForecastAt(fc, NOON)).toBe(2000);
+    expect(flowForecastAt(fc, NOON + 3 * HOUR)).toBe(3500);
+    expect(flowForecastAt(fc, NOON + 12 * HOUR)).toBe(4000);
+    expect(flowForecastAt(fc, NOON - HOUR)).toBeNull();
+    expect(flowForecastAt(fc, NOON + 13 * HOUR)).toBeNull();
+    expect(flowForecastAt(null, NOON)).toBeNull();
+    expect(flowForecastPeak(fc, NOON)).toEqual({ t: NOON + 6 * HOUR, v: 5000 });
+    expect(flowForecastPeak(fc, NOON + 7 * HOUR)).toEqual({ t: NOON + 12 * HOUR, v: 4000 });
+    expect(flowForecastPeak(fc, NOON + 13 * HOUR)).toBeNull();
+  });
+});
+
+describe('river history and forecast parsers', () => {
+  it('parses USGS daily means in date order at noon Eastern', () => {
+    const s = parseFlowDays({ features: [
+      { properties: { time: '2026-10-03', value: '2360' } },
+      { properties: { time: '2026-09-13', value: '2820' } },
+      { properties: { time: '2026-09-14', value: 'bad' } }
+    ] });
+    expect(s.map(p => p.v)).toEqual([2820, 2360]);
+    expect(dayKey(s[0].t)).toBe('2026-09-13');
+    expect(localHour(s[0].t)).toBe(12);
+  });
+  it('parses the NWS flow forecast in cfs and drops missing values', () => {
+    const f = parseFlowForecast({
+      issuedTime: '2026-10-13T15:23:00Z', secondaryUnits: 'kcfs',
+      data: [
+        { validTime: '2026-10-14T00:00:00Z', primary: 7, secondary: 3.11 },
+        { validTime: '2026-10-13T18:00:00Z', primary: 6.3, secondary: 2.01 },
+        { validTime: '2026-10-14T06:00:00Z', primary: -999, secondary: -999 }
+      ]
+    });
+    expect(f.issued).toBe(Date.parse('2026-10-13T15:23:00Z'));
+    expect(f.pts.map(p => Math.round(p.v))).toEqual([2010, 3110]);
+    expect(parseFlowForecast({ secondaryUnits: 'cfs', data: [{ validTime: '2026-10-14T00:00:00Z', secondary: 900 }] }).pts[0].v).toBe(900);
+    expect(parseFlowForecast({}).pts).toEqual([]);
   });
 });

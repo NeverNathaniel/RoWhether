@@ -4,12 +4,17 @@ import { LOC, HOUR, MIN } from './config.js';
 const fTime = new Intl.DateTimeFormat('en-US', { timeZone: LOC.tz, hour: 'numeric', minute: '2-digit' });
 const fWeekday = new Intl.DateTimeFormat('en-US', { timeZone: LOC.tz, weekday: 'short' });
 export const fDayLong = new Intl.DateTimeFormat('en-US', { timeZone: LOC.tz, weekday: 'short', month: 'short', day: 'numeric' });
+const fMonthDay = new Intl.DateTimeFormat('en-US', { timeZone: LOC.tz, month: 'short', day: 'numeric' });
 const fKey = new Intl.DateTimeFormat('en-CA', { timeZone: LOC.tz, year: 'numeric', month: '2-digit', day: '2-digit' });
 const fH24 = new Intl.DateTimeFormat('en-US', { timeZone: LOC.tz, hour: 'numeric', hourCycle: 'h23' });
 
 export const dayKey = t => fKey.format(new Date(t));
+export const weekday = t => fWeekday.format(new Date(t));
+export const monthDay = t => fMonthDay.format(new Date(t));
 export const localHour = t => parseInt(fH24.format(new Date(t)), 10) % 24;
 export const hm = t => fTime.format(new Date(t)).replace(':00', '').replace(/\s(AM|PM)$/, ' $1');
+// "6a", "12p": compact hour labels for chart axes
+export const hShort = t => hm(t).replace(/:\d\d/, '').replace(' AM', 'a').replace(' PM', 'p');
 export const r0 = v => (v == null || isNaN(v)) ? null : Math.round(v);
 export const fmtInt = v => Math.round(v).toLocaleString('en-US');
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

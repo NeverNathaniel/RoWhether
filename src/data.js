@@ -56,7 +56,26 @@ export function parseFlow(d) {
     .sort((a, b) => a.t - b.t);
 }
 
-const PARSE = { wx: d => d, alerts: parseAlerts, obs: parseObs, river: parseRiver, flow: parseFlow };
+// Daily mean flow. Dates are local days; each point sits at noon Eastern
+// (16:00 UTC is noon EDT, 11 AM EST, close enough for a daily point).
+export function parseFlowDays(d) {
+  return (d.features || [])
+    .map(f => ({ t: Date.parse(`${f.properties.time}T16:00:00Z`), v: parseFloat(f.properties.value) }))
+    .filter(x => !isNaN(x.t) && !isNaN(x.v))
+    .sort((a, b) => a.t - b.t);
+}
+// NWS stage and flow forecast. Flow is the secondary series, usually in kcfs.
+// Missing values come as -999.
+export function parseFlowForecast(d) {
+  const k = /kcfs/i.test(d.secondaryUnits || '') ? 1000 : 1;
+  const pts = (d.data || [])
+    .map(p => ({ t: Date.parse(p.validTime), v: typeof p.secondary === 'number' && p.secondary >= 0 ? p.secondary * k : NaN }))
+    .filter(x => !isNaN(x.t) && !isNaN(x.v))
+    .sort((a, b) => a.t - b.t);
+  return { issued: Date.parse(d.issuedTime) || null, pts };
+}
+
+const PARSE = { wx: d => d, alerts: parseAlerts, obs: parseObs, river: parseRiver, flow: parseFlow, flowDays: parseFlowDays, flowFcst: parseFlowForecast };
 
 // Fetch every source in parallel. Each one fails on its own.
 // Returns { data, errors } where data holds only the sources that succeeded.

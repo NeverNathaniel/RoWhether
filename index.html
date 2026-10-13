@@ -24,44 +24,53 @@
     </div>
     <div class="actions">
       <span class="updated" id="updated">Loading</span>
+      <button type="button" id="detailsBtn" aria-haspopup="dialog">Details</button>
       <button type="button" id="refreshBtn">Refresh</button>
       <button type="button" id="settingsBtn">Settings</button>
     </div>
   </header>
 
   <main>
-    <section class="hero" id="hero" aria-live="polite" style="margin-top:0">
-      <p class="verdict" id="verdict">&nbsp;</p>
-      <p class="why" id="why">Loading conditions.</p>
-      <p class="holds" id="holds"></p>
-      <p class="status-note" id="statusNote" hidden></p>
-    </section>
-    <div id="alerts"></div>
+    <div id="home">
+      <section class="hero" id="hero" aria-live="polite" style="margin-top:0">
+        <p class="verdict" id="verdict">&nbsp;</p>
+        <p class="why" id="why">Loading conditions.</p>
+        <p class="holds" id="holds"></p>
+        <p class="status-note" id="statusNote" hidden></p>
+      </section>
+      <div id="alerts"></div>
 
-    <section aria-labelledby="nowTitle" id="nowSection" class="panel">
-      <h2 id="nowTitle">On the water now</h2>
-      <div class="now-grid">
-        <figure class="compass">
-          <svg id="compass" viewBox="-70 -70 140 140" role="img" aria-label="Wind direction relative to the river"></svg>
-          <figcaption id="compassCap"></figcaption>
-        </figure>
-        <div>
-          <dl class="facts" id="facts"></dl>
-          <div id="nowPrecip"></div>
+      <section aria-labelledby="nowTitle" id="nowSection" class="panel">
+        <h2 id="nowTitle">On the water now</h2>
+        <div class="now-grid">
+          <figure class="compass">
+            <svg id="compass" viewBox="-70 -70 140 140" role="img" aria-label="Wind direction relative to the river"></svg>
+            <figcaption id="compassCap"></figcaption>
+          </figure>
+          <div>
+            <dl class="facts" id="facts"></dl>
+            <div id="nowPrecip"></div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section aria-labelledby="daysTitle">
-      <h2 id="daysTitle">Day by day</h2>
-      <p class="lede">Morning is first light to 10 AM, midday 10 AM to 3 PM, afternoon 3 PM to sunset. Tap a row for the full forecast.</p>
-      <div class="days" id="days"></div>
+      <section aria-labelledby="daysTitle">
+        <h2 id="daysTitle">Day by day</h2>
+        <p class="lede">Morning is first light to 10 AM, midday 10 AM to 3 PM, afternoon 3 PM to sunset. Tap a row for the full forecast.</p>
+        <div class="days" id="days"></div>
+      </section>
+    </div>
+
+    <section id="detail" class="detail" hidden aria-labelledby="detailTitle">
+      <a class="back" href="#" id="backLink"><svg class="chev back-chev" viewBox="0 0 8 12" aria-hidden="true"><path d="M6 2L2 6l4 4"/></svg>Conditions</a>
+      <nav class="vnav" id="vnav" aria-label="Forecast details"></nav>
+      <div id="detailBody"></div>
     </section>
   </main>
 
   <footer>
     <p class="suggest-row" id="suggestRow" hidden><button type="button" id="suggestBtn">Suggest a change or report a bug</button></p>
-    <p>Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (NOAA HRRR and GFS models). Alerts and Keene observations from the <a href="https://www.weather.gov/aly/" target="_blank" rel="noopener">National Weather Service, Albany</a>. River flow from USGS gauge <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01154500/" target="_blank" rel="noopener">01154500 at North Walpole</a>, water temperature from <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01161280/" target="_blank" rel="noopener">01161280 near Northfield</a>.</p>
+    <p>Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (NOAA HRRR and GFS models). Alerts and Keene observations from the <a href="https://www.weather.gov/aly/" target="_blank" rel="noopener">National Weather Service, Albany</a>. River flow from USGS gauge <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01154500/" target="_blank" rel="noopener">01154500 at North Walpole</a>, water temperature from <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01161280/" target="_blank" rel="noopener">01161280 near Northfield</a>. River forecast from the <a href="https://water.noaa.gov/gauges/wlpn3" target="_blank" rel="noopener">NWS Northeast River Forecast Center</a>.</p>
     <p>Thresholds are starting points, not club rules. Lightning: off the water at the first thunder, back on 30 minutes after the last. Look at the water before you launch.</p>
   </footer>
 </div>
@@ -109,6 +118,15 @@
       <button value="save" class="primary">Save</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="menu" class="menu" aria-labelledby="menuTitle">
+  <div class="menu-in">
+    <h2 id="menuTitle">Forecast details</h2>
+    <p class="note">Charts and the reasoning behind each part of the call.</p>
+    <ul class="menu-list" id="menuList"></ul>
+    <div class="dlg-actions"><button type="button" id="menuClose">Close</button></div>
+  </div>
 </dialog>
 
 <dialog id="suggest" aria-labelledby="sugTitle">

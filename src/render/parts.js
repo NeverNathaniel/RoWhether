@@ -1,8 +1,13 @@
 // Small HTML and SVG builders shared by the sections.
-import { esc, hm } from '../format.js';
+import { esc, hm, hShort } from '../format.js';
 
-export function fact(label, val, note, lvl) {
-  return `<div class="fact"${lvl ? ` data-lvl="${lvl}"` : ''}><dt>${esc(label)}</dt><dd><div class="val">${val}</div>${note ? `<div class="note">${esc(note)}</div>` : ''}</dd></div>`;
+// A small chevron after a label that opens a detail view.
+export const CHEV = '<svg class="chev" viewBox="0 0 8 12" aria-hidden="true"><path d="M2 2l4 4-4 4"/></svg>';
+
+// href: optional detail view link. The link covers the whole fact.
+export function fact(label, val, note, lvl, href) {
+  const dt = href ? `<a class="flink stretch" href="${href}">${esc(label)}${CHEV}</a>` : esc(label);
+  return `<div class="fact"${lvl ? ` data-lvl="${lvl}"` : ''}><dt>${dt}</dt><dd><div class="val">${val}</div>${note ? `<div class="note">${esc(note)}</div>` : ''}</dd></div>`;
 }
 
 export function compassSVG(heading, dir, speed) {
@@ -35,10 +40,9 @@ export function sparkline(ser) {
 // Hourly chance of precipitation as columns, one per hour. Columns over the
 // rain caution or stay-off setting take that status color, and the settings
 // are drawn as labeled dashed lines. Only the peak is labeled; each column has
-// a hit area carrying its hour's text for the tap readout (data-ptext), and the
+// a hit area carrying its hour's text for the tap readout (data-text), and the
 // hour table below holds every value.
 const isSet = v => v !== '' && v != null && !isNaN(v);
-const shortHour = t => { const s = hm(t).replace(/ /, ' '); return s.replace(/:\d\d/, '').replace(' AM', 'a').replace(' PM', 'p'); };
 
 export function precipChart(hs, S, from, describe) {
   const n = hs.length, W = 320, H = 140, top = 22, bottom = 24, left = 2, right = 38;
@@ -61,11 +65,11 @@ export function precipChart(hs, S, from, describe) {
     const x = left + i * slot + (slot - bw) / 2, yt = Math.min(y(v), base - 2), r = Math.min(4, bw / 2, base - yt);
     s += `<path class="pbar b${lvl}" data-pi="${i}" d="M${x} ${base}V${yt + r}Q${x} ${yt} ${x + r} ${yt}H${x + bw - r}Q${x + bw} ${yt} ${x + bw} ${yt + r}V${base}Z"/>`;
     if (i === pi && peak > 0) s += `<text class="plabel" x="${x + bw / 2}" y="${yt - 6}" text-anchor="middle">${v}%</text>`;
-    if (n <= 6 || i % 2 === 0) s += `<text class="paxis" x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${esc(shortHour(Math.max(h.t, from)))}</text>`;
+    if (n <= 6 || i % 2 === 0) s += `<text class="paxis" x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${esc(hShort(Math.max(h.t, from)))}</text>`;
   });
   hs.forEach((h, i) => {
     const text = describe(h, i);
-    s += `<rect class="phit" data-pi="${i}" data-ptext="${esc(text)}" tabindex="0" x="${left + i * slot}" y="0" width="${slot}" height="${H}"><title>${esc(text)}</title></rect>`;
+    s += `<rect class="hit" data-pi="${i}" data-text="${esc(text)}" tabindex="0" x="${left + i * slot}" y="0" width="${slot}" height="${H}"><title>${esc(text)}</title></rect>`;
   });
   return `<svg class="pchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Chance of precipitation by hour, highest ${peak}% at ${esc(hm(hs[pi].t))}">${s}</svg>`;
 }

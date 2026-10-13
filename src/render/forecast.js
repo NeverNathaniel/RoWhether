@@ -2,7 +2,7 @@
 // Shown when a Day by day row is opened.
 import { WORD_PLAIN, LIGHT_KEYS, WATER } from '../config.js';
 import { esc, hm, r0, card, rng, fmtInt, visText, dayKey } from '../format.js';
-import { fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept } from '../logic.js';
+import { fogLift, waterWhy, debrisLikely, flowNow, flowTrend, flowForecastAt, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept } from '../logic.js';
 import { fact, compassSVG, sparkline } from './parts.js';
 import { precipBlock } from './precip.js';
 
@@ -27,40 +27,44 @@ export function forecastPanel(m, p) {
   const dirNote = shifting
     ? `Shifting from ${card(hs[0].dir)} to ${card(hs[hs.length - 1].dir)}.`
     : `Mostly from ${card(p.dir)}. ${windVsCourse(m, p.dir, p.avgWind)}`;
-  f.push(fact('Wind', `${rng(p.wmin, p.wmax, ' mph')}, gusts to ${r0(p.gmax)}`, dirNote, maxLvl(['wind', 'gust'])));
+  f.push(fact('Wind', `${rng(p.wmin, p.wmax, ' mph')}, gusts to ${r0(p.gmax)}`, dirNote, maxLvl(['wind', 'gust']), `#wind/${p.dayKey}`));
 
   if (p.water) {
     const w = p.water;
     const range = w.min < w.max ? `${WATER.names[w.min]} at times, ${WATER.names[w.max].toLowerCase()} around ${hm(w.peakT)}. ` : '';
     const debris = p.dayKey === dayKey(m.now) && debrisLikely(m) ? ' River rising fast. Watch for floating debris.' : '';
-    f.push(fact('Water state', WATER.names[w.max], range + waterWhy(w.peak) + debris));
+    f.push(fact('Water state', WATER.names[w.max], range + waterWhy(w.peak) + debris, 0, `#wind/${p.dayKey}`));
   }
 
   f.push(fact('Air', rng(p.tmin, p.tmax, '°F'),
     `Feels like ${rng(Math.min(...nums('feels')), Math.max(...nums('feels')), '°F')}. Dew point ${rng(Math.min(...nums('dew')), Math.max(...nums('dew')), '°F')}.`,
-    maxLvl(['freeze'])));
+    maxLvl(['freeze']), `#temperature/${p.dayKey}`));
 
   const wt = waterTemp(m);
   if (wt != null) {
-    f.push(fact('Water', `${r0(wt)}°F`, waterOverridden(S) ? 'Your reading, set in Settings.' : 'Latest gauge reading. River temperature moves slowly, so it should hold.'));
+    f.push(fact('Water', `${r0(wt)}°F`, waterOverridden(S) ? 'Your reading, set in Settings.' : 'Latest gauge reading. River temperature moves slowly, so it should hold.', 0, `#temperature/${p.dayKey}`));
     const minSum = Math.round(p.tmin + wt);
     f.push(fact('Air plus water', `${minSum}°F`,
       minSum < S.coldCombined ? `Under ${S.coldCombined} at the coldest point. Dress for immersion and row with a launch.` : `Above the ${S.coldCombined} cold-water line throughout.`,
-      maxLvl(['cold'])));
+      maxLvl(['cold']), `#temperature/${p.dayKey}`));
   } else {
     f.push(fact('Water', '--', 'Gauge unavailable. Add a dock reading in Settings.'));
   }
 
   const vis = nums('vis');
   const fogNote = p.fog ? `${p.fog.text}${p.fog.until ? ', ' + fogLift(p.fog) : ''}. ${p.fog.why}` : 'Fog risk low.';
-  f.push(fact('Visibility', visText(vis.length ? Math.min(...vis) : null), fogNote, maxLvl(['fog'])));
+  f.push(fact('Visibility', visText(vis.length ? Math.min(...vis) : null), fogNote, maxLvl(['fog']), `#fog/${p.dayKey}`));
 
 
   const fl = flowNow(m);
   if (fl != null) {
     const tr = flowTrend(m.data.flow);
+    const fc = flowForecastAt(m.data.flowFcst, p.from + (p.end - p.from) / 2);
+    const ahead = fc != null
+      ? `NWS forecast for this period: about ${fmtInt(Math.round(fc / 100) * 100)} cfs. The call uses the latest reading.`
+      : 'The NWS forecast does not reach this far, so check again closer to the time.';
     f.push(fact('River flow', `${fmtInt(fl)} cfs ${sparkline(m.data.flow)}`,
-      `Latest reading${tr ? ', ' + tr.charAt(0).toLowerCase() + tr.slice(1) : ''}. The app does not forecast flow, so check again closer to the time.`, maxLvl(['flow'])));
+      `Latest reading${tr ? ', ' + tr.charAt(0).toLowerCase() + tr.slice(1) : ''}. ${ahead}`, maxLvl(['flow']), '#river'));
   }
 
   const s = sunFor(m, p.dayKey);
@@ -77,7 +81,7 @@ export function forecastPanel(m, p) {
       </figure>
       <div>
         <dl class="facts">${f.join('')}</dl>
-        ${precipBlock(m, p.hs, p.from, maxLvl(['rain', 'pop', 'storm', 'stormrisk', 'snow', 'ice']))}
+        ${precipBlock(m, p.hs, p.from, maxLvl(['rain', 'pop', 'storm', 'stormrisk', 'snow', 'ice']), { href: `#rain/${p.dayKey}` })}
         ${hoursTable(p)}
       </div>
     </div>
