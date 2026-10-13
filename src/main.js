@@ -15,7 +15,23 @@ import { initSuggest } from './suggest.js';
 
 // The service worker caches the app shell so it opens offline. Data still
 // comes from the network, with the last good copy kept in localStorage.
-registerSW({ immediate: true });
+// An app installed to the home screen often resumes without reloading, so
+// it would only find a new version after a full restart. Check again each
+// time it comes back to the foreground (at most every 5 minutes). When a new
+// version is found, autoUpdate installs it and reloads the page.
+const UPDATE_CHECK_MS = 5 * 60 * 1000;
+registerSW({
+  immediate: true,
+  onRegisteredSW(swUrl, registration) {
+    if (!registration) return;
+    let lastCheck = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || Date.now() - lastCheck < UPDATE_CHECK_MS) return;
+      lastCheck = Date.now();
+      registration.update().catch(() => { /* offline; try next time */ });
+    });
+  }
+});
 
 // ---------- Refresh ----------
 let busy = false;
