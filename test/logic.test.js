@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULTS, HOUR, MIN } from '../src/config.js';
 import { dayKey, localHour, lowerFirst } from '../src/format.js';
-import { precipKind, rateWord, precipSummary, buildModel, rowingHours, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
+import { precipKind, rateWord, precipSummary, buildModel, rowingHours, callRuns, factorRuns, worstReasons, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
 import { parseAlerts, parseObs, parseRiver, parseFlow, parseFlowDays, parseFlowForecast, alertLevel } from '../src/data.js';
 
 // Midnight Eastern (EDT, UTC-4) on Mon 15 June 2026.
@@ -484,5 +484,50 @@ describe('river history and forecast parsers', () => {
     expect(f.pts.map(p => Math.round(p.v))).toEqual([2010, 3110]);
     expect(parseFlowForecast({ secondaryUnits: 'cfs', data: [{ validTime: '2026-10-14T00:00:00Z', secondary: 900 }] }).pts[0].v).toBe(900);
     expect(parseFlowForecast({}).pts).toEqual([]);
+  });
+});
+
+describe('runs', () => {
+  // Gusts build to caution at 1 PM and stay off at 3 PM, then ease at 5 PM.
+  const gusty = (i, t) => {
+    const hr = localHour(t);
+    if (dayKey(t) !== '2026-06-15') return {};
+    return hr >= 15 && hr < 17 ? { gust: 26 + (hr - 15) } : hr >= 13 && hr < 15 ? { gust: 20 } : {};
+  };
+  it('splits the day into stretches of the same call, starting now', () => {
+    const m = model(gusty);
+    const runs = callRuns(m, '2026-06-15');
+    expect(runs.map(r => r.lvl)).toEqual([0, 1, 2, 0]);
+    expect(runs[0].start).toBe(NOON);
+    expect(localHour(runs[1].start)).toBe(13);
+    expect(localHour(runs[2].start)).toBe(15);
+    expect(runs[2].end).toBe(runs[3].start);
+    expect(runs[3].end).toBe(sunFor(m, '2026-06-15').sunset);
+    // The worst hour is quoted.
+    expect(runs[2].why.map(x => x.text)).toEqual(['Gusts to 27 mph']);
+  });
+  it('can include hours already over, from first light', () => {
+    const m = model(gusty);
+    const runs = callRuns(m, '2026-06-15', { past: true });
+    expect(runs[0].start).toBe(sunFor(m, '2026-06-15').dawn);
+  });
+  it('joins a caution and a stay off for one factor into one run', () => {
+    const m = model(gusty);
+    const fr = factorRuns(m, '2026-06-15', ['wind', 'gust']);
+    expect(fr).toHaveLength(1);
+    expect(fr[0]).toMatchObject({ lvl: 2 });
+    expect(localHour(fr[0].start)).toBe(13);
+    expect(localHour(fr[0].end)).toBe(17);
+    expect(fr[0].why.map(x => x.text)).toEqual(['Gusts to 27 mph']);
+    expect(factorRuns(m, '2026-06-15', ['pop'])).toEqual([]);
+  });
+  it('quotes the lowest visibility and the coldest air', () => {
+    const hs = [
+      { vis: 1200, temp: 40, a: { reasons: [{ lvl: 1, key: 'fog', text: 'Visibility 0.7 mi' }, { lvl: 1, key: 'cold', text: 'Cold water, air plus water 95°F' }] } },
+      { vis: 900, temp: 36, a: { reasons: [{ lvl: 1, key: 'fog', text: 'Visibility 0.6 mi' }, { lvl: 1, key: 'cold', text: 'Cold water, air plus water 91°F' }] } }
+    ];
+    expect(worstReasons(hs, 1).map(x => x.text)).toEqual(['Visibility 0.6 mi', 'Cold water, air plus water 91°F']);
+    expect(worstReasons(hs, 1, ['cold']).map(x => x.text)).toEqual(['Cold water, air plus water 91°F']);
+    expect(worstReasons(hs, 0)).toEqual([]);
   });
 });

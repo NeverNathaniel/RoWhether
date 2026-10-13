@@ -24,11 +24,12 @@
     </div>
     <div class="actions">
       <span class="updated" id="updated">Loading</span>
-      <button type="button" id="detailsBtn" aria-haspopup="dialog">Details</button>
       <button type="button" id="refreshBtn">Refresh</button>
       <button type="button" id="settingsBtn">Settings</button>
     </div>
   </header>
+
+  <nav class="tabs" id="tabs" aria-label="Sections"></nav>
 
   <main>
     <div id="home">
@@ -62,8 +63,6 @@
     </div>
 
     <section id="detail" class="detail" hidden aria-labelledby="detailTitle">
-      <a class="back" href="#" id="backLink"><svg class="chev back-chev" viewBox="0 0 8 12" aria-hidden="true"><path d="M6 2L2 6l4 4"/></svg>Conditions</a>
-      <nav class="vnav" id="vnav" aria-label="Forecast details"></nav>
       <div id="detailBody"></div>
     </section>
   </main>
@@ -118,15 +117,6 @@
       <button value="save" class="primary">Save</button>
     </div>
   </form>
-</dialog>
-
-<dialog id="menu" class="menu" aria-labelledby="menuTitle">
-  <div class="menu-in">
-    <h2 id="menuTitle">Forecast details</h2>
-    <p class="note">Charts and the reasoning behind each part of the call.</p>
-    <ul class="menu-list" id="menuList"></ul>
-    <div class="dlg-actions"><button type="button" id="menuClose">Close</button></div>
-  </div>
 </dialog>
 
 <dialog id="suggest" aria-labelledby="sugTitle">

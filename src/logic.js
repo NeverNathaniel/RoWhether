@@ -425,3 +425,60 @@ export function flowForecastPeak(fc, after) {
   const p = ((fc && fc.pts) || []).filter(x => x.t >= after);
   return p.length ? p.reduce((a, b) => (b.v > a.v ? b : a)) : null;
 }
+
+// How bad an hour is for one reason, used to quote the worst hour of a run.
+const WORSE = {
+  wind: h => h.wind, gust: h => h.gust, pop: h => h.pop, rain: h => h.precip,
+  fog: h => -(h.vis ?? Infinity), freeze: h => -h.temp, cold: h => -h.temp
+};
+
+// The worst reason for each reason key among hours at a level, leaving out
+// light. keys limits it to some reasons.
+export function worstReasons(hs, lvl, keys = null) {
+  if (!lvl) return [];
+  const byKey = new Map();
+  for (const h of hs) {
+    for (const x of h.a.reasons) {
+      if (x.lvl !== lvl || LIGHT_KEYS.includes(x.key) || (keys && !keys.includes(x.key))) continue;
+      const f = WORSE[x.key], prev = byKey.get(x.key);
+      if (!prev || (f && f(h) > f(prev.h))) byKey.set(x.key, { h, x });
+    }
+  }
+  return [...byKey.values()].map(v => v.x);
+}
+
+// Stretches of one day's rowing window where level(h) stays the same. Each run
+// has its level, its hours, a start and end clipped to first light and
+// sunset, and the worst reasons at its level. Hours already over are left out
+// and the first run starts now, unless past is set.
+export function runsBy(m, key, level, { past = false, keys = null } = {}) {
+  const s = sunFor(m, key);
+  if (!s) return [];
+  const runs = [];
+  for (const h of rowingHours(m, key)) {
+    if (!past && h.t + HOUR <= m.now) continue;
+    const lvl = level(h), last = runs[runs.length - 1];
+    if (last && last.lvl === lvl) last.hs.push(h);
+    else runs.push({ lvl, hs: [h] });
+  }
+  for (const r of runs) {
+    r.start = Math.max(r.hs[0].t, s.dawn, past ? -Infinity : m.now);
+    r.end = Math.min(r.hs[r.hs.length - 1].t + HOUR, s.sunset);
+    r.why = worstReasons(r.hs, r.lvl, keys);
+  }
+  return runs.filter(r => r.end > r.start);
+}
+
+// The call through one day, ignoring light, as runs.
+export const callRuns = (m, key, opts) => runsBy(m, key, h => lvlExcept(h.a, LIGHT_KEYS), opts);
+
+// Stretches where one group of reasons (a FACTORS entry) is a concern. A
+// caution that turns into a stay off is one run at the worse level.
+export function factorRuns(m, key, keys) {
+  return runsBy(m, key, h => (factorLevel(h.a, keys).lvl ? 1 : 0), { keys })
+    .filter(r => r.lvl)
+    .map(r => {
+      const lvl = Math.max(...r.hs.map(h => factorLevel(h.a, keys).lvl));
+      return { ...r, lvl, why: worstReasons(r.hs, lvl, keys) };
+    });
+}

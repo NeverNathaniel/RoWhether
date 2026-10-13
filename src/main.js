@@ -10,8 +10,8 @@ import { fetchAll } from './data.js';
 import { loadCache, saveCache } from './storage.js';
 import { render } from './render/index.js';
 import { fillPeriod } from './render/days.js';
-import { renderDetail, renderMenu } from './render/detail/index.js';
-import { initRoutes, goHome, setDay } from './route.js';
+import { renderDetail } from './render/detail/index.js';
+import { initRoutes, setDay } from './route.js';
 import { initSettings } from './settings.js';
 import { initSuggest } from './suggest.js';
 
@@ -69,7 +69,6 @@ function showReading(e) {
 for (const ev of ['click', 'pointerover', 'focusin']) document.addEventListener(ev, showReading);
 
 // ---------- Detail views ----------
-$('backLink').addEventListener('click', e => { e.preventDefault(); goHome(); });
 $('detail').addEventListener('click', e => {
   const b = e.target.closest('button[data-day]');
   if (!b) return;
@@ -77,12 +76,6 @@ $('detail').addEventListener('click', e => {
   const again = $('detail').querySelector(`button[data-day="${b.dataset.day}"]`);
   if (again) again.focus({ preventScroll: true });
 });
-
-// The Details menu. Clicking the backdrop or a link closes it.
-const menu = $('menu');
-$('detailsBtn').addEventListener('click', () => { renderMenu(); menu.showModal(); });
-$('menuClose').addEventListener('click', () => menu.close());
-menu.addEventListener('click', e => { if (e.target === menu || e.target.closest('a')) menu.close(); });
 
 // Charts are drawn to the width of the page, so redraw when it changes.
 let resizeTimer;

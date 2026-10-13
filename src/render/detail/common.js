@@ -69,12 +69,14 @@ export const lvlDot = l => `<i class="b${l}" aria-label="${WORD_PLAIN[l]}"></i>`
 
 // The table version of a chart, closed by default. Cells are HTML.
 export function hourTable(caption, heads, rows) {
-  return `<details class="twin"><summary>${esc(caption)}</summary><div class="hours-wrap"><table class="hours">
+  return `<details class="twin" data-keep="${esc(caption)}"><summary>${esc(caption)}</summary><div class="hours-wrap"><table class="hours">
     <thead><tr>${heads.map(h => `<th scope="col">${esc(h)}</th>`).join('')}</tr></thead>
     <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
   </table></div></details>`;
 }
 
+// The tab already names the view, so the heading is for screen readers and
+// the opening line leads.
 export function head(title, lede) {
-  return `<h2 id="detailTitle" tabindex="-1">${esc(title)}</h2>${lede ? `<p class="lede">${esc(lede)}</p>` : ''}`;
+  return `<h2 id="detailTitle" class="vh">${esc(title)}</h2>${lede ? `<p class="lede">${esc(lede)}</p>` : ''}`;
 }

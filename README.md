@@ -12,8 +12,8 @@ Night is not shown. The rowing day runs from first light to sunset.
 - Precipitation: an hour by hour chart of the chance, with when it is most likely, what kind, and how much. Shown in On the water now for the next 6 hours (or until sunset), and in each full forecast for its period.
 - Water state: flat, light chop, chop or rough, from wind along the straight, how long it has blown, and wind against the current. Warns about floating debris when the river is rising fast.
 - Day by day for 7 days: morning (first light to 10 AM), midday (10 AM to 3 PM) and afternoon (3 PM to sunset), each with its call, wind against the course, temperature, rain and fog. Tap a row for the full forecast: compass, wind against the course, air, water, the cold check, visibility and fog, rain, flow, daylight, and an hour by hour table.
-- Forecast details, from the Details button or by tapping a fact: six views with charts and the reasoning behind each part of the call.
-  - Overview: every hour of the week colored by the call, and for one day, which factor (wind, rain, thunder, fog, cold, river, alerts, light) sets it.
+- Tabs under the header: Now (everything above), then six views with charts and the reasoning behind each part of the call. Tapping a fact opens its tab.
+  - Week: the longest go windows ahead, then each day as one bar from first light to sunset, with what stands in the way in words. A day opens to a bar for each factor that matters.
   - Wind: wind and gusts against your settings, direction relative to the course, and water state, hour by hour.
   - Rain: chance against your settings, amount, and thunderstorm risk.
   - Temperature: air and feels like against the freezing and cold-water lines, with water temperature.

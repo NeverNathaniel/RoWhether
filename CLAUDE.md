@@ -77,28 +77,29 @@ Precipitation is information on top of the rain chance rules above:
 
 Wind vs course uses `relWind()`: the angle between where the wind comes from and the upstream heading. Within 60° either way is head or tail; otherwise crosswind, with the side named as the NH (east) or VT (west) bank.
 
-## Detail views
+## Tabs and detail views
 
-The home screen is the quick answer. The Details button in the header opens a menu of six views, each with a one-line live summary; tapping a fact in On the water now or in a full forecast opens the matching view (for that day, from a forecast). Views: Overview, Wind, Rain, Temperature, Fog, River (`src/render/detail/`).
+The home screen is the quick answer. A tab bar under the header is the only navigation: Now (the home screen), Week, Wind, Rain, Temperature, Fog, River. Tabs are text with an underline, pinned to the top on scroll, so they read as places and the pill buttons stay actions. Tapping a fact in On the water now or in a full forecast opens the matching tab (for that day, from a forecast). Views are in `src/render/detail/`.
 
-- Hash routes: `#wind`, or `#wind/2026-10-14` for one day (`src/route.js`). The home screen is no hash. Each history entry stores its depth from home, so the back link returns to the home entry, and a view opened from a bookmark still has a way home. Home scroll position is restored.
-- Each day-based view has a week strip (one button per day, a small bar and value, colored by that factor's worst level) that picks the day, then a chart of that day's rowing window (fog: midnight to 11 AM), a legend, a readout for the tapped hour, an "Hour by hour" table twin, and a "How this works" panel that states the rules with the current settings. A picked day carries across views.
+- Hash routes (`src/route.js`): no hash or `#now` is home; `#wind`, or `#wind/2026-10-14` for one day. Switching back to Now restores the home scroll position. The tab names the view, so each view's heading is visually hidden and its opening line leads.
+- Week: the three longest go stretches ahead (an hour or more, with a lights note before sunrise), then one row per day: a bar from first light to sunset on a clock axis shared by all days (the part already over is faded), and one line per concern in words, time first ("1 to 5 PM: gusts to 26 mph"). A day opens to a bar for each factor that matters, linked to its tab, and one line naming the factors with no concern. Built from `callRuns()` and `factorRuns()`.
+- The other views have a week strip (one button per day, a small bar and value, colored by that factor's worst level) that picks the day, then a chart of that day's rowing window (fog: midnight to 11 AM), a legend, a readout for the tapped hour, an "Hour by hour" table twin, and a "How this works" panel that states the rules with the current settings. A picked day carries across views. Sections the viewer opens (`details[data-keep]`) stay open through the 10-minute refresh.
 - Charts use `Chart` in `src/render/chart.js`: one time axis, stacked lanes each with their own y scale (no dual axes), settings as dashed status lines, hit columns spanning all lanes. Charts are drawn at the measured page width so SVG text is real size, and redrawn on resize.
-- Color: river teal for the main series, muted gray for a secondary one, status colors only where they mean go, caution or stay off. Go and stay off are close for red-green color blindness, so stay-off squares in the Overview grid carry a diagonal stroke.
+- Color: river teal for the main series, muted gray for a secondary one, status colors only where they mean go, caution or stay off. Go and stay off are close for red-green color blindness, so stay off carries a fine diagonal hatch in the Week bars and legend.
 
 ## Code map
 
-- `index.html`: page markup, the settings `<dialog>`, the Details menu `<dialog>`, and the detail view container (`#detail`, next to `#home`). Loads `src/main.js`.
-- `src/config.js`: location, endpoints (`SRC`), `DEFAULTS`, storage keys, copy tables (`CHIP`, `THEN`, `WORD`), and `FACTORS` (groups of reasons for the Overview grid).
+- `index.html`: page markup, the tab bar (`#tabs`, filled by `initRoutes()`), the settings `<dialog>`, and the detail view container (`#detail`, next to `#home`). Loads `src/main.js`.
+- `src/config.js`: location, endpoints (`SRC`), `DEFAULTS`, storage keys, copy tables (`CHIP`, `THEN`, `WORD`), and `FACTORS` (groups of reasons, one per concern in the Week view).
 - `src/format.js`: Eastern-time formatters and text helpers (`dayKey`, `hm`, `whenText`, `card`, `rng`, `esc`).
 - `src/storage.js`: `loadSettings`, `saveSettings`, `loadCache`, `saveCache`. All guarded with try/catch.
 - `src/data.js`: `fetchJSON`, the parsers (`parseAlerts`, `parseObs`, `parseRiver`, `parseFlow`, `parseFlowDays`, `parseFlowForecast`) and `fetchAll`.
-- `src/logic.js`: the call logic, pure and DOM free. `buildModel(data, settings, now)` returns the model every render reads: hours, days, `h72`, `cur`, `alerts`. Also `assess`, `lvlExcept`, `sunFor`, `lightAt`, `fogRisk`, `morningFog`, `nextMorning`, `windVsCourse`, `precipKind`, `rateWord`, `precipSummary`, `flowTrend`, `flowChange`, `chopWind`, `waterState`, `waterWhy`, `debrisLikely`, `periodsFor`, and for the detail views `rowingHours`, `factorLevel`, `worstOf`, `flowForecastAt`, `flowForecastPeak`. The model also has `daytime`, `next`, and `periods` on each day.
+- `src/logic.js`: the call logic, pure and DOM free. `buildModel(data, settings, now)` returns the model every render reads: hours, days, `h72`, `cur`, `alerts`. Also `assess`, `lvlExcept`, `sunFor`, `lightAt`, `fogRisk`, `morningFog`, `nextMorning`, `windVsCourse`, `precipKind`, `rateWord`, `precipSummary`, `flowTrend`, `flowChange`, `chopWind`, `waterState`, `waterWhy`, `debrisLikely`, `periodsFor`, and for the detail views `rowingHours`, `factorLevel`, `worstOf`, `worstReasons`, `runsBy`, `callRuns`, `factorRuns`, `flowForecastAt`, `flowForecastPeak`. The model also has `daytime`, `next`, and `periods` on each day.
 - `src/state.js`: the mutable `app` object (settings, data, errors, model, UI selection) and `$`.
 - `src/render/`: one file per section. `index.js` has `render()`, which rebuilds the model and draws everything, including the open detail view. `hero.js`, `now.js`, `days.js` (Day by day rows, plus period text helpers the hero reuses), `forecast.js` (the full forecast a row opens to, built when opened), `precip.js` (the precipitation section both use, and `precipNote()`), and shared builders in `parts.js` (`fact()` takes an optional detail view link).
 - `src/render/chart.js`: the SVG chart kit for the detail views (`Chart`, `niceTicks`, `niceMax`).
-- `src/render/detail/`: `index.js` (the `VIEWS` registry, `renderDetail()`, `renderMenu()`), `common.js` (week strip, legend, chart box, hour table, chart width), and one file per view. Each view exports `key`, `name`, `summary(m)` and `render(m, day)`.
-- `src/route.js`: `parseRoute`, `initRoutes`, `goHome`, `setDay`.
+- `src/render/detail/`: `index.js` (the `VIEWS` registry and `renderDetail()`), `common.js` (week strip, legend, chart box, hour table, chart width), and one file per view: `week.js`, `wind.js`, `rain.js`, `temperature.js`, `fog.js`, `river.js`. Each view exports `key`, `name`, `summary(m)` (its opening line) and `render(m, day)`.
+- `src/route.js`: `parseRoute`, `initRoutes` (builds the tabs), `setDay`.
 - `src/settings.js`: settings dialog wiring.
 - `src/main.js`: styles, service worker registration, `refresh`, event listeners, startup.
 - `src/styles/tokens.css` (colors) and `src/styles/app.css` (everything else).
@@ -132,7 +133,7 @@ For UI changes, also check in a browser with `npm run dev` or `npm run build && 
 - Pin the page clock (`page.clock.install`) to midday and to 9 PM. Midday shows the live call and On the water now. 9 PM hides On the water now and the hero shows tomorrow morning.
 - Open a Day by day row and confirm the full forecast (facts and hour table) shows. The `toggle` event is async, so wait for `.forecast` before checking.
 - Abort requests to open-meteo, weather.gov, usgs.gov and water.noaa.gov and confirm the "every data source was blocked" message.
-- Open each detail view (`#overview`, `#wind`, `#rain`, `#temperature`, `#fog`, `#river`) at 360, 390 and 1280 px. Confirm no horizontal page scroll, the week strip labels fit, the header buttons stay on one row, and tapping a chart fills the readout. At 9 PM the Fog view opens on tomorrow morning. The back link returns home with the scroll position kept.
+- Open each tab (`#week`, `#wind`, `#rain`, `#temperature`, `#fog`, `#river`) at 360, 390 and 1280 px. Confirm no horizontal page scroll, the week strip labels fit, the header buttons stay on one row, the tab bar stays pinned when scrolled, and tapping a chart fills the readout. At 9 PM the Fog view opens on tomorrow morning. Scroll the home screen, switch tabs, then tap Now: the scroll position is kept. In Week, open a day and confirm it stays open after a redraw.
 
 ## Open items
 
