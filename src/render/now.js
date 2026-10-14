@@ -2,7 +2,7 @@
 import { HOUR, WATER } from '../config.js';
 import { app, $ } from '../state.js';
 import { r0, card, fmtInt, ago, visText, hm, dayKey, dayWord } from '../format.js';
-import { precipKind, rateWord, fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor } from '../logic.js';
+import { precipKind, rateWord, fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, aqiWord } from '../logic.js';
 import { fact, compassSVG, sparkline } from './parts.js';
 import { precipBlock } from './precip.js';
 
@@ -77,6 +77,11 @@ export function renderNow() {
 
   f.push(fact('Visibility', visText(cur.vis), visibilityNote(m), lvlOf('fog'), '#fog'));
 
+  if (cur.aqi != null) {
+    f.push(fact('Air quality', `AQI ${r0(cur.aqi)}`,
+      `${aqiWord(cur.aqi)}.${cur.pm25 != null ? ` Fine particles ${r0(cur.pm25)} µg/m³.` : ''} A forecast, not a measurement.`, lvlOf('aqi'), '#air'));
+  }
+
   const fl = flowNow(m);
   if (fl != null) {
     const tr = flowTrend(m.data.flow);
@@ -92,7 +97,7 @@ export function renderNow() {
   if (s) {
     f.push(fact(dayLabel, `${hm(s.sunrise)} to ${hm(s.sunset)}`,
       `First light ${hm(s.dawn)}, dark by ${hm(s.dusk)}. Lights required outside sunrise to sunset.`,
-      lvlOf('twilight')));
+      lvlOf('twilight'), '#light'));
   }
 
   const o = m.data.obs;

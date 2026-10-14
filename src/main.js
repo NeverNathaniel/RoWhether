@@ -7,13 +7,15 @@ import { registerSW } from 'virtual:pwa-register';
 import { REFRESH_MS, MIN } from './config.js';
 import { app, $ } from './state.js';
 import { fetchAll } from './data.js';
-import { loadCache, saveCache } from './storage.js';
+import { loadCache, saveCache, loadPlan, savePlan } from './storage.js';
 import { render } from './render/index.js';
 import { fillPeriod } from './render/days.js';
 import { renderDetail } from './render/detail/index.js';
 import { initRoutes, setDay } from './route.js';
 import { initSettings } from './settings.js';
 import { initSuggest } from './suggest.js';
+import { initShare } from './share.js';
+import { initReports, loadInfo, loadReports } from './reports.js';
 
 // The service worker caches the app shell so it opens offline. Data still
 // comes from the network, with the last good copy kept in localStorage.
@@ -49,6 +51,7 @@ async function refresh() {
   if (!errors.wx) { app.updated = Date.now(); app.fromCache = false; }
   saveCache(app.data, app.updated);
   render();
+  loadReports();
   btn.disabled = false;
   busy = false;
 }
@@ -70,6 +73,19 @@ for (const ev of ['click', 'pointerover', 'focusin']) document.addEventListener(
 
 // ---------- Detail views ----------
 $('detail').addEventListener('click', e => {
+  // Plan a row choices.
+  const pick = e.target.closest('button[data-plan-min], button[data-plan-when]');
+  if (pick) {
+    const plan = loadPlan();
+    if (pick.dataset.planMin) plan.minutes = +pick.dataset.planMin;
+    if (pick.dataset.planWhen) plan.when = pick.dataset.planWhen;
+    savePlan(plan);
+    renderDetail();
+    const sel = pick.dataset.planMin ? `[data-plan-min="${plan.minutes}"]` : `[data-plan-when="${plan.when}"]`;
+    const again = $('detail').querySelector(`button${sel}`);
+    if (again) again.focus({ preventScroll: true });
+    return;
+  }
   const b = e.target.closest('button[data-day]');
   if (!b) return;
   setDay(b.dataset.day);
@@ -102,7 +118,10 @@ setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, RE
 
 initSettings(render);
 initSuggest();
+initShare();
+initReports();
 initRoutes();
+loadInfo().then(loadReports);
 
 // ---------- Start ----------
 const cached = loadCache();

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULTS, HOUR, MIN } from '../src/config.js';
 import { dayKey, localHour, lowerFirst } from '../src/format.js';
-import { precipKind, rateWord, precipSummary, buildModel, rowingHours, callRuns, factorRuns, worstReasons, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
-import { parseAlerts, parseObs, parseRiver, parseFlow, parseFlowDays, parseFlowForecast, alertLevel } from '../src/data.js';
+import { precipKind, rateWord, precipSummary, buildModel, sunOn, uvWord, rowingHours, callRuns, factorRuns, worstReasons, aqiWord, confidence, confidenceText, planSessions, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
+import { parseAlerts, parseObs, parseRiver, parseFlow, parseFlowDays, parseFlowForecast, parseAQ, parseModels, alertLevel } from '../src/data.js';
 
 // Midnight Eastern (EDT, UTC-4) on Mon 15 June 2026.
 const T0 = Date.UTC(2026, 5, 15, 4);
@@ -529,5 +529,97 @@ describe('runs', () => {
     expect(worstReasons(hs, 1).map(x => x.text)).toEqual(['Visibility 0.6 mi', 'Cold water, air plus water 91°F']);
     expect(worstReasons(hs, 1, ['cold']).map(x => x.text)).toEqual(['Cold water, air plus water 91°F']);
     expect(worstReasons(hs, 0)).toEqual([]);
+  });
+});
+
+describe('air quality', () => {
+  const aqAt = (q, from = 0, to = 72) => Array.from({ length: 72 }, (_, i) => ({ t: T0 + i * HOUR, aqi: i >= from && i < to ? q : 20, pm25: 5 }));
+  it('names the EPA category', () => {
+    expect(aqiWord(20)).toBe('Good');
+    expect(aqiWord(120)).toBe('Unhealthy for sensitive groups');
+    expect(aqiWord(175)).toBe('Unhealthy');
+    expect(aqiWord(450)).toBe('Hazardous');
+  });
+  it('parses the hourly forecast', () => {
+    const a = parseAQ({ hourly: { time: [T0 / 1000, T0 / 1000 + 3600], us_aqi: [40, null], pm2_5: [8.5, null] } });
+    expect(a).toEqual([{ t: T0, aqi: 40, pm25: 8.5 }]);
+    expect(parseAQ({})).toEqual([]);
+  });
+  it('applies the AQI settings to the hours it covers', () => {
+    const m = buildModel({ wx: wx(), river: RIVER, aq: aqAt(160, 12, 14) }, { ...DEFAULTS }, NOON);
+    expect(hourAt(m, 12).aqi).toBe(160);
+    expect(hourAt(m, 12).a.reasons[0]).toMatchObject({ lvl: 1, key: 'aqi', text: 'Air quality AQI 160, unhealthy' });
+    expect(hourAt(m, 15).a.lvl).toBe(0);
+    const off = buildModel({ wx: wx(), river: RIVER, aq: aqAt(220, 12, 14) }, { ...DEFAULTS }, NOON);
+    expect(hourAt(off, 12).a.lvl).toBe(2);
+    const blank = buildModel({ wx: wx(), river: RIVER, aq: aqAt(220, 12, 14) }, { ...DEFAULTS, aqiCaution: '', aqiOff: '' }, NOON);
+    expect(hourAt(blank, 12).a.lvl).toBe(0);
+  });
+});
+
+describe('forecast confidence', () => {
+  const ens = (wind, precip) => ({ ens: { wind, precip } });
+  it('parses each model and leaves out missing ones', () => {
+    const d = parseModels({ hourly: { time: [T0 / 1000], wind_speed_10m_gfs_seamless: [5], precipitation_gfs_seamless: [0], wind_speed_10m_ecmwf_ifs025: [7], precipitation_ecmwf_ifs025: [0.02] } });
+    expect(d.ids).toEqual(['gfs_seamless', 'ecmwf_ifs025']);
+    expect(d.hours).toEqual([{ t: T0, wind: [5, 7], precip: [0, 0.02] }]);
+  });
+  it('matches models to forecast hours', () => {
+    const models = { ids: ['a', 'b'], hours: [{ t: NOON, wind: [4, 6], precip: [0, null] }] };
+    const m = buildModel({ wx: wx(), river: RIVER, models }, { ...DEFAULTS }, NOON);
+    expect(hourAt(m, 12).ens).toEqual({ wind: [4, 6], precip: [0] });
+    expect(hourAt(m, 13).ens).toBeNull();
+  });
+  it('rates agreement on wind and rain', () => {
+    expect(confidence([ens([4, 5, 6], [0, 0, 0]), ens([5, 6, 7], [0, 0, 0])])).toMatchObject({ level: 'high', wind: 2, rain: 0, n: 3 });
+    expect(confidence([ens([4, 10], [0, 0])]).level).toBe('medium');
+    expect(confidence([ens([2, 14], [0, 0])]).level).toBe('low');
+    expect(confidence([ens([5, 5], [0, 0.1])]).level).toBe('low');
+    expect(confidence([{ ens: null }])).toBeNull();
+  });
+  it('says what the models disagree on', () => {
+    expect(confidenceText({ level: 'high', wind: 2, rain: 0, n: 4 })).toBe('High confidence: the 4 models agree.');
+    expect(confidenceText({ level: 'low', wind: 9.4, rain: 0.6, n: 4 })).toBe('Low confidence: models differ by about 9 mph on wind, and models split on rain.');
+    expect(confidenceText(null)).toBe('');
+    // Limited to one dimension, the level follows it alone.
+    expect(confidenceText({ level: 'low', wind: 2, rain: 0.6, n: 4 }, 'wind')).toBe('High confidence: the 4 models agree.');
+    expect(confidenceText({ level: 'low', wind: 2, rain: 0.6, n: 4 }, 'rain')).toBe('Low confidence: models split on rain.');
+  });
+});
+
+describe('plan a row', () => {
+  // Calm at 7 AM, wind building after 9 AM on the 16th; noon is now on the 15th.
+  const windy = (i, t) => (dayKey(t) === '2026-06-16' && localHour(t) >= 9 ? { wind: 9, gust: 14 } : {});
+  it('finds the calmest session of the length asked, one per day', () => {
+    const m = model(windy);
+    const plan = planSessions(m, 90);
+    expect(new Set(plan.map(p => p.key)).size).toBe(plan.length);
+    const tue = plan.find(p => p.key === '2026-06-16');
+    expect(tue.end - tue.start).toBe(90 * MIN);
+    expect(localHour(tue.end - 1)).toBeLessThan(9);
+    // Best first.
+    for (let i = 1; i < plan.length; i++) expect(plan[i].score).toBeGreaterThanOrEqual(plan[i - 1].score);
+  });
+  it('keeps to the morning or the afternoon', () => {
+    const m = model();
+    for (const p of planSessions(m, 60, 'morning')) expect(localHour(p.end - 1)).toBeLessThan(12);
+    for (const p of planSessions(m, 60, 'afternoon')) expect(localHour(p.start)).toBeGreaterThanOrEqual(12);
+  });
+  it('starts no earlier than now and only in go hours', () => {
+    const m = model((i, t) => (dayKey(t) === '2026-06-15' && localHour(t) >= 12 ? { wind: 20 } : {}));
+    expect(planSessions(m, 60).some(p => p.key === '2026-06-15')).toBe(false);
+  });
+});
+
+describe('light', () => {
+  it('gives sun times for any date', () => {
+    const jun = sunOn(NOON), dec = sunOn(Date.UTC(2026, 11, 21, 17));
+    expect(jun.dawn).toBeLessThan(jun.sunrise);
+    expect(jun.sunset - jun.sunrise).toBeGreaterThan(15 * HOUR);
+    expect(dec.sunset - dec.sunrise).toBeLessThan(9.5 * HOUR);
+    expect(localHour(jun.noon)).toBe(12);
+  });
+  it('names the UV index', () => {
+    expect([1, 4, 7, 9, 12].map(uvWord)).toEqual(['Low', 'Moderate', 'High', 'Very high', 'Extreme']);
   });
 });

@@ -2,7 +2,7 @@
 // Shown when a Day by day row is opened.
 import { WORD_PLAIN, LIGHT_KEYS, WATER } from '../config.js';
 import { esc, hm, r0, card, rng, fmtInt, visText, dayKey } from '../format.js';
-import { fogLift, waterWhy, debrisLikely, flowNow, flowTrend, flowForecastAt, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept } from '../logic.js';
+import { fogLift, waterWhy, debrisLikely, flowNow, flowTrend, flowForecastAt, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept, aqiWord } from '../logic.js';
 import { fact, compassSVG, sparkline } from './parts.js';
 import { precipBlock } from './precip.js';
 
@@ -56,6 +56,12 @@ export function forecastPanel(m, p) {
   f.push(fact('Visibility', visText(vis.length ? Math.min(...vis) : null), fogNote, maxLvl(['fog']), `#fog/${p.dayKey}`));
 
 
+  const aq = nums('aqi');
+  if (aq.length) {
+    const hi = Math.max(...aq);
+    f.push(fact('Air quality', `AQI ${rng(Math.min(...aq), hi, '')}`, `${aqiWord(hi)} at worst.`, maxLvl(['aqi']), `#air/${p.dayKey}`));
+  }
+
   const fl = flowNow(m);
   if (fl != null) {
     const tr = flowTrend(m.data.flow);
@@ -70,7 +76,7 @@ export function forecastPanel(m, p) {
   const s = sunFor(m, p.dayKey);
   if (s) {
     f.push(fact('Daylight', `${hm(s.sunrise)} to ${hm(s.sunset)}`,
-      `First light ${hm(s.dawn)}.${p.lightsUntil ? ` Lights needed until sunrise at ${hm(p.lightsUntil)}.` : ''}`));
+      `First light ${hm(s.dawn)}.${p.lightsUntil ? ` Lights needed until sunrise at ${hm(p.lightsUntil)}.` : ''}`, 0, `#light/${p.dayKey}`));
   }
 
   return `<div class="forecast">

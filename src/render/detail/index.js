@@ -9,8 +9,11 @@ import * as rain from './rain.js';
 import * as temperature from './temperature.js';
 import * as fog from './fog.js';
 import * as river from './river.js';
+import * as storms from './storms.js';
+import * as air from './air.js';
+import * as light from './light.js';
 
-export const VIEWS = [week, wind, rain, temperature, fog, river];
+export const VIEWS = [week, wind, rain, storms, temperature, air, fog, light, river];
 export const VIEW_KEYS = VIEWS.map(v => v.key);
 
 export function renderDetail() {

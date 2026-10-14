@@ -2,7 +2,7 @@
 // against the settings, amount, and any thunderstorm risk.
 import { HOUR, WORD_PLAIN } from '../../config.js';
 import { hm, r0, dayKey } from '../../format.js';
-import { worstOf, factorLevel, precipSummary, precipKind, sunFor } from '../../logic.js';
+import { worstOf, factorLevel, precipSummary, precipKind, sunFor, confidence, confidenceText } from '../../logic.js';
 import { Chart, niceTicks, niceMax } from '../chart.js';
 import { dayLabel } from '../days.js';
 import { precipNote } from '../precip.js';
@@ -28,7 +28,8 @@ const popLvl = (S, v) => (isSet(S.rainOff) && v >= S.rainOff ? 2 : isSet(S.rainC
 
 function hourText(h) {
   const k = precipKind(h.code), st = factorLevel(h.a, STORM).why;
-  return `${hm(h.t)}: ${r0(h.pop) ?? 0}% chance${k ? `, ${k}` : ''}${h.precip >= 0.01 ? `, about ${h.precip.toFixed(2)} in` : ''}.${st ? ` ${st.text}.` : ''}`;
+  const models = h.ens && h.ens.precip.length >= 2 ? ` ${h.ens.precip.filter(p => p >= 0.01).length} of ${h.ens.precip.length} models show rain.` : '';
+  return `${hm(h.t)}: ${r0(h.pop) ?? 0}% chance${k ? `, ${k}` : ''}${h.precip >= 0.01 ? `, about ${h.precip.toFixed(2)} in` : ''}.${st ? ` ${st.text}.` : ''}${models}`;
 }
 
 export function render(m, want) {
@@ -63,6 +64,18 @@ export function render(m, want) {
   c.grid(A, niceTicks(0, hiAmt, 2));
   c.cols(A, hs.map(h => ({ t0: h.t, t1: h.t + HOUR, v: h.precip, cls: 'ccol' })));
 
+  // Forecast confidence: how many of the compared models show rain each hour.
+  const conf = confidence(hs);
+  const counted = hs.some(h => h.ens && h.ens.precip.length >= 2);
+  if (counted) {
+    const M = c.lane(14, 0, 1, `Forecast models showing rain, of ${conf.n}`);
+    c.cells(M, hs.map(h => {
+      if (!h.ens || h.ens.precip.length < 2) return { t0: h.t, t1: h.t + HOUR, cls: '' };
+      const k = h.ens.precip.filter(p => p >= 0.01).length;
+      return { t0: h.t, t1: h.t + HOUR, cls: `cmr cmr${Math.round(k / h.ens.precip.length * 4)}` };
+    }));
+  }
+
   const stormy = hs.some(h => factorLevel(h.a, STORM).lvl);
   if (stormy) {
     const T = c.lane(12, 0, 1, 'Thunderstorm risk');
@@ -77,7 +90,8 @@ export function render(m, want) {
   const keys = legend([
     ...(isSet(S.rainCaution) ? [{ kind: 'dash1', text: `Caution ${S.rainCaution}%` }] : []),
     ...(isSet(S.rainOff) ? [{ kind: 'dash2', text: `Stay off ${S.rainOff}%` }] : []),
-    ...(stormy ? [{ kind: 'cs1', text: 'Thunderstorms possible' }, { kind: 'cs2', text: 'Thunderstorms' }] : [])
+    ...(stormy ? [{ kind: 'cs1', text: 'Thunderstorms possible' }, { kind: 'cs2', text: 'Thunderstorms' }] : []),
+    ...(counted ? [{ kind: 'cmr4', text: 'All models show rain' }, { kind: 'cmr2', text: 'Half' }] : [])
   ]);
 
   const table = hourTable('Hour by hour', ['Hour', 'Chance', 'Amount', 'Type'], hs.map(h => [
@@ -90,7 +104,7 @@ export function render(m, want) {
     <div class="panel">
       ${strip}
       <h3 class="dhead">${label}, first light to sunset</h3>
-      <p class="dnote">${sum ? precipNote(sum, today ? m.now : hs[0].t) : ''}</p>
+      <p class="dnote">${sum ? precipNote(sum, today ? m.now : hs[0].t) : ''}${conf ? ` ${confidenceText(conf, 'rain')}` : ''}</p>
       ${chartBox(c.svg(`Chance and amount of precipitation by hour for ${label}`), { keys })}
       ${table}
     </div>

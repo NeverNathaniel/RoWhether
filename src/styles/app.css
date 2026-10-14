@@ -39,6 +39,22 @@ button.primary{background:var(--river); border-color:var(--river); color:var(--b
 .holds{margin:.75rem 0 0; font-size:1rem; font-weight:600}
 .status-note{margin:.75rem 0 0; color:var(--muted); font-size:.875rem}
 
+/* Instance label, shown on dev and other Previews, never in production */
+.env{display:inline-block; vertical-align:.25em; font-size:.75rem; font-weight:700; font-stretch:100%; letter-spacing:0; padding:.1rem .5rem; border-radius:999px; background:var(--caution-soft); color:var(--ink); border:1px solid var(--caution)}
+
+/* Share, under the hero */
+.hero-actions{margin:.9rem 0 0}
+button.quiet{background:transparent; border-color:color-mix(in srgb, var(--st) 45%, transparent); font-size:.875rem; min-height:2.25rem; padding:.3rem .85rem}
+
+/* Dock reports, at the top of On the water now */
+.dock{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.5rem 1rem; background:var(--bg); border-radius:.75rem; padding:.6rem .8rem; margin:0 0 1rem}
+.dock-sum{margin:0; font-size:.9375rem; flex:1 1 16rem}
+fieldset.pick{display:flex; flex-wrap:wrap; gap:.4rem}
+fieldset.pick legend{margin-bottom:.35rem}
+fieldset.pick label{display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .75rem; border:1px solid var(--line); border-radius:999px; background:var(--bg); font-size:.9375rem; cursor:pointer}
+fieldset.pick label:has(input:checked){border-color:var(--river); background:var(--river-soft); font-weight:600}
+fieldset.pick input{margin:0; width:auto; padding:0; border:0; accent-color:var(--river)}
+
 /* Alerts */
 .alert{margin-top:1rem; background:var(--off-soft); border-left:4px solid var(--off); border-radius:.5rem; padding:.85rem 1rem}
 .alert[data-lvl="1"]{background:var(--caution-soft); border-left-color:var(--caution)}
@@ -257,6 +273,31 @@ section.detail{margin-top:0}
 .carrow-head{fill:var(--ink)}
 .carrow-calm{fill:var(--muted)}
 
+/* Forecast confidence: the spread across models, and how many show rain */
+.cmodel{fill:var(--muted); fill-opacity:.28}
+.lk-model{background:color-mix(in srgb, var(--muted) 35%, transparent)}
+.cmr0{fill:var(--line); fill-opacity:.5}
+.cmr1, .lk-cmr1{fill:var(--river); fill-opacity:.2; background:color-mix(in srgb, var(--river) 20%, transparent)}
+.cmr2, .lk-cmr2{fill:var(--river); fill-opacity:.45; background:color-mix(in srgb, var(--river) 45%, transparent)}
+.cmr3, .lk-cmr3{fill:var(--river); fill-opacity:.7; background:color-mix(in srgb, var(--river) 70%, transparent)}
+.cmr4, .lk-cmr4{fill:var(--river); fill-opacity:.95; background:var(--river)}
+
+/* Light: night, twilight and daylight bands, and the light state of each hour */
+.cnight, .lk-cnight{fill:var(--river); fill-opacity:.16; background:color-mix(in srgb, var(--river) 16%, transparent)}
+.ctwi, .lk-ctwi{fill:var(--caution); fill-opacity:.35; background:color-mix(in srgb, var(--caution) 35%, transparent)}
+.cdaylight, .lk-cdaylight{fill:var(--surface); background:var(--surface); box-shadow:inset 0 0 0 1px var(--line)}
+.clt0, .lk-clt0{fill:var(--river); fill-opacity:.55; background:color-mix(in srgb, var(--river) 55%, transparent)}
+.clt1, .lk-clt1{fill:var(--caution); fill-opacity:.45; background:color-mix(in srgb, var(--caution) 45%, transparent)}
+.clt2, .lk-clt2{fill:var(--caution); fill-opacity:.12; background:color-mix(in srgb, var(--caution) 12%, transparent); box-shadow:inset 0 0 0 1px var(--line)}
+
+/* Storms: NWS alerts with a bar over the next 3 days */
+.alertlist{list-style:none; margin:.5rem 0 0; padding:0; display:grid; gap:.9rem}
+.alertlist li{display:grid; gap:.35rem}
+.arow{display:flex; gap:.5rem; align-items:center}
+.arow i{width:.6rem; height:.6rem; border-radius:50%; background:var(--caution)}
+.arow i[data-lvl="2"]{background:var(--off)}
+.alerttext{white-space:pre-wrap; font:inherit; font-size:.875rem; margin:.4rem 0 0; color:var(--muted)}
+
 /* Legend keys sit before the chart; text stays in text colors */
 .legend{list-style:none; margin:.4rem 0 0; padding:0; display:flex; flex-wrap:wrap; gap:.2rem 1rem; color:var(--muted); font-size:.8125rem}
 .legend li{display:inline-flex; align-items:center; gap:.4rem}
@@ -287,6 +328,12 @@ section.detail{margin-top:0}
 .windows li{display:flex; gap:.6rem; align-items:baseline; font-size:1.0625rem}
 .windows li > i{width:.6rem; height:.6rem; border-radius:50%; background:var(--go); flex:none; transform:translateY(-.05rem)}
 .wdur{color:var(--muted)}
+.windows li .tag{display:inline-block; font-size:.75rem; font-weight:650; padding:.05rem .45rem; border-radius:999px; background:var(--go-soft); color:var(--ink); vertical-align:.1em}
+.choices{display:flex; flex-wrap:wrap; gap:.5rem 1rem; margin:.5rem 0 .75rem}
+.choice{display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden}
+.choice button{border:0; border-radius:0; min-height:2.25rem; padding:.3rem .8rem; font-size:.875rem; background:var(--surface)}
+.choice button + button{border-left:1px solid var(--line)}
+.choice button[aria-pressed="true"]{background:var(--river); color:var(--bg)}
 .weeklist{list-style:none; margin:0; padding:0}
 .weeklist > li{border-top:1px solid var(--line)}
 .wday summary{display:grid; grid-template-columns:4.5rem 1fr; gap:.35rem .75rem; align-items:center; padding:.7rem 0; cursor:pointer; list-style:none}
@@ -308,6 +355,7 @@ section.detail{margin-top:0}
 .wi > i[data-lvl="0"]{background:var(--go)}
 .wi > i[data-lvl="1"]{background:var(--caution)}
 .wi > i[data-lvl="2"]{background:var(--off)}
+.wi > i[data-lvl="n"]{background:var(--muted)}
 .wticks{display:grid; grid-template-columns:4.5rem 1fr; gap:0 .75rem; margin-top:.75rem}
 .wticks .wbar{height:1.1rem}
 .wticks .wbar span{position:absolute; transform:translateX(-50%); color:var(--muted); font-size:.75rem; font-variant-numeric:tabular-nums}

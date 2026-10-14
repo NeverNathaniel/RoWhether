@@ -6,6 +6,7 @@ import { renderHeader, renderNoData, renderHero, renderAlerts } from './hero.js'
 import { renderNow } from './now.js';
 import { renderDays } from './days.js';
 import { renderDetail } from './detail/index.js';
+import { renderReports } from '../reports.js';
 
 export function render() {
   app.model = buildModel(app.data, app.settings);
@@ -15,5 +16,6 @@ export function render() {
   renderHero();
   renderAlerts();
   renderNow();
+  renderReports();
   renderDays();
 }

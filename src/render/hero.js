@@ -13,6 +13,7 @@ export function renderHeader() {
 }
 
 export function renderNoData() {
+  $('shareBtn').hidden = true;
   $('hero').dataset.lvl = '';
   $('verdict').textContent = 'No data.';
   const allBlocked = Object.keys(SRC).every(k => app.errors[k]);
@@ -59,6 +60,7 @@ function nextGoText(m, after) {
 
 export function renderHero() {
   const m = app.model, cur = m.cur, a = cur.a;
+  $('shareBtn').hidden = false;
   renderStatus();
   if (!m.daytime) { renderNextPeriod(m); return; }
   $('hero').dataset.lvl = a.lvl;

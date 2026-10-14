@@ -1,5 +1,5 @@
 // Fetch from the keyless public APIs and parse each response into plain data.
-import { SRC, GAUGE_FLOW, GAUGE_TEMP } from './config.js';
+import { SRC, GAUGE_FLOW, GAUGE_TEMP, MODELS } from './config.js';
 import { cToF } from './format.js';
 
 export async function fetchJSON(url, ms = 15000) {
@@ -75,7 +75,33 @@ export function parseFlowForecast(d) {
   return { issued: Date.parse(d.issuedTime) || null, pts };
 }
 
-const PARSE = { wx: d => d, alerts: parseAlerts, obs: parseObs, river: parseRiver, flow: parseFlow, flowDays: parseFlowDays, flowFcst: parseFlowForecast };
+const num = v => (v == null || v === '' || isNaN(v) ? null : +v);
+
+// Hourly US AQI and PM2.5 (µg/m³), with times in ms.
+export function parseAQ(d) {
+  const H = d.hourly || {};
+  return (H.time || [])
+    .map((t, i) => ({ t: t * 1000, aqi: num(H.us_aqi && H.us_aqi[i]), pm25: num(H.pm2_5 && H.pm2_5[i]) }))
+    .filter(x => x.aqi != null || x.pm25 != null);
+}
+
+// Hourly sustained wind and precipitation from each compared model, in the
+// order of MODELS. A model missing from the response is left out.
+export function parseModels(d) {
+  const H = d.hourly || {};
+  const ids = MODELS.map(x => x.id).filter(id => H[`wind_speed_10m_${id}`] || H[`precipitation_${id}`]);
+  const col = (k, id, i) => num(H[`${k}_${id}`] && H[`${k}_${id}`][i]);
+  return {
+    ids,
+    hours: (H.time || []).map((t, i) => ({
+      t: t * 1000,
+      wind: ids.map(id => col('wind_speed_10m', id, i)),
+      precip: ids.map(id => col('precipitation', id, i))
+    }))
+  };
+}
+
+const PARSE = { wx: d => d, alerts: parseAlerts, obs: parseObs, river: parseRiver, flow: parseFlow, flowDays: parseFlowDays, flowFcst: parseFlowForecast, aq: parseAQ, models: parseModels };
 
 // Fetch every source in parallel. Each one fails on its own.
 // Returns { data, errors } where data holds only the sources that succeeded.

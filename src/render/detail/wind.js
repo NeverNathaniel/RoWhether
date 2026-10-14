@@ -2,7 +2,7 @@
 // gusts against the settings, direction relative to the course, and water state.
 import { HOUR, WATER, WORD_PLAIN } from '../../config.js';
 import { hm, r0, card, rng, dayKey } from '../../format.js';
-import { factorLevel, worstOf, relWind, windVsCourse, sunFor } from '../../logic.js';
+import { factorLevel, worstOf, relWind, windVsCourse, sunFor, confidence, confidenceText } from '../../logic.js';
 import { Chart, niceTicks, niceMax } from '../chart.js';
 import { dayLabel } from '../days.js';
 import { mid, chartWidth, weekDays, pickDay, weekStrip, legend, chartBox, hourTicks, tickEvery, lvlDot, hourTable, head } from './common.js';
@@ -40,8 +40,9 @@ function courseWord(h, heading) {
   return rel > 0 ? 'Cross, NH' : 'Cross, VT';
 }
 
+const modelRange = h => (h.ens && h.ens.wind.length >= 2 ? ` Models ${r0(Math.min(...h.ens.wind))} to ${r0(Math.max(...h.ens.wind))} mph.` : '');
 const hourText = (m, h) =>
-  `${hm(h.t)}: ${r0(h.wind)} mph from ${card(h.dir)}, gusts ${r0(h.gust)}. ${windVsCourse(m, h.dir, h.wind)}${h.water ? ` ${WATER.names[h.water.lvl]}.` : ''}`;
+  `${hm(h.t)}: ${r0(h.wind)} mph from ${card(h.dir)}, gusts ${r0(h.gust)}. ${windVsCourse(m, h.dir, h.wind)}${h.water ? ` ${WATER.names[h.water.lvl]}.` : ''}${modelRange(h)}`;
 
 export function render(m, want) {
   const S = m.S, W = chartWidth(), days = weekDays(m), day = pickDay(m, want, days);
@@ -73,6 +74,18 @@ export function render(m, want) {
   const WS = c.lane(14, 0, 1, 'Water state');
   c.cells(WS, hs.map(h => ({ t0: h.t, t1: h.t + HOUR, cls: h.water ? `cw cw${h.water.lvl}` : '' })));
 
+  // Forecast confidence: the range of sustained wind across the compared
+  // models, with the forecast's own wind line over it.
+  const conf = confidence(hs);
+  const ranged = hs.filter(h => h.ens && h.ens.wind.length >= 2);
+  if (ranged.length) {
+    const mHi = niceMax(Math.max(10, ...ranged.map(h => Math.max(...h.ens.wind)), ...hs.map(h => h.wind || 0)), 2);
+    const M = c.lane(60, 0, mHi, `Wind across ${conf.n} forecast models, mph`);
+    c.grid(M, niceTicks(0, mHi, 2));
+    c.band(M, ranged.map(h => ({ t: mid(h), lo: Math.min(...h.ens.wind), hi: Math.max(...h.ens.wind) })), 'cmodel');
+    c.line(M, hs.map(h => ({ t: mid(h), v: h.wind })), 'cline');
+  }
+
   c.span(hs[0].t, s.sunrise, 'clight');
   if (day === dayKey(m.now)) { c.past(m.now); c.vline(m.now, 'cnow', 'Now'); }
   c.axis(hourTicks(hs, tickEvery(W, hs.length)));
@@ -85,7 +98,8 @@ export function render(m, want) {
     { kind: 'dash2', text: `Stay off ${S.windOff} mph` },
     ...(gusty.length ? [{ kind: 'dot', text: `Gusts over ${S.gustCaution} mph` }] : [])
   ]);
-  const waterKeys = legend(WATER.names.map((n, i) => ({ kind: `cw${i}`, text: n })));
+  const waterKeys = legend(WATER.names.map((n, i) => ({ kind: `cw${i}`, text: n })))
+    + (ranged.length ? legend([{ kind: 'model', text: 'Range across models' }]) : '');
   const peak = hs.reduce((a, b) => ((b.wind || 0) > (a.wind || 0) ? b : a));
 
   const table = hourTable('Hour by hour', ['Hour', 'Wind', 'Gust', 'From', 'Course', 'Water'], hs.map(h => [
@@ -96,7 +110,7 @@ export function render(m, want) {
     <div class="panel">
       ${strip}
       <h3 class="dhead">${dayLabel(hs[0].t + 12 * HOUR)}, first light to sunset</h3>
-      <p class="dnote">Strongest ${r0(peak.wind)} mph around ${hm(peak.t)}, gusts to ${r0(Math.max(...hs.map(h => h.gust || 0)))}.</p>
+      <p class="dnote">Strongest ${r0(peak.wind)} mph around ${hm(peak.t)}, gusts to ${r0(Math.max(...hs.map(h => h.gust || 0)))}.${conf ? ` ${confidenceText(conf, 'wind')}` : ''}</p>
       ${chartBox(c.svg(`Wind and gusts by hour for ${dayLabel(hs[0].t + 12 * HOUR)}`), { keys: keys + waterKeys })}
       ${table}
     </div>

@@ -19,7 +19,7 @@
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>Putney Landing</h1>
+      <h1>Putney Landing <span class="env" id="envBadge" hidden></span></h1>
       <p class="sub">Connecticut River at the Putney Rowing Club docks. All times Eastern.</p>
     </div>
     <div class="actions">
@@ -38,11 +38,13 @@
         <p class="why" id="why">Loading conditions.</p>
         <p class="holds" id="holds"></p>
         <p class="status-note" id="statusNote" hidden></p>
+        <p class="hero-actions"><button type="button" id="shareBtn" class="quiet">Share this call</button></p>
       </section>
       <div id="alerts"></div>
 
       <section aria-labelledby="nowTitle" id="nowSection" class="panel">
         <h2 id="nowTitle">On the water now</h2>
+        <div id="dockReports" hidden></div>
         <div class="now-grid">
           <figure class="compass">
             <svg id="compass" viewBox="-70 -70 140 140" role="img" aria-label="Wind direction relative to the river"></svg>
@@ -69,7 +71,7 @@
 
   <footer>
     <p class="suggest-row" id="suggestRow" hidden><button type="button" id="suggestBtn">Suggest a change or report a bug</button></p>
-    <p>Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (NOAA HRRR and GFS models). Alerts and Keene observations from the <a href="https://www.weather.gov/aly/" target="_blank" rel="noopener">National Weather Service, Albany</a>. River flow from USGS gauge <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01154500/" target="_blank" rel="noopener">01154500 at North Walpole</a>, water temperature from <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01161280/" target="_blank" rel="noopener">01161280 near Northfield</a>. River forecast from the <a href="https://water.noaa.gov/gauges/wlpn3" target="_blank" rel="noopener">NWS Northeast River Forecast Center</a>.</p>
+    <p>Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (NOAA HRRR and GFS models). Alerts and Keene observations from the <a href="https://www.weather.gov/aly/" target="_blank" rel="noopener">National Weather Service, Albany</a>. River flow from USGS gauge <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01154500/" target="_blank" rel="noopener">01154500 at North Walpole</a>, water temperature from <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01161280/" target="_blank" rel="noopener">01161280 near Northfield</a>. River forecast from the <a href="https://water.noaa.gov/gauges/wlpn3" target="_blank" rel="noopener">NWS Northeast River Forecast Center</a>. Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo.</p>
     <p>Thresholds are starting points, not club rules. Lightning: off the water at the first thunder, back on 30 minutes after the last. Look at the water before you launch.</p>
   </footer>
 </div>
@@ -110,11 +112,46 @@
       <label>Stay off at <input name="flowOff" type="number" min="0" step="100" inputmode="numeric" required></label>
       <p class="note" style="margin:.4rem 0 0">Since 2016 the median day is about 6,900 cfs. 20,000 is roughly the top 10% of days, 28,000 the top 5%.</p>
     </fieldset>
+    <fieldset>
+      <legend>Air quality, US AQI</legend>
+      <p class="note" style="margin:0 0 .25rem">Wildfire smoke and haze. 151 is Unhealthy, 201 Very unhealthy. Leave a box empty to turn it off.</p>
+      <label>Caution at <input name="aqiCaution" type="number" min="0" max="500" step="1" inputmode="numeric" placeholder="Off"></label>
+      <label>Stay off at <input name="aqiOff" type="number" min="0" max="500" step="1" inputmode="numeric" placeholder="Off"></label>
+    </fieldset>
     <div class="dlg-actions">
       <button type="button" id="resetSet">Reset defaults</button>
       <span class="spacer"></span>
       <button value="cancel" formnovalidate>Cancel</button>
       <button value="save" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="report" aria-labelledby="repTitle">
+  <form id="repForm" novalidate>
+    <h2 id="repTitle">Report conditions</h2>
+    <p class="note">What you see at the dock right now. Everyone sees it for 3 hours. Pick what applies.</p>
+    <fieldset class="pick">
+      <legend>Water</legend>
+      <label><input type="radio" name="water" value="flat"> Flat</label>
+      <label><input type="radio" name="water" value="light"> Light chop</label>
+      <label><input type="radio" name="water" value="chop"> Chop</label>
+      <label><input type="radio" name="water" value="rough"> Rough</label>
+    </fieldset>
+    <fieldset class="pick">
+      <legend>Fog</legend>
+      <label><input type="radio" name="fog" value="clear"> None</label>
+      <label><input type="radio" name="fog" value="patchy"> Patchy</label>
+      <label><input type="radio" name="fog" value="thick"> Thick</label>
+    </fieldset>
+    <fieldset class="pick">
+      <legend>River</legend>
+      <label><input type="checkbox" name="debris"> Floating debris</label>
+    </fieldset>
+    <p class="sug-status" id="repStatus" role="status" aria-live="polite"></p>
+    <div class="dlg-actions">
+      <button type="button" id="repCancel">Cancel</button>
+      <button type="submit" class="primary" id="repSend">Send</button>
     </div>
   </form>
 </dialog>

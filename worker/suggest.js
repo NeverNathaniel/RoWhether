@@ -13,7 +13,7 @@ const LABELS = { feature: 'enhancement', bug: 'bug' };
 const REVIEW_LABELS = ['from app', 'needs review'];
 // Settings keys the app may send with a bug report.
 const SETTING_KEYS = ['heading', 'windCaution', 'windOff', 'gustCaution', 'gustOff', 'rainCaution', 'rainOff',
-  'coldCombined', 'flowCaution', 'flowOff', 'waterOverride'];
+  'coldCombined', 'flowCaution', 'flowOff', 'waterOverride', 'aqiCaution', 'aqiOff'];
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }

@@ -1,7 +1,7 @@
 // The call logic. Pure functions over a model built from fetched data and settings.
 // Nothing here touches the DOM or storage, so it can be unit tested.
 import SunCalc from 'suncalc';
-import { LOC, HOUR, MIN, LIGHT_KEYS, FOG, PERIODS, WATER } from './config.js';
+import { LOC, HOUR, MIN, LIGHT_KEYS, FOG, PERIODS, WATER, AQI, CONFIDENCE } from './config.js';
 import { dayKey, localHour, hm, r0, fmtInt, cToF } from './format.js';
 
 // ---------- Sun ----------
@@ -13,6 +13,15 @@ export function sunFor(m, key) {
   const s = { dawn: +st.dawn, sunrise: +st.sunrise, sunset: +st.sunset, dusk: +st.dusk };
   m.sunCache[key] = s;
   return s;
+}
+// Sun times for any date, not just forecast days. t is any time that day.
+export function sunOn(t) {
+  const st = SunCalc.getTimes(new Date(t), LOC.lat, LOC.lon);
+  return { dawn: +st.dawn, sunrise: +st.sunrise, noon: +st.solarNoon, sunset: +st.sunset, dusk: +st.dusk };
+}
+// The UV index in words (WHO categories).
+export function uvWord(v) {
+  return v < 3 ? 'Low' : v < 6 ? 'Moderate' : v < 8 ? 'High' : v < 11 ? 'Very high' : 'Extreme';
 }
 export function lightAt(m, t) {
   const s = sunFor(m, dayKey(t));
@@ -276,6 +285,12 @@ export function assess(m, h, lightT) {
     if (f >= S.flowOff) add(2, 'flow', `High water at ${fmtInt(f)} cfs`);
     else if (f >= S.flowCaution) add(1, 'flow', `Elevated flow at ${fmtInt(f)} cfs`);
   }
+  if (h.aqi != null) {
+    const q = Math.round(h.aqi), on = v => v !== '' && v != null && !isNaN(v);
+    const text = `Air quality AQI ${q}, ${aqiWord(q).toLowerCase()}`;
+    if (on(S.aqiOff) && q >= S.aqiOff) add(2, 'aqi', text);
+    else if (on(S.aqiCaution) && q >= S.aqiCaution) add(1, 'aqi', text);
+  }
   for (const a of m.alerts) {
     if (h.t >= a.start && h.t < a.end) add(a.lvl, 'alert', a.event);
   }
@@ -300,8 +315,19 @@ export function buildModel(data, S, now = Date.now()) {
     t: s * 1000, temp: H.temperature_2m[i], feels: H.apparent_temperature[i], dew: H.dew_point_2m[i],
     pop: H.precipitation_probability[i], precip: H.precipitation[i], code: H.weather_code[i],
     wind: H.wind_speed_10m[i], gust: H.wind_gusts_10m[i], dir: H.wind_direction_10m[i],
-    vis: H.visibility[i], cape: H.cape[i], cloud: H.cloud_cover ? H.cloud_cover[i] : null
+    vis: H.visibility[i], cape: H.cape[i], cloud: H.cloud_cover ? H.cloud_cover[i] : null,
+    uv: H.uv_index ? H.uv_index[i] : null
   }));
+  // Air quality and the model comparison, matched to forecast hours by time.
+  const byT = list => new Map((list || []).map(x => [x.t, x]));
+  const aq = byT(data.aq), mm = byT(data.models && data.models.hours);
+  const ok = v => v != null && !isNaN(v);
+  for (const h of m.hours) {
+    const a = aq.get(h.t), e = mm.get(h.t);
+    h.aqi = a ? a.aqi : null;
+    h.pm25 = a ? a.pm25 : null;
+    h.ens = e ? { wind: e.wind.filter(ok), precip: e.precip.filter(ok) } : null;
+  }
   // Mean cloud cover over the last 6 hours, for valley fog. Null if not available.
   m.hours.forEach((h, i) => {
     const cs = m.hours.slice(Math.max(0, i - 5), i + 1).map(x => x.cloud).filter(v => v != null);
@@ -310,7 +336,8 @@ export function buildModel(data, S, now = Date.now()) {
   const D = d.daily;
   m.days = D.time.map((s, i) => ({
     t: s * 1000, key: dayKey(s * 1000 + 12 * HOUR), sunrise: D.sunrise[i] * 1000, sunset: D.sunset[i] * 1000,
-    hi: D.temperature_2m_max[i], lo: D.temperature_2m_min[i], pop: D.precipitation_probability_max[i]
+    hi: D.temperature_2m_max[i], lo: D.temperature_2m_min[i], pop: D.precipitation_probability_max[i],
+    uvMax: D.uv_index_max ? D.uv_index_max[i] : null
   }));
   for (const h of m.hours) h.a = assess(m, h);
   const chops = m.hours.map(h => chopWind(m, h));
@@ -481,4 +508,82 @@ export function factorRuns(m, key, keys) {
       const lvl = Math.max(...r.hs.map(h => factorLevel(h.a, keys).lvl));
       return { ...r, lvl, why: worstReasons(r.hs, lvl, keys) };
     });
+}
+
+// ---------- Air quality ----------
+// The EPA category for a US AQI value.
+export function aqiWord(q) {
+  return AQI.find(([max]) => q <= max)[1];
+}
+
+// ---------- Forecast confidence ----------
+// How well the compared models agree over some hours: the mean spread of
+// sustained wind (mph), the share of hours where some models show rain
+// (0.01 in or more) and others do not, the number of models, and a level.
+// Null without model data.
+export function confidence(hs) {
+  const w = [], r = [];
+  let n = 0;
+  for (const h of hs) {
+    if (!h.ens) continue;
+    n = Math.max(n, h.ens.wind.length, h.ens.precip.length);
+    if (h.ens.wind.length >= 2) w.push(Math.max(...h.ens.wind) - Math.min(...h.ens.wind));
+    if (h.ens.precip.length >= 2) {
+      const k = h.ens.precip.filter(p => p >= 0.01).length;
+      r.push(k > 0 && k < h.ens.precip.length ? 1 : 0);
+    }
+  }
+  if (!w.length && !r.length) return null;
+  const mean = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+  const wind = mean(w), rain = mean(r), C = CONFIDENCE;
+  const level = wind > C.low.wind || rain > C.low.rain ? 'low' : wind > C.medium.wind || rain > C.medium.rain ? 'medium' : 'high';
+  return { level, wind, rain, n };
+}
+
+// "Low confidence: models differ by about 9 mph on wind." only limits it to
+// 'wind' or 'rain', and the level then follows that one alone.
+export function confidenceText(c, only = null) {
+  if (!c) return '';
+  const C = CONFIDENCE, wind = only === 'rain' ? 0 : c.wind, rain = only === 'wind' ? 0 : c.rain;
+  const level = wind > C.low.wind || rain > C.low.rain ? 'low' : wind > C.medium.wind || rain > C.medium.rain ? 'medium' : 'high';
+  const lead = { high: 'High confidence', medium: 'Medium confidence', low: 'Low confidence' }[level];
+  const parts = [];
+  if (wind > C.medium.wind) parts.push(`models differ by about ${Math.round(wind)} mph on wind`);
+  if (rain > C.medium.rain) parts.push('models split on rain');
+  return parts.length ? `${lead}: ${parts.join(', and ')}.` : `${lead}: the ${c.n} models agree.`;
+}
+
+// ---------- Plan a row ----------
+const PLAN_STEP = 30 * MIN;
+
+// The calmest go session of `minutes` on each day ahead, best first. Starts
+// are the start of a go stretch and every half hour after it. when is 'any',
+// 'morning' (done by noon) or 'afternoon' (starting at noon or later). Score
+// is mean chop wind plus a share of the strongest gust and rain chance, so
+// lower is calmer.
+export function planSessions(m, minutes, when = 'any') {
+  const L = minutes * MIN, out = [];
+  for (const d of m.days) {
+    const noon = m.hours.find(h => dayKey(h.t) === d.key && localHour(h.t) === 12);
+    if (!noon) continue;
+    let best = null;
+    for (const r of callRuns(m, d.key)) {
+      if (r.lvl !== 0) continue;
+      for (let t0 = r.start; t0 + L <= r.end; t0 = Math.floor(t0 / PLAN_STEP) * PLAN_STEP + PLAN_STEP) {
+        if (when === 'morning' && t0 + L > noon.t) break;
+        if (when === 'afternoon' && t0 < noon.t) continue;
+        const hs = r.hs.filter(h => h.t < t0 + L && h.t + HOUR > t0);
+        const chop = hs.map(h => (h.water ? h.water.eff : h.wind || 0));
+        const gust = Math.max(...hs.map(h => h.gust || 0)), pop = Math.max(...hs.map(h => h.pop || 0));
+        const score = chop.reduce((a, b) => a + b, 0) / chop.length + 0.15 * gust + 0.03 * pop;
+        if (!best || score < best.score - 1e-9) {
+          best = { key: d.key, start: t0, end: t0 + L, score, hs,
+            water: Math.max(...hs.map(h => (h.water ? h.water.lvl : 0))),
+            wmin: Math.min(...hs.map(h => h.wind)), wmax: Math.max(...hs.map(h => h.wind)), gmax: gust, pop };
+        }
+      }
+    }
+    if (best) out.push(best);
+  }
+  return out.sort((a, b) => a.score - b.score);
 }

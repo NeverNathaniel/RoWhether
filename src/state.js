@@ -12,7 +12,9 @@ export const app = {
   view: null,      // open detail view, { name, day }, or null on the home screen
   detailDay: null, // the day last picked in a detail view, kept across views
   homeScroll: 0,   // home screen scroll position, restored on the way back
-  detailWidth: 0   // width the detail view was drawn at
+  detailWidth: 0,  // width the detail view was drawn at
+  info: null,      // GET /api/info: { env, reports }, or null on a static host
+  reports: null    // GET /api/reports: { hours, reports }
 };
 
 export const $ = id => document.getElementById(id);

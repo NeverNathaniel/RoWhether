@@ -12,13 +12,19 @@ Night is not shown. The rowing day runs from first light to sunset.
 - Precipitation: an hour by hour chart of the chance, with when it is most likely, what kind, and how much. Shown in On the water now for the next 6 hours (or until sunset), and in each full forecast for its period.
 - Water state: flat, light chop, chop or rough, from wind along the straight, how long it has blown, and wind against the current. Warns about floating debris when the river is rising fast.
 - Day by day for 7 days: morning (first light to 10 AM), midday (10 AM to 3 PM) and afternoon (3 PM to sunset), each with its call, wind against the course, temperature, rain and fog. Tap a row for the full forecast: compass, wind against the course, air, water, the cold check, visibility and fog, rain, flow, daylight, and an hour by hour table.
-- Tabs under the header: Now (everything above), then six views with charts and the reasoning behind each part of the call. Tapping a fact opens its tab.
-  - Week: the longest go windows ahead, then each day as one bar from first light to sunset, with what stands in the way in words. A day opens to a bar for each factor that matters.
-  - Wind: wind and gusts against your settings, direction relative to the course, and water state, hour by hour.
-  - Rain: chance against your settings, amount, and thunderstorm risk.
+- Tabs under the header: Now (everything above), then views with charts and the reasoning behind each part of the call. Tapping a fact opens its tab.
+  - Week: Plan a row (pick a session length and time of day, get the calmest go session each day), then each day as one bar from first light to sunset, with what stands in the way in words.
+  - Wind: wind and gusts against your settings, direction relative to the course, water state, and the range across forecast models.
+  - Rain: chance against your settings, amount, thunderstorm risk, and how many forecast models show rain.
+  - Storms: NWS alerts on a timeline, and thunderstorm risk with what it is built from.
   - Temperature: air and feels like against the freezing and cold-water lines, with water temperature.
-  - Fog: each morning's risk, and the ingredients the fog rules use (dew point spread, wind, cloud, water minus air, visibility), each drawn with its zone.
+  - Air: air quality (US AQI and PM2.5), mostly wildfire smoke, against your settings.
+  - Fog: each morning's risk, and the ingredients the fog rules use, each drawn with its zone.
+  - Light: first light, sunrise, sunset and dark, the UV index, and six months of daylight on one chart.
   - River: the last 2 days with the NWS forecast for the next 3, and the last 30 days of daily flow.
+- Forecast confidence: four forecast models compared on wind and rain, shown in Wind, Rain and Week.
+- Share this call, under the verdict: sends it to a team chat or copies it.
+- Dock reports (dev only for now): one tap at the dock to say what the water is doing, shown to everyone for 3 hours.
 - A suggestion form at the bottom. Claude rewrites each suggestion as a GitHub issue, labeled for the maintainer to review. Hidden until it is set up (see below).
 - Settings for course heading, wind and gust limits, rain chance limits, the cold-water line, flow limits, and a water temperature override. Saved in the browser.
 
@@ -32,10 +38,18 @@ All fetched in the browser from free, keyless APIs that allow cross-origin reque
 | Alerts | [NWS API](https://www.weather.gov/documentation/services-web-api), alerts for the dock's point |
 | Measured comparison | NWS station KEEN, Keene NH, about 14 mi east |
 | River flow | USGS 01154500, Connecticut River at North Walpole NH, just below Bellows Falls dam. Latest, 48 hours, and 30 days of daily means |
+| Air quality | [Open-Meteo Air Quality](https://open-meteo.com/en/docs/air-quality-api) (Copernicus CAMS), US AQI and PM2.5 |
+| Model comparison | Open-Meteo, GFS, ECMWF, GEM and ICON side by side |
 | River forecast | [NWS National Water Prediction Service](https://water.noaa.gov/gauges/wlpn3), gauge WLPN3 (same site), from the Northeast River Forecast Center |
 | Water temperature | USGS 01161280, Connecticut River near Northfield MA, about 19 mi downstream (nearest main-stem gauge) |
 
 Sunrise, sunset and twilight come from [SunCalc](https://github.com/mourner/suncalc) 1.9.0. Font is [Archivo](https://github.com/Omnibus-Type/Archivo) via Fontsource. Both are bundled, so nothing loads from a CDN.
+
+## Production and dev
+
+Cloudflare Workers Builds deploys production on every push to the default branch, `claude/sleepy-cannon-y8i0i3`. The `dev` branch is a separate dev instance: with Preview builds on, Cloudflare builds it at `dev-rowhether.<your-subdomain>.workers.dev` with its own settings and its own D1 database (`rowhether-dev`), and the app shows a Dev label. See the `previews` block in `wrangler.jsonc`.
+
+To turn on Preview builds: Cloudflare dashboard, Workers & Pages, rowhether, Settings, Build. If a "Set up Worker Previews" banner shows, select Set up and switch. Then under Branch control check Enable Preview Builds. The Preview command should be `npx wrangler preview`.
 
 ## Develop
 
