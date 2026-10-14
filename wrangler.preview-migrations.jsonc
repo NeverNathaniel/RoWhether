@@ -1,0 +1,10 @@
+// Applies migrations/ to the D1 database the Previews use (see "previews" in
+// wrangler.jsonc). Run: npx wrangler d1 migrations apply PREVIEW_DB --remote -c wrangler.preview-migrations.jsonc
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rowhether",
+  "compatibility_date": "2026-09-01",
+  "d1_databases": [
+    { "binding": "PREVIEW_DB", "database_name": "rowhether-dev", "database_id": "addc1e87-7b52-4e31-bf0e-efd30ff82e59", "migrations_dir": "migrations" }
+  ]
+}
