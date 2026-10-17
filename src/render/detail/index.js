@@ -13,7 +13,8 @@ import * as storms from './storms.js';
 import * as air from './air.js';
 import * as light from './light.js';
 
-export const VIEWS = [week, wind, rain, storms, temperature, air, fog, light, river];
+// Tab order, most to least important for deciding whether to row.
+export const VIEWS = [week, wind, river, storms, fog, temperature, rain, light, air];
 export const VIEW_KEYS = VIEWS.map(v => v.key);
 
 export function renderDetail() {
