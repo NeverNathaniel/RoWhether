@@ -47,7 +47,7 @@ Sunrise, sunset and twilight come from [SunCalc](https://github.com/mourner/sunc
 
 ## Production and dev
 
-Cloudflare Workers Builds deploys production on every push to the default branch, `claude/sleepy-cannon-y8i0i3`. The `dev` branch is a separate dev instance: with Preview builds on, Cloudflare builds it at `dev-rowhether.<your-subdomain>.workers.dev` with its own settings and its own D1 database (`rowhether-dev`), and the app shows a Dev label. See the `previews` block in `wrangler.jsonc`.
+Production is [rowhether.com](https://rowhether.com/), a custom domain on the `rowhether` Worker. Cloudflare Workers Builds deploys it on every push to the default branch, `claude/sleepy-cannon-y8i0i3`. The `dev` branch is a separate dev instance: with Preview builds on, Cloudflare builds it at `dev-rowhether.<your-subdomain>.workers.dev` with its own settings and its own D1 database (`rowhether-dev`), and the app shows a Dev label. See the `previews` block in `wrangler.jsonc`.
 
 To turn on Preview builds: Cloudflare dashboard, Workers & Pages, rowhether, Settings, Build. If a "Set up Worker Previews" banner shows, select Set up and switch. Then under Branch control check Enable Preview Builds. The Preview command should be `npx wrangler preview`.
 
@@ -89,7 +89,7 @@ The form at the bottom of the page sends text to `/api/suggest` on the Worker (`
 1. **Anthropic API key.** At [console.anthropic.com](https://console.anthropic.com), create an API key. Under limits, set a monthly spend limit, for example $10. Each suggestion costs about 2 cents.
 2. **GitHub token.** At GitHub, Settings, Developer settings, Personal access tokens, Fine-grained tokens, generate a token. Repository access: only `NeverNathaniel/RoWhether`. Permissions: Issues, read and write. Nothing else. Note the expiry date and renew it before then.
 3. **Labels.** In the repository, under Issues, Labels, create `from app` and `needs review`. `bug` and `enhancement` exist by default.
-4. **Turnstile.** In the Cloudflare dashboard, open Turnstile and add a widget. Hostnames: `rowhether.nathansol.com` and the `workers.dev` address. Mode: Managed. Copy the site key and the secret key.
+4. **Turnstile.** In the Cloudflare dashboard, open Turnstile and add a widget. Hostnames: `rowhether.com` and the `workers.dev` address. Mode: Managed. Copy the site key and the secret key.
 5. **Add the secrets to the Worker.** In Workers and Pages, open `rowhether`, then Settings, Variables and Secrets. Add each of these with type **Secret** (secrets survive deploys; plain text variables added in the dashboard do not):
    - `ANTHROPIC_API_KEY`
    - `GITHUB_TOKEN`

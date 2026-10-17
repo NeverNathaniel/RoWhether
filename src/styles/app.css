@@ -46,6 +46,7 @@ button.primary{background:var(--river); border-color:var(--river); color:var(--b
 .status-note{margin:.75rem 0 0; color:var(--muted); font-size:.875rem}
 
 /* Instance label, shown on dev and other Previews, never in production */
+.env[hidden]{display:none}
 .env{display:inline-block; vertical-align:.25em; font-size:.75rem; font-weight:700; font-stretch:100%; letter-spacing:0; padding:.1rem .5rem; border-radius:999px; background:var(--caution-soft); color:var(--ink); border:1px solid var(--caution)}
 
 /* Share, under the hero */

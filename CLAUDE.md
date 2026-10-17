@@ -16,6 +16,7 @@ A single-page rowing conditions app for the Connecticut River at the Putney Rowi
 
 ## Branches, production and dev
 
+- Production is https://rowhether.com/, a custom domain on the `rowhether` Worker. `SITE_URL` in `src/config.js` holds it for shared links; the canonical and Open Graph tags in `index.html` repeat it. Use it for any production link.
 - Workers Builds deploys production on every push to `claude/sleepy-cannon-y8i0i3`, the repo's default branch. Pushing there changes the live app within a minute. Do not push experiments there.
 - `dev` is the dev instance. With Preview builds turned on for the `rowhether` Worker, every push to a non-production branch builds a Worker Preview at `<branch>-rowhether.<subdomain>.workers.dev`, so `dev` lives at `dev-rowhether.<subdomain>.workers.dev`. Work on `dev` (or a branch off it) and check it there.
 - Previews use the `previews` block in `wrangler.jsonc`, not production settings: `APP_ENV` is `dev`, separate rate limiter namespaces, and the `rowhether-dev` D1 database. No secrets are set for Previews, so the suggestion form stays hidden there and never files real issues. The app shows a "Dev" label next to the title when `/api/info` says it is not production.
@@ -108,14 +109,14 @@ The home screen is the quick answer. A tab bar under the header is the only navi
 
 ## Now screen additions
 
-- Share this forecast: a quiet button under the hero. It sends the hero as text (verdict, reason, conditions, how long it holds) with the app link through the phone's share sheet, or copies it where there is none (`src/share.js`).
+- Share this forecast: a quiet button under the hero. It sends the hero as text (verdict, reason, conditions, how long it holds) with the app link (`SITE_URL` on production, the page's own address on dev) through the phone's share sheet, or copies it where there is none (`src/share.js`).
 - Dock reports (`src/reports.js`, `worker/reports.js`): at the top of On the water now, the latest report from the last 3 hours ("At the dock: flat water, patchy fog, 20 min ago"), compared with the forecast water state for that hour, and a Report conditions button. The dialog has choices only: water (flat, light chop, chop, rough), fog (none, patchy, thick) and floating debris. No free text, so nothing to moderate. Rate limited to 3 a minute per connection. Hidden when `/api/info` says reports are off, and on a static host with no `/api`.
 - Air quality fact, linking to the Air tab. Daylight links to Light.
 
 ## Code map
 
 - `index.html`: page markup, the tab bar (`#tabs`, filled by `initRoutes()`), the settings `<dialog>`, and the detail view container (`#detail`, next to `#home`). Loads `src/main.js`.
-- `src/config.js`: location, endpoints (`SRC`), `DEFAULTS`, storage keys, copy tables (`CHIP`, `THEN`, `WORD`), and `FACTORS` (groups of reasons, one per concern in the Week view).
+- `src/config.js`: `SITE_URL`, location, endpoints (`SRC`), `DEFAULTS`, storage keys, copy tables (`CHIP`, `THEN`, `WORD`), and `FACTORS` (groups of reasons, one per concern in the Week view).
 - `src/format.js`: Eastern-time formatters and text helpers (`dayKey`, `hm`, `whenText`, `card`, `rng`, `esc`).
 - `src/storage.js`: `loadSettings`, `saveSettings`, `hasSavedSettings`, `nudgeDismissed`, `dismissNudge`, `loadCache`, `saveCache`. All guarded with try/catch.
 - `src/data.js`: `fetchJSON`, the parsers (`parseAlerts`, `parseObs`, `parseRiver`, `parseFlow`, `parseFlowDays`, `parseFlowForecast`, `parseAQ`, `parseModels`) and `fetchAll`.

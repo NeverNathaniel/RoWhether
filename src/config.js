@@ -1,5 +1,8 @@
 // Location, endpoints, defaults and copy shared across the app.
 
+// The production address, for shared links and link previews.
+export const SITE_URL = 'https://rowhether.com/';
+
 export const LOC = { lat: 42.9607, lon: -72.5219, tz: 'America/New_York' };
 
 export const DEFAULTS = {

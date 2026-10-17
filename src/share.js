@@ -1,7 +1,8 @@
 // Share this forecast: the hero in a sentence or two, through the phone's share
 // sheet, or copied to the clipboard where there is none.
-import { $ } from './state.js';
+import { app, $ } from './state.js';
 import { hm } from './format.js';
+import { SITE_URL } from './config.js';
 
 const LABEL = 'Share this forecast';
 
@@ -15,7 +16,11 @@ export function initShare() {
   const btn = $('shareBtn');
   const flash = t => { btn.textContent = t; setTimeout(() => { btn.textContent = LABEL; }, 2000); };
   btn.addEventListener('click', async () => {
-    const text = shareText(), url = location.origin + location.pathname;
+    // Production shares rowhether.com, whatever address it was opened on.
+    // Dev shares its own address, so testers stay on dev.
+    const env = app.info && app.info.env;
+    const url = env && env !== 'production' ? location.origin + location.pathname : SITE_URL;
+    const text = shareText();
     try {
       if (navigator.share) { await navigator.share({ title: 'Putney Landing rowing forecast', text, url }); return; }
       await navigator.clipboard.writeText(`${text} ${url}`);
