@@ -8,6 +8,10 @@ export function loadSettings() {
   } catch (e) { /* storage blocked */ }
   return { ...DEFAULTS };
 }
+// True once the viewer has saved Settings in this browser, even unchanged.
+export function hasSavedSettings() {
+  try { return localStorage.getItem(SET_KEY) !== null; } catch (e) { return false; }
+}
 export function saveSettings(s) {
   try { localStorage.setItem(SET_KEY, JSON.stringify(s)); } catch (e) { /* storage blocked */ }
 }

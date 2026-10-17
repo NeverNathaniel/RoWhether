@@ -92,7 +92,7 @@ The home screen is the quick answer. A tab bar under the header is the only navi
 - `index.html`: page markup, the tab bar (`#tabs`, filled by `initRoutes()`), the settings `<dialog>`, and the detail view container (`#detail`, next to `#home`). Loads `src/main.js`.
 - `src/config.js`: location, endpoints (`SRC`), `DEFAULTS`, storage keys, copy tables (`CHIP`, `THEN`, `WORD`), and `FACTORS` (groups of reasons, one per concern in the Week view).
 - `src/format.js`: Eastern-time formatters and text helpers (`dayKey`, `hm`, `whenText`, `card`, `rng`, `esc`).
-- `src/storage.js`: `loadSettings`, `saveSettings`, `loadCache`, `saveCache`. All guarded with try/catch.
+- `src/storage.js`: `loadSettings`, `saveSettings`, `hasSavedSettings`, `loadCache`, `saveCache`. All guarded with try/catch.
 - `src/data.js`: `fetchJSON`, the parsers (`parseAlerts`, `parseObs`, `parseRiver`, `parseFlow`, `parseFlowDays`, `parseFlowForecast`) and `fetchAll`.
 - `src/logic.js`: the call logic, pure and DOM free. `buildModel(data, settings, now)` returns the model every render reads: hours, days, `h72`, `cur`, `alerts`. Also `assess`, `lvlExcept`, `sunFor`, `lightAt`, `fogRisk`, `morningFog`, `nextMorning`, `windVsCourse`, `precipKind`, `rateWord`, `precipSummary`, `flowTrend`, `flowChange`, `chopWind`, `waterState`, `waterWhy`, `debrisLikely`, `periodsFor`, and for the detail views `rowingHours`, `factorLevel`, `worstOf`, `worstReasons`, `runsBy`, `callRuns`, `factorRuns`, `flowForecastAt`, `flowForecastPeak`. The model also has `daytime`, `next`, and `periods` on each day.
 - `src/state.js`: the mutable `app` object (settings, data, errors, model, UI selection) and `$`.
@@ -100,7 +100,7 @@ The home screen is the quick answer. A tab bar under the header is the only navi
 - `src/render/chart.js`: the SVG chart kit for the detail views (`Chart`, `niceTicks`, `niceMax`).
 - `src/render/detail/`: `index.js` (the `VIEWS` registry and `renderDetail()`), `common.js` (week strip, legend, chart box, hour table, chart width), and one file per view: `week.js`, `wind.js`, `rain.js`, `temperature.js`, `fog.js`, `river.js`. Each view exports `key`, `name`, `summary(m)` (its opening line) and `render(m, day)`.
 - `src/route.js`: `parseRoute`, `initRoutes` (builds the tabs), `setDay`.
-- `src/settings.js`: settings dialog wiring.
+- `src/settings.js`: settings dialog wiring, and the reminder above the hero (`#setNudge`) that points to Settings until it has been saved once in this browser (`hasSavedSettings()`).
 - `src/main.js`: styles, service worker registration, `refresh`, event listeners, startup.
 - `src/styles/tokens.css` (colors) and `src/styles/app.css` (everything else).
 - `public/`: icons and Cloudflare `_headers`, copied to `dist/` as is. `icon.svg` is the app icon source (a sculler crossing a low sun at dawn); `npm run icons` renders the PNGs from it. `favicon.svg` is a simplified version for browser tabs. Keep icon artwork inside the maskable safe zone, a circle of radius 205 around the center of the 512 canvas.

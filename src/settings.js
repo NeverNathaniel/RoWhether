@@ -1,7 +1,8 @@
 // Settings dialog: fill from current settings, validate and save on close.
+// Until Settings has been saved once, a note above the hero points to it.
 import { DEFAULTS } from './config.js';
 import { app, $ } from './state.js';
-import { saveSettings } from './storage.js';
+import { saveSettings, hasSavedSettings } from './storage.js';
 
 const OPTIONAL = ['rainCaution', 'rainOff'];
 
@@ -10,7 +11,10 @@ export function initSettings(onSave) {
   const fill = src => {
     for (const k of Object.keys(DEFAULTS)) { if (form.elements[k]) form.elements[k].value = src[k] ?? ''; }
   };
-  $('settingsBtn').addEventListener('click', () => { fill(app.settings); dlg.showModal(); });
+  const open = () => { fill(app.settings); dlg.showModal(); };
+  $('settingsBtn').addEventListener('click', open);
+  $('setNudgeBtn').addEventListener('click', open);
+  $('setNudge').hidden = hasSavedSettings();
   $('resetSet').addEventListener('click', () => fill(DEFAULTS));
   dlg.addEventListener('close', () => {
     if (dlg.returnValue !== 'save') return;
@@ -31,6 +35,7 @@ export function initSettings(onSave) {
     if (next.rainOff !== '' && next.rainCaution !== '' && next.rainOff < next.rainCaution) next.rainOff = next.rainCaution;
     app.settings = next;
     saveSettings(next);
+    $('setNudge').hidden = true;
     onSave();
   });
 }

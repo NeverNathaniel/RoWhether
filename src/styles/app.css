@@ -24,6 +24,11 @@ button:hover{border-color:var(--river)}
 button:disabled{opacity:.6; cursor:progress}
 button.primary{background:var(--river); border-color:var(--river); color:var(--bg)}
 
+/* Settings reminder, shown until Settings is saved once */
+.set-nudge{display:flex; flex-wrap:wrap; align-items:center; gap:.6rem 1rem; background:var(--river-soft); border-radius:1rem; padding:.8rem 1rem; margin:0 0 1rem}
+.set-nudge[hidden]{display:none}
+.set-nudge p{margin:0; flex:1 1 18rem; font-size:.9375rem; line-height:1.4}
+
 /* Hero: the one loud thing */
 .hero{--st:var(--muted); --st-soft:var(--surface); background:var(--st-soft); border-radius:1.25rem; padding:1.5rem 1.5rem 1.6rem}
 .hero[data-lvl="0"]{--st:var(--go); --st-soft:var(--go-soft)}
