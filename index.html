@@ -68,10 +68,20 @@
   </main>
 
   <footer>
+    <p class="install-row" id="installRow" hidden><button type="button" id="installBtn">Install this app</button></p>
     <p class="suggest-row" id="suggestRow" hidden><button type="button" id="suggestBtn">Suggest a change or report a bug</button></p>
     <p>Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (NOAA HRRR and GFS models). Alerts and Keene observations from the <a href="https://www.weather.gov/aly/" target="_blank" rel="noopener">National Weather Service, Albany</a>. River flow from USGS gauge <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01154500/" target="_blank" rel="noopener">01154500 at North Walpole</a>, water temperature from <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01161280/" target="_blank" rel="noopener">01161280 near Northfield</a>. River forecast from the <a href="https://water.noaa.gov/gauges/wlpn3" target="_blank" rel="noopener">NWS Northeast River Forecast Center</a>.</p>
     <p>Thresholds are starting points, not club rules. Lightning: off the water at the first thunder, back on 30 minutes after the last. Look at the water before you launch.</p>
   </footer>
+</div>
+
+<div class="install-bar" id="installBar" role="region" aria-label="Install the app" hidden>
+  <img src="icon-192.png" alt="" width="44" height="44">
+  <p>Add Putney Row to your home screen. It opens full screen in one tap.</p>
+  <div class="install-actions">
+    <button type="button" id="installLater">Not now</button>
+    <button type="button" class="primary" id="installGo">Install</button>
+  </div>
 </div>
 
 <dialog id="settings" aria-labelledby="setTitle">
@@ -133,6 +143,17 @@
     <div class="dlg-actions">
       <button type="button" id="sugCancel">Cancel</button>
       <button type="submit" class="primary" id="sugSend">Send</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="install" aria-labelledby="insTitle">
+  <form method="dialog">
+    <h2 id="insTitle">Add to your home screen</h2>
+    <ol class="steps" id="insSteps"></ol>
+    <p class="note">Then open Putney Row from its icon. It opens full screen and keeps the last forecast for when you are offline.</p>
+    <div class="dlg-actions">
+      <button class="primary">Done</button>
     </div>
   </form>
 </dialog>

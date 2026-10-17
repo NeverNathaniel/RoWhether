@@ -14,6 +14,7 @@ import { renderDetail } from './render/detail/index.js';
 import { initRoutes, setDay } from './route.js';
 import { initSettings } from './settings.js';
 import { initSuggest } from './suggest.js';
+import { initInstall } from './install.js';
 
 // The service worker caches the app shell so it opens offline. Data still
 // comes from the network, with the last good copy kept in localStorage.
@@ -102,6 +103,7 @@ setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, RE
 
 initSettings(render);
 initSuggest();
+initInstall();
 initRoutes();
 
 // ---------- Start ----------
