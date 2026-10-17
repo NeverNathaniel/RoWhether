@@ -1142,3 +1142,1174 @@ Both links as in 2.1.
 Decision: Keep incident records, names included, until the club deletes them or the club is deleted; 03 states the legal basis in the privacy policy.
 - Alternative: replace names with "Former member" when a person deletes their account (better for privacy, worse for insurance claims and follow-up).
 - Alternative: delete incidents after a fixed period such as 7 years (unverified whether that meets liability periods for minors; 03 decides).
+
+## 10. Boats, damage reports and safety checks (phase 6)
+
+### 10.1 Registry
+
+| Field | Rules | Example |
+| --- | --- | --- |
+| Kind | `shell`, `launch`, `oars`, `other` | `shell` |
+| Name | 1 to 40, unique in the club among boats that are not retired | Bellows Falls |
+| Class | Shells: 1x, 2x, 2-, 2+, 4x, 4-, 4+, 4x+, 8+, 8x+ | 8+ |
+| Rig | `scull`, `sweep`, `convertible` | `sweep` |
+| Rigging | `{ stroke: "port" or "starboard", sides: ["p", "s", ...] per seat from bow for bucket rigs, cox: "stern" or "bow" }` | `{ "stroke": "port", "cox": "stern" }` |
+| Crew weight range | kg, 20 to 150, min not above max; shown in the viewer's units (07) | 75 to 90 kg |
+| Maker, model, year, hull id, color | Up to 40, 40, 1950 to 2100, 40, 30 | |
+| Specs | Launches: `{ capacity, engineHp, registration, killCord }`. Oars: `{ blade, lengthCm, pairs }`. | `{ "capacity": 6, "killCord": true }` |
+| Where | A club location and a rack label (20 chars) | Putney Landing, rack B3 |
+| Status | `available`, `restricted`, `out_of_service`, `retired` | `available` |
+| Status note | 200 | "Out of service: cracked rigger on 3 seat. Back about Oct 24." |
+| Restricted to | `{ groups: [...], clearances: [...] }`, for `restricted` | Masters with `solo` |
+| Bookable, needs approval | Switches | on, off |
+| Private owner | A membership, for a private boat racked at the club. Not bookable by others; shows on the board by name. | |
+| Notes | 500 | |
+
+The Boats tab lists boats by class, with status words ("Out of service", "Restricted: Masters cleared to row alone") and open damage counts. A boat page shows its details, open and past damage reports, the next 7 days of bookings and practice reservations, and its last 20 outings (date, crew type, time out).
+
+### 10.2 Damage reports and out of service
+
+The sheet, from a boat page, the board ("Report damage" in More) or after I'm back:
+
+> Report damage to Bellows Falls
+>
+> How bad: Cosmetic, Rowable but needs fixing, Not safe to row
+> Where: Hull, Rigger, Oarlock or gate, Seat, Slide, Foot stretcher, Heel ties, Fin, Rudder or steering, Bow ball, Oar, Other
+> What happened (adults only, 1,000 characters): "Rigger on 3 seat cracked at the backstay after hitting the dock."
+>
+> [Send]
+
+Effects:
+
+- `unsafe` sets the boat `out_of_service` at once with the note "Reported not safe to row by Sam L., Oct 17." Future bookings of the boat are cancelled (`out_of_service`) and the members told: "Bellows Falls is out of service. Your booking for Sat 7 AM was cancelled. 2 other 8+ boats are free then." Practices with the boat reserved and lineups using it show a warning to their coaches.
+- `rowable` keeps the status and shows the report on the boat page and in pickers: "Rowable damage: rigger nut loose on 3 seat."
+- Equipment managers (or admins when there are none) get a notification (05 kind `club`, subkind `damage`): "Putney RC: Bellows Falls reported not safe to row. Rigger, Oct 17."
+- Equipment managers move reports through `open`, `in_repair`, `fixed`, `wont_fix`, `duplicate`, with a resolution note. "Mark the boat back in service" sets `available` and closes linked open reports as `fixed`.
+- Coaches, safety officers and equipment managers can set a boat out of service by hand, with a note and an optional "Back about" date.
+
+### 10.3 Launch and shell checks
+
+Club setting `checks`: `off`, `show` (default) or `ask`.
+
+- `show`: Start a row shows the relevant list as a reminder card.
+- `ask`: each item is a tick; the result is stored in `outings.checks` as `{ "done": [...], "skipped": [...] }`, and staff see "Checks: 8 of 9 (no VHF radio)" on the board. Never blocking.
+
+Launch list (USRowing, 2.1): PFDs for every rower and cox in your care; everyone in the launch wearing a PFD; paddle; waterproof first aid kit; emergency blankets; throwable PFD; horn or whistle; kill cord worn; VHF radio (coastal water only, shown when the location's water type is `tidal` or `harbor`).
+
+Shell list (USRowing, 2.1): rigging nuts tight; foot stretchers and slide checked; heel ties in good condition; bow ball on; lights (shown only when the row starts or ends outside sunrise to sunset); PFD in the boat if no launch; phone in a waterproof case; water.
+
+## 11. Booking (phase 6)
+
+### 11.1 Settings
+
+`settings.booking` (16.1): `enabled` (off), `slotMin` (30; 15 or 30), `minMin` (30), `maxMin` (180; up to 720), `advanceDays` (7; 1 to 30), `maxActive` (3; 1 to 10 future bookings per member), `approval` (`none`, `flagged` for boats with "needs approval", or `all`; default `flagged`), `noShowMin` (20; 10 to 60), `juniorsCanBook` (off).
+
+### 11.2 Rules
+
+- Start and end on `slotMin` boundaries in the location's time zone; length from `minMin` to `maxMin`; start within `advanceDays`.
+- The boat must be bookable and `available` or `restricted`; for `restricted`, the member must be in one of its groups and hold its clearances.
+- Pending bookings hold the slot, so two people cannot request the same time.
+- Conflicts are checked in the insert itself, one statement, so two phones cannot double-book:
+
+```sql
+INSERT INTO bookings (id, club_id, boat_id, membership_id, starts_at, ends_at, status, note, created_at, updated_at)
+SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9
+WHERE NOT EXISTS (
+    SELECT 1 FROM bookings
+    WHERE boat_id = ?3 AND status IN ('pending', 'confirmed') AND starts_at < ?6 AND ends_at > ?5)
+  AND EXISTS (
+    SELECT 1 FROM boats
+    WHERE id = ?3 AND bookable = 1 AND status IN ('available', 'restricted'));
+```
+
+`meta.changes = 0` returns 409 `slot_taken` "Bellows was just booked for part of that time. Pick another time or boat." Back-to-back bookings (one ends at 8:00, the next starts at 8:00) are allowed. Checked locally in SQLite 3.45.1: overlap refused, back-to-back accepted, and the query plan uses `bookings_boat` (2026-10-17, not on D1).
+
+- The member's limit (`maxActive`) is counted in the same batch before the insert.
+- When the slot is Stay off by the member's club rules, the sheet warns but allows it: "Club rules say Stay off then: gusts to 19 mph. The forecast may change. Book anyway?"
+
+### 11.3 Approval, cancellation and no-shows
+
+- `pending` bookings go to equipment managers and admins (05 kind `club`, subkind `booking`). Approve or decline with an optional note. A pending booking still undecided at its start time is declined automatically.
+- Members cancel any time before the start. Staff cancel with a reason, and the member is told.
+- A booking is `used` when the member starts a row with that boat from 30 minutes before the start to the end; `bookings.outing_id` links them.
+- A booking not used by `start + noShowMin` becomes `no_show` and frees the boat (the every-minute tick, using index `bookings_boat`). Equipment managers see no-show counts per member for the last 90 days. No automatic penalty.
+
+### 11.4 Practices and bumping
+
+A practice can reserve boats: the coach picks them in the practice sheet, which creates `bookings` rows with `practice_id` and status `confirmed`. When a boat is already booked by a member, the coach sees "Bellows is booked by Sam L., 7 to 8 AM." and chooses another boat or "Take it for practice". Taking it cancels the member's booking (`practice`) and tells them: "Your booking of Bellows on Sat 7 AM was cancelled for Junior practice. 2 other singles are free then. [Book another]" Taking a booking that starts within 12 hours needs the equipment manager or admin role.
+
+Decision: Coaches can take a member's booking for a practice, with notice to the member, and only equipment managers or admins can do so within 12 hours of the start.
+- Alternative: member bookings always win; practices pick other boats.
+- Alternative: practices always win with no time limit.
+
+### 11.5 Booking from Plan a row
+
+The Week view's Plan a row (`planSessions(m, minutes, when)` in `src/logic.js`) already ranks the calmest Go sessions. For a member with club rules on, `m` carries the club rules, so the sessions are Go by the club's rules. When booking is enabled for a club at this location, each session gets "Book a boat":
+
+> Book a boat
+>
+> Saturday, Oct 24, 7:00 to 8:30 AM
+> Forecast for you: Go. Wind 2 to 5 mph, flat water.
+>
+> Boats free then (1x): Bellows, Hudson single, Vespoli 2018
+> Show other classes
+>
+> Note (optional, 120 characters)
+>
+> [Book]
+
+The list comes from `GET /api/clubs/:slug/availability?start=&end=&class=`, filtered to boats the member may use, with the member's `row_as` class first. Session times from `planSessions()` are on half hours, so they fit a 30-minute slot grid; with a 15-minute grid they fit too. After booking: "Booked Bellows for Saturday 7:00 to 8:30 AM." and the session row shows "Booked: Bellows". The booking appears in the member's calendar feed (14).
+
+## 12. Practices, RSVP and attendance (phase 6)
+
+### 12.1 Schedule and recurrence
+
+The practice sheet:
+
+| Field | Control | Rules |
+| --- | --- | --- |
+| Title | Text | 2 to 60. "Junior practice" |
+| Kind | On the water, Land or erg, Race, Learn to row, Other | |
+| Groups | Multi-select | At least one, or "Everyone" |
+| Coaches | Staff picker | Up to 10 |
+| Location | The club's locations | |
+| Date, start time, length | Pickers in the location's time zone | 15 minutes to 8 hours |
+| Meet | 0 to 120 minutes before the start | "Meet 5:30 AM" |
+| With a launch | Switch | On for water practices |
+| Repeat | Does not repeat; Weekly on (day chips); Every 2 weeks on (day chips) | |
+| Until | Date | Required when repeating; at most 366 days and 400 practices |
+| Boats to reserve | Club boats | 11.4 |
+| RSVP by | Evening before at 8 PM; 3 hours before; No deadline | |
+| Notes | Text, 500 | Visible to everyone in the practice and their guardians |
+| Public | Switch, Learn to row and Other only | Shown on the public page and public calendar, with a sign-up link |
+
+Recurrence is a strict subset of RFC 5545 RRULE: `FREQ=WEEKLY;INTERVAL=1` or `2`, `BYDAY` with 1 to 7 days, and an end date kept in `until_date`. `expandSeries(series, tz)` in a new pure module `src/schedule.js` (shared with the Worker) creates every occurrence at the local start time on each matching date, so a 5:45 AM practice stays at 5:45 AM across the daylight saving change: Tuesday Oct 20, 2026 is 09:45 UTC and Monday Nov 2, 2026 is 10:45 UTC (computed with the IANA zone, 2026-10-17). Occurrences are written as `practices` rows when the series is saved; dates already past are skipped.
+
+Edits ask "This practice" or "This and following":
+
+- This practice: changes the row and sets `detached = 1`, so later series edits leave it alone.
+- This and following: changes in time, title, groups, coaches, notes or launch update the non-detached future rows in place, keeping their ids, RSVPs and lineups. A change of weekdays or interval ends the old series the day before and creates a new one: future rows with no RSVPs or lineups are deleted, the rest are cancelled with "Moved to the new schedule" and their people told.
+- Delete a series: the same rule for future rows.
+
+Every change that shows in a calendar adds 1 to `sequence`.
+
+Cancel: `status = 'cancelled'` with a reason (200 chars). Move to land: `status = 'land'` with what to do instead: "Erg in the boathouse: 3 x 15 min at 20 spm." Both notify members, guardians and coaches through 05's `practice` kind (05 section 3.10).
+
+### 12.2 Practice outlook and the evening decision
+
+Each practice in the forecast window (7 days) shows the club result for its crew type (the practice's groups, its boats' classes or the most common class among them, and its launch switch), with the worst stretch:
+
+> Junior practice, Tue 5:45 to 7:30 AM. Juniors, 8+ with a launch: Go until 6:30 AM, then Caution: gusts to 19 mph.
+
+Evening decision: at `settings.practice.decideAt` (default 19:45 local), for each practice starting in the next 18 hours, the Worker builds the location's model with 05's server-side data (`loadLocationData()`, 05 section 5.3), applies the club rules for the practice's crew type with `levelsFor()`, and takes the worst level in the practice window.
+
+- Stay off: push to the practice's coaches (all coaches if none listed), 05 kind `club`, subkind `practice_check`, normal urgency, not held (the coach chose this time): "Putney RC: tomorrow's 5:45 AM practice looks like Stay off. Juniors 8+ with a launch: gusts to 24 mph. Keep it, move it to land, or cancel?"
+- Caution: "Putney RC: tomorrow's 5:45 AM practice looks like Caution: gusts to 19 mph after 6:30 AM."
+- Go: nothing, unless the club turns on "Tell coaches when it looks like Go too".
+
+The notification opens the practice with three buttons: "Keep on the water", "Move to land", "Cancel practice". The choice sets `decided_at` and, for land or cancel, notifies members. The app never cancels a practice by itself.
+
+### 12.3 RSVP
+
+- Yes, No, Maybe. No asks a reason: School, Work, Sick, Injured, Travel, Other.
+- Adults and guardians may add a note up to 100 characters ("Back from travel Wednesday"). Juniors cannot (5.2).
+- Guardians answer for their junior; the record keeps who answered.
+- After the RSVP deadline, changes are allowed and marked late: coaches see "Changed to No at 9:40 PM, after the deadline."
+- Coaches see counts by group ("Yes 14, Maybe 2, No 3, No answer 5") and the list. Members see their own answer and the count.
+- Optional reminder 2 hours before the deadline to people who have not answered (setting, off by default).
+
+### 12.4 Attendance
+
+- After the start, coaches mark each expected person (members of the practice's groups, plus anyone who answered): Present, Late, Absent, Excused.
+- "Fill from RSVPs" sets yes to present and no to excused. "Fill from the board" marks crew of outings linked to the practice as present.
+- Marks lock 14 days after the practice; admins can still edit.
+- Reports: per member over a date range, attended (present or late) out of practices marked, excused not counted. CSV export.
+
+## 13. Lineups (phase 6)
+
+The editor, from a practice ("Lineups", "Add a boat"):
+
+- Name (defaults to the boat name), boat (available club boats), class (from the boat).
+- Seats from the class, listed in boat order: Cox (coxed classes), 8 (stroke), 7, down to 1 (bow). Seat 0 is the cox in `lineup_seats`. Sides show when the boat's rigging is known: "8 (stroke), port".
+- The picker lists people who answered Yes first, then Maybe, then no answer; No answers are grey with "Said no". Tap a person, then a seat. Guests by name (40 chars).
+
+Checks:
+
+| Check | Level |
+| --- | --- |
+| Seats do not match the class | Error, cannot publish |
+| One person in two seats of one lineup | Error |
+| One person in two lineups at the same practice | Warning |
+| Person answered No | Warning |
+| Boat out of service, or not reserved and booked by someone else | Warning |
+| Club rules need a clearance someone lacks (`flip_test` in a 1x, `cox` in the cox seat) | Warning |
+
+"Publish lineups" publishes every draft at the practice. Notifications (05 kind `club`, subkind `lineup`) go to each seated person with an account and to guardians of seated juniors: "Putney RC: lineups for Tue 5:45 AM. You are 6 seat in Bellows Falls (8+)." Editing a published lineup and publishing again notifies only people whose seat changed ("Your seat changed: now 5 seat in Bellows Falls (8+).") or who were removed ("You are no longer in a lineup for Tue 5:45 AM.").
+
+Visible to: staff; everyone in the practice's groups; guardians of juniors in those groups. Drafts are staff only.
+
+"Start these boats" on the board (8.2) starts every published lineup at the practice as outings with crew from the seats, the practice's launch switch and back-by at the practice end.
+
+## 14. Calendar feeds (phase 6)
+
+### 14.1 Personal feed
+
+Account, Calendar, "Add practices to your calendar":
+
+> Add practices to your calendar
+>
+> Subscribe once and your club practices, seats and boat bookings appear in your calendar app. Calendar apps check for changes on their own schedule, from minutes to about a day, so notifications are still the fastest way to hear about a cancellation.
+>
+> [Copy link] [Open in Apple Calendar]
+>
+> Anyone with this link can see your practice times and seats. If you share it by mistake, stop it and make a new one.
+
+- Token: 32 random bytes in base64url (43 characters). Only its SHA-256 is stored. Up to 5 per user, each for all clubs or one club, with a label. "Stop this link" revokes it.
+- Links: `https://rowhether.com/api/cal/<token>.ics` and the same with `webcal://` for "Open in Apple Calendar". Under `/api/`, so `run_worker_first` already routes it and the service worker never handles it (CLAUDE.md).
+- Content, from 14 days ago to 120 days ahead, at most 500 events: practices for the user's groups (guardians get their junior's, titled "Sam: Junior practice"), with "Cancelled" (`STATUS:CANCELLED`) or "Land: " prefixes; the user's own published seat in the description; their bookings. No other person's name ever appears.
+
+### 14.2 Format
+
+RFC 5545 with UTC times (form 2 of DATE-TIME), so no VTIMEZONE block is needed; CRLF line ends; lines folded at 75 octets (RFC 5545 section 3.1: "Lines of text SHOULD NOT be longer than 75 octets", verified by reading the RFC 2026-10-17); commas, semicolons, backslashes and newlines escaped in text values. `REFRESH-INTERVAL;VALUE=DURATION:PT1H` is RFC 7986's "suggested minimum interval for polling" (verified by reading RFC 7986 section 5.7, 2026-10-17); `X-PUBLISHED-TTL:PT1H` is a non-standard hint some clients read (unverified which). Google Calendar refreshes subscribed URLs on its own schedule, reported as up to 12 to 24 hours, with no manual refresh (from search results, unverified).
+
+```
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//RoWhether//Club calendar//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Putney Rowing Club
+REFRESH-INTERVAL;VALUE=DURATION:PT1H
+X-PUBLISHED-TTL:PT1H
+BEGIN:VEVENT
+UID:practice-5b1c2e3f-0a9b-4c8d-8e7f-6a5b4c3d2e1f@rowhether.com
+DTSTAMP:20261017T120000Z
+DTSTART:20261020T094500Z
+DTEND:20261020T113000Z
+SEQUENCE:0
+SUMMARY:Junior practice
+LOCATION:Putney Landing\, Putney\, VT
+DESCRIPTION:Meet 5:30 AM. You are 6 seat in Bellows Falls (8+).\nhttps://ro
+ whether.com/club/putney-rowing-club#schedule/2026-10-20
+STATUS:CONFIRMED
+URL:https://rowhether.com/club/putney-rowing-club#schedule/2026-10-20
+END:VEVENT
+END:VCALENDAR
+```
+
+5:45 to 7:30 AM Eastern on Oct 20, 2026 is 09:45 to 11:30 UTC.
+
+`worker/clubs/calendar.js`: `icsEscape()`, `icsFold()`, `icsEvent()`, `buildFeed()`, all pure and tested. Headers: `Content-Type: text/calendar; charset=utf-8`, `Cache-Control: private, max-age=900`, an `ETag` from a hash of the body, and 304 on `If-None-Match`. Rate limit `CAL_LIMIT`, 10 a minute per token. An unknown or revoked token returns 404 with no hint. `last_used_at` is updated at most once an hour.
+
+### 14.3 Public club calendar
+
+`GET /api/clubs/:slug/public.ics`: public practices of verified clubs only, no token, `Cache-Control: public, max-age=900`. Linked from the public club page.
+
+## 15. Announcements (phase 6)
+
+- Written by coaches, safety officers and admins. Title 2 to 80 characters, body 1 to 1,000 characters of plain text (https links become links), audience (groups or everyone), "Pin until" (up to 30 days), "Send a notification" (on).
+- Shown on the club Today tab, pinned first, then the last 30 days, to the audience, guardians of juniors in the audience, and all staff (5.2).
+- No replies, no reactions, no per-person read receipts.
+- Notification: 05 kind `club`, subkind `announcement`, normal urgency, held by quiet hours: title "Putney RC: Regatta van Saturday", body the first 160 characters.
+- At most 10 a day per club. The author or an admin can delete one.
+- Not screened, since only members see it. Members can report a club to site moderators with a flag (target `club`, 04 section 8.5).
+
+Example: "Regatta van leaves at 6 AM Saturday. Juniors: bring your uniform and a warm layer. Parents: pickup at 4 PM at the boathouse."
+
+## 16. Club settings, export and retention
+
+### 16.1 Settings
+
+`clubs.settings`, JSON, validated by `cleanSettings()` in `worker/clubs/clubs.js`:
+
+```json
+{
+  "overdue": { "graceMin": 15, "escalateMin": 15, "stage1": "safety" },
+  "juniors": { "selfStart": false, "canBook": false },
+  "board": { "pollSec": 30 },
+  "checks": "show",
+  "booking": { "enabled": false, "slotMin": 30, "minMin": 30, "maxMin": 180, "advanceDays": 7,
+               "maxActive": 3, "approval": "flagged", "noShowMin": 20 },
+  "practice": { "decideAt": "19:45", "decideGo": false, "rsvpReminder": false }
+}
+```
+
+| Key | Range |
+| --- | --- |
+| `overdue.graceMin`, `overdue.escalateMin` | 5 to 60 |
+| `overdue.stage1` | `safety`, `safety_and_coaches` |
+| `board.pollSec` | 15 to 120 |
+| `checks` | `off`, `show`, `ask` |
+| `booking.*` | 11.1 |
+| `practice.decideAt` | `HH:MM`, 17:00 to 22:00 local |
+
+### 16.2 Export
+
+- `GET /api/clubs/:slug/export` (admins): one JSON file, `putney-rowing-club-2026-10-17.json`, with the club, locations, groups, members (names, kinds, roles, groups, clearances, join and end dates), rules, water status history, boats, damage reports, bookings, practices, attendance, lineups and announcements. Incidents only with `?incidents=1` (admins who are also safety officers, or safety officers). No contact details, no account emails.
+- `GET /api/clubs/:slug/export.csv?table=members` for one table at a time: `members`, `rules`, `status`, `boats`, `damage`, `bookings`, `practices`, `attendance`, `lineups`, `incidents`, `outings`.
+- At most 5 exports a day per club; each writes `audit_log` `export.download`.
+- Every member can export their own data through 03's account export, which includes their memberships, RSVPs, attendance and seats.
+
+### 16.3 Retention
+
+The daily run (05's `17 9 * * *` cron) applies these. 03 owns the privacy policy text that states them.
+
+| Data | Kept | Then |
+| --- | --- | --- |
+| Water status history | 3 years | Deleted |
+| Club entries in `audit_log` | 2 years | Deleted |
+| Invites, expired or revoked | 30 days | Deleted |
+| Declined join requests | 90 days | Deleted |
+| Ended memberships | While the club exists | Name becomes "Former member" when the account is deleted |
+| Practices, attendance, lineups | While the club exists | |
+| Bookings | 2 years after they end | Deleted |
+| Damage reports, fixed or closed | 3 years | Deleted |
+| Incidents | Until the club deletes them (9.3) | |
+| Kiosk devices and calendar tokens, revoked | 30 days | Deleted |
+| Announcements, not pinned | 1 year | Deleted |
+| Club columns on outings | With the outing (04) | Cleared when the club is deleted |
+
+## 17. Limits
+
+| Item | Limit |
+| --- | --- |
+| Clubs created per user | 3 not deleted; 1 a day |
+| Live memberships per user | 10 |
+| Active members per club | 100 while unverified; 2,000 verified (above that, ask the owner) |
+| Locations per club | 10 |
+| Groups per club, groups per member | 30, 10 |
+| Rules per club | 40 |
+| Active invites per club | 50 |
+| Invite uses | 1 to 500 |
+| Invite expiry | Links and codes up to 90 days; personal up to 14; staff roles 7 |
+| Code tries | 5 a minute per IP (`CODE_LIMIT`), 20 a day per account |
+| Join requests | 5 pending per user, 1 per club, 30 days after a decline |
+| Guardians per junior | 4 |
+| Water status posts | 30 a day per club; at most 30 days long |
+| Kiosk screens | 5 per club |
+| Boats | 500 per club |
+| Bookings | `maxActive` (3; up to 10) future per member |
+| Practice series | 400 practices each, until at most 366 days ahead |
+| Lineups per practice | 30 |
+| Announcements | 10 a day per club |
+| Calendar links | 5 per user |
+| Incidents, damage reports | 20 a day per user each |
+| Exports | 5 a day per club |
+| Text | As in each section; the schema CHECKs repeat them |
+
+New rate limit bindings, with separate namespace ids for production and Previews as `wrangler.jsonc` does today (08 assigns ids; periods can only be 10 or 60 seconds, from docs, https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/):
+
+| Binding | Limit per 60 s | Key |
+| --- | --- | --- |
+| `CLUB_LIMIT` | 30 | user id, for club writes |
+| `CODE_LIMIT` | 5 | IP, for invite codes and kiosk pairing |
+| `KIOSK_LIMIT` | 30 | device id |
+| `CAL_LIMIT` | 10 | token hash |
+
+## 18. Schema
+
+Proposals for 08-architecture.md, which owns migration numbering and the canonical schema. They follow `migrations/0001_reports.sql` and the shared conventions: TEXT ids from `crypto.randomUUID()`, slugs for clubs, INTEGER ms times. `users` is 03's, `locations` 01's, `outings` and `outing_crew` 04's. D1 enforces foreign keys by default (from docs, https://developers.cloudflare.com/d1/sql-api/foreign-keys/: "By default, D1 enforces that foreign key constraints are valid within all queries and migrations"), so the ON DELETE actions below do the cleanup the text describes.
+
+These statements ran cleanly in SQLite 3.45.1 with `PRAGMA foreign_keys = ON` after stand-ins for `users`, `locations` and the changed `outings` (18.3), and the CHECKs refused what they should: a reserved club slug, a staff role on a junior, club rules off for a junior, a second live membership for one account, a closed status with no reason, a status over 30 days, a published lineup with no time, and an overlapping booking (verified live 2026-10-17, local SQLite, not D1).
+
+Column notes:
+
+- `memberships.row_as`: `{ "boatClass": "1x", "escort": false }`.
+- `memberships.clearances`: 4.8.
+- `club_rules.boat_classes` and `months`: JSON arrays; NULL means all. `limits` and `requires`: 6.2 and 6.3.
+- `water_status.allowed`: `{ "groups": [ids], "boatClasses": [...], "escort": "with_launch" | "any" }`.
+- `invites.preset`: `{ "kind": "adult", "roles": ["coach"], "groups": [ids], "forMembership": id, "guardianOf": id }`.
+- `incidents.conditions`: `{ "airF", "waterF", "wind", "rain", "current", "lightning", "fromApp": { ... } }`. `people`: `[{ "membershipId", "name", "role", "minor", "injured" }]`. `witnesses`: `[{ "name", "contact" }]`.
+- `lineup_seats.seat`: 0 is the cox, 1 bow, up to 8.
+- `practices.group_ids`, `coach_ids`, `announcements.group_ids`: JSON arrays of ids. Practices are fetched by `(club_id, starts_at)` and filtered in the Worker; a club has a few hundred practices in any 4-month window, so no join table is needed.
+
+### 18.1 Phase 5
+
+```sql
+CREATE TABLE IF NOT EXISTS clubs (
+  id TEXT PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE
+    CHECK (length(slug) BETWEEN 3 AND 48 AND slug NOT GLOB '*[^a-z0-9-]*'
+           AND slug NOT GLOB '-*' AND slug NOT GLOB '*-' AND slug NOT GLOB '*--*'
+           AND slug NOT IN ('new', 'join', 'api', 'add', 'admin', 'account', 'club', 'assets', 'about',
+                            'privacy', 'terms', 'help', 'settings', 'login', 'logout', 'static', 'sw', 'manifest')),
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 3 AND 80),
+  short_name TEXT NOT NULL CHECK (length(short_name) BETWEEN 2 AND 24),
+  name_key TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('club', 'school', 'college', 'masters', 'junior', 'adaptive',
+                                     'community', 'association', 'other')),
+  status TEXT NOT NULL DEFAULT 'unverified'
+    CHECK (status IN ('unverified', 'pending_review', 'verified', 'suspended', 'deleting', 'deleted')),
+  tz TEXT NOT NULL CHECK (length(tz) BETWEEN 3 AND 64),
+  country TEXT NOT NULL CHECK (length(country) = 2 AND country NOT GLOB '*[^A-Z]*'),
+  locality TEXT CHECK (locality IS NULL OR length(locality) <= 60),
+  description TEXT CHECK (description IS NULL OR length(description) <= 500),
+  visitor_info TEXT CHECK (visitor_info IS NULL OR length(visitor_info) <= 1000),
+  public_text_status TEXT NOT NULL DEFAULT 'ok' CHECK (public_text_status IN ('pending', 'ok', 'hidden')),
+  safety_info TEXT CHECK (safety_info IS NULL OR length(safety_info) <= 1000),
+  website TEXT CHECK (website IS NULL OR (length(website) <= 200 AND website GLOB 'https://*')),
+  contact_email TEXT CHECK (contact_email IS NULL OR (length(contact_email) <= 254 AND contact_email LIKE '%_@_%._%')),
+  links TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(links) AND length(links) <= 2000),
+  status_public INTEGER NOT NULL DEFAULT 1 CHECK (status_public IN (0, 1)),
+  rules_public INTEGER NOT NULL DEFAULT 0 CHECK (rules_public IN (0, 1)),
+  settings TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(settings) AND length(settings) <= 4000),
+  rules_revision INTEGER NOT NULL DEFAULT 0 CHECK (rules_revision >= 0),
+  verify_method TEXT CHECK (verify_method IS NULL OR verify_method IN ('meta', 'dns', 'email', 'manual')),
+  verify_token TEXT CHECK (verify_token IS NULL OR length(verify_token) = 25),
+  verify_domain TEXT CHECK (verify_domain IS NULL OR length(verify_domain) <= 253),
+  verify_passed_at INTEGER,
+  verify_evidence TEXT CHECK (verify_evidence IS NULL OR length(verify_evidence) <= 500),
+  verified_at INTEGER,
+  verified_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  suspended_reason TEXT CHECK (suspended_reason IS NULL OR length(suspended_reason) <= 300),
+  delete_after INTEGER,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  CHECK ((status IN ('deleting', 'deleted')) = (delete_after IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS clubs_status ON clubs (status);
+CREATE INDEX IF NOT EXISTS clubs_name_key ON clubs (name_key);
+CREATE INDEX IF NOT EXISTS clubs_creator ON clubs (created_by, created_at);
+CREATE INDEX IF NOT EXISTS clubs_delete ON clubs (delete_after) WHERE delete_after IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS club_locations (
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  location_id TEXT NOT NULL REFERENCES locations(id),
+  role TEXT NOT NULL DEFAULT 'home' CHECK (role IN ('home', 'regular')),
+  is_primary INTEGER NOT NULL DEFAULT 0 CHECK (is_primary IN (0, 1)),
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (club_id, location_id)
+);
+CREATE INDEX IF NOT EXISTS club_locations_loc ON club_locations (location_id);
+CREATE UNIQUE INDEX IF NOT EXISTS club_locations_primary ON club_locations (club_id) WHERE is_primary = 1;
+
+CREATE TABLE IF NOT EXISTS club_groups (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 2 AND 40),
+  kind TEXT NOT NULL DEFAULT 'custom' CHECK (kind IN ('juniors', 'novices', 'masters', 'adaptive',
+                                                      'learn_to_row', 'competitive', 'collegiate', 'custom')),
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  UNIQUE (club_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS invites (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('link', 'code', 'personal')),
+  token TEXT UNIQUE CHECK (token IS NULL OR length(token) = 22),
+  code TEXT UNIQUE CHECK (code IS NULL OR (length(code) = 8 AND code NOT GLOB '*[^ABCDEFGHJKMNPQRSTUVWXYZ23456789]*')),
+  preset TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(preset) AND length(preset) <= 1000),
+  approve INTEGER NOT NULL DEFAULT 0 CHECK (approve IN (0, 1)),
+  email TEXT CHECK (email IS NULL OR length(email) <= 254),
+  max_uses INTEGER NOT NULL DEFAULT 1 CHECK (max_uses BETWEEN 1 AND 500),
+  uses INTEGER NOT NULL DEFAULT 0 CHECK (uses >= 0),
+  expires_at INTEGER NOT NULL,
+  revoked_at INTEGER,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at INTEGER NOT NULL,
+  CHECK ((kind = 'code') = (code IS NOT NULL)),
+  CHECK ((kind = 'code') = (token IS NULL)),
+  CHECK (kind = 'personal' OR email IS NULL),
+  CHECK (uses <= max_uses),
+  CHECK (expires_at > created_at AND expires_at <= created_at + 7776000000)
+);
+CREATE INDEX IF NOT EXISTS invites_club ON invites (club_id, created_at);
+
+CREATE TABLE IF NOT EXISTS memberships (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  display_name TEXT NOT NULL CHECK (length(display_name) BETWEEN 1 AND 60),
+  kind TEXT NOT NULL DEFAULT 'adult' CHECK (kind IN ('adult', 'junior', 'guardian')),
+  role_admin INTEGER NOT NULL DEFAULT 0 CHECK (role_admin IN (0, 1)),
+  role_coach INTEGER NOT NULL DEFAULT 0 CHECK (role_coach IN (0, 1)),
+  role_safety INTEGER NOT NULL DEFAULT 0 CHECK (role_safety IN (0, 1)),
+  role_equipment INTEGER NOT NULL DEFAULT 0 CHECK (role_equipment IN (0, 1)),
+  status TEXT NOT NULL CHECK (status IN ('requested', 'pending_guardian', 'active', 'left', 'removed',
+                                         'blocked', 'declined')),
+  roster_only INTEGER NOT NULL DEFAULT 0 CHECK (roster_only IN (0, 1)),
+  row_as TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(row_as) AND length(row_as) <= 200),
+  clearances TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(clearances) AND length(clearances) <= 2000),
+  rules_on INTEGER NOT NULL DEFAULT 1 CHECK (rules_on IN (0, 1)),
+  request_reason TEXT CHECK (request_reason IS NULL OR request_reason IN ('rower', 'parent', 'learn', 'coach', 'other')),
+  request_note TEXT CHECK (request_note IS NULL OR length(request_note) <= 200),
+  invite_id TEXT REFERENCES invites(id) ON DELETE SET NULL,
+  joined_at INTEGER,
+  ended_at INTEGER,
+  ended_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  CHECK (kind = 'adult' OR (role_admin + role_coach + role_safety + role_equipment) = 0),
+  CHECK (roster_only = 0 OR (user_id IS NULL AND kind <> 'guardian')),
+  CHECK (kind <> 'junior' OR rules_on = 1)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS memberships_one ON memberships (club_id, user_id)
+  WHERE user_id IS NOT NULL AND status IN ('requested', 'pending_guardian', 'active', 'blocked');
+CREATE INDEX IF NOT EXISTS memberships_user ON memberships (user_id, status) WHERE user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS memberships_club ON memberships (club_id, status, display_name);
+CREATE INDEX IF NOT EXISTS memberships_staff ON memberships (club_id)
+  WHERE status = 'active' AND (role_admin + role_coach + role_safety + role_equipment) > 0;
+
+CREATE TABLE IF NOT EXISTS membership_groups (
+  membership_id TEXT NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
+  group_id TEXT NOT NULL REFERENCES club_groups(id) ON DELETE CASCADE,
+  PRIMARY KEY (membership_id, group_id)
+);
+CREATE INDEX IF NOT EXISTS membership_groups_group ON membership_groups (group_id);
+
+CREATE TABLE IF NOT EXISTS club_guardians (
+  junior_id TEXT NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
+  guardian_id TEXT NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (junior_id, guardian_id),
+  CHECK (junior_id <> guardian_id)
+);
+CREATE INDEX IF NOT EXISTS club_guardians_guardian ON club_guardians (guardian_id);
+
+CREATE TABLE IF NOT EXISTS club_rules (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 2 AND 60),
+  position INTEGER NOT NULL DEFAULT 0,
+  group_id TEXT REFERENCES club_groups(id) ON DELETE CASCADE,
+  boat_classes TEXT CHECK (boat_classes IS NULL OR (json_valid(boat_classes) AND json_type(boat_classes) = 'array')),
+  escort TEXT NOT NULL DEFAULT 'any' CHECK (escort IN ('any', 'with_launch', 'no_launch')),
+  location_id TEXT REFERENCES locations(id) ON DELETE CASCADE,
+  months TEXT CHECK (months IS NULL OR (json_valid(months) AND json_type(months) = 'array')),
+  limits TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(limits) AND length(limits) <= 1000),
+  requires TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(requires) AND length(requires) <= 1000),
+  enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  updated_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS club_rules_club ON club_rules (club_id, position);
+
+CREATE TABLE IF NOT EXISTS water_status (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  location_id TEXT REFERENCES locations(id) ON DELETE CASCADE,
+  state TEXT NOT NULL CHECK (state IN ('open', 'restricted', 'closed')),
+  reason TEXT CHECK (reason IS NULL OR reason IN ('high_water', 'wind', 'lightning', 'fog', 'ice', 'cold',
+                                                  'debris', 'event', 'maintenance', 'dark', 'other')),
+  note TEXT CHECK (note IS NULL OR length(note) <= 200),
+  allowed TEXT CHECK (allowed IS NULL OR (json_valid(allowed) AND length(allowed) <= 500)),
+  water_f REAL CHECK (water_f IS NULL OR water_f BETWEEN 28 AND 100),
+  starts_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  set_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  set_by_name TEXT NOT NULL CHECK (length(set_by_name) BETWEEN 1 AND 60),
+  set_by_role TEXT NOT NULL CHECK (set_by_role IN ('admin', 'safety', 'coach')),
+  cleared_at INTEGER,
+  cleared_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  replaced_by TEXT REFERENCES water_status(id) ON DELETE SET NULL,
+  created_at INTEGER NOT NULL,
+  CHECK (expires_at > starts_at AND expires_at <= starts_at + 2592000000),
+  CHECK (state = 'restricted' OR allowed IS NULL),
+  CHECK (state = 'open' OR reason IS NOT NULL),
+  CHECK (state <> 'restricted' OR allowed IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS water_status_live ON water_status (club_id, expires_at) WHERE cleared_at IS NULL;
+CREATE INDEX IF NOT EXISTS water_status_history ON water_status (club_id, created_at);
+
+CREATE TABLE IF NOT EXISTS club_devices (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 2 AND 40),
+  location_id TEXT REFERENCES locations(id),
+  pair_code TEXT CHECK (pair_code IS NULL OR (length(pair_code) = 6 AND pair_code NOT GLOB '*[^0-9]*')),
+  pair_expires_at INTEGER,
+  token_hash TEXT UNIQUE CHECK (token_hash IS NULL OR length(token_hash) = 43),
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at INTEGER NOT NULL,
+  paired_at INTEGER,
+  last_seen_at INTEGER,
+  revoked_at INTEGER,
+  CHECK (pair_code IS NULL OR pair_expires_at IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS club_devices_club ON club_devices (club_id);
+CREATE UNIQUE INDEX IF NOT EXISTS club_devices_pair ON club_devices (pair_code) WHERE pair_code IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS incidents (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  location_id TEXT REFERENCES locations(id) ON DELETE SET NULL,
+  place_note TEXT CHECK (place_note IS NULL OR length(place_note) <= 200),
+  occurred_at INTEGER NOT NULL,
+  reported_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  reporter_name TEXT NOT NULL CHECK (length(reporter_name) BETWEEN 1 AND 60),
+  types TEXT NOT NULL CHECK (json_valid(types) AND json_array_length(types) BETWEEN 1 AND 3),
+  injuries TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(injuries)),
+  injury_details TEXT CHECK (injury_details IS NULL OR length(injury_details) <= 2000),
+  property TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(property)),
+  boat_classes TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(boat_classes)),
+  categories TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(categories)),
+  outing_id TEXT,
+  boat_id TEXT,
+  weather_factor INTEGER CHECK (weather_factor IS NULL OR weather_factor IN (0, 1)),
+  conditions TEXT CHECK (conditions IS NULL OR (json_valid(conditions) AND length(conditions) <= 2048)),
+  narrative TEXT NOT NULL CHECK (length(narrative) BETWEEN 20 AND 4000),
+  actions TEXT CHECK (actions IS NULL OR length(actions) <= 2000),
+  prevention TEXT CHECK (prevention IS NULL OR length(prevention) <= 2000),
+  people TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(people) AND json_array_length(people) <= 20),
+  witnesses TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(witnesses) AND json_array_length(witnesses) <= 4),
+  severity TEXT CHECK (severity IS NULL OR severity IN ('near_miss', 'minor', 'moderate', 'serious')),
+  status TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN ('draft', 'submitted', 'reviewed', 'closed')),
+  national TEXT NOT NULL DEFAULT 'to_do' CHECK (national IN ('not_needed', 'to_do', 'filed')),
+  national_body TEXT CHECK (national_body IS NULL OR national_body IN ('usrowing', 'british_rowing', 'other')),
+  national_filed_at INTEGER,
+  national_ref TEXT CHECK (national_ref IS NULL OR length(national_ref) <= 60),
+  summary TEXT CHECK (summary IS NULL OR length(summary) <= 1000),
+  summary_shared_at INTEGER,
+  reviewed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  CHECK (national <> 'filed' OR national_filed_at IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS incidents_club ON incidents (club_id, occurred_at);
+CREATE INDEX IF NOT EXISTS incidents_open ON incidents (club_id, status) WHERE status IN ('draft', 'submitted');
+```
+
+`incidents.outing_id` and `boat_id` have no foreign keys: `boats` arrives in phase 6, and an incident must outlive a deleted outing. `worker/clubs/incidents.js` checks they belong to the club.
+
+### 18.2 Phase 6
+
+```sql
+CREATE TABLE IF NOT EXISTS boats (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL DEFAULT 'shell' CHECK (kind IN ('shell', 'launch', 'oars', 'other')),
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 40),
+  boat_class TEXT CHECK (boat_class IS NULL OR boat_class IN ('1x', '2x', '2-', '2+', '4x', '4-', '4+', '4x+', '8+', '8x+')),
+  rig TEXT CHECK (rig IS NULL OR rig IN ('scull', 'sweep', 'convertible')),
+  rigging TEXT CHECK (rigging IS NULL OR (json_valid(rigging) AND length(rigging) <= 300)),
+  weight_min_kg INTEGER CHECK (weight_min_kg IS NULL OR weight_min_kg BETWEEN 20 AND 150),
+  weight_max_kg INTEGER CHECK (weight_max_kg IS NULL OR weight_max_kg BETWEEN 20 AND 150),
+  maker TEXT CHECK (maker IS NULL OR length(maker) <= 40),
+  model TEXT CHECK (model IS NULL OR length(model) <= 40),
+  year INTEGER CHECK (year IS NULL OR year BETWEEN 1950 AND 2100),
+  hull_id TEXT CHECK (hull_id IS NULL OR length(hull_id) <= 40),
+  color TEXT CHECK (color IS NULL OR length(color) <= 30),
+  specs TEXT CHECK (specs IS NULL OR (json_valid(specs) AND length(specs) <= 500)),
+  location_id TEXT REFERENCES locations(id) ON DELETE SET NULL,
+  rack TEXT CHECK (rack IS NULL OR length(rack) <= 20),
+  status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'restricted', 'out_of_service', 'retired')),
+  status_note TEXT CHECK (status_note IS NULL OR length(status_note) <= 200),
+  restricted_to TEXT CHECK (restricted_to IS NULL OR (json_valid(restricted_to) AND length(restricted_to) <= 500)),
+  bookable INTEGER NOT NULL DEFAULT 1 CHECK (bookable IN (0, 1)),
+  approval INTEGER NOT NULL DEFAULT 0 CHECK (approval IN (0, 1)),
+  owner_membership_id TEXT REFERENCES memberships(id) ON DELETE SET NULL,
+  notes TEXT CHECK (notes IS NULL OR length(notes) <= 500),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  retired_at INTEGER,
+  CHECK (kind <> 'shell' OR boat_class IS NOT NULL),
+  CHECK (weight_min_kg IS NULL OR weight_max_kg IS NULL OR weight_min_kg <= weight_max_kg),
+  CHECK ((status = 'retired') = (retired_at IS NOT NULL))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS boats_name ON boats (club_id, name) WHERE status <> 'retired';
+CREATE INDEX IF NOT EXISTS boats_club ON boats (club_id, kind, status);
+
+CREATE TABLE IF NOT EXISTS damage_reports (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  boat_id TEXT NOT NULL REFERENCES boats(id) ON DELETE CASCADE,
+  reported_by TEXT REFERENCES memberships(id) ON DELETE SET NULL,
+  outing_id TEXT REFERENCES outings(id) ON DELETE SET NULL,
+  severity TEXT NOT NULL CHECK (severity IN ('cosmetic', 'rowable', 'unsafe')),
+  parts TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(parts) AND json_array_length(parts) <= 12),
+  description TEXT CHECK (description IS NULL OR length(description) <= 1000),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_repair', 'fixed', 'wont_fix', 'duplicate')),
+  assigned_to TEXT REFERENCES memberships(id) ON DELETE SET NULL,
+  resolution TEXT CHECK (resolution IS NULL OR length(resolution) <= 500),
+  resolved_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  resolved_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS damage_boat ON damage_reports (boat_id, created_at);
+CREATE INDEX IF NOT EXISTS damage_open ON damage_reports (club_id, status) WHERE status IN ('open', 'in_repair');
+
+CREATE TABLE IF NOT EXISTS practice_series (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  rrule TEXT NOT NULL CHECK (length(rrule) BETWEEN 10 AND 200 AND rrule GLOB 'FREQ=WEEKLY;*'),
+  local_start TEXT NOT NULL CHECK (local_start GLOB '[0-2][0-9]:[0-5][0-9]' AND local_start < '24:00'),
+  duration_min INTEGER NOT NULL CHECK (duration_min BETWEEN 15 AND 480),
+  first_date TEXT NOT NULL CHECK (first_date GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]'),
+  until_date TEXT NOT NULL CHECK (until_date GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]-[0-3][0-9]' AND until_date >= first_date),
+  template TEXT NOT NULL CHECK (json_valid(template) AND length(template) <= 2000),
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS practice_series_club ON practice_series (club_id);
+
+CREATE TABLE IF NOT EXISTS practices (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  series_id TEXT REFERENCES practice_series(id) ON DELETE SET NULL,
+  detached INTEGER NOT NULL DEFAULT 0 CHECK (detached IN (0, 1)),
+  location_id TEXT NOT NULL REFERENCES locations(id),
+  title TEXT NOT NULL CHECK (length(title) BETWEEN 2 AND 60),
+  kind TEXT NOT NULL DEFAULT 'water' CHECK (kind IN ('water', 'land', 'race', 'learn_to_row', 'other')),
+  group_ids TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(group_ids) AND json_array_length(group_ids) <= 30),
+  coach_ids TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(coach_ids) AND json_array_length(coach_ids) <= 10),
+  escort INTEGER NOT NULL DEFAULT 1 CHECK (escort IN (0, 1)),
+  starts_at INTEGER NOT NULL,
+  ends_at INTEGER NOT NULL,
+  meet_at INTEGER,
+  rsvp_by INTEGER,
+  status TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'land', 'cancelled')),
+  status_note TEXT CHECK (status_note IS NULL OR length(status_note) <= 200),
+  notes TEXT CHECK (notes IS NULL OR length(notes) <= 500),
+  public INTEGER NOT NULL DEFAULT 0 CHECK (public IN (0, 1)),
+  signup_url TEXT CHECK (signup_url IS NULL OR (length(signup_url) <= 200 AND signup_url GLOB 'https://*')),
+  sequence INTEGER NOT NULL DEFAULT 0 CHECK (sequence >= 0),
+  decided_at INTEGER,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  CHECK (ends_at > starts_at AND ends_at - starts_at <= 28800000),
+  CHECK (meet_at IS NULL OR (meet_at <= starts_at AND meet_at >= starts_at - 7200000)),
+  CHECK (rsvp_by IS NULL OR rsvp_by <= starts_at)
+);
+CREATE INDEX IF NOT EXISTS practices_club_time ON practices (club_id, starts_at);
+CREATE INDEX IF NOT EXISTS practices_series ON practices (series_id, starts_at) WHERE series_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS practices_public ON practices (club_id, starts_at) WHERE public = 1;
+
+CREATE TABLE IF NOT EXISTS attendance (
+  practice_id TEXT NOT NULL REFERENCES practices(id) ON DELETE CASCADE,
+  membership_id TEXT NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
+  rsvp TEXT CHECK (rsvp IS NULL OR rsvp IN ('yes', 'no', 'maybe')),
+  rsvp_reason TEXT CHECK (rsvp_reason IS NULL OR rsvp_reason IN ('school', 'work', 'sick', 'injured', 'travel', 'other')),
+  rsvp_note TEXT CHECK (rsvp_note IS NULL OR length(rsvp_note) <= 100),
+  rsvp_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  rsvp_at INTEGER,
+  rsvp_late INTEGER NOT NULL DEFAULT 0 CHECK (rsvp_late IN (0, 1)),
+  attended TEXT CHECK (attended IS NULL OR attended IN ('present', 'late', 'absent', 'excused')),
+  marked_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  marked_at INTEGER,
+  PRIMARY KEY (practice_id, membership_id),
+  CHECK (rsvp = 'no' OR rsvp_reason IS NULL)
+);
+CREATE INDEX IF NOT EXISTS attendance_member ON attendance (membership_id);
+
+CREATE TABLE IF NOT EXISTS lineups (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  practice_id TEXT NOT NULL REFERENCES practices(id) ON DELETE CASCADE,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 40),
+  boat_id TEXT REFERENCES boats(id) ON DELETE SET NULL,
+  boat_class TEXT NOT NULL CHECK (boat_class IN ('1x', '2x', '2-', '2+', '4x', '4-', '4+', '4x+', '8+', '8x+')),
+  position INTEGER NOT NULL DEFAULT 0,
+  notes TEXT CHECK (notes IS NULL OR length(notes) <= 300),
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),
+  published_at INTEGER,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  CHECK ((status = 'published') = (published_at IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS lineups_practice ON lineups (practice_id, position);
+
+CREATE TABLE IF NOT EXISTS lineup_seats (
+  lineup_id TEXT NOT NULL REFERENCES lineups(id) ON DELETE CASCADE,
+  seat INTEGER NOT NULL CHECK (seat BETWEEN 0 AND 8),
+  membership_id TEXT REFERENCES memberships(id) ON DELETE SET NULL,
+  guest_name TEXT CHECK (guest_name IS NULL OR length(guest_name) BETWEEN 1 AND 40),
+  PRIMARY KEY (lineup_id, seat),
+  CHECK (membership_id IS NULL OR guest_name IS NULL)
+);
+CREATE INDEX IF NOT EXISTS lineup_seats_member ON lineup_seats (membership_id) WHERE membership_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS bookings (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  boat_id TEXT NOT NULL REFERENCES boats(id) ON DELETE CASCADE,
+  membership_id TEXT REFERENCES memberships(id) ON DELETE SET NULL,
+  practice_id TEXT REFERENCES practices(id) ON DELETE CASCADE,
+  starts_at INTEGER NOT NULL,
+  ends_at INTEGER NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'confirmed', 'declined', 'cancelled', 'used', 'no_show')),
+  note TEXT CHECK (note IS NULL OR length(note) <= 120),
+  decided_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  decided_at INTEGER,
+  cancel_reason TEXT CHECK (cancel_reason IS NULL OR cancel_reason IN ('member', 'staff', 'out_of_service', 'practice', 'left_club')),
+  outing_id TEXT REFERENCES outings(id) ON DELETE SET NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  CHECK (ends_at > starts_at AND ends_at - starts_at <= 43200000),
+  CHECK (membership_id IS NOT NULL OR practice_id IS NOT NULL),
+  CHECK (status <> 'cancelled' OR cancel_reason IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS bookings_boat ON bookings (boat_id, starts_at) WHERE status IN ('pending', 'confirmed');
+CREATE INDEX IF NOT EXISTS bookings_member ON bookings (membership_id, starts_at) WHERE membership_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS bookings_club ON bookings (club_id, starts_at);
+CREATE INDEX IF NOT EXISTS bookings_practice ON bookings (practice_id) WHERE practice_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS announcements (
+  id TEXT PRIMARY KEY,
+  club_id TEXT NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+  author_id TEXT REFERENCES memberships(id) ON DELETE SET NULL,
+  author_name TEXT NOT NULL CHECK (length(author_name) BETWEEN 1 AND 60),
+  group_ids TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(group_ids) AND json_array_length(group_ids) <= 30),
+  title TEXT NOT NULL CHECK (length(title) BETWEEN 2 AND 80),
+  body TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 1000),
+  pinned_until INTEGER,
+  push INTEGER NOT NULL DEFAULT 1 CHECK (push IN (0, 1)),
+  created_at INTEGER NOT NULL,
+  deleted_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS announcements_club ON announcements (club_id, created_at);
+
+CREATE TABLE IF NOT EXISTS calendar_tokens (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  club_id TEXT REFERENCES clubs(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE CHECK (length(token_hash) = 43),
+  label TEXT CHECK (label IS NULL OR length(label) <= 40),
+  created_at INTEGER NOT NULL,
+  last_used_at INTEGER,
+  revoked_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS calendar_tokens_user ON calendar_tokens (user_id);
+```
+
+### 18.3 Changes to other documents' tables
+
+04's `outings` and `outing_crew` as they should be created in phase 3 (8.1), with the club columns present and unused until phase 5:
+
+```sql
+CREATE TABLE outings (
+  id TEXT PRIMARY KEY,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,          -- 06: NULL for a club crew with no account holder
+  location_id TEXT NOT NULL REFERENCES locations(id),
+  client_id TEXT CHECK (client_id IS NULL OR length(client_id) = 36),
+  boat_type TEXT NOT NULL CHECK (boat_type IN ('1x', '2x', '2-', '2+', '4x', '4-', '4+', '4x+', '8+', '8x+', 'launch', 'other')),
+  boat_name TEXT CHECK (boat_name IS NULL OR length(boat_name) BETWEEN 1 AND 60),
+  seats INTEGER NOT NULL CHECK (seats BETWEEN 1 AND 9),
+  direction TEXT CHECK (direction IN ('upstream', 'downstream', 'both', 'course', 'open')),
+  route_note TEXT CHECK (route_note IS NULL OR length(route_note) <= 120),
+  escort INTEGER NOT NULL DEFAULT 0 CHECK (escort IN (0, 1)),
+  out_at INTEGER NOT NULL,
+  due_at INTEGER NOT NULL,
+  in_at INTEGER,
+  status TEXT NOT NULL DEFAULT 'out' CHECK (status IN ('out', 'in', 'cancelled', 'closed')),
+  float_plan INTEGER NOT NULL DEFAULT 0 CHECK (float_plan IN (0, 1)),
+  grace_min INTEGER NOT NULL DEFAULT 15 CHECK (grace_min BETWEEN 5 AND 60),
+  contact_after_min INTEGER NOT NULL DEFAULT 30 CHECK (contact_after_min BETWEEN 15 AND 120),
+  stage INTEGER NOT NULL DEFAULT 0 CHECK (stage BETWEEN 0 AND 6),
+  next_check_at INTEGER,
+  contacts_alerted_at INTEGER,
+  safe_by TEXT CHECK (safe_by IS NULL OR safe_by IN ('self', 'contact', 'club', 'moderator')),
+  safe_note TEXT CHECK (safe_note IS NULL OR length(safe_note) <= 120),
+  public_count INTEGER NOT NULL DEFAULT 1 CHECK (public_count IN (0, 1)),
+  share_hash TEXT UNIQUE CHECK (share_hash IS NULL OR length(share_hash) = 43),
+  share_expires_at INTEGER,
+  snap TEXT CHECK (snap IS NULL OR (json_valid(snap) AND length(snap) <= 2048)),
+  distance_m INTEGER CHECK (distance_m IS NULL OR distance_m BETWEEN 0 AND 200000),
+  notes TEXT CHECK (notes IS NULL OR length(notes) <= 500),
+  clock_skew INTEGER NOT NULL DEFAULT 0 CHECK (clock_skew IN (0, 1)),
+  -- 06 columns, created in phase 3 and unused until phase 5 (no foreign keys to tables that do not exist yet)
+  club_id TEXT,
+  created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_via TEXT NOT NULL DEFAULT 'self' CHECK (created_via IN ('self', 'staff', 'kiosk')),
+  device_id TEXT,
+  boat_id TEXT,
+  practice_id TEXT,
+  rule_lvl INTEGER CHECK (rule_lvl IS NULL OR rule_lvl BETWEEN 0 AND 2),
+  rule_text TEXT CHECK (rule_text IS NULL OR length(rule_text) <= 160),
+  against INTEGER NOT NULL DEFAULT 0 CHECK (against IN (0, 1)),
+  club_stage INTEGER NOT NULL DEFAULT 0 CHECK (club_stage BETWEEN 0 AND 3),
+  club_next_at INTEGER,
+  ack_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  ack_name TEXT CHECK (ack_name IS NULL OR length(ack_name) <= 60),
+  ack_at INTEGER,
+  resolved TEXT CHECK (resolved IS NULL OR resolved IN ('back', 'safe_elsewhere', 'cancelled', 'incident')),
+  checks TEXT CHECK (checks IS NULL OR (json_valid(checks) AND length(checks) <= 500)),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  CHECK (due_at >= out_at + 600000 AND due_at <= out_at + 43200000),
+  CHECK (in_at IS NULL OR in_at >= out_at),
+  CHECK (user_id IS NOT NULL OR club_id IS NOT NULL),
+  CHECK (user_id IS NOT NULL OR float_plan = 0)
+);
+CREATE UNIQUE INDEX outings_client ON outings (user_id, client_id) WHERE client_id IS NOT NULL;
+CREATE UNIQUE INDEX outings_one_active ON outings (user_id) WHERE status = 'out';
+CREATE INDEX outings_next_check ON outings (next_check_at) WHERE next_check_at IS NOT NULL;
+CREATE INDEX outings_loc_out ON outings (location_id, out_at) WHERE status = 'out';
+CREATE INDEX outings_user_log ON outings (user_id, out_at);
+CREATE INDEX outings_club ON outings (club_id, status, due_at) WHERE club_id IS NOT NULL;
+CREATE INDEX outings_club_next ON outings (club_next_at) WHERE club_next_at IS NOT NULL;
+
+CREATE TABLE outing_crew (
+  outing_id TEXT NOT NULL REFERENCES outings(id) ON DELETE CASCADE,
+  seat INTEGER NOT NULL CHECK (seat BETWEEN 1 AND 9),
+  role TEXT NOT NULL DEFAULT 'rower' CHECK (role IN ('rower', 'cox')),
+  name TEXT CHECK (name IS NULL OR length(name) BETWEEN 1 AND 60),
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  membership_id TEXT,                                            -- 06, phase 5
+  accepted INTEGER CHECK (accepted IS NULL OR accepted IN (0, 1)),
+  PRIMARY KEY (outing_id, seat),
+  CHECK (name IS NOT NULL OR user_id IS NOT NULL OR membership_id IS NOT NULL)
+);
+CREATE INDEX outing_crew_user ON outing_crew (user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX outing_crew_member ON outing_crew (membership_id) WHERE membership_id IS NOT NULL;
+```
+
+01's `locations` gains the emergency info (8.7), in phase 5:
+
+```sql
+ALTER TABLE locations ADD COLUMN emergency TEXT CHECK (emergency IS NULL OR (json_valid(emergency) AND length(emergency) <= 6000));
+```
+
+04 adds `reports.club_id` and `hazards.club_id` in phase 5 (04 section 9); nothing more is needed here.
+
+05's `notify_prefs.kind` and `notify_log.kind` gain `club` (section 21). Because SQLite cannot change a CHECK in place, this is easiest if 05 creates the phase 4 tables with `club` already in the lists, unused until phase 5, the same approach as 8.1.
+
+`audit_log` is 08's table. Club actions written to it: `club.create`, `club.update`, `club.verify`, `club.verify.reject`, `club.suspend`, `club.delete.request`, `club.delete.cancel`, `club.delete.done`, `member.approve`, `member.decline`, `member.remove`, `member.block`, `member.roles`, `member.groups`, `member.kind`, `member.clearance`, `member.roster.add`, `invite.create`, `invite.revoke`, `group.update`, `rules.update`, `status.set`, `status.clear`, `board.start_for`, `board.ack`, `board.resolve`, `device.pair`, `device.revoke`, `incident.create`, `incident.view`, `incident.update`, `incident.export`, `boat.update`, `boat.status`, `damage.update`, `booking.decide`, `booking.bump`, `practice.cancel`, `practice.land`, `lineup.publish`, `announcement.send`, `announcement.delete`, `export.download`. Each row: actor user id, club id, action, target type and id, a small JSON detail (for example `{ "state": ["open", "closed"] }`), time.
+
+## 19. API
+
+JSON under `/api/`, same origin only, signed in through 03's `auth_session` cookie unless marked otherwise. Errors are `{ "error": "code", "message": "Human sentence." }` as in `worker/reports.js`. Writes are rate limited by `CLUB_LIMIT` per user. `worker/index.js` hands every path starting with `/api/clubs/`, `/api/invites/`, `/api/kiosk/`, `/api/cal/`, `/api/me/clubs`, `/api/me/juniors/`, `/api/me/calendar-links` and `/api/locations/:slug/club-context` to `routeClubs()` in `worker/clubs/index.js`, a small table of regular expressions and handlers (no router dependency).
+
+### 19.1 Phase 5
+
+| Method and path | Who | Purpose |
+| --- | --- | --- |
+| `GET /api/clubs?near=lat,lon&radius_km=50` or `?q=` or `?location=<slug>` | Anyone | Verified clubs, nearest first, at most 20 |
+| `POST /api/clubs` | Signed in, standing (3.2) | Create a club |
+| `GET /api/clubs/:slug` | Anyone (shaped by role) | Public or members' view, with `can` and `me` |
+| `PATCH /api/clubs/:slug` | Admin | Profile, links, settings, `statusPublic`, `rulesPublic` |
+| `POST /api/clubs/:slug/locations`, `DELETE /api/clubs/:slug/locations/:location` | Admin | Link or unlink a location; one primary |
+| `POST /api/clubs/:slug/verify` | Admin | Start a method: `{ "method": "meta" | "dns" | "email" | "manual", "email", "evidence" }` |
+| `POST /api/clubs/:slug/verify/check` | Admin | Run the check; `{ "code" }` for email |
+| `POST /api/admin/clubs/:slug/review` | Site moderator | `{ "decision": "approve" | "reject", "reason" }` |
+| `POST /api/admin/clubs/:slug/suspend`, `.../restore` | Site moderator | With a reason |
+| `POST /api/clubs/:slug/delete`, `POST /api/clubs/:slug/delete/cancel` | Admin | `{ "confirm": "Putney RC" }` |
+| `GET /api/clubs/:slug/export`, `GET /api/clubs/:slug/export.csv?table=` | Admin (incidents: 16.2) | Export |
+| `GET /api/me/clubs` | Signed in | The viewer's memberships, pending approvals and invites |
+| `GET /api/clubs/:slug/members?status=active` | Members (shaped by role) | Member list |
+| `POST /api/clubs/:slug/members` | Coach, admin | Add a roster-only member |
+| `PATCH /api/clubs/:slug/members/:id` | Per field: kind and roles admin; groups coach; clearances coach, safety | Change a member |
+| `DELETE /api/clubs/:slug/members/:id?block=1` | Admin | Remove or block |
+| `PATCH /api/clubs/:slug/me` | Member | `rowAs`, `rulesOn` (adults), `sharePhone` (guardians), `displayName` |
+| `POST /api/clubs/:slug/leave` | Member | Leave |
+| `POST /api/clubs/:slug/requests` | Signed-in adult | Ask to join: `{ "reason", "note" }` |
+| `GET /api/clubs/:slug/requests`, `POST /api/clubs/:slug/requests/:id` | Admin | List; `{ "decision": "approve" | "decline", "kind", "groups" }` |
+| `GET /api/clubs/:slug/invites`, `POST /api/clubs/:slug/invites`, `DELETE /api/clubs/:slug/invites/:id` | Coach (limited), admin | Invites |
+| `GET /api/invites/:token` | Anyone | Preview: club name, inviter's first name, preset in words |
+| `POST /api/invites/:token/accept`, `POST /api/invites/code` | Signed in | Accept a link; accept a code `{ "code": "K7QF-M2XR" }` |
+| `POST /api/me/juniors/:membershipId/approve` | Linked guardian | `{ "decision": "approve" | "decline" }` |
+| `GET`, `POST /api/clubs/:slug/groups`; `PATCH`, `DELETE /api/clubs/:slug/groups/:id` | Coach, admin | Groups |
+| `GET /api/clubs/:slug/rules` | Members; public summary when `rulesPublic` | Rules and revision |
+| `PUT /api/clubs/:slug/rules` | Safety, admin | Replace the rule set: `{ "baseRevision", "rules": [...] }` |
+| `GET /api/locations/:slug/club-context?rev=` | Signed in | The viewer's clubs at this location: rules, statuses, membership, clearances |
+| `GET /api/clubs/:slug/status` | Members; public line when `statusPublic` | Live status and the last 20 |
+| `POST /api/clubs/:slug/status`, `POST /api/clubs/:slug/status/:id/clear` | Coach, safety, admin (7.2) | Post or lift |
+| `GET /api/clubs/:slug/board` | Members, kiosk (shaped) | Board |
+| `POST /api/outings` | 04, plus club fields (8.2) | Start a row, own or for a crew |
+| `POST /api/clubs/:slug/board/:outingId/ack` | Coach, safety, admin | "On it" |
+| `POST /api/clubs/:slug/board/:outingId/resolve` | Coach, safety, admin | `{ "outcome": "back" | "safe_elsewhere" | "cancelled" | "incident", "inAt", "note" }` |
+| `POST /api/clubs/:slug/devices`, `DELETE /api/clubs/:slug/devices/:id` | Admin | Add a screen (returns the pair code); remove |
+| `POST /api/kiosk/pair` | Anyone with a code | `{ "code": "482913" }`, sets the kiosk cookie |
+| `GET /api/kiosk/roster` | Kiosk | Adult first names and initials, with membership ids |
+| `PATCH /api/locations/:slug` | 01; steward safety officers and admins may send `emergency` | Emergency info as a location revision |
+| `GET`, `POST /api/clubs/:slug/incidents` | Filing: members, guardians, staff; listing: safety, admin, own | Incidents |
+| `GET`, `PATCH`, `DELETE /api/clubs/:slug/incidents/:id` | Safety, admin; own for reading | One incident |
+| `POST /api/clubs/:slug/incidents/:id/share` | Safety, admin | `{ "summary" }` to members |
+| `GET /api/clubs/:slug/incidents.csv?from=&to=&names=0` | Safety, admin | Export |
+
+04's `POST /api/outings/:id/in`, `/cancel` and `PATCH /api/outings/:id` accept staff of the outing's club as well as the rower, so "Back" and "Add time" on the board use them.
+
+### 19.2 Phase 6
+
+| Method and path | Who | Purpose |
+| --- | --- | --- |
+| `GET`, `POST /api/clubs/:slug/boats`; `GET`, `PATCH /api/clubs/:slug/boats/:id` | See 5.3 | Boats |
+| `GET`, `POST /api/clubs/:slug/damage`; `PATCH /api/clubs/:slug/damage/:id` | See 5.3 | Damage reports |
+| `GET /api/clubs/:slug/bookings?from=&to=&boat=&mine=1` | Members | Bookings |
+| `POST /api/clubs/:slug/bookings` | Members (juniors if allowed) | Book |
+| `PATCH /api/clubs/:slug/bookings/:id` | Member (cancel own); equipment, admin | `{ "action": "approve" | "decline" | "cancel", "note" }` |
+| `GET /api/clubs/:slug/availability?start=&end=&class=` | Members | Boats free in a window |
+| `GET /api/clubs/:slug/practices?from=&to=` | Members (filtered), public practices for everyone | Schedule |
+| `POST /api/clubs/:slug/practices` | Coach, admin | One practice, or a series with `repeat` |
+| `PATCH`, `DELETE /api/clubs/:slug/practices/:id?scope=one|following` | Coach, admin | Edit or delete |
+| `POST /api/clubs/:slug/practices/:id/cancel`, `/land`, `/decide` | Coach, admin | `{ "reason" }`, `{ "note" }`, `{ "choice": "water" | "land" | "cancel" }` |
+| `PUT /api/clubs/:slug/practices/:id/rsvp` | Member, junior, guardian | `{ "rsvp", "reason", "note", "for": "<junior membership id>" }` |
+| `GET`, `PUT /api/clubs/:slug/practices/:id/attendance` | Coach, safety (read), admin | `{ "marks": [{ "membershipId", "attended" }] }` |
+| `GET`, `POST /api/clubs/:slug/practices/:id/lineups`; `PATCH`, `DELETE /api/clubs/:slug/lineups/:id` | Coach, admin (drafts); members see published | Lineups |
+| `POST /api/clubs/:slug/practices/:id/lineups/publish` | Coach, admin | Publish all drafts |
+| `GET`, `POST /api/me/calendar-links`; `DELETE /api/me/calendar-links/:id` | Signed in | Calendar links (returns the URL once) |
+| `GET /api/cal/:token.ics` | Holder of the token | Personal feed |
+| `GET /api/clubs/:slug/public.ics` | Anyone | Public practices |
+| `GET`, `POST /api/clubs/:slug/announcements`; `DELETE /api/clubs/:slug/announcements/:id` | 5.3 | Announcements |
+| `GET /api/clubs/:slug/attendance.csv?from=&to=` | Coach, admin | Attendance report |
+
+### 19.3 Examples
+
+`POST /api/clubs`
+
+```json
+{
+  "location": "putney-landing",
+  "name": "Putney Rowing Club", "shortName": "Putney RC", "slug": "putney-rowing-club",
+  "kind": "club", "website": "https://putneyrowing.example", "contactEmail": "info@putneyrowing.example",
+  "description": "Community rowing on the Connecticut River since 1997.",
+  "roles": ["safety"]
+}
+```
+
+201
+
+```json
+{
+  "club": {
+    "id": "a3f1c2d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d", "slug": "putney-rowing-club", "name": "Putney Rowing Club",
+    "shortName": "Putney RC", "kind": "club", "status": "unverified", "tz": "America/New_York",
+    "locations": [{ "slug": "putney-landing", "name": "Putney Landing", "role": "home", "primary": true }]
+  },
+  "me": { "membershipId": "7c1d...", "kind": "adult", "roles": ["admin", "safety"] }
+}
+```
+
+(The founding year in the example description is illustrative.)
+
+Errors: 403 `not_allowed`, 429 `too_many_clubs`, 400 `invalid` with `field`, 409 `slug_taken`, 409 `similar_club` with `club`.
+
+`GET /api/locations/putney-landing/club-context?rev=11`
+
+```json
+{
+  "clubs": [{
+    "slug": "putney-rowing-club", "name": "Putney Rowing Club", "shortName": "Putney RC", "rev": 12,
+    "me": {
+      "membershipId": "7c1d...", "kind": "adult", "roles": ["safety"], "groups": ["g-masters"],
+      "rowAs": { "boatClass": "1x", "escort": false }, "rulesOn": true,
+      "clearances": { "swim_test": { "at": 1788998400000, "expires": 1820534400000 } }
+    },
+    "groups": [{ "id": "g-masters", "name": "Masters", "kind": "masters" }],
+    "rules": [{
+      "id": "r1", "name": "Masters scullers", "groupId": "g-masters", "boatClasses": ["1x", "2x"],
+      "escort": "no_launch", "locationId": null, "months": null,
+      "limits": { "windOff": 12, "gustOff": 15 }, "requires": { "pfd": "carry", "buddy": true }
+    }],
+    "statuses": [{
+      "id": "w9", "state": "closed", "reason": "high_water", "note": null, "allowed": null, "location": null,
+      "waterF": null, "startsAt": 1792230720000, "expiresAt": 1792274400000,
+      "setByName": "Alex R.", "setByRole": "safety"
+    }],
+    "dockWater": { "f": 49, "at": 1792231500000, "by": "Alex R." }
+  }],
+  "fetchedAt": 1792232000000
+}
+```
+
+With `rev` equal to every club's current revision and no status change since the last fetch, the answer is `{ "unchanged": true, "fetchedAt": ... }`, which costs a few row reads: the membership rows by `memberships_user`, the clubs by primary key, and live statuses by `water_status_live`.
+
+`PUT /api/clubs/putney-rowing-club/rules`: `{ "baseRevision": 12, "rules": [ ...every rule... ] }`. 200 `{ "rev": 13 }`. 409 `conflict` "Someone changed the rules since you opened them. Review their change, then try again." with the current rules. 400 `invalid` with `rule` (index) and `field`: "Gust stay off must be above gust caution." or "Putney Landing has no flow gauge, so flow limits do not apply there."
+
+`POST /api/clubs/putney-rowing-club/status`
+
+```json
+{ "state": "restricted", "reason": "fog", "note": "Eights and fours with a launch only until the fog lifts.",
+  "allowed": { "groups": [], "boatClasses": ["4x", "4+", "4-", "8+"], "escort": "with_launch" },
+  "location": null, "waterF": 49, "expiresAt": 1792245600000, "notify": true }
+```
+
+201 `{ "status": { ... }, "replaced": "w8" }`. 403 `not_allowed` "A safety officer set this status, so only a safety officer or admin can lift it."
+
+`POST /api/outings` for a crew (04's body plus):
+
+```json
+{
+  "club": "putney-rowing-club", "forCrew": true,
+  "boatType": "8+", "boatName": "Bellows Falls", "seats": 9,
+  "crew": [{ "seat": 1, "membershipId": "m-..." }, { "seat": 9, "role": "cox", "name": "Visiting cox" }],
+  "escort": true, "practiceId": null,
+  "ruleLvl": 0, "ruleText": null,
+  "outAt": 1792230720000, "dueAt": 1792237800000, "floatPlan": false
+}
+```
+
+`GET /api/clubs/putney-rowing-club/board` (staff)
+
+```json
+{
+  "asOf": 1792232460000,
+  "status": { "state": "restricted", "reason": "fog", "note": "Eights and fours with a launch only until the fog lifts.", "until": 1792245600000, "setByName": "Sam", "setByRole": "coach" },
+  "out": [{
+    "id": "5e2d...", "location": "putney-landing", "boatType": "1x", "boatName": "Hudson single",
+    "crew": { "label": "Sam L.", "count": 1, "junior": false }, "escort": false,
+    "outAt": 1792231800000, "dueAt": 1792236600000, "state": "overdue", "overdueMin": 12,
+    "against": true, "ruleText": "Stay off: gusts to 18 mph, club limit 15",
+    "ack": null, "startedBy": "self"
+  }],
+  "back": [], "review": [],
+  "emergency": { "number": "911", "launchAddress": "...", "hospital": { "name": "...", "phone": "..." }, "aed": "..." }
+}
+```
+
+`POST /api/clubs/putney-rowing-club/bookings`: `{ "boatId": "b-...", "startsAt": 1793098800000, "endsAt": 1793104200000, "note": null }`. 201 `{ "booking": { "id", "status": "confirmed" } }` or `"pending"`. 409 `slot_taken`, 409 `boat_unavailable` "Bellows is out of service.", 400 `too_long` "Bookings can be up to 3 hours.", 400 `too_far` "You can book up to 7 days ahead.", 429 `too_many_bookings` "You have 3 bookings coming up. Cancel one to book another.", 403 `not_allowed` "Bellows is for Masters cleared to row alone."
+
+`POST /api/clubs/putney-rowing-club/practices` (a series)
+
+```json
+{
+  "title": "Junior practice", "kind": "water", "groups": ["g-juniors"], "coaches": ["m-lee"],
+  "location": "putney-landing", "date": "2026-10-20", "start": "05:45", "durationMin": 105,
+  "meetMin": 15, "escort": true,
+  "repeat": { "interval": 1, "days": ["TU", "TH"], "until": "2026-11-19" },
+  "boats": ["b-bellows"], "rsvpBy": "evening_before", "notes": "Bring a warm layer.", "public": false
+}
+```
+
+201 `{ "series": { "id", "rrule": "FREQ=WEEKLY;INTERVAL=1;BYDAY=TU,TH" }, "created": 10, "conflicts": [] }`. `conflicts` lists boat bookings the coach must resolve (11.4).
+
+`PUT /api/clubs/putney-rowing-club/practices/:id/rsvp`: `{ "rsvp": "no", "reason": "school" }`. A junior sending `note` gets 400 `invalid` with `field: "note"`.
+
+## 20. Screens and routes
+
+07 owns navigation and layout; this is the content. Club pages use the same text tab style as the location tabs, with hash routes under the club path.
+
+| Route | Who | Content |
+| --- | --- | --- |
+| `/club/new` | Signed in | Create a club (3.2) |
+| `/club/join/<token>` | Anyone | Invite preview and Join (4.3) |
+| `/club/<slug>` | Everyone | Public page (3.4) or, for members, the Today tab |
+| `#today` | Members | Status banner, setup checklist (admins), Which crews can go (6.7), today's practices (6), pinned announcements (6) |
+| `#board` | Members | Board (8.4) |
+| `#kiosk` | Paired screen | Kiosk board (8.5) |
+| `#schedule` and `#schedule/2026-10-20` (6) | Members | Week of practices with outlook lines |
+| `#practice/<id>` (6) | Members | Outlook, RSVP, lineups, attendance (staff) |
+| `#boats`, `#boats/<id>` (6) | Members | Registry, damage, bookings |
+| `#rules` | Members | Rules in sentences; editor for safety officers and admins |
+| `#members` | Members (shaped) | Members, groups, clearances, invites, requests |
+| `#safety` | Members | Emergency info, lessons, Record an incident; the incident log for safety officers and admins |
+| `#settings` | Members: notifications and Leave; admins: everything in 16.1, screens, verification, deletion | |
+
+Elsewhere:
+
+- Location page: the club status line, Clubs here, the hero's club line, notes and alt line (6.6), "Rowing with Putney Rowing Club" in Start a row, the Safety section (8.7), and "Book a boat" in Plan a row (11.5).
+- Account: "Your clubs" (each with role words: "Putney Rowing Club. Member, safety officer."), pending approvals for guardians ("Sam wants to join Putney Rowing Club as a junior. Approve?"), invite code entry, calendar links (14).
+
+Empty states:
+
+- Members: "Only you so far. Invite members to get started."
+- Rules: "No club rules yet, so members see the location's limits. Start from USRowing guidance, or add a rule."
+- Board: "No boats on the water. Start a row to put one here."
+- Schedule: "No practices scheduled. Add one, or set up a weekly schedule."
+- Boats: "No boats yet. Add the club's boats to use damage reports, booking and lineups."
+- Incidents: "No incidents recorded. Near misses are worth recording too."
+
+Performance: everything under `src/club/` is loaded with dynamic `import()` only on `/club/` routes or when a club sheet opens, so the Now screen bundle grows only by `src/clubrules.js`, `src/club-context.js` and the hero lines. Target: under 4 KB gzipped added to the Now screen (estimate; 08 sets the budget). The club context request runs beside the data sources and is never awaited before the first render.
+
+Accessibility: status words always accompany status colors; the board's state words are in the row text, not only in a colored chip; the rules editor is a plain form with labeled inputs and fieldsets per rule; the kiosk respects reduced motion and has 44 px targets.
