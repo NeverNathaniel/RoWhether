@@ -86,7 +86,8 @@
 
 <dialog id="settings" aria-labelledby="setTitle">
   <form method="dialog" id="setForm">
-    <h2 id="setTitle">Settings</h2>
+    <!-- Focus the heading on open, not the first box, so the keyboard waits for a tap -->
+    <h2 id="setTitle" tabindex="-1" autofocus>Settings</h2>
     <p class="note">Match these to your program, boat class and coach coverage. Saved in this browser.</p>
     <fieldset>
       <legend>Course</legend>
