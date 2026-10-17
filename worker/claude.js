@@ -3,7 +3,8 @@
 // and the reply is constrained to a JSON schema.
 import Anthropic from '@anthropic-ai/sdk';
 
-export const MODEL = 'claude-opus-5-5';
+// Haiku is plenty for a short classify-and-rewrite, at a fraction of the cost.
+export const MODEL = 'claude-haiku-5-5';
 
 const SCHEMA = {
   type: 'object',
@@ -60,9 +61,6 @@ export async function rewriteSuggestion(env, text) {
   const response = await client.beta.messages.create({
     model: MODEL,
     max_tokens: 8000,
-    // If a safety classifier declines, retry on Anthropic's recommended fallback model.
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
     output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
     system: SYSTEM,
     messages: [{ role: 'user', content: `<suggestion>\n${text}\n</suggestion>` }]

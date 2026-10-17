@@ -17,12 +17,12 @@ A single-page rowing conditions app for the Connecticut River at the Putney Rowi
 ## Branches, production and dev
 
 - Production is https://rowhether.com/, a custom domain on the `rowhether` Worker. `SITE_URL` in `src/config.js` holds it for shared links; the canonical and Open Graph tags in `index.html` repeat it. Use it for any production link.
-- Workers Builds deploys production on every push to `claude/sleepy-cannon-y8i0i3`, the repo's default branch. Pushing there changes the live app within a minute. Do not push experiments there.
+- Workers Builds deploys production on every push to `master`, the repo's default branch. Pushing there changes the live app within a minute. Do not push experiments there.
 - `dev` is the dev instance. With Preview builds turned on for the `rowhether` Worker, every push to a non-production branch builds a Worker Preview at `<branch>-rowhether.<subdomain>.workers.dev`, so `dev` lives at `dev-rowhether.<subdomain>.workers.dev`. Work on `dev` (or a branch off it) and check it there.
 - Previews use the `previews` block in `wrangler.jsonc`, not production settings: `APP_ENV` is `dev`, separate rate limiter namespaces, and the `rowhether-dev` D1 database. No secrets are set for Previews, so the suggestion form stays hidden there and never files real issues. The app shows a "Dev" label next to the title when `/api/info` says it is not production.
 - D1 schema lives in `migrations/`. Apply it to the dev database with `npx wrangler d1 migrations apply PREVIEW_DB --remote -c wrangler.preview-migrations.jsonc`.
 - Production has no D1 binding yet, so dock reports stay off there even after a merge. To turn them on, create a production database, add it at the top level of `wrangler.jsonc`, and apply the migrations to it.
-- To ship from dev: merge `dev` into the production branch. Only with the owner's go-ahead.
+- To ship from dev: merge `dev` into `master`. Only with the owner's go-ahead.
 
 ## Hard constraints
 
@@ -138,7 +138,7 @@ The home screen is the quick answer. A tab bar under the header is the only navi
 - `worker/reports.js`: `listReports()` (last `REPORT_HOURS`, newest first) and `addReport()` (rate limit, `cleanReport()`, insert with the server time). Off without the `DB` binding.
 - `migrations/`: D1 schema. `wrangler.preview-migrations.jsonc` applies it to the database the Previews use.
 - `worker/suggest.js`: `handleSuggest()`. Checks in order: secrets configured, rate limit, text length (10 to 2,000), Turnstile, Claude, then files the issue. Dependencies are injectable for tests. `buildIssue()` quotes the original, neutralizes `@mentions`, adds app context to bugs only, labels `bug` or `enhancement` plus `from app` and `needs review`.
-- `worker/claude.js`: one `client.beta.messages.create` call to `claude-opus-5-5` at `effort: "low"`, with a JSON schema in `output_config.format` and `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`) so a safety decline retries on Anthropic's recommended fallback. `parseRewrite()` treats a refusal as a rejection.
+- `worker/claude.js`: one `client.beta.messages.create` call to `claude-haiku-5-5` at `effort: "low"`, with a JSON schema in `output_config.format`. Haiku has no server-side fallback, so `parseRewrite()` treats a refusal as a rejection.
 - `worker/github.js`, `worker/turnstile.js`: the issue create call and siteverify (action must be `suggest`).
 - Worker secrets, set in the Cloudflare dashboard: `ANTHROPIC_API_KEY`, `GITHUB_TOKEN` (fine-grained, Issues write on this repo only), `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`. Local dev reads `.dev.vars` (git ignored).
 
