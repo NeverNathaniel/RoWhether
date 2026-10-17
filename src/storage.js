@@ -1,5 +1,6 @@
-// Settings and last-good-data cache in localStorage. Every access is guarded.
-import { DEFAULTS, SET_KEY, CACHE_KEY, PLAN_KEY } from './config.js';
+// Settings, last-good-data cache, Plan a row choices and install bar snooze
+// in localStorage. Every access is guarded.
+import { DEFAULTS, SET_KEY, CACHE_KEY, PLAN_KEY, INSTALL_KEY } from './config.js';
 
 export function loadSettings() {
   try {
@@ -7,6 +8,10 @@ export function loadSettings() {
     if (s && typeof s === 'object') return { ...DEFAULTS, ...s };
   } catch (e) { /* storage blocked */ }
   return { ...DEFAULTS };
+}
+// True once the viewer has saved Settings in this browser, even unchanged.
+export function hasSavedSettings() {
+  try { return localStorage.getItem(SET_KEY) !== null; } catch (e) { return false; }
 }
 export function saveSettings(s) {
   try { localStorage.setItem(SET_KEY, JSON.stringify(s)); } catch (e) { /* storage blocked */ }
@@ -33,4 +38,12 @@ export function loadPlan() {
 }
 export function savePlan(p) {
   try { localStorage.setItem(PLAN_KEY, JSON.stringify(p)); } catch (e) { /* storage blocked */ }
+}
+
+// Time until which the install bar stays hidden, or 0.
+export function loadInstallSnooze() {
+  try { return Number(localStorage.getItem(INSTALL_KEY)) || 0; } catch (e) { return 0; }
+}
+export function saveInstallSnooze(until) {
+  try { localStorage.setItem(INSTALL_KEY, String(until)); } catch (e) { /* storage blocked */ }
 }

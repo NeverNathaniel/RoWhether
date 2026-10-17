@@ -16,6 +16,7 @@ import { initSettings } from './settings.js';
 import { initSuggest } from './suggest.js';
 import { initShare } from './share.js';
 import { initReports, loadInfo, loadReports } from './reports.js';
+import { initInstall } from './install.js';
 
 // The service worker caches the app shell so it opens offline. Data still
 // comes from the network, with the last good copy kept in localStorage.
@@ -120,6 +121,7 @@ initSettings(render);
 initSuggest();
 initShare();
 initReports();
+initInstall();
 initRoutes();
 loadInfo().then(loadReports);
 

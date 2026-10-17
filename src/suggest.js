@@ -3,6 +3,7 @@
 // The button only appears when the Worker says the feature is configured.
 import { app, $ } from './state.js';
 import { MAX_TEXT } from './config.js';
+import { isStandalone } from './install.js';
 
 // Cloudflare Turnstile must load from Cloudflare. It loads only when the form
 // is first opened, so the rest of the app still works offline.
@@ -27,13 +28,11 @@ function loadTurnstile() {
 function status(text) { $('sugStatus').textContent = text; }
 
 function context() {
-  let installed = false;
-  try { installed = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { /* ignore */ }
   return {
     version: __APP_VERSION__,
     screen: `${window.innerWidth}x${window.innerHeight}`,
     browser: navigator.userAgent,
-    installed,
+    installed: isStandalone(),
     settings: app.settings
   };
 }
