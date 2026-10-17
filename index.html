@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Putney Row">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="description" content="Go, caution or stay-off calls for rowing on the Connecticut River at Putney Landing, VT.">
+<meta name="description" content="Go, caution or stay off: rowing conditions on the Connecticut River at Putney Landing, VT.">
 <title>Putney Landing rowing conditions</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <script type="module" src="/src/main.js"></script>
@@ -34,15 +34,18 @@
   <main>
     <div id="home">
       <div class="set-nudge" id="setNudge" hidden>
-        <p>Set your own limits in Settings. Until you do, calls use starting values for wind, gusts, rain, cold water and river flow.</p>
-        <button type="button" id="setNudgeBtn">Open settings</button>
+        <p>Set your own limits in Settings. Until you do, Go, Caution and Stay off use starting values for wind, gusts, rain, cold water and river flow.</p>
+        <div class="set-nudge-actions">
+          <button type="button" id="setNudgeLater">Dismiss</button>
+          <button type="button" class="primary" id="setNudgeBtn">Open settings</button>
+        </div>
       </div>
       <section class="hero" id="hero" aria-live="polite" style="margin-top:0">
         <p class="verdict" id="verdict">&nbsp;</p>
         <p class="why" id="why">Loading conditions.</p>
         <p class="holds" id="holds"></p>
         <p class="status-note" id="statusNote" hidden></p>
-        <p class="hero-actions"><button type="button" id="shareBtn" class="quiet">Share this call</button></p>
+        <p class="hero-actions"><button type="button" id="shareBtn" class="quiet">Share this forecast</button></p>
       </section>
       <div id="alerts"></div>
 

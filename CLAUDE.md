@@ -8,6 +8,7 @@ Context for working on this repo. Read before making changes.
 - Prefer vetted, community-standard solutions over new tooling. Keep it simple.
 - Before revising code, critique it against specific criteria and write the findings down, then change it.
 - Writing in UI and docs: direct, calm, short sentences. No em dashes. No emojis. Sentence case.
+- In the UI, do not call the verdict a "call"; readers take it as a phone call. Name it (Go, Caution or Stay off) or describe what is checked. "Call" is fine in code and these docs.
 
 ## What this is
 
@@ -107,7 +108,7 @@ The home screen is the quick answer. A tab bar under the header is the only navi
 
 ## Now screen additions
 
-- Share this call: a quiet button under the hero. It sends the hero as text (verdict, reason, conditions, how long it holds) with the app link through the phone's share sheet, or copies it where there is none (`src/share.js`).
+- Share this forecast: a quiet button under the hero. It sends the hero as text (verdict, reason, conditions, how long it holds) with the app link through the phone's share sheet, or copies it where there is none (`src/share.js`).
 - Dock reports (`src/reports.js`, `worker/reports.js`): at the top of On the water now, the latest report from the last 3 hours ("At the dock: flat water, patchy fog, 20 min ago"), compared with the forecast water state for that hour, and a Report conditions button. The dialog has choices only: water (flat, light chop, chop, rough), fog (none, patchy, thick) and floating debris. No free text, so nothing to moderate. Rate limited to 3 a minute per connection. Hidden when `/api/info` says reports are off, and on a static host with no `/api`.
 - Air quality fact, linking to the Air tab. Daylight links to Light.
 
@@ -116,7 +117,7 @@ The home screen is the quick answer. A tab bar under the header is the only navi
 - `index.html`: page markup, the tab bar (`#tabs`, filled by `initRoutes()`), the settings `<dialog>`, and the detail view container (`#detail`, next to `#home`). Loads `src/main.js`.
 - `src/config.js`: location, endpoints (`SRC`), `DEFAULTS`, storage keys, copy tables (`CHIP`, `THEN`, `WORD`), and `FACTORS` (groups of reasons, one per concern in the Week view).
 - `src/format.js`: Eastern-time formatters and text helpers (`dayKey`, `hm`, `whenText`, `card`, `rng`, `esc`).
-- `src/storage.js`: `loadSettings`, `saveSettings`, `hasSavedSettings`, `loadCache`, `saveCache`. All guarded with try/catch.
+- `src/storage.js`: `loadSettings`, `saveSettings`, `hasSavedSettings`, `nudgeDismissed`, `dismissNudge`, `loadCache`, `saveCache`. All guarded with try/catch.
 - `src/data.js`: `fetchJSON`, the parsers (`parseAlerts`, `parseObs`, `parseRiver`, `parseFlow`, `parseFlowDays`, `parseFlowForecast`, `parseAQ`, `parseModels`) and `fetchAll`.
 - `src/logic.js`: the call logic, pure and DOM free. `buildModel(data, settings, now)` returns the model every render reads: hours, days, `h72`, `cur`, `alerts`. Also `assess`, `lvlExcept`, `sunFor`, `lightAt`, `fogRisk`, `morningFog`, `nextMorning`, `windVsCourse`, `precipKind`, `rateWord`, `precipSummary`, `flowTrend`, `flowChange`, `chopWind`, `waterState`, `waterWhy`, `debrisLikely`, `periodsFor`, and for the detail views `rowingHours`, `factorLevel`, `worstOf`, `worstReasons`, `runsBy`, `callRuns`, `factorRuns`, `flowForecastAt`, `flowForecastPeak`, `sunOn`, `uvWord`, `aqiWord`, `confidence`, `confidenceText`, `planSessions`. Hours also carry `aqi`, `pm25`, `uv` and `ens` (each model's wind and precipitation). The model also has `daytime`, `next`, and `periods` on each day.
 - `src/state.js`: the mutable `app` object (settings, data, errors, model, UI selection) and `$`.
@@ -124,8 +125,8 @@ The home screen is the quick answer. A tab bar under the header is the only navi
 - `src/render/chart.js`: the SVG chart kit for the detail views (`Chart`, `niceTicks`, `niceMax`).
 - `src/render/detail/`: `index.js` (the `VIEWS` registry and `renderDetail()`), `common.js` (week strip, legend, chart box, hour table, chart width), and one file per view: `week.js`, `wind.js`, `rain.js`, `storms.js`, `temperature.js`, `air.js`, `fog.js`, `light.js`, `river.js`. Each view exports `key`, `name`, `summary(m)` (its opening line) and `render(m, day)`.
 - `src/route.js`: `parseRoute`, `initRoutes` (builds the tabs), `setDay`.
-- `src/settings.js`: settings dialog wiring, and the reminder above the hero (`#setNudge`) that points to Settings until it has been saved once in this browser (`hasSavedSettings()`).
-- `src/share.js`: Share this call. `src/reports.js`: `/api/info` (the Dev label) and dock reports (summary, dialog, posting).
+- `src/settings.js`: settings dialog wiring, and the reminder above the hero (`#setNudge`) that points to Settings until it has been saved once or the note is dismissed in this browser (`hasSavedSettings()`, `nudgeDismissed()`, `NUDGE_KEY`).
+- `src/share.js`: Share this forecast. `src/reports.js`: `/api/info` (the Dev label) and dock reports (summary, dialog, posting).
 - `src/main.js`: styles, service worker registration, `refresh`, event listeners, startup.
 - `src/styles/tokens.css` (colors) and `src/styles/app.css` (everything else).
 - `public/`: icons and Cloudflare `_headers`, copied to `dist/` as is. `icon.svg` is the app icon source (a sculler crossing a low sun at dawn); `npm run icons` renders the PNGs from it. `favicon.svg` is a simplified version for browser tabs. Keep icon artwork inside the maskable safe zone, a circle of radius 205 around the center of the 512 canvas.

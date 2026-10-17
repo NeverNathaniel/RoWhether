@@ -110,7 +110,7 @@ export function render(m, want) {
     </div>
     <div class="panel how">
       <h3>How this works</h3>
-      <p>The call compares the chance of rain in each hour with your settings: ${rc}, ${ro}. Either can be left empty in Settings to turn it off.</p>
+      <p>The chance of rain in each hour is checked against your settings: ${rc}, ${ro}. Either can be left empty in Settings to turn it off.</p>
       <p>Heavy rain, 0.15 in an hour or more, is a caution. So is snow. Freezing rain and thunderstorms are stay off. Thunderstorms are possible, a caution, when the air is unstable (CAPE of 1,000 or more) and the chance of rain is at least 30%.</p>
       <p>Lightning: off the water at the first thunder, back on 30 minutes after the last.</p>
     </div>`;

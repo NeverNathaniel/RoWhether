@@ -153,7 +153,7 @@ export function render(m) {
     <div class="panel how">
       <h3>How this works</h3>
       <p>Flow is measured at the USGS gauge at North Walpole, below the Bellows Falls dam, about 16 river miles upstream of the dock. The forecast is from the NWS Northeast River Forecast Center for the same gauge, in 6-hour steps.</p>
-      <p>The call uses the latest measured flow against your settings. The forecast is for planning and does not change the call. A rise of ${WATER.debrisRise}% or more in 6 hours adds a floating debris warning.</p>
+      <p>The latest measured flow is checked against your settings. The forecast is for planning and does not change Go, Caution or Stay off. A rise of ${WATER.debrisRise}% or more in 6 hours adds a floating debris warning.</p>
       <p>Since 2016 the median day is about 6,900 cfs. 20,000 is roughly the top 10% of days, 28,000 the top 5%.</p>
     </div>`;
   return { day: null, html };

@@ -1,6 +1,6 @@
-// Settings, last-good-data cache, Plan a row choices and install bar snooze
-// in localStorage. Every access is guarded.
-import { DEFAULTS, SET_KEY, CACHE_KEY, PLAN_KEY, INSTALL_KEY } from './config.js';
+// Settings, last-good-data cache, Plan a row choices, install bar snooze and
+// the Settings reminder in localStorage. Every access is guarded.
+import { DEFAULTS, SET_KEY, CACHE_KEY, PLAN_KEY, INSTALL_KEY, NUDGE_KEY } from './config.js';
 
 export function loadSettings() {
   try {
@@ -12,6 +12,13 @@ export function loadSettings() {
 // True once the viewer has saved Settings in this browser, even unchanged.
 export function hasSavedSettings() {
   try { return localStorage.getItem(SET_KEY) !== null; } catch (e) { return false; }
+}
+// True once the Settings reminder has been dismissed in this browser.
+export function nudgeDismissed() {
+  try { return localStorage.getItem(NUDGE_KEY) !== null; } catch (e) { return false; }
+}
+export function dismissNudge() {
+  try { localStorage.setItem(NUDGE_KEY, '1'); } catch (e) { /* storage blocked */ }
 }
 export function saveSettings(s) {
   try { localStorage.setItem(SET_KEY, JSON.stringify(s)); } catch (e) { /* storage blocked */ }

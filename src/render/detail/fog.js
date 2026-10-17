@@ -11,7 +11,7 @@ export const key = 'fog';
 export const name = 'Fog';
 
 const RISK = ['Low', 'Possible', 'Likely'];
-// Likely fog is a caution. Possible fog is shown but does not change the call.
+// Likely fog is a caution. Possible fog is shown but does not change Go, Caution or Stay off.
 const riskLvl = r => (r === 2 ? 1 : r === 1 ? 'p' : 0);
 
 export function summary(m) {
@@ -111,7 +111,7 @@ export function render(m, want) {
       <p>Valley fog forms on clear, calm nights when the air cools to its dew point. Likely: air within ${V.likely.spread}°F of the dew point, wind ${V.likely.wind} mph or less, and cloud cover ${V.likely.cloud}% or less. Possible: within ${V.possible.spread}°F, ${V.possible.wind} mph, ${V.possible.cloud}%.</p>
       <p>Steam fog rises off water much warmer than the air. Likely: water at least ${ST.likely.diff}°F warmer, wind ${ST.likely.wind} mph or less, humidity ${ST.likely.rh}% or more. Possible: ${ST.possible.diff}°F, ${ST.possible.wind} mph, ${ST.possible.rh}%. ${wt != null ? `Water is ${r0(wt)}°F.` : 'No water temperature is available, so steam fog is not checked.'}</p>
       <p>The model can also show fog itself, as a fog weather code or visibility under 1 mile, at any hour.</p>
-      <p>Likely fog is a caution. Possible fog is shown but does not change the call. These thresholds are first guesses, to be tuned against what the dock sees.</p>
+      <p>Likely fog is a caution. Possible fog is shown but does not change Go, Caution or Stay off. These thresholds are first guesses, to be tuned against what the dock sees.</p>
     </div>`;
   return { day, html };
 }

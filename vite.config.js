@@ -18,7 +18,7 @@ export default defineConfig({
       manifest: {
         name: 'Putney Landing rowing conditions',
         short_name: 'Putney Row',
-        description: 'Go, caution or stay-off calls for rowing on the Connecticut River at Putney Landing, VT.',
+        description: 'Go, caution or stay off: rowing conditions on the Connecticut River at Putney Landing, VT.',
         start_url: './',
         scope: './',
         display: 'standalone',

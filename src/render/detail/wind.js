@@ -116,9 +116,9 @@ export function render(m, want) {
     </div>
     <div class="panel how">
       <h3>How this works</h3>
-      <p>The call compares sustained wind and gusts with your settings. Caution at ${S.windCaution} mph wind or ${S.gustCaution} mph gusts, stay off at ${S.windOff} or ${S.gustOff}.</p>
+      <p>Sustained wind and gusts are checked against your settings. Caution at ${S.windCaution} mph wind or ${S.gustCaution} mph gusts, stay off at ${S.windOff} or ${S.gustOff}.</p>
       <p>Arrows show where the wind is blowing, with the river running up the page. An arrow pointing down is a headwind rowing upstream. The course heading is ${S.heading}°, set in Settings.</p>
-      <p>Water state does not change the call. Wind along the straight counts fully and crosswind counts for less. It blends the last three hours, since chop takes time to build and settle, and goes up when wind blows against a strong current.</p>
+      <p>Water state is information only and does not change Go, Caution or Stay off. Wind along the straight counts fully and crosswind counts for less. It blends the last three hours, since chop takes time to build and settle, and goes up when wind blows against a strong current.</p>
       <p>Shaded hours before sunrise need lights.</p>
     </div>`;
   return { day, html };

@@ -88,7 +88,7 @@ export function render(m, want) {
     <div class="panel how">
       <h3>How this works</h3>
       <p>The US Air Quality Index runs from 0 to 500. Up to 50 is good, 51 to 100 moderate, 101 to 150 unhealthy for sensitive groups, 151 to 200 unhealthy, 201 to 300 very unhealthy. Here it is driven mostly by fine particles, PM2.5, which wildfire smoke carries a long way.</p>
-      <p>Rowing hard means breathing deep, so smoke matters more on the water than on a walk. The call uses your settings: ${esc(rc)}, ${esc(ro)}. Either can be left empty in Settings.</p>
+      <p>Rowing hard means breathing deep, so smoke matters more on the water than on a walk. Air quality is checked against your settings: ${esc(rc)}, ${esc(ro)}. Either can be left empty in Settings.</p>
       <p>This is a forecast from the Copernicus atmosphere model through Open-Meteo, not a measurement. For readings, check AirNow.</p>
     </div>`;
   return { day, html };

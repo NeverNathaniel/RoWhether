@@ -28,6 +28,7 @@ button.primary{background:var(--river); border-color:var(--river); color:var(--b
 .set-nudge{display:flex; flex-wrap:wrap; align-items:center; gap:.6rem 1rem; background:var(--river-soft); border-radius:1rem; padding:.8rem 1rem; margin:0 0 1rem}
 .set-nudge[hidden]{display:none}
 .set-nudge p{margin:0; flex:1 1 18rem; font-size:.9375rem; line-height:1.4}
+.set-nudge-actions{display:flex; gap:.5rem; flex-wrap:wrap}
 
 /* Hero: the one loud thing */
 .hero{--st:var(--muted); --st-soft:var(--surface); background:var(--st-soft); border-radius:1.25rem; padding:1.5rem 1.5rem 1.6rem}

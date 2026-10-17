@@ -67,7 +67,7 @@ export function forecastPanel(m, p) {
     const tr = flowTrend(m.data.flow);
     const fc = flowForecastAt(m.data.flowFcst, p.from + (p.end - p.from) / 2);
     const ahead = fc != null
-      ? `NWS forecast for this period: about ${fmtInt(Math.round(fc / 100) * 100)} cfs. The call uses the latest reading.`
+      ? `NWS forecast for this period: about ${fmtInt(Math.round(fc / 100) * 100)} cfs. Go, Caution and Stay off use the latest reading.`
       : 'The NWS forecast does not reach this far, so check again closer to the time.';
     f.push(fact('River flow', `${fmtInt(fl)} cfs ${sparkline(m.data.flow)}`,
       `Latest reading${tr ? ', ' + tr.charAt(0).toLowerCase() + tr.slice(1) : ''}. ${ahead}`, maxLvl(['flow']), '#river'));

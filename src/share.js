@@ -1,9 +1,9 @@
-// Share this call: the hero in a sentence or two, through the phone's share
+// Share this forecast: the hero in a sentence or two, through the phone's share
 // sheet, or copied to the clipboard where there is none.
 import { $ } from './state.js';
 import { hm } from './format.js';
 
-const LABEL = 'Share this call';
+const LABEL = 'Share this forecast';
 
 export function shareText(now = Date.now()) {
   const why = $('why').innerText.replace(/\s*\n\s*/g, ' ').trim();
@@ -17,7 +17,7 @@ export function initShare() {
   btn.addEventListener('click', async () => {
     const text = shareText(), url = location.origin + location.pathname;
     try {
-      if (navigator.share) { await navigator.share({ title: 'Putney Landing rowing call', text, url }); return; }
+      if (navigator.share) { await navigator.share({ title: 'Putney Landing rowing forecast', text, url }); return; }
       await navigator.clipboard.writeText(`${text} ${url}`);
       flash('Copied');
     } catch (e) {
