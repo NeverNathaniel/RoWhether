@@ -2294,7 +2294,7 @@ With `rev` equal to every club's current revision and no status change since the
 | `#rules` | Members | Rules in sentences; editor for safety officers and admins |
 | `#members` | Members (shaped) | Members, groups, clearances, invites, requests |
 | `#safety` | Members | Emergency info, lessons, Record an incident; the incident log for safety officers and admins |
-| `#settings` | Members: notifications and Leave; admins: everything in 16.1, screens, verification, deletion | |
+| `#settings` | Members | Notifications (21.8) and Leave; for admins, everything in 16.1, screens, verification and deletion |
 
 Elsewhere:
 
@@ -2313,3 +2313,914 @@ Empty states:
 Performance: everything under `src/club/` is loaded with dynamic `import()` only on `/club/` routes or when a club sheet opens, so the Now screen bundle grows only by `src/clubrules.js`, `src/club-context.js` and the hero lines. Target: under 4 KB gzipped added to the Now screen (estimate; 08 sets the budget). The club context request runs beside the data sources and is never awaited before the first render.
 
 Accessibility: status words always accompany status colors; the board's state words are in the row text, not only in a colored chip; the rules editor is a plain form with labeled inputs and fieldsets per rule; the kiosk respects reduced motion and has 44 px targets.
+
+## 21. Notifications (for 05)
+
+05 owns delivery: the engine, Web Push, email, quiet hours, caps, dedupe and the in-app list. This section is the club side. It lists every notification club features send, who gets each one, how each maps onto 05's kinds and tables, and what 05's engine needs to run them. Sections 7.6, 8.3, 8.6, 9.2, 10.2, 11.3, 11.4, 12.1 to 12.3, 13 and 15 name these notifications where they arise; this is the full list in one place.
+
+### 21.1 Kinds, tables and payload
+
+Club notifications use three kinds 05 already has, and one new kind:
+
+| 05 kind | Used for | 05 section |
+| --- | --- | --- |
+| `water_status` | A club water status: closed, restricted, lifted early, end time moved | 3.9 |
+| `practice` | A practice added, cancelled, moved to land, or changed in time or place | 3.10 |
+| `overdue` | The club chain of an outing (8.6): stages 1 to 3, On it, all clear | 3.11 |
+| `club` (new) | Everything else, told apart by `subkind` | new |
+
+Changes to 05's tables, for 05 and 08:
+
+- `notify_prefs.kind` and `notify_log.kind` gain `club` in their CHECK lists. SQLite cannot change a CHECK in place, so 05 creates both tables in phase 4 with `club` already listed, as 18.3 asks.
+- In `notify_prefs`, the two club CHECKs widen to `kind IN ('water_status', 'practice', 'club')`. 05's unique index `notify_prefs_one` then allows one `club` pref per person per club, which is what 21.8 needs.
+- `notify_log` gains `subkind TEXT CHECK (subkind IS NULL OR (kind = 'club' AND length(subkind) BETWEEN 3 AND 24))`. 05 can create it in phase 4, or phase 5 adds it with `ALTER TABLE notify_log ADD COLUMN`, which SQLite allows for a nullable column with a CHECK.
+- Checked locally (SQLite 3.50.4 through `node:sqlite` in Node 22.22.0, 2026-10-17, not D1): the added column's CHECK refused a subkind on a `night_before` row and a one-letter subkind; the widened `notify_prefs` CHECKs refused a `club` pref with no club, and the unique index refused a second `club` pref for the same club.
+- `notify_log.ref_id` holds what the notification is about: the water status, practice, outing, booking, damage report, boat, announcement or incident id, or the club id for rules and membership notices.
+- 05's owner stats (`GET /api/admin/notify/stats`) group `club` rows by `subkind`.
+
+Decision: Club notifications use one new 05 kind, `club`, with a `subkind` column, beside 05's `water_status`, `practice` and `overdue`.
+- Alternative: one 05 kind per notification (27 club names added to 05's 11 in the CHECK lists, and a pref row per kind).
+- Alternative: the subkind only in the dedupe key prefix (no column; stats and stale checks parse the key).
+
+Payload: 05's job message and push payload (05 sections 5.6 and 6.3) stay as they are, and `rw` gains `club` (the slug) and `sub` (the subkind): `"rw": { "v": 1, "log": "...", "kind": "club", "sub": "lineup", "club": "putney-rowing-club" }`. The service worker uses `club` to refresh an open app (21.6).
+
+Copy rules: 05 section 3.2, with two changes. Titles start with the club's `shortName` ("Putney RC: water closed"), not the location's, because the club is who the notice is from. Times print in `clubs.tz`. Dev adds " (dev)" after the short name, as 05 does. Builders live in `worker/notify/copy-club.js`, pure, one function per row of 21.5. They build sentences with `src/clubtext.js`, so the board, the banner and the notification say the same thing.
+
+Requests to 05 that follow from this:
+
+- 3.9's samples become 21.5's: the short name first, and an end time in place of "Until further notice", since every status has one (7.3).
+- 3.10's samples put the club short name first in the title, not in the body.
+- 7.5's deep links for `water_status` and `practice` use the club hash routes in 21.4.
+- 3.1's quiet hours rule for `practice` and for restricted `water_status` changes as 21.3 says.
+
+### 21.2 Recipients and safeguarding
+
+`audience(env, club, spec)` in `worker/clubs/audience.js` turns a spec (`{ roles, groups, memberships, practiceId, guardians, safety }`) into recipient rows `{ userId, membershipId, junior, forJunior, channels }`. Every club notification goes through it, so the rules in 5.2 and in 03 section 11.4 hold in one place. In order:
+
+1. Only active memberships with an account (`status = 'active'`, `user_id` not NULL). Roster-only members receive nothing (4.2).
+2. Guardians. For each junior in the audience, the guardians in `club_guardians` are added with `forJunior` set, so their copy names the junior ("Sam's seat for Tue 5:45 AM"). This is how 5.2 rule 2 reaches notifications: whatever reaches a junior also reaches that junior's guardians.
+3. `audienceGuard()` (03 section 11.4 rule 4) runs for every subkind that carries staff-written text: announcements, practice cancel reasons and land notes, booking decline notes and shared safety notes. A refusal stops the send before anything is written and returns 409 `needs_adult` to the sender. Notices built only from choices (reason words, seat numbers, times) skip the guard.
+4. Guardian controls (03 section 11.5). `guardian_links.discontinue` on any active link of a junior: the junior gets no row, and the guardians' copies stand. `guardian_links.mute_nonsafety`: the junior's row is written with `channels = 'inapp'`, `status = 'skipped'` and `skip_reason = 'disabled'`, so it shows in the app's list but reaches no device, as 05 does for capped rows. The most protective setting across a junior's guardians wins. Neither control touches safety rows: a closed water status and overdue messages.
+5. Quiet hours. Adults keep their own (05 section 4.4), with the exceptions in 21.3. Juniors get 03's fixed 10 PM to 6 AM in the club's time zone (03 section 11.3) for every non-safety notice, with no exceptions. Their guardians get the same notice under their own quiet hours, so a family still hears about a 5:45 AM cancellation posted at 10:30 PM.
+6. The person whose action caused the notice is left out: the coach who posted the status, the member who booked. Overdue stages are the exception; they go to everyone the stage names.
+7. One notice per person per event. Dedupe keys end with the user id. A guardian with two juniors in one lineup gets one notice naming both ("Sam is 6 seat in Bellows Falls. Alex is cox in Hudson (4+)."). A person who is both a member and a guardian gets one notice per event.
+8. Preferences come last: the subkind's switch (21.8) and, for water status, `only`.
+
+Recipients are worked out when each notice is sent, not when the event began. A safety officer appointed while a boat is out gets that boat's later stages.
+
+### 21.3 Delivery by kind and subkind
+
+| Kind, subkind | Channels | Urgency | TTL | Topic and tag | Quiet hours | Turn off | Cap |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `overdue`, club stages 1 to 3 | Stage 1: push, and email when the person has no working push subscription. Stages 2 and 3: push and email. | high | 15 min | `oc-` plus 12 characters of the outing id | Never held | Stage 1 only, by safety officers (`overdue_stage1`) | None |
+| `overdue`, On it and all clear | Push; email to whoever was emailed | high | 15 min | The stages' topic, so it replaces them on the lock screen | Never held | No | None |
+| `water_status`, closed | Push and email | high | Until the status ends, at most 6 h | `ws-` plus 12 of the club id | Never held | No ("Closed only" keeps it) | None |
+| `water_status`, restricted, lifted, end moved | Push | normal | Until the status ends, at most 6 h | Same | Held, except when the status begins before the person's quiet hours end | `only: closed` | 05's 8 a day |
+| `practice` | Push; also email for cancelled and moved to land, and when the person has no working push | high within 12 h of the start, else normal | Until the start | `pr-` plus 12 of the practice id | Held, except when the practice starts before the person's quiet hours end | The `practice` pref | 05's 8 a day |
+| `club`, `practice_check` | Push | normal | Until the start | `pc-` plus 12 of the practice id | Ignored: the coach chose the time (05's rule for timed kinds) | Yes | Staff |
+| `club`, `lineup`, `rsvp`, `booking`, `booking_request`, `boat_out`, `lineup_gap` | Push | high within 12 h of the session, else normal | Until the session (`rsvp`: until `rsvp_by`) | `ln-`, `rv-`, `bk-` plus 12 of the practice or booking id; none for the others | Held, except when the session starts before the person's quiet hours end | Yes | 05's 8 a day; Staff for `booking_request`, `boat_out` and `lineup_gap` |
+| `club`, `incident` | Push | high when the types include an injury, else normal | 24 h | none | Held, except with an injury | Yes | Staff |
+| `club`, `incident_guardian` | Push and email | normal | 24 h | none | Held, except with an injury | No | None |
+| `club`, `against_rule`, `against_daily`, `damage`, `join_request`, `rules` (staff), `emergency_check` | Push | normal (`emergency_check` low) | 24 h | none | Held | Yes | Staff |
+| `club`, `guardian_approve`, `role`, `verify`, `deleting` | Push and email | normal | 24 h | none | Held | No | None |
+| `club`, `announcement`, `lesson`, `rules` (members), `clearance`, `joined`, `reminder` | Push; `rules` for members is in-app unless the editor chose "Tell members" | normal (`clearance`, `reminder` low) | 24 h, or until the pin ends for an announcement | none | Held | Yes | 05's 8 a day |
+| `club`, `removed`, `adult`, `fixed` | In-app only | | | | | No | None |
+
+Caps. "05's 8 a day" is 05 section 4.5's cap on non-safety pushes per person. "Staff" is a separate cap of 20 duty notices a day per person per club, so a busy morning of bookings and damage reports cannot use up a coach's 8 and silence a lineup. Above either cap the row is in-app only (`skip_reason = 'cap'`). Safety rows have no cap.
+
+Decision: Staff duty notices have their own cap of 20 a day per person per club, apart from 05's 8.
+- Alternative: count everything that is not safety against 05's 8.
+
+The quiet hours exception ("held, except when the session starts before the person's quiet hours end") is there because a 5:45 AM practice cancelled at 10:30 PM and held until 6 AM is worse than no notice: people drive to the dock. The same holds for a restricted status a coach posts at 5:40 AM for the dawn fog. It changes 05 section 3.1, which holds every `practice` and every non-closed `water_status` notice. Juniors' fixed quiet hours still hold it for the junior (21.2 rule 5); the guardian gets it at once.
+
+Decision: Practice, lineup, booking and restricted water status notices are not held by quiet hours when the session or status begins before the person's quiet hours end.
+- Alternative: hold them, as 05 section 3.1 says for `practice`.
+- Alternative: never hold practice notices at all.
+
+### 21.4 Every club notification
+
+Times and names are Putney samples. "Staff" means coaches, safety officers, equipment managers and admins (section 1). Dedupe keys follow 05 section 5.5: unique in `notify_log.dedupe_key`, at most 160 characters, with the user id last. The longest here, `cl:boat_out:<boat id>:<practice id>:<user id>`, is 122 characters with 36-character ids.
+
+Safety (phase 5):
+
+| # | Notification | Trigger | Recipients | Kind (subkind) | Dedupe key |
+| --- | --- | --- | --- | --- | --- |
+| S1 | Boat overdue, stage 1 | Tick: `club_next_at <= now` at `club_stage` 0, which is `due_at + graceMin` (8.6) | Safety officers who have not turned off stage 1; the staff member who started the row; the practice's coaches (phase 6); every coach when `overdue.stage1` is `safety_and_coaches`. Admins too when the club has no active safety officer, or when every recipient above is aboard the overdue boat. | `overdue` | `odc:<outing id>:1:<user id>` |
+| S2 | Still overdue, stage 2 | Stage 1 time plus `escalateMin`, when nobody tapped On it | All safety officers, all admins, the starter, guardians of junior crew members | `overdue` | `odc:<outing id>:2:<user id>` |
+| S3 | Not resolved, stage 3 | Stage 2 time plus 30 minutes, when the outing is still open, with or without On it | All safety officers and admins | `overdue` | `odc:<outing id>:3:<user id>` |
+| S4 | On it | `POST /api/clubs/:slug/board/:outingId/ack` | Everyone who got stage 1, except the person who tapped | `overdue` | `odc:<outing id>:ack:<user id>` |
+| S5 | All clear | Resolve on the board, the rower's I'm back, or a contact's "safe" on 04's status link, after stage 1 | Everyone who got stage 1, 2 or 3 (their `notify_log` rows for the outing) | `overdue` | `odc:<outing id>:clear:<user id>` |
+| S6 | Row started against club rules | `POST /api/outings` that sets `against = 1` (8.3) | Safety officers, except the starter | `club` (`against_rule`) | `cl:against_rule:<outing id>:<user id>` |
+| S7 | More rows against club rules today | The 21st such row in a club's local day schedules one delayed job for 7 PM club time | Safety officers | `club` (`against_daily`) | `cl:against_daily:<club id>:<day key>:<user id>` |
+| S8 | Incident recorded | An incident saved as `submitted` (9.2) | Safety officers and admins, except the filer | `club` (`incident`) | `cl:incident:<incident id>:<user id>` |
+| S9 | Incident involving your junior | The same save, for each minor named in `people` | That junior's guardians | `club` (`incident_guardian`) | `cl:incident_guardian:<incident id>:<user id>` |
+| S10 | Safety note shared | `POST /api/clubs/:slug/incidents/:id/share` (9.2 step 7) | All members and guardians | `club` (`lesson`) | `cl:lesson:<incident id>:<user id>` |
+| S11 | Emergency info due for a check | Daily run: the day the location's `emergency.checkedAt` turns a year old, then every 30 days until someone checks it (8.7) | Safety officers and admins of the steward club | `club` (`emergency_check`) | `cl:emergency_check:<location id>:<month key>:<user id>` |
+| S12 | Clearance about to expire | Daily run: 30 days before, and on the day, a clearance expires that an enabled rule requires (6.3) | The member; a junior's guardians | `club` (`clearance`) | `cl:clearance:<membership id>:<key>:<expiry day key>:<user id>` |
+
+8.6 writes the club stage key as `overdue-club:<outing id>:<club_stage>`. The keys above are its per-recipient form, in 05's short style: `notify_log` holds one row per recipient, so the user id must be in the key. 08 keeps one spelling.
+
+Decision: When every stage 1 recipient is aboard the overdue boat, stage 1 also goes to the club's admins.
+- Alternative: stage 1 as 8.6 says, so a lone safety officer who is the overdue sculler hears about their own boat and nobody else hears until stage 2.
+
+Decision: The club chain keeps running for outings already on the water when the club is suspended or set to delete. A suspension stops rules and status from applying (3.6); it never stops an alert for a boat that is out.
+- Alternative: stop the club chain with the club, leaving 04's personal chain.
+
+Decision: Remind members 30 days before a clearance that a club rule needs runs out, and on the day (S12), because the rule turns their result to Stay off when it lapses.
+- Alternative: show the expiry only on the club page.
+
+Water status and rules (phase 5):
+
+| # | Notification | Trigger | Recipients | Kind (subkind) | Dedupe key |
+| --- | --- | --- | --- | --- | --- |
+| W1 | Water closed | A closed status posted with Tell members on (7.6) | Members and guardians with the `water_status` pref on, scoped by location as below | `water_status` | `ws:<user id>:<water_status id>` |
+| W2 | Water restricted | A restricted status posted with Tell members on | The same, when their pref's `only` is `any` | `water_status` | `ws:<user id>:<water_status id>` |
+| W3 | Water open again | A closed or restricted status cleared before it ends, or replaced by a less strict one | Everyone who got the status that ended | `water_status` | `ws:<user id>:<ended status id>:lifted` |
+| W4 | End time moved | A new post of the same state whose end differs from the live one by more than 30 minutes | As W1 or W2 | `water_status` | `ws:<user id>:<new status id>` |
+| W5 | Club rules changed, for staff | `PUT /api/clubs/:slug/rules` succeeds | Safety officers and admins, except the editor | `club` (`rules`) | `cl:rules:<club id>:<rules revision>:<user id>` |
+| W6 | Club rules changed, for members | The same save, for members whose merged rules for their crew type changed (`rulesDiff()` in `src/clubrules.js`), and their guardians | Those members and guardians | `club` (`rules`) | `cl:rules:<club id>:<rules revision>:<user id>` |
+
+Nothing is sent when a status ends at its own time, for an `open` post that lifts nothing, or for a dock water reading on its own (7.6).
+
+Location scope, refining 7.6: when the club has one location, or the status names all of them, every member gets it. When it names one of several locations, it goes to members who follow that location (03's favorites or home location) or started a row there in the last 60 days, and to all staff.
+
+W6 is in-app only unless the editor ticks "Tell members" when saving, a new switch in the rules editor, off by default. With it, members get a push, at most one per member per club in 6 hours; later ones stay in-app (`skip_reason = 'cap'`). Members see the new result in the hero on their next refresh anyway; the notice says what changed and why.
+
+Decision: Club rule changes push to safety officers and admins. Members get an in-app notice, and a push only when the editor ticks "Tell members".
+- Alternative: push every affected member on every save.
+- Alternative: no notice; the hero shows the new result.
+
+Membership and club admin (phase 5):
+
+| # | Notification | Trigger | Recipients | Kind (subkind) | Dedupe key |
+| --- | --- | --- | --- | --- | --- |
+| M1 | Join request | `POST /api/clubs/:slug/requests` (4.4) | Admins; at most 5 a day each, the rest in-app | `club` (`join_request`) | `cl:join_request:<membership id>:<user id>` |
+| M2 | Request approved | An admin approves | The requester. A decline sends nothing (4.4). | `club` (`joined`) | `cl:joined:<membership id>:<user id>` |
+| M3 | Junior wants to join | A junior accepts an invite and the membership is `pending_guardian` (4.5) | The junior's linked guardians (03's `guardian_links`) | `club` (`guardian_approve`) | `cl:guardian_approve:<membership id>:<user id>` |
+| M4 | Staff role given | An admin adds a role, or succession makes someone admin (3.6) | The member | `club` (`role`) | `cl:role:<audit_log id>:<user id>` |
+| M5 | Membership ended | Removed or blocked by an admin (4.6) | The person, in-app only | `club` (`removed`) | `cl:removed:<membership id>:<user id>` |
+| M6 | Now an adult member | Daily run at `junior_until`, or staff change a roster kind (4.5) | The member and their former guardians, in-app only | `club` (`adult`) | `cl:adult:<membership id>:<user id>` |
+| M7 | Deletion requested or cancelled | 3.6 steps 2 and 4 | All admins | `club` (`deleting`) | `cl:deleting:<club id>:<delete_after, or cancel>:<user id>` |
+| M8 | Verified, not verified, suspended | Moderator decisions (3.3, 3.6) | All admins | `club` (`verify`) | `cl:verify:<audit_log id>:<user id>` |
+| M9 | Check junior kinds | Daily run on September 1 in the club's time zone (4.5) | Admins and coaches | `club` (`reminder`) | `cl:reminder:<club id>:<year>:<user id>` |
+
+M4 matters most for the safety officer role, because overdue alerts start going to that person. When they have no working push subscription, M4 goes by email and says how to turn notifications on (21.5), and the Members tab shows admins "Robin S. has no device for overdue alerts" until one is added.
+
+Practices and lineups (phase 6):
+
+| # | Notification | Trigger | Recipients | Kind (subkind) | Dedupe key |
+| --- | --- | --- | --- | --- | --- |
+| P1 | Practices added | `POST /api/clubs/:slug/practices`: one practice, or a whole series as one notice | Members of the practice's groups, guardians of the juniors among them, and the listed coaches, except the creator | `practice` | `pr:<user id>:<first practice id>:0` |
+| P2 | Practice cancelled | `POST /api/clubs/:slug/practices/:id/cancel` | The practice's people (below). Those who answered No get it in-app only. | `practice` | `pr:<user id>:<practice id>:<sequence>` |
+| P3 | Moved to land | `POST /api/clubs/:slug/practices/:id/land` | As P2 | `practice` | `pr:<user id>:<practice id>:<sequence>` |
+| P4 | Time or place changed | Start or end moved, location changed, or meet time moved by 10 minutes or more, for a practice in the next 7 days. A series edit sends one notice per person. | As P2 | `practice` | `pr:<user id>:<practice id>:<sequence>` |
+| P5 | Evening check | Tick: `practices.check_at <= now` (21.7) | The practice's coaches, or every coach when none are listed (12.2) | `club` (`practice_check`) | `cl:practice_check:<practice id>:<user id>` |
+| P6 | RSVP reminder | `rsvp_by` minus 2 hours, when `practice.rsvpReminder` is on (12.3) | People expected at the practice who have not answered, and their guardians | `club` (`rsvp`) | `cl:rsvp:<practice id>:<user id>` |
+| P7 | Lineups published | "Publish lineups" (13) | Seated people with accounts; guardians of seated juniors | `club` (`lineup`) | `cl:lineup:<practice id>:<publish time ms>:<user id>` |
+| P8 | Seat changed or removed | Publishing again | Only people whose seat changed or who were removed, and their guardians | `club` (`lineup`) | `cl:lineup:<practice id>:<publish time ms>:<user id>` |
+| P9 | Seat left empty | A member leaves with seats in future lineups (4.6) | The practice's coaches | `club` (`lineup_gap`) | `cl:lineup_gap:<lineup id>:<seat>:<user id>` |
+
+"The practice's people": members of its groups, anyone who answered, guardians of the juniors among them, and its coaches, except whoever made the change. P1 to P4 are 05's `practice` kind, so the person's `practice` pref turns all four off. `practices.sequence` (12.1) moves with every change that shows in a calendar, so each change has its own key. Changes to notes, coaches, title or groups move `sequence` for the calendar but send nothing.
+
+Decision: Changes to practices more than 7 days ahead are not pushed; the schedule and the calendar feed show them.
+- Alternative: push every change, however far ahead.
+- Alternative: a 14-day window.
+
+The night-before outlook with a practice (05 section 3.3) is 05's notice, not one of these. 05 asks `practicesFor(env, userId, dayKey)` in `worker/clubs/practices.js` for the person's practices on the target day and folds the first into the title.
+
+Boats, booking and announcements (phase 6):
+
+| # | Notification | Trigger | Recipients | Kind (subkind) | Dedupe key |
+| --- | --- | --- | --- | --- | --- |
+| B1 | Booking to approve | A booking created as `pending` (11.3) | Equipment managers and admins, except the booker | `club` (`booking_request`) | `cl:booking_request:<booking id>:<user id>` |
+| B2 | Booking confirmed or not approved | Approve, decline, or the automatic decline at the start time | The member | `club` (`booking`) | `cl:booking:<booking id>:<status>:<user id>` |
+| B3 | Booking cancelled | Staff cancel with a reason, the boat goes out of service (10.2), or a practice takes it (11.4) | The member | `club` (`booking`) | `cl:booking:<booking id>:cancelled:<user id>` |
+| B4 | Damage reported | A damage report marked `unsafe` or `rowable` (10.2); `cosmetic` is in-app only | Equipment managers, or admins when there are none, except the reporter | `club` (`damage`) | `cl:damage:<report id>:<user id>` |
+| B5 | Boat out of service for a practice | A boat set out of service, by a report or by hand, that a practice in the next 7 days reserves or seats a lineup in | That practice's coaches | `club` (`boat_out`) | `cl:boat_out:<boat id>:<practice id>:<user id>` |
+| B6 | Damage fixed | A report moves to `fixed` | The reporter, in-app only | `club` (`fixed`) | `cl:fixed:<report id>:<user id>` |
+| A1 | Announcement | An announcement posted with "Send a notification" on (15) | The audience, and guardians of the juniors in it. Staff outside the audience see it on the Today tab with no push. | `club` (`announcement`) | `cl:announcement:<announcement id>:<user id>` |
+
+A booking no-show sends nothing (11.3: no automatic penalty).
+
+### 21.5 Copy
+
+Titles are at most 50 characters and bodies at most 240 (05 section 3.2). `test/club-copy.test.js` checks every row (24.2). Email subjects are the titles. Email bodies add the link and, for safety notices, the emergency block and 8.6's footer: "RoWhether is not an emergency service. It does not watch the water or call anyone."
+
+| # | Title | Body |
+| --- | --- | --- |
+| S1 | "Putney RC: boat overdue" | "Sam L., 1x, was due back at Putney Landing at 7:30 AM. 15 min late. Open the board." |
+| S2 | "Putney RC: boat still overdue" | "Sam L., 1x, due 7:30 AM, now 30 min late. Nobody has said they are on it. Emergency: 911. Launch address on the board." |
+| S2, guardian | "Putney RC: Sam's boat is overdue" | "Bellows Falls (8+) with Lee M.'s launch was due back at 7:30 AM. The club's safety officers have been told." |
+| S3 | "Putney RC: overdue boat not resolved" | "Sam L., 1x, due 7:30 AM. Alex R. has been on it since 8:01 AM. Mark it on the board when it is settled." |
+| S3, nobody on it | "Putney RC: overdue boat not resolved" | "Sam L., 1x, due 7:30 AM, now 60 min late. Nobody has marked it on the board." |
+| S4 | "Putney RC: Alex R. is on it" | "Sam L., 1x, overdue since 7:45 AM." |
+| S5 | "Putney RC: Sam L. is back" | "Marked by Alex R. at 8:02 AM." |
+| S5, other outcomes | "Putney RC: Sam L. is safe" | "Landed at Railroad bridge, VT bank. Marked by Alex R. at 8:02 AM." Or: "Did not go out. Marked by Alex R. at 8:02 AM." Or: "Sam L. tapped I'm back at 7:52 AM." |
+| S5, guardian | "Putney RC: Sam's boat is back" | "Bellows Falls (8+) is back. Marked by Lee M. at 7:58 AM." |
+| S6 | "Putney RC: row started against club rules" | "Sam L., 1x, 3:02 PM: gusts to 18 mph, club limit 15." |
+| S7 | "Putney RC: rows against club rules today" | "4 more rows started against club rules today. They are marked on the board." |
+| S8 | "Putney RC: incident recorded" | "Capsize, Oct 17, 7:40 AM. Open the safety log." |
+| S8, injury | "Putney RC: incident recorded" | "Incident with an injury, Oct 17, 7:40 AM. Open the safety log." |
+| S9 | "Putney RC: incident involving Sam" | "Putney RC recorded an incident involving Sam on Oct 17 (capsize). The club's safety officers have the details." |
+| S10 | "Putney RC: safety note" | The summary's first 160 characters, cut at a word: "Near miss, Oct 17: a single hit the old piling below the railroad bridge at low water. Keep to the channel shown in the traffic pattern." |
+| S11 | "Putney RC: check Putney Landing's emergency info" | "Last checked Oct 2025. Confirm the launch address, hospital and AED details on site." |
+| S12 | "Putney RC: swim test expires Nov 16" | "A club rule needs a current swim test for Masters 1x without a launch. After Nov 16 you will see Stay off there. Ask a coach to record a new one." |
+| W1 | "Putney RC: water closed" | "High water. Until 6 PM. Set by Alex R., safety officer, 5:52 AM." |
+| W2 | "Putney RC: water restricted" | "Eights and fours with a launch only. Fog. Until 10 AM. Set by Sam, coach, 5:40 AM." |
+| W3 | "Putney RC: water open again" | "The high water closure was lifted at 1:15 PM by Alex R., safety officer." |
+| W4 | "Putney RC: water closed until Sat, Oct 24" | "High water. Now until Sat, Oct 24, 6 PM. Set by Alex R., safety officer, 4:10 PM." |
+| W5 | "Putney RC: club rules changed" | "Alex R. changed 2 rules: Masters scullers, Cold water. Open the rules to review." |
+| W6 | "Putney RC: club rules changed for you" | "Masters, 1x without a launch: gust stay off now 15 mph, was 18." |
+| M1 | "Putney RC: Sam Lee asked to join" | "I row here. Open Members to approve or decline." |
+| M2 | "Putney RC: request approved" | "You are a member of Putney Rowing Club, in Masters. Club rules for Masters now apply at Putney Landing." |
+| M3 | "Putney RC: Sam wants to join as a junior" | "Approve in Account, Juniors. Club staff will see Sam's name, groups and club rows." |
+| M4, safety officer | "Putney RC: you are now a safety officer" | "Overdue boat alerts come to you from now on. Turn on notifications on this phone so they reach you." |
+| M4, coach | "Putney RC: you are now a coach" | "You can set water status, groups, clearances and crews. Added by Alex R." |
+| M4, succession | "Putney RC: you are now an admin" | "The last admin's account was deleted, so the role passed to you. Add a second admin in Members." |
+| M5 | "Putney RC: membership ended" | "You are no longer a member of Putney Rowing Club." |
+| M6 | "Putney RC: Sam is now an adult member" | "Guardians no longer see Sam's club schedule." |
+| M7 | "Putney RC: deletion requested" | "Alex R. asked to delete Putney Rowing Club on Oct 31, 2026. Any admin can cancel before then." |
+| M7, cancelled | "Putney RC: deletion cancelled" | "Sam L. cancelled the deletion. Nothing was removed." |
+| M8 | "Putney RC: club verified" | "Putney Rowing Club now shows on Putney Landing's page and in club search." |
+| M8, not verified | "Putney RC: not verified yet" | "A moderator could not verify the club: (the moderator's reason). Update the evidence and try again." |
+| M9 | "Putney RC: check junior ages" | "Mark roster-only juniors who turned 18 as adults. 23 roster-only juniors are listed in Members." |
+| P1 | "Putney RC: new practices" | "Junior practice, Tue and Thu 5:45 AM, Oct 20 to Nov 19, at Putney Landing." |
+| P2 | "Putney RC: Tue 5:45 AM practice cancelled" | "Junior practice. Thunderstorms forecast. Next practice Thu 5:45 AM." |
+| P3 | "Putney RC: Tue 5:45 AM practice on land" | "Junior practice moves to the boathouse, same time. Erg: 3 x 15 min at 20 spm." |
+| P4 | "Putney RC: Tue practice now 6 AM" | "Junior practice, was 5:45 AM. Meet 5:45 AM at Putney Landing." |
+| P5 | "Putney RC: tomorrow's 5:45 AM practice" | "Looks like Stay off. Juniors 8+ with a launch: gusts to 24 mph. Keep it, move it to land, or cancel?" |
+| P5, caution | "Putney RC: tomorrow's 5:45 AM practice" | "Looks like Caution: gusts to 19 mph after 6:30 AM. Juniors 8+ with a launch." |
+| P6 | "Putney RC: are you coming Tue 5:45 AM?" | "Junior practice. Answer by 8 PM so the coaches can set lineups." |
+| P6, guardian | "Putney RC: is Sam coming Tue 5:45 AM?" | "Junior practice. Answer for Sam by 8 PM so the coaches can set lineups." |
+| P7 | "Putney RC: lineups for Tue 5:45 AM" | "You are 6 seat in Bellows Falls (8+)." |
+| P7, guardian | "Putney RC: Sam's seat for Tue 5:45 AM" | "Sam is 6 seat in Bellows Falls (8+)." |
+| P8 | "Putney RC: your seat changed for Tue 5:45 AM" | "Now 5 seat in Bellows Falls (8+)." |
+| P8, removed | "Putney RC: lineup change for Tue 5:45 AM" | "You are no longer in a lineup for Tue 5:45 AM." |
+| P9 | "Putney RC: seat empty for Tue 5:45 AM" | "Sam left the club. Seat 6 in Bellows Falls is empty." |
+| B1 | "Putney RC: booking to approve" | "Sam L., Bellows (1x), Sat, Oct 24, 7 to 8:30 AM." |
+| B2 | "Putney RC: booking confirmed" | "Bellows, Sat, Oct 24, 7 to 8:30 AM." |
+| B2, declined | "Putney RC: booking not approved" | "Bellows, Sat 7 AM. Boat at a regatta that day. 2 other singles are free then." |
+| B2, at the start | "Putney RC: booking not approved in time" | "Nobody approved Bellows for Sat 7 AM before it started." |
+| B3 | "Putney RC: booking cancelled" | "Bellows Falls is out of service. Your booking for Sat 7 AM was cancelled. 2 other 8+ boats are free then." |
+| B3, practice | "Putney RC: booking cancelled" | "Your booking of Bellows on Sat 7 AM was cancelled for Junior practice. 2 other singles are free then." |
+| B4 | "Putney RC: Bellows Falls not safe to row" | "Rigger, reported by Sam L., Oct 17. The boat is out of service." |
+| B4, rowable | "Putney RC: damage on Bellows Falls" | "Rowable but needs fixing. Rigger, reported by Sam L., Oct 17." |
+| B5 | "Putney RC: Bellows Falls out of service" | "It is reserved for Junior practice, Tue 5:45 AM. Pick another boat or change the lineup." |
+| B6 | "Putney RC: Bellows Falls back in service" | "Your damage report from Oct 17 is marked fixed." |
+| A1 | "Putney RC: Regatta van Saturday" | The body's first 160 characters, cut at a word: "Regatta van leaves at 6 AM Saturday. Juniors: bring your uniform and a warm layer. Parents: pickup at 4 PM at the boathouse." |
+
+Rules for club text:
+
+- Push and email never carry an incident's narrative, injury details or names (9.3), a junior's name to anyone but their guardians and staff (5.2 rule 6), or a member's request note.
+- Staff-written text (a cancel reason, a decline note, an announcement) appears as written, cut at a word to fit, and only in subkinds that ran `audienceGuard()` (21.2).
+- A title over 50 characters drops the time first ("Putney RC: practice cancelled"), then shortens a boat or location name.
+
+### 21.6 Making sure members see a closed status
+
+A closed status is the one club notice that changes what a member should do in the next hour. These seven rules make sure it lands, and that nothing on a member's screen shows Go while it lasts:
+
+1. It is sent at once: never held, no cap, high urgency, push and email (21.3). `mute_nonsafety` and `discontinue` do not apply.
+2. An open app refreshes. `public/push-sw.js` (05) posts `{ type: 'refresh', what: 'club', club }` to every open window after it shows a `water_status` notification. `src/notify.js` passes it to `loadClubContext(slug, { force: true })` in `src/club-context.js`, which redraws the hero. A tap on any club notice does the same before the view opens. Request to 05: add the post to the `push` handler.
+3. The club context never says "unchanged" about statuses. `GET /api/locations/:slug/club-context?rev=` may answer `"unchanged": true` for rules, groups and the membership, but always returns live statuses and the dock reading, a few rows read through `water_status_live`. This refines 19.3, where an unchanged rule revision could hide a new status until the next rule change.
+4. The board and the kiosk poll every 30 seconds and carry the status (8.4, 8.5).
+5. Offline, a cached status keeps applying until its own `expiresAt`. `statusFor()` checks each hour against `startsAt` and `expiresAt`, so an expired status stops applying with no fetch. An hour counts as covered when any part of it is inside the window, which refines 7.1's "hours inside its window": a status from 6:20 AM makes the whole 6 AM hour Stay off.
+6. The status applies to members who turned club rules off. The switch covers rules, not the water status.
+7. The kiosk hero uses the club's rules for everyone (the "Everyone else" row of 6.7) and the live status, so a closed status reads Stay off on the boathouse screen, not only in the banner above it.
+
+What lag remains: a member whose app is closed sees the status on the next open, first from the cache and then from the refresh; a phone with no signal at the dock sees it when it reconnects. When the cached context is more than 30 minutes old, the hero's club line ends "Club status as of 5:40 AM." so a member knows how fresh it is.
+
+Decision: A closed or restricted club water status applies to every member at that location, including adults who turned club rules off.
+- Alternative: rules off also drops the status from the verdict, leaving only the banner.
+
+Decision: The kiosk hero applies the club's rules for everyone and the live status.
+- Alternative: the public hero, with the status banner above it.
+
+Decision: The club context always returns live statuses, even when the rules are unchanged.
+- Alternative: a `clubs.status_rev` counter, bumped on every post and clear, compared like `rev`.
+
+Decision: Show "Club status as of 5:40 AM." on the club line when the cached context is more than 30 minutes old.
+- Alternative: only 6.9's note after 7 days.
+
+Decision: In a viewer's two clubs at one location (3.5), the verdict applies the status of the club chosen in Rowing as; the other club's status shows as its own banner.
+- Alternative: any closed status from either club applies to the verdict.
+
+### 21.7 Engine additions (for 05)
+
+05's tick and daily run gain club steps. They live in `worker/clubs/cron.js` and are called from 05's `worker/notify/tick.js`. Each step writes its `notify_log` rows and advances its own due column in one `env.DB.batch()`, as 05 section 5.2 does, so an overlapping tick never sends twice.
+
+Every minute, `runClub(env, now)` runs beside 05's `runOverdue()` and `runDue()`:
+
+| Step | Selects | Index | Then |
+| --- | --- | --- | --- |
+| Club overdue | `outings WHERE club_next_at <= ?`, at most 200 | `outings_club_next` (18.3) | `clubOverdueStep()` in `worker/clubs/overdue.js`. One stage per outing per tick, so after an outage the stages go out a minute apart, oldest first. |
+| Evening check (phase 6) | `practices WHERE check_at <= ? AND decided_at IS NULL AND status = 'scheduled'`, at most 100 | `practices_check` (new) | Groups by location, builds each model once with 05's `loadLocationData()` and `buildModel()`, applies club rules and live statuses with `levelsFor()` per crew type, sends P5, sets `check_at = NULL`. |
+| RSVP reminders (phase 6), every 5 minutes | `practices WHERE rsvp_by > ? AND rsvp_by <= ? AND status = 'scheduled'`, the 5 minutes ending 2 hours from now | `practices_rsvp` (new) | P6, for clubs with `practice.rsvpReminder` on |
+| Bookings (phase 6) | `bookings WHERE status IN ('pending', 'confirmed') AND starts_at <= ?` | `bookings_due` (new) | Pending at its start: `declined`, and B2. Confirmed and unused at `start + noShowMin` (per club, read from settings): `no_show`, and nothing sent. |
+
+Server-side models for members. When 05 builds a member's model (05 section 5.2 step 4) for the night-before, morning, Go window and practice check notices, the club part comes from `clubContextFor(env, userId, locationId)` in `worker/clubs/context.js`: the rules, the membership's crew type and the live statuses, the same data the app gets (21.6). 05's `settingsHash()` covers the status ids as well as `S`, so members under a closed status never share a model with members outside it.
+
+The daily run (05's `17 9 * * *`) calls `dailyClub(env, now)`:
+
+- Club deletions due, and tombstones past 90 days (3.6).
+- Retention (16.3).
+- Age-up at `junior_until` (4.5), with M6.
+- Join requests older than 30 days declined (4.4), with no notice.
+- Clearance reminders (S12) and emergency info checks (S11).
+- The September 1 reminder (M9), for clubs where it is September 1 in the club's time zone.
+
+Event notices (everything not above) are enqueued by the API handler after its D1 write, inside `ctx.waitUntil()`, through 05's `worker/notify/events.js`: `enqueueWaterStatus(env, status, prev)`, `enqueuePractice(env, practice, change)` and a new `enqueueClub(env, { sub, club, refId, spec, copy })`. Delayed jobs (S7 at 7 PM, and held notices) use the queue's `delaySeconds`, at most 86,400 (05 section 4.4).
+
+Stale checks on delivery, for held or delayed jobs (05 section 4.4 drops these with `skip_reason = 'stale'`):
+
+| Subkind | Dropped when |
+| --- | --- |
+| `water_status` | The status was replaced or cleared since (05 already does this) |
+| `practice` | `sequence` moved on (the newer notice carries the change), or the practice has started |
+| `lineup` | A newer publish of the same practice exists |
+| `booking_request` | The booking is no longer `pending` |
+| `booking` | The booking changed status again |
+| `announcement` | The announcement was deleted |
+| `rsvp` | The person answered |
+| `against_rule`, `incident` | Never. They are records. |
+
+`check_at` is a new column for phase 6. `checkAt(practice, decideAt, tz)` in `src/schedule.js` returns the local `decideAt` on the evening before the practice's local date, or null when the practice starts more than 18 hours after that (12.2's window). With the default 19:45, a Tue Oct 20, 2026 practice at 5:45 AM gets Mon Oct 19 at 7:45 PM EDT (23:45 UTC), 10 hours ahead. A 1:30 PM practice is 17 hours 45 minutes ahead and gets a check; a 3 PM practice is 19 hours 15 minutes ahead and gets none. `check_at` is set when a practice is saved, recomputed for a club's future practices when `practice.decideAt` changes, and cleared when the check runs or a coach decides.
+
+New schema for 08 to fold into 18.2, and one column for 05's table:
+
+```sql
+-- 06, phase 6: a column in 18.2's CREATE TABLE practices
+  check_at INTEGER,                         -- evening check time, ms (21.7)
+
+CREATE INDEX IF NOT EXISTS practices_check ON practices (check_at)
+  WHERE check_at IS NOT NULL AND decided_at IS NULL AND status = 'scheduled';
+CREATE INDEX IF NOT EXISTS practices_rsvp ON practices (rsvp_by)
+  WHERE rsvp_by IS NOT NULL AND status = 'scheduled';
+CREATE INDEX IF NOT EXISTS bookings_due ON bookings (starts_at)
+  WHERE status IN ('pending', 'confirmed');
+
+-- 05's notify_log, in phase 4, or in phase 5 if 05 left it out
+ALTER TABLE notify_log ADD COLUMN subkind TEXT
+  CHECK (subkind IS NULL OR (kind = 'club' AND length(subkind) BETWEEN 3 AND 24));
+```
+
+Checked with `EXPLAIN QUERY PLAN` in local SQLite 3.50.4 (2026-10-17, not D1): the evening check and RSVP queries search their new indexes. `bookings_due` fixes 11.3's no-show step: with only `bookings_boat`, the plan was `SCAN bookings USING INDEX bookings_boat`, every pending and confirmed booking every minute; with `bookings_due` it is `SEARCH bookings USING INDEX bookings_due (starts_at<?)`.
+
+Load (estimate): a 100-member club with 4 practices a week sends about 2,500 notices a month (water status 800, announcements 800, lineups 500, practice changes 250, staff duty 150). A hundred such clubs send 250,000 a month: about 750,000 queue operations at 05's 3 per message, inside the 1 million Workers Paid includes. If 10% go by email, that is 25,000 emails, about $7.70 a month past the 3,000 included (prices from 05 section 10).
+
+### 21.8 Preferences
+
+The club page's `#settings` tab for members, and Account, Notifications, per club (05 section 4.1), show the switches for the person's roles:
+
+> Notifications from Putney Rowing Club
+>
+> Water status: Every change, or Closed only
+> Practice changes (phase 6)
+> Lineups and RSVP reminders (phase 6)
+> Bookings (phase 6)
+> Announcements and safety notes
+> Club rule changes
+>
+> Safety officers: Overdue boats, first alert. Rows started against club rules. Incidents.
+> Coaches: Evening practice check. Boats out of service for a practice. (phase 6)
+> Equipment managers: Damage reports. Bookings to approve. (phase 6)
+> Admins: Join requests.
+>
+> Overdue boats after the first alert, and closed water, always come through.
+
+Storage:
+
+- `water_status`: 05's row, created on join (7.6), `{ "only": "any" }` or `{ "only": "closed" }`, default `any`.
+- `practice`: 05's row; the switch is its `enabled`.
+- Everything else: one `club` row per person per club, `{ "off": ["announcement", "join_request"] }`, listing the subkinds turned off (`overdue_stage1` for the first overdue alert). Anything not listed is on.
+- A missing `club` or `practice` row means every switch is on, so phase 6 needs no backfill for existing members. A row is written the first time someone changes a switch.
+- Leaving or removal deletes the person's rows for the club, since `notify_prefs.club_id` has no foreign key (05 section 8).
+
+Guardians see 03's two controls for each junior (03 section 11.5), worded for clubs: "Club notifications to Sam's devices: All, or Safety only" (`mute_nonsafety`) and "Send club messages for Sam to me instead" (`discontinue`).
+
+Decision: Water status notices default to every change.
+- Alternative: closed only by default, with every change as the option.
+
+Decision: A missing `club` or `practice` pref means the defaults; rows are written on the first change.
+- Alternative: create the rows on join, and backfill existing members in phase 6's migration.
+
+## 22. Code map
+
+Every new and changed file. "Phase" is when the file first appears or changes. Names in other documents' files are those documents' plans (01, 03, 04, 05); 06 adds to them as stated.
+
+### 22.1 Worker, new (`worker/clubs/`)
+
+| File | Phase | Holds |
+| --- | --- | --- |
+| `index.js` | 5 | `routeClubs(request, env, ctx, session)`: 19's routes as a table of regular expressions and handlers (no router dependency); `json()` and `fail(status, code, message, extra)` for 19's error shape; `CLUB_LIMIT` on writes. |
+| `perm.js` | 5 | `PERMS` (one entry per row of 5.3), `clubCtx(env, req, slug)`, `can(ctx, action, target)`, `requireCan(ctx, action, target)`, `kioskCtx(env, req)` from the `rw_kiosk` cookie. |
+| `shape.js` | 5 | snake_case to JSON and back (`toApi`, `fromApi`, as `shape()` in `worker/reports.js`), and the role-aware shapers `clubRow`, `memberRow`, `boardRow`, `statusRow`, `ruleRow`, `incidentRow` (5.4). |
+| `clubs.js` | 5 | `createClub()` with 3.2's checks in order, `nameKey()`, `getClub`, `updateClub`, `cleanSettings()` (16.1), `listClubs` (near, `q`, location), `linkLocation`, `unlinkLocation`, `requestDelete`, `cancelDelete`, `deleteDueClubs` (daily), `succession()` (3.6). |
+| `verify.js` | 5 | `startVerify`, `checkVerify`, `checkMetaTag()` (10 s, 3 redirects within the registrable domain, 256 KB), `checkDnsTxt()` (DNS over HTTPS), `FREE_MAIL`, `sendVerifyCode()`, `reviewClub`, `suspendClub`, `restoreClub` (3.3, 3.6). |
+| `members.js` | 5 | Member list, roster-only add, `patchMember()` with per-field rights, remove and block, `patchMe()` (`rowAs`, `rulesOn`, `sharePhone`, `displayName`), `leaveClub()` with 4.6's effects, `ageUp()` (daily). |
+| `invites.js` | 5 | `makeToken()`, `makeCode()` (the 31-letter alphabet), `normalizeCode()`, create, list, revoke, `previewInvite()`, `acceptInvite()` and `acceptCode()` with 4.3's checks in order. |
+| `requests.js` | 5 | Join requests, decisions, the 30-day automatic decline (4.4). |
+| `juniors.js` | 5 | `approveJunior()` (`POST /api/me/juniors/:membershipId/approve`), `guardiansFromLinks()` (`club_guardians` from 03's active `guardian_links`), `juniorsOf(env, userId)` for 03's activity view. |
+| `groups.js` | 5 | Groups, the delete check (4.7), the `rules_revision` bump. |
+| `rules.js` | 5 | `getRules()`, `putRules()` (the `baseRevision` conflict; validation with `LIMIT_KEYS` and the location's bindings), the public summary, W5 and W6 through `rulesDiff()`. |
+| `context.js` | 5 | `GET /api/locations/:slug/club-context`: memberships, rules (or `unchanged`), live statuses and the dock reading, always (21.6); `clubContextFor(env, userId, locationId)`, the same data for 05's server-side models (21.7). |
+| `status.js` | 5 | `postStatus()` (7.2's rights, 30 a day, ends the live one), `clearStatus()`, `listStatus()`, `expiryChoices()` (7.3). |
+| `board.js` | 5 | `getBoard()` (8.4's sections, shaped per role), `ack()`, `resolve()`, and `clubOutingFields()`, which 04's `worker/outings.js` calls for `club`, `forCrew`, crew memberships, `ruleLvl`, `against` and `club_next_at`. |
+| `overdue.js` | 5 | `clubOverdueStep(env, outing, now)`, `stageRecipients(env, outing, stage)`, the On it and all clear fan-out (8.6, 21.4). |
+| `kiosk.js` | 5 | `addDevice`, `removeDevice`, `pairKiosk()` (the cookie in 8.5; only the SHA-256 stored), `kioskRoster()`, `KIOSK_LIMIT`. |
+| `emergency.js` | 5 | `cleanEmergency()` (8.7's fields and lengths), called by 01's `worker/locations.js` for a `PATCH` with `emergency`. |
+| `incidents.js` | 5 | File, list, read (writes `incident.view`), update, share, `incidentsCsv()` in USRowing's order with names off by default, `usrowingSummary()` for "Copy summary" (9). |
+| `audience.js` | 5 | `audience(env, club, spec)` (21.2), using 03's `audienceGuard()` and `guardian_links`. |
+| `notify.js` | 5 | `CLUB_SUBKINDS`, 21.3 as data (channels, urgency, TTL, topic, quiet hours rule, cap class, can turn off); `enqueueClub()`; `staleFor()` (21.7). |
+| `cron.js` | 5, 6 | `runClub(env, now)` and `dailyClub(env, now)` (21.7). |
+| `export.js` | 5 | The JSON export and `exportCsv(table)` (16.2), with 04's formula prefix guard for CSV cells. |
+| `retention.js` | 5 | 16.3's rules, run by `dailyClub()`. |
+| `boats.js` | 6 | Boats, status changes, `restricted_to` checks (10.1). |
+| `damage.js` | 6 | Damage reports and the out of service effects (10.2), B4 to B6. |
+| `bookings.js` | 6 | `insertBooking()` (11.2's one-statement insert), the `maxActive` count in the same batch, decide, cancel, `bumpForPractice()`, `availability()` (11). |
+| `practices.js` | 6 | One practice or a series, `scope=one` and `following` edits, cancel, land, decide, `check_at` upkeep, `practicesFor()` for 05's night-before (12). |
+| `attendance.js` | 6 | RSVP (choices only for juniors), attendance marks, the 14-day lock, `attendanceCsv()` (12.3, 12.4). |
+| `lineups.js` | 6 | Drafts, `lineupChecks()` (13's table), `publishLineups()` with the seat diff for P7 and P8, `startLineups()` for "Start these boats". |
+| `calendar.js` | 6 | `icsEscape`, `icsFold`, `icsEvent`, `buildFeed`, the token routes and the public feed (14). |
+| `announcements.js` | 6 | Post (10 a day, `audienceGuard()`), list, delete (15). |
+
+### 22.2 Shared pure modules, new (no DOM; imported by the app and the Worker)
+
+| File | Phase | Holds |
+| --- | --- | --- |
+| `src/clubrules.js` | 5 | 6.9's list, plus `rulesDiff(before, after, ctx)` for W6. |
+| `src/clubtext.js` | 5 | Sentences shared by screens and notices: `statusLine()`, `allowedText()` ("eights and fours with a launch only"), `boardState()`, `crewLabel()` (junior crews unnamed by role), `roleWords()`, `clearanceText()`. |
+| `src/club-context.js` | 5 | `loadClubContext(slug, { force })`, the `rowhether-club-v1` cache (6.9), `clubFor(locationSlug)`, the "as of" age (21.6). In the main bundle. |
+| `src/schedule.js` | 6 | `expandSeries()` (12.1), `zonedTime(dateKey, hhmm, tz)` (a wall time to ms with 05's gap and overlap rules), `checkAt()`, `rruleFor()`, `slotOk()` (11.2's grid). 05's `nextAt()` can call `zonedTime()` so both agree. |
+
+### 22.3 App, new and lazy (`src/club/`)
+
+Loaded with dynamic `import()` on `/club/` routes or when a club sheet opens (20). Vite puts the CSS these modules import in its own file and loads it with the chunk (from docs, https://github.com/vitejs/vite/blob/main/docs/guide/features.md, "CSS Code Splitting", read 2026-10-17).
+
+| File | Phase | Holds |
+| --- | --- | --- |
+| `src/club/index.js` | 5 | `initClubPage(slug, hash)`: the club tab bar, 20's hash routes, the public or the members' view. |
+| `src/club/api.js` | 5 | `clubApi(method, path, body)`: same-origin fetch, 19's error shape, and 04's `src/outbox.js` for writes that must survive no signal (board actions, incidents). |
+| `src/club/create.js` | 5 | `/club/new` (3.2). |
+| `src/club/join.js` | 5 | `/club/join/<token>` and code entry (4.3). |
+| `src/club/public.js` | 5 | The public page (3.4). |
+| `src/club/today.js` | 5 | The Today tab: banner, setup checklist, Which crews can go (6.7), and in phase 6 today's practices and pinned announcements. |
+| `src/club/status-sheet.js` | 5 | "Set club water status" (7.4). |
+| `src/club/rowing-as.js` | 5 | The "Rowing as" sheet (6.6). |
+| `src/club/board.js` | 5 | The board (8.4): polling, sections, actions, "Start a row for a crew" (8.2), the against-rules sheet (8.3). |
+| `src/club/kiosk.js` | 5 | Kiosk mode (8.5): pairing, large type, the wake lock, the name picker. |
+| `src/club/rules.js` | 5 | Rules in sentences, the editor (6.1 to 6.3), the USRowing templates (6.8), the "Tell members" switch (21.4). |
+| `src/club/members.js` | 5 | Members, groups, clearances, invites, requests. |
+| `src/club/safety.js` | 5 | Emergency info, lessons, the incident form with its draft (`rowhether-incident-draft-v1`), the log and the USRowing panel (9). |
+| `src/club/settings.js` | 5 | Club settings (16.1), screens, verification, deletion, the notification switches (21.8). |
+| `src/club/club.css` | 5 | Club screen styles, from `src/styles/tokens.css`'s colors; no new colors. |
+| `src/club/practices.js` | 6 | The week of practices with outlook lines, the practice sheet, series edits (12.1, 12.2). |
+| `src/club/practice.js` | 6 | One practice: outlook, RSVP, attendance, the evening choice. |
+| `src/club/lineups.js` | 6 | The lineup editor and its checks (13). |
+| `src/club/boats.js` | 6 | Registry, boat page, damage sheet, the check lists (10.3). |
+| `src/club/booking.js` | 6 | The booking sheet, also opened from Plan a row (11.5). |
+| `src/club/announcements.js` | 6 | The composer, with "Juniors' guardians and the club's staff see this message." (03 section 11.4 rule 5). |
+| `src/club/calendar-links.js` | 6 | Account, Calendar (14.1). |
+
+### 22.4 App, changed
+
+| File | Phase | Change |
+| --- | --- | --- |
+| `index.html` | 5 | `#clubStatus` above `#hero`; `#clubLine` above `#verdict`; `#clubNotes` and `#clubAlt` under `#holds` (6.6); the public club line and "Clubs here" in `#home`; a `#club` container beside `#home` and `#detail`; one `<dialog id="clubSheet">` for club sheets. |
+| `src/main.js` | 5 | Starts `loadClubContext()` beside `refresh()`'s data fetch and on the 10-minute timer, never awaited before the first `render()`; sends `/club/` paths to `initClubPage()`; starts kiosk mode on `#kiosk`. |
+| `src/state.js` | 5 | `app.club` (the context for the active location) and `app.clubPick` (the club chosen per location). |
+| `src/config.js` | 5 | 6.9's `LIGHT_KEYS`, `THEN` and `FACTORS`; storage keys `CLUB_KEY` (`rowhether-club-v1`), `BOARD_KEY` (`rowhether-board-v1`), `INCIDENT_DRAFT_KEY` (`rowhether-incident-draft-v1`). |
+| `src/storage.js` | 5 | `loadClubCache`, `saveClubCache`, `loadBoard`, `saveBoard`, `loadIncidentDraft`, `saveIncidentDraft`, each wrapped in try/catch. |
+| `src/logic.js` | 5 | 6.9: `buildModel(..., club)`, club reasons in `assess()`, the dock reading in `waterTemp()`, the daylight rule in `periodsFor()` and `m.daytime`. |
+| `src/render/hero.js` | 5 | `renderClubStatus`, `renderClubLine`, `renderClubNotes`, `renderClubAlt` (6.6) and the "as of" line (21.6). |
+| `src/render/now.js` | 5 | The public club status line and "Clubs here" (3.5), placed by 07. |
+| `src/render/safety.js` (new) | 5 | The location Safety section from `loc.emergency` (8.7). Small and in the main bundle, so it works offline with the location cache. |
+| `src/render/detail/week.js` | 5, 6 | Club rules factor lines (6.9); "Book a boat" on Plan a row sessions when booking is on (11.5). |
+| `src/render/detail/common.js` | 5 | `limitText(S, key)`: "Club rule: 15 mph." for the How this works panels (6.5). |
+| `src/settings.js` | 5 | Club labels per field and the "Use club rules here" switch (6.5). |
+| `src/route.js` | 5 | `/club/new`, `/club/join/<token>` and `/club/<slug>` with its hash tabs (20), beside 01's location paths. |
+| `src/reports.js` | 5 | `loadInfo()` reads `clubs` from `/api/info` and hides every club entry point when it is false. |
+| `src/notify.js` (05) | 5 | The `refresh` message and club deep links (21.6). |
+| `src/account.js` (03) | 5, 6 | Your clubs, guardian approvals (M3), invite code entry; calendar links in phase 6. |
+| `src/styles/app.css` | 5 | The hero club lines and the status banner, with the status colors and the stay off hatch already there (`app.css` line 378). |
+| `public/push-sw.js` (05) | 5 | The `refresh` post for `water_status` pushes (21.6). |
+
+### 22.5 Worker, changed
+
+| File | Phase | Change |
+| --- | --- | --- |
+| `worker/index.js` | 5 | Hands 19's prefixes to `routeClubs()`; `info()` adds `clubs: !!env.DB && env.CLUBS_ENABLED === '1'`, beside today's `reports: !!env.DB`; 05's `scheduled()` calls `runClub()` and `dailyClub()`. |
+| `worker/outings.js` (04) | 5 | Calls `clubOutingFields()`; lets the club's staff use `in`, `cancel` and `PATCH` on the club's outings (19.1); sets `club_next_at` at the start. |
+| `worker/locations.js` (01) | 5 | `clubs` in `GET /api/locations/:slug` (3.5); `emergency` in `PATCH` through `cleanEmergency()`. |
+| `worker/notify/tick.js` (05) | 5 | Adds `runClub()` to the tick's runs. |
+| `worker/notify/events.js` (05) | 5, 6 | `enqueueWaterStatus()` and `enqueuePractice()` use `audience()`; adds `enqueueClub()`. |
+| `worker/notify/copy-club.js` (new) | 5 | One builder per row of 21.5, using `src/clubtext.js` and 05's `src/text.js`. |
+| `worker/notify/deliver.js` (05) | 5 | `staleFor()` for club subkinds before sending a held job. |
+| `worker/auth/guard.js` (03) | 5 | `requireClubRole(session, clubId, roles)`, which 03 section 10 names, as a thin wrapper over `clubCtx()` and `requireCan()`, so 03's guard and 5.3's matrix are one code path. |
+| `worker/auth/delete.js`, `worker/auth/export.js` (03) | 5, 6 | 06's tables in 03 section 12.9's cascade and the account export; succession (3.6) in the same batch as the deletion. |
+| `worker/auth/minors.js` (03) | 5 | Used, not changed: `audienceGuard()`, `isJunior()`, `inQuietHours()`. |
+| `worker/moderation.js` (04) | 5 | Flags with target `club`; club verification reviews join the queue. |
+| `worker/admin.js` (03) | 5 | Routes `/api/admin/clubs/*` to `worker/clubs/verify.js`. |
+| `worker/screen.js` (04) | 5 | Screens the club description, visitor info and public status notes (3.2, 7.4). |
+
+### 22.6 Migrations and config
+
+| File | Phase | Holds |
+| --- | --- | --- |
+| `migrations/00NN_clubs.sql` | 5 | 18.1's tables and indexes. |
+| `migrations/00NN_locations_club.sql` | 5 | `ALTER TABLE locations ADD COLUMN steward_club_id TEXT REFERENCES clubs(id) ON DELETE SET NULL;`, its index `locations_steward`, and `emergency` (18.3), all after `clubs` (23.1). |
+| `migrations/00NN_notify_subkind.sql` | 5, only if 05 did not create it | `notify_log.subkind` (21.1). |
+| `migrations/00NN_club_ops.sql` | 6 | 18.2's tables, with `practices.check_at` and the three indexes in 21.7. |
+| `wrangler.jsonc` | 5, 6 | Rate limits `CLUB_LIMIT`, `JOIN_CODE_LIMIT` and `KIOSK_LIMIT` (phase 5) and `CAL_LIMIT` (phase 6), at the top level and in `previews`, with separate namespace ids (08 assigns them); a var `CLUBS_ENABLED`, `"1"` in `previews` and `"0"` at the top level until the owner turns clubs on. |
+| `CLAUDE.md` | 5, 6 | With the owner's approval, as for every CLAUDE.md edit: the Worker routes list, the club files in the code map, the bindings, and the rule that club features are broadcast only. |
+
+`JOIN_CODE_LIMIT` is 17's `CODE_LIMIT` renamed: 03 section 6.2 already names a `CODE_LIMIT` binding for sign-in codes, at 3 a minute.
+
+Decision: Rename 06's code binding to `JOIN_CODE_LIMIT` (5 a minute per IP, for invite codes and kiosk pairing).
+- Alternative: share 03's `CODE_LIMIT` and its limit of 3 a minute.
+
+Decision: Ship club features behind `CLUBS_ENABLED`, on in Previews and off in production until the owner turns it on, as `reports` follows the `DB` binding today.
+- Alternative: no flag; clubs go live with the merge to `master`.
+
+Migration order inside phase 5: `00NN_clubs.sql`, then `00NN_locations_club.sql`, then 03's `00NN_guardians.sql`, because `guardian_links.club_id` references `clubs(id)`. Checked locally (SQLite 3.50.4 with `PRAGMA foreign_keys = ON`, 2026-10-17, not D1): a table may be created with a reference to a table that does not exist yet, but every insert into it then fails with "no such table: main.clubs", even when the column is NULL. 08 numbers the files in this order.
+
+Tests are listed in 24.
+
+## 23. Phase plan
+
+09-roadmap.md owns the phase list and the exit criteria. This is 06's proposal for both.
+
+### 23.1 What earlier phases must leave in place
+
+| From | Phase | What | Why |
+| --- | --- | --- | --- |
+| 03 | 2 | Accounts, sessions, `audit_log` with `kind = 'club'`, `sendEmail()`, `worker/auth/minors.js` | Memberships, the audit trail and safeguarding checks |
+| 04 | 3 | `outings` and `outing_crew` created with 06's columns, unused (8.1, 18.3) | No rebuild of a live table in phase 5 |
+| 01 | 3 | `locations` created without `steward_club_id`; phase 5 adds it (22.6) | As 01 writes it today, phase 3's `locations` references `clubs(id)`, which arrives in phase 5. With foreign keys on, that table refuses every insert until `clubs` exists ("no such table: main.clubs"), so the Putney seed would fail. Adding the column in phase 5 works because its default is NULL (checked locally, SQLite 3.50.4, 2026-10-17, not D1). 01's field table already marks `stewardClub` as phase 5. |
+| 05 | 3, 4 | The tick, the queue, Web Push, `src/notify.js`, `public/push-sw.js`; `notify_prefs` and `notify_log` with `club` in their kind lists (21.1) | Every club alert rides on them; SQLite cannot widen a CHECK later |
+| 03 | 5 | Guardian links, migrated after 06's `clubs` (22.6) | `guardian_links.club_id` references `clubs(id)` |
+
+Decision: 01 creates `locations` in phase 3 without `steward_club_id`, and phase 5 adds it with `ALTER TABLE ... REFERENCES clubs(id) ON DELETE SET NULL`.
+- Alternative: create the empty `clubs` table (18.1's statement) in phase 3, before `locations`.
+- Alternative: drop the foreign key and check the club in `worker/locations.js`, as 05 does for `notify_prefs.club_id`.
+
+### 23.2 Phase 5: clubs and safety
+
+Built in this order on dev, behind `CLUBS_ENABLED`. Each step is usable on its own.
+
+| Step | Ships | Sections |
+| --- | --- | --- |
+| 5a | Clubs, verification and the moderator review, the public page, club locations, memberships, invites, join requests, juniors and guardians, groups, roles, clearances, deletion, the full export | 3, 4, 5, 16 |
+| 5b | Club rules, the hero lines, Rowing as, Which crews can go, the USRowing templates | 6 |
+| 5c | Water status, the dock reading, the public line, W1 to W4, the refresh path | 7, 21.6 |
+| 5d | The board, crew starts, the against-rules warning, the kiosk, the club overdue chain, emergency info | 8 |
+| 5e | Incidents, the USRowing panel, shared safety notes | 9 |
+| 5f | The other phase 5 notices (S6 to S12, W5, W6, M1 to M9), the notification switches, retention | 16.3, 21 |
+
+Not in phase 5: boats, damage reports, booking, practices, RSVP, attendance, lineups, calendar feeds and announcements.
+
+Exit criteria:
+
+1. Tests. `npm test`, `npm run build` and `npx wrangler deploy --dry-run` pass. The permission matrix test covers every phase 5 row of 5.3. Every safety case in 24.5 passes. 01's golden Putney test passes unchanged.
+2. The Now screen. The entry chunk grows by at most 4 KB gzipped (20; 08 confirms the budget), and the first render never waits for club data (24.6).
+3. Putney without a club. With no club context, Putney Landing looks and behaves exactly as before: the golden test, plus screenshots at 390 and 1280 px that match the phase 4 build.
+4. Pilot. One verified club uses water status and the board on dev for 4 weeks covering at least 20 practices, with its paper logbook kept in use. Board and logbook agree on every boat out, or each difference has a written cause.
+5. Drills. The three overdue drills in 24.7 reach every safety officer within 2 minutes of each stage's planned time, on at least one iPhone Home Screen app and one Android phone.
+6. Safeguarding. The owner and the pilot club's safe sport or welfare contact walk through 5.2 and 03 section 11.4 on dev (a junior joining with guardian approval, guardian copies, mute and discontinue, the kiosk and public views with a junior crew out) and sign off. 03's legal review (03 section 13.5) covers junior accounts, guardian links and incident retention.
+7. Moderation. The first 10 verification requests are each reviewed within 3 days, with 3.3's checklist.
+8. Production. A production D1 database exists (CLAUDE.md: production has none yet) with the phase 5 migrations applied; CLAUDE.md is updated with the owner's approval; the owner gives the go-ahead to merge `dev` into `master` and to set `CLUBS_ENABLED` to `"1"`.
+
+### 23.3 Phase 6: club operations
+
+| Step | Ships | Sections |
+| --- | --- | --- |
+| 6a | Boats, damage reports, out of service, launch and shell checks | 10 |
+| 6b | Practices and series, outlook lines, the evening check, cancel and land, RSVP, attendance and its report, P1 to P6 | 12, 21.7 |
+| 6c | Lineups, P7 to P9, Start these boats | 13 |
+| 6d | Booking, availability, bumping, Book a boat from Plan a row, B1 to B3 | 11 |
+| 6e | Calendar feeds, announcements, the CSV exports and use reports, learn-to-row listings on the public page | 14, 15, 16.2 |
+
+Exit criteria:
+
+1. Tests. The phase 6 rows of the permission matrix; booking concurrency; practice series across 2026-11-01 and 2027-03-14; the iCal golden file; the evening check sent once per practice under overlapping ticks.
+2. Practices pilot. A junior program runs 4 weeks of practices with the evening check, RSVPs and published lineups. Coaches get the check within 2 minutes of `decideAt` on every evening before a morning practice, and guardians get lineup and cancellation notices.
+3. Booking pilot. A masters group books for 4 weeks with no double booking and no boat shown as free that was not.
+4. Calendars. The device checks in 24.7 pass.
+5. The Now screen is unchanged by phase 6 apart from the Plan a row button; every phase 6 screen loads lazily.
+6. Retention and export cover the phase 6 tables (16.2, 16.3), and 03's account export and deletion include RSVPs, attendance and seats.
+
+### 23.4 Later
+
+The Later rows of 2.2 (32 to 40). Each needs its own plan before work starts. A suggested order: SMS escalation (row 36, when 05 revisits SMS), one status for a shared waterway (33), damage report photos (35, with 04's photo decision), the launch-to-shell ratio check (37), guest rows (38), traffic pattern diagrams (32), maintenance schedules (40), erg links (39), a regatta calendar (34).
+
+## 24. Tests
+
+`npm test`, `npm run build` and `npx wrangler deploy --dry-run` keep passing on every push (CLAUDE.md). Nothing calls a real push service, email provider, DNS resolver or club website: `fetch`, the queue, push and email are stubbed, as `test/suggest.test.js` stubs Turnstile, Claude and GitHub.
+
+### 24.1 Setup
+
+- Database: 03's `test/helpers/d1.js`, a D1-shaped wrapper over `node:sqlite` with `PRAGMA foreign_keys = ON` that loads every file in `migrations/`. Club tests need real CHECKs, partial unique indexes and cascades: 11.2's booking insert, `memberships_one`, the junior `rules_on` CHECK. The `fakeDB()` in `test/reports.test.js` stays for tests that only check SQL text.
+- Fixture club, `test/fixtures/club.js`: `seedClub(db, { now })` creates Putney Rowing Club at Putney Landing with one person per role. Alex R. (admin and safety officer), Robin S. (safety officer), Lee M. (coach), Pat K. (equipment manager), Sam L. (adult member, Masters), Jamie P. (junior with an account, Juniors), Canary Junior (roster-only junior), Morgan P. (guardian of both juniors, kind `guardian`), Val V. (signed in, not a member), a paired kiosk, and the groups Juniors, Novices and Masters. It returns the ids and `as(role)`, which builds a request with that person's session cookie.
+- Canary strings: the roster-only junior is named "Canary Junior", Morgan's shared phone is "+18025550199", and a seeded incident's narrative contains "CANARY-NARRATIVE". Shaping tests search whole JSON responses, `notify_log` rows and queued payloads for them.
+- Clock: every handler takes `now`, as `addReport(request, env, now)` does today. Overdue and practice tests use a fake clock and call `tick(env, now)` minute by minute.
+- Stubs: `NOTIFY_QUEUE` records `send` and `sendBatch`; `sendPush` and `sendEmail` record calls and can answer per endpoint (201, 410, 503); `fetch` serves fixture pages for verification and recorded Putney responses for server-side models (05's `loadLocationData()`, 01's golden fixtures).
+
+### 24.2 Pure unit tests
+
+`test/clubrules.test.js` (`src/clubrules.js`):
+
+- `ruleMatches`: each scope field alone and combined; disabled rules; months at 11 PM on Oct 31 and at 0:00 on Nov 1 in the location's zone, not UTC.
+- `stricter`: upper keys take the smaller value, lower keys the larger, empty takes the other. `stricterReq`: booleans OR, temperatures the larger, `pfd` none then carry then wear, `daylight`, the clearance union.
+- `mergeRules` with 6.8's templates turned on, for Juniors 8+ with a launch, Novices 1x without one, and Masters 1x without one.
+- `clubSettings`: the base; a club value replaces a location default whether stricter or looser; a stricter personal value is kept; a looser or blank one is ignored; `_from` per key; a junior membership ignores `rulesOn = false`.
+- `clubReasons` for every requirement key in 6.3 at a fixture hour: the launch rules with and without a launch; the four-oar rule by class through `OARS`; `daylight` turns twilight hours to Stay off and `periodsFor()` starts at sunrise; a missing and an expired clearance; no water temperature with a water rule gives Caution `club_water`; PFD notes add no level.
+- Fixed rules cannot be loosened: a club with `windOff: 60` still gets Stay off for a thunderstorm code, dark, freezing rain, air under 32°F and visibility under a quarter mile.
+- `crewTypes`: deduplication, the "1x, 2x" label, the 12-row cap. `levelsFor` matches `assess()` run by hand for each crew type.
+- `rulesText` gives a sentence for every key. `rulesDiff` is empty for a member whose crew type no changed rule matches.
+- No club: `buildModel()` without `club` matches 01's golden files (`test/golden.test.js` runs unchanged).
+
+`test/clubtext.test.js`: `statusLine` for closed, restricted ("eights and fours with a launch only"), open with a note, and a status over 24 hours with its date; `boardState` for on the water, due in 10 min, due now, overdue 12 min, on it and back; `crewLabel` gives "Junior crew of 9 with Lee M." to an adult member and the names to staff.
+
+`test/schedule.test.js` (`src/schedule.js`, phase 6):
+
+- `expandSeries`: Tue and Thu at 5:45 AM from Oct 20 to Nov 19, 2026 gives 10 practices; Oct 20 is 09:45 UTC and Nov 3 is 10:45 UTC, after the Nov 1 change; `INTERVAL=2`; past dates skipped; the 400-practice and 366-day caps.
+- `zonedTime`: 2:30 AM on 2027-03-14 in New York, which does not exist, becomes 3:30 AM; 1:30 AM on 2026-11-01 takes the first one; the same results as 05's `nextAt()`.
+- `checkAt`: a 5:45 AM practice gets 7:45 PM the evening before; a 1:30 PM practice gets one; a 3 PM practice gets none; a change of `decideAt` moves it.
+
+`test/club-calendar.test.js` (`worker/clubs/calendar.js`):
+
+- `icsEscape` for commas, semicolons, backslashes and newlines. `icsFold` at 75 octets counted in UTF-8 bytes, so "°F" and accented names never split inside a character, with each continuation line starting with one space. CRLF line ends. 14.2's sample feed byte for byte.
+- UTC times; `STATUS:CANCELLED` and the "Land: " prefix; `SEQUENCE` from `practices.sequence`; at most 500 events; no other person's name in a feed (the canary).
+- The `ETag` is stable for the same body; `If-None-Match` gets 304; unknown and revoked tokens get the same 404; `last_used_at` is written at most once an hour.
+
+`test/club-copy.test.js` (`worker/notify/copy-club.js`):
+
+- Every row of 21.5 built from fixture data: the title at most 50 characters and the body at most 240; the title starts with the short name; no em dash or en dash characters; times in the club's zone; " (dev)" after the short name on dev.
+- No word "call" in any title or push body. Email footers are checked on their own, against 8.6's exact sentence, which uses "call" as a verb.
+- Push bodies never contain the canary narrative, an injury detail, a request note, or a junior's name for anyone but that junior's guardians and staff.
+
+### 24.3 Permission matrix
+
+The matrix in 5.3 is the specification, so the test reads a hand-written copy of it, not `PERMS` (5.4).
+
+- `test/fixtures/club-perms.js`: one entry per row of 5.3, for example `{ action: 'status.set', public: false, visitor: false, junior: false, member: false, guardian: false, coach: true, safety: true, equipment: false, admin: true }`, with `'own'`, `'junior'`, `'if_public'` and `'if_allowed'` where 5.3 says so. Phase 6 rows carry `phase: 6`.
+
+`test/club-perms.test.js`:
+
+1. Every action in `PERMS` has a row in the fixture, and every fixture row names an action in `PERMS`, so a new action cannot ship without a matrix row.
+2. `can(ctx, action, target)` for every cell, with targets for "own" (Sam's record, then Jamie's) and "junior" (Morgan with Jamie's record, then with another junior's).
+3. Combined roles: Alex (admin and safety officer) has the union. A coach cannot lift a status a safety officer set, and can make it stricter (7.2).
+4. HTTP: for every route in 19.1 and 19.2, one refused role gets 401, 403 or 404 in 19's error shape with no D1 write (row counts before and after), and one allowed role gets 2xx. An unverified club answers 404 to Val and 200 to its members.
+5. Kiosk: the kiosk cookie reaches only the board, the roster, start and back; every other route answers 403.
+6. Shaping: for each role, the members list, board, club page, status, rules, incidents, export and kiosk roster, checked against the visibility the fixture records from 5.3 and 8.4's board table. "Canary Junior" never appears in public, visitor, kiosk or adult member responses; it appears in an equipment manager's member list but not on their board; and Jamie sees it only on a boat they share.
+7. Morgan's phone appears only to safety officers and coaches, and only while `sharePhone` is on (5.2 rule 8).
+8. Never in any response: account emails, token hashes, `verify_token` for anyone but admins.
+
+### 24.4 Worker tests
+
+Phase 5:
+
+- `test/clubs.test.js`: creation checks in 3.2's order (standing, limits, fields, slug, a similar club and `confirmDifferent`, the screen pending); `nameKey()` folds "Putney Rowing Club" and "Putney R.C." to `putney`; reserved slugs refused by the CHECK and in code. Verification: the meta tag must match exactly, a redirect to another registrable domain is refused, a 300 KB page is read only to 256 KB; DNS TXT at the domain and at `_rowhether.`; email at the domain with free mail refused, 5 tries and 30 minutes; moderator approve and reject. Deletion: 14 days, cancel, the daily batch, the tombstone holding the slug for 90 days, outings kept with club fields cleared, `locations.steward_club_id` set NULL.
+- `test/club-members.test.js`: invite tokens of 22 characters; codes of 8 from the 31-letter alphabet, with case and hyphens ignored; expiry and uses, with `WHERE uses < max_uses` holding under two accepts in parallel batches; staff-role invites single use within 7 days; 4.3's accept errors in order. Join requests: 5 pending, 1 per club, 30 days after a decline, minors refused. Juniors stay `pending_guardian` until a guardian approves; at most 4 guardians; the `rules_on` CHECK. Age-up at `junior_until`; 4.6's leave effects; the last admin cannot leave; succession on account deletion; linking an account to a roster entry keeps its history.
+- `test/club-rules.test.js`: `PUT` with a stale `baseRevision` gets 409 with the current rules; 19.3's validation messages; a flow key at a location with no flow binding refused; the 40-rule limit; deleting a group cascades its rules and bumps the revision.
+- `test/club-status.test.js`: 7.2's rights; 30 posts a day; the 30-day limit; a new post ends the live one (`replaced_by`); expiry choices from `sunOn()` in the club's zone; the public line only for verified clubs with `status_public`, its note left out until screened.
+- `test/club-context.test.js`: 19.3's response; `unchanged` for rules with statuses still present (21.6); a guardian who does not row gets no hero context; a member of two clubs gets both.
+- `test/club-board.test.js`: 8.4's sections and order; shaping per role; a staff start for a crew of roster-only members with no `user_id`; any number of crew outings with no `user_id` out at once while each account has at most one; a member on two boats that are out refused; `against` set from `ruleLvl` 2 or an excluded status; Back, Add time, On it and each Resolve outcome; 04's routes accept the club's staff.
+- `test/club-overdue.test.js`: 24.5 B.
+- `test/kiosk.test.js`: a 6-digit pairing code valid 10 minutes; `JOIN_CODE_LIMIT`; cookie attributes exactly as 8.5; only the SHA-256 stored; 5 screens; `KIOSK_LIMIT`; a revoked device refused; the roster as first name and last initial with no juniors.
+- `test/incidents.test.js`: a junior cannot file (403); conditions prefilled from the outing's `snap`; each staff read writes `incident.view`; the CSV in USRowing's order with names replaced by roles unless `names=1`; share publishes the summary and sends S10; S8 and S9 rows carry no narrative (the canary).
+- `test/club-notify.test.js`: 21.2's rules in order. Roster-only skipped; guardians added with `forJunior`; an `audienceGuard()` refusal returns 409 `needs_adult` and writes nothing; `discontinue` drops Jamie's row and keeps Morgan's; `mute_nonsafety` writes Jamie's row as `inapp`; the most protective guardian setting wins; junior quiet hours hold a 10:30 PM cancellation for Jamie until 6 AM while Morgan gets it at once; the actor left out; one row per person per event (Morgan with two juniors in one lineup). Caps: the ninth member push and the 21st staff duty push become in-app. The `off` list respected; a missing pref means on; 21.7's stale drops; 21.4's dedupe keys, with a repeated handler call inserting nothing new.
+- `test/club-export.test.js` and `test/club-retention.test.js`: 16.2 (no emails, incidents only for safety officers, 5 a day, the audit row) and 16.3 row by row with a fake clock.
+- `test/migrations.test.js` (04's, extended): the phase 3 Putney seed into `locations` succeeds before `clubs` exists; after phase 5, `steward_club_id` refuses an unknown club and becomes NULL when the club row is deleted; 03's `guardian_links` accepts rows after 06's migration.
+
+Phase 6:
+
+- `test/boats.test.js`: names unique among boats not retired; `restricted_to`; out of service cancels future bookings with B3 and tells coaches with B5.
+- `test/bookings.test.js`: overlap refused, back-to-back allowed; two inserts for one slot in parallel batches give one booking; `maxActive`; `advanceDays`; slot boundaries in the club's zone across Nov 1; restricted boats; juniors only with `juniorsCanBook`; approval and the automatic decline at the start; no-show at `start + noShowMin`; bumping by a coach more than 12 hours ahead and only by equipment managers or admins within 12 hours.
+- `test/practices.test.js`: a series save creates its rows; "this" and "following" edits; a weekday change ends the old series and keeps rows with RSVPs; `sequence` moves for calendar changes; P2 and P3 sent; P4 only within 7 days. The evening check with fixture forecasts: Stay off and Caution reach the coaches at `check_at`, Go sends nothing unless `decideGo`; the choice sets `decided_at`; one check per practice under overlapping ticks.
+- `test/club-rsvp.test.js`: choices only for juniors (a junior's `note` gets 400 with `field: "note"`); guardians answer for juniors and the record keeps who answered; late changes marked; counts by group.
+- `test/lineups.test.js`: 13's checks (errors block publishing, warnings do not); publishing notifies seated people and guardians; publishing again notifies only changes; "Start these boats" creates outings with crew from the seats.
+- `test/announcements.test.js`: 10 a day; the audience includes guardians and staff; `audienceGuard()`; deleting before delivery drops the held job.
+
+### 24.5 Safety cases
+
+These must pass before any phase 5 build reaches production. Each is a named `describe` block, so a failure reads as the rule it broke.
+
+A. Closed water never shows Go to members (`test/club-safety.test.js`).
+
+Setup: 01's golden "calm June day" forecast for Putney (Go all day), the fixture club, and a closed status from 6 AM to 6 PM. For every member kind (adult, junior), with club rules on and off, and for every crew type from `crewTypes()` plus "Everyone else":
+
+1. Every hour from 6 AM through the 5 PM hour is level 2 with reason `club_status`; the 6 PM hour is not (the start counts, the end does not). A status from 6:20 AM to 6:09 PM also makes the 6 AM and 6 PM hours Stay off, because any overlap covers the hour (21.6 rule 5).
+2. `m.cur` inside the window is Stay off; `holds` and "Next go" never name a time inside the window.
+3. Every period that overlaps the window is Stay off.
+4. `callRuns()` for today has no Go run inside the window, and the Week view line reads "6 AM to 6 PM: club water closed".
+5. `planSessions()` returns no session inside the window.
+6. `levelsFor()` (Which crews can go) shows Stay off in every cell inside the window.
+7. Server side, built as 05 builds it for this member: a `night_before` outlook for a morning inside a three-day closure says Stay off with the club reason; a `go_window` alert skips the closed days; the evening practice check reads Stay off.
+8. The kiosk hero is Stay off (21.6 rule 7).
+9. Restricted: crews outside `allowed` get Stay off; crews inside keep their own result.
+10. A status for one location applies only there; a status for all locations applies at each.
+11. Morgan, a guardian who does not row, gets no result (6.10) and does see the banner.
+
+Delivery of the status itself:
+
+12. The club context returns a new status when `rev` is current (21.6 rule 3).
+13. A cached context with a closed status applies offline (with `fetch` throwing) until `expiresAt`, and stops after it with no fetch.
+14. A cleared status stops applying after the next fetch.
+15. W1 posted at 11 PM is sent at once: to Jamie despite `mute_nonsafety` and `discontinue`, by push and email, with no cap.
+
+B. Overdue escalation reaches the safety officer (`test/club-overdue.test.js`).
+
+Setup: Sam L. starts a 1x at 6:10 AM, back by 7:30 AM, with a grace of 15 minutes and escalation after 15 more; Robin and Alex are the safety officers; a fake clock with `tick()` each minute.
+
+1. Stage 1 at 7:45 AM reaches Robin and Alex by push within one tick, and not before 7:45.
+2. Robin has no working push subscription: Robin gets an email in the same job.
+3. Alex's only subscription answers 410 during delivery: it is removed, and Alex gets this stage by email (`emailIfNoPush`).
+4. With no active safety officer, stage 1 goes to admins, and the board shows "Nobody has the safety officer role."
+5. When every stage 1 recipient is aboard (Robin is the sculler and the only safety officer), admins get stage 1 too.
+6. Robin turned stage 1 off: Robin gets no stage 1 and does get stage 2.
+7. Nobody taps On it: stage 2 at 8:00 AM reaches all safety officers and admins. For a junior eight that Lee started with Jamie and Canary Junior aboard, it also reaches Lee and Morgan, the guardian of both, including through the roster-only junior.
+8. On it at 7:50 AM: no stage 2; stage 3 still at 8:30 AM; S4 reaches the stage 1 recipients except the person who tapped.
+9. "Back safe" at 8:02 AM: no later stage; S5 reaches every stage 1 and 2 recipient, by email too for those emailed.
+10. A safety officer appointed at 7:55 AM gets stage 2.
+11. Quiet hours (a row due at 3 AM), caps (a recipient already at 8 and at 20), `mute_nonsafety`, `discontinue` and the `off` list never stop stages 2 and 3.
+12. The club suspended at 7:40 AM, or set to delete, still escalates this outing (21.4).
+13. Two ticks in the same minute send each stage once. After a 40-minute outage, stage 1 goes out, then stage 2 one tick later, and neither twice.
+14. A kiosk row with no account (`user_id` NULL) escalates the same way.
+15. A member's own row runs 04's personal chain and the club chain: the rower gets 04's messages, the safety officers get the club's, and neither repeats the other.
+16. The night of 2026-11-01: a row due at 1:40 AM EDT (05:40 UTC) reaches stage 1 at 1:55 AM EDT and stage 2 at 1:10 AM EST (06:10 UTC), at the right instants, with those local times printed.
+
+C. A row against club rules is recorded, never blocked (8.3): the start succeeds with `against = 1` and S6 goes out; after 20 in a day, one S7 at 7 PM.
+
+D. Juniors send no free text to adults (5.2 rule 3): every write route a junior can reach refuses free text (the RSVP note, the damage description, a join note, an incident) with 400 or 403, and `audienceGuard()` blocks a lone coach writing to a junior with no guardian.
+
+### 24.6 Browser checks (Playwright, as in CLAUDE.md)
+
+In Chromium and WebKit, at 390 px light and 1280 px dark unless stated, with `/api/info` stubbed as `{ env: 'dev', clubs: true }` and the club endpoints stubbed from the fixture club:
+
+- Now screen, as Sam at a pinned midday: the club line; Stay off under club rules with "Without club rules: Caution." (6.6); the Rowing as sheet changes the result, and the choice survives a reload with the network off.
+- A closed status: the banner says "closed" in words and carries the hatch; the hero says Stay off; the Week view shows the line. Pin the clock past `expiresAt` and the hero returns to its own result with no request.
+- A `refresh` message posted to the page, as `public/push-sw.js` would post it, redraws the hero with the new status as soon as the stubbed response arrives.
+- The first render does not wait for the club context: with that response delayed 5 seconds, the hero is in the DOM before it arrives (as 03 section 20.3 checks for `/api/me`).
+- Signed out at Putney Landing with a public status: one line under the hero; the verdict unchanged.
+- At a pinned 9 PM, the hero shows tomorrow morning under club rules, and with the daylight rule the morning starts at sunrise.
+- The club tabs `#today`, `#board`, `#rules`, `#members`, `#safety` and `#settings`, and in phase 6 `#schedule`, `#practice/<id>` and `#boats`, at 360, 390 and 1280 px: no horizontal page scroll, the tab bar stays pinned, the header buttons stay on one row.
+- Board: rows in 8.4's order; the state words in the row text; overdue rows carry the hatch; On it and Back show after the next poll; offline it shows "Not updated since 6:41 AM. No connection." and queues actions in the outbox.
+- Start a row against club rules: the sheet opens with "Go back" focused; Escape leaves the row unstarted; "Start anyway" starts it.
+- Kiosk at 1280 px and with an iPad user agent: body text at least 20 px, 44 px targets, the name picker, a wake lock request (with `navigator.wakeLock` stubbed), and no animation with reduced motion.
+- Rules editor: usable by keyboard alone, every input labeled, the conflict message on a stubbed 409.
+- Incident form: typing saves a draft; a reload restores it; Send while offline queues it.
+- Account: Your clubs, a guardian approval, and invite code entry typed in lowercase with no hyphen.
+- Plan a row (phase 6): "Book a boat" shows only when booking is on; the sheet lists the free boats; after booking, the session shows "Booked: Bellows".
+- Bundle: `scripts/bundle-budget.mjs` compares the gzipped entry chunk with a stored baseline and fails above 4 KB of growth (20; 08 sets the final number). CI runs it after `npm run build`.
+
+### 24.7 Device and pilot checks
+
+Before phase 5 reaches production:
+
+- Overdue alerts on an iPhone Home Screen app, an Android phone in Chrome, and desktop Chrome: stage 1, stage 2 replacing it on the lock screen (the shared tag), On it, the all clear, and the email for a person with notifications off.
+- Three staged overdue drills with the pilot club's safety officers on dev: no On it; On it and then resolve; resolve before stage 2. The paper logbook stays in use. Each stage reaches every safety officer within 2 minutes of its planned time.
+- A week of the kiosk on a boathouse tablet: pairing survives restarts, the screen stays on or says to keep it plugged in, and the board stays current.
+
+Before phase 6 reaches production:
+
+- Subscribe the calendar feed in Apple Calendar (iOS and macOS), Google Calendar and Outlook. A cancelled practice shows as cancelled after the app refreshes, and times are right across Nov 1.
+
+## 25. Open questions and decisions
+
+### 25.1 Decisions
+
+Every "Decision:" line in this document, recommendation first, then the alternatives, with the section that explains it.
+
+From sections 3 to 11:
+
+Decision: Verified status needs a domain proof (website tag, DNS record or email at the domain) or written evidence, then a moderator's approval. Unverified clubs work fully for their members but stay private. (3.3)
+- Alternative: owner approval only, with no automatic proof.
+- Alternative: automatic verification by domain proof alone.
+- Alternative: no verification, only an "Unverified" label.
+
+Decision: Allow roster-only members, so a junior program can use lineups, attendance and the board without every athlete having an account. (4.2)
+- Alternative: require an account for every member.
+
+Decision: With club rules on, a member's own values can be stricter than the club's but never looser. (6.5)
+- Alternative: the member's values always win, with a warning.
+- Alternative: club rules replace personal values entirely while on.
+
+Decision: A club rule replaces the location default even when it is looser. (6.5)
+- Alternative: club rules can only tighten location defaults.
+
+Decision: Club rules are on by default for members at club locations. Adults can turn them off per location; juniors cannot. (6.5)
+- Alternative: on for everyone, with no switch.
+- Alternative: off by default, opt in.
+
+Decision: When no status is set, show nothing. "Open" is something a coach says on purpose, and it expires. (7.1)
+- Alternative: show "Open" whenever nothing else is set.
+
+Decision: Use a club dock reading under 24 hours old in place of the gauge, for that club's members only. (7.5)
+- Alternative: information only, as 04 does for public reports.
+
+Decision: Create `outings` in phase 3 with the club columns already present, so phase 5 needs no table rebuild. (8.1)
+- Alternative: rebuild `outings` in phase 5's migration.
+
+Decision: Warn and record when a row starts against club rules or a closed water status. Never block. (8.3)
+- Alternative: block the start unless a coach or safety officer approves it.
+
+Decision: Ship the kiosk in phase 5 with the board. (8.5)
+- Alternative: phase 6.
+- Alternative: no kiosk.
+
+Decision: Emergency info lives on the location, public, edited by steward clubs and moderators. (8.7)
+- Alternative: per club.
+- Alternative: free text in the location's launch notes.
+
+Decision: Keep incident records, names included, until the club deletes them or the club is deleted; 03 states the legal basis. (9.3)
+- Alternative: replace names with "Former member" when a person deletes their account.
+- Alternative: delete incidents after a fixed period such as 7 years.
+
+Decision: Coaches can take a member's booking for a practice, with notice to the member; only equipment managers or admins can within 12 hours of the start. (11.4)
+- Alternative: member bookings always win.
+- Alternative: practices always win, with no time limit.
+
+From sections 21 to 23:
+
+Decision: Club notifications use one new 05 kind, `club`, with a `subkind` column. (21.1)
+- Alternative: one 05 kind per notification.
+- Alternative: the subkind only in the dedupe key prefix.
+
+Decision: Staff duty notices have their own cap of 20 a day per person per club. (21.3)
+- Alternative: count them against 05's 8.
+
+Decision: Practice, lineup, booking and restricted water status notices are not held by quiet hours when the session or status begins before the person's quiet hours end. (21.3)
+- Alternative: hold them, as 05 section 3.1 says.
+- Alternative: never hold practice notices.
+
+Decision: When every stage 1 recipient is aboard the overdue boat, stage 1 also goes to admins. (21.4)
+- Alternative: stage 1 as 8.6 says.
+
+Decision: The club chain keeps running for outings already on the water when a club is suspended or set to delete. (21.4)
+- Alternative: stop it with the club, leaving 04's personal chain.
+
+Decision: Remind members 30 days before, and on the day, a clearance that a club rule needs runs out. (21.4)
+- Alternative: show the expiry only on the club page.
+
+Decision: Club rule changes push to safety officers and admins; members get an in-app notice, and a push only when the editor ticks "Tell members". (21.4)
+- Alternative: push every affected member on every save.
+- Alternative: no notice; the hero shows the new result.
+
+Decision: Changes to practices more than 7 days ahead are not pushed. (21.4)
+- Alternative: push every change.
+- Alternative: a 14-day window.
+
+Decision: A closed or restricted status applies to every member at that location, including adults who turned club rules off. (21.6)
+- Alternative: rules off also drops the status from the verdict, leaving only the banner.
+
+Decision: The kiosk hero applies the club's rules for everyone and the live status. (21.6)
+- Alternative: the public hero with the banner above it.
+
+Decision: The club context always returns live statuses, even when the rules are unchanged. (21.6)
+- Alternative: a `clubs.status_rev` counter compared like `rev`.
+
+Decision: Show "Club status as of 5:40 AM." on the club line when the cached context is more than 30 minutes old. (21.6)
+- Alternative: only 6.9's note after 7 days.
+
+Decision: For a viewer in two clubs at one location, the verdict applies the status of the club chosen in Rowing as; the other club's status shows as its own banner. (21.6)
+- Alternative: any closed status from either club applies.
+
+Decision: Water status notices default to every change. (21.8)
+- Alternative: closed only by default.
+
+Decision: A missing `club` or `practice` pref means the defaults; rows are written on the first change. (21.8)
+- Alternative: rows on join, and a backfill in phase 6's migration.
+
+Decision: Rename 06's code binding to `JOIN_CODE_LIMIT` (5 a minute per IP, for invite codes and kiosk pairing). (22.6)
+- Alternative: share 03's `CODE_LIMIT` at 3 a minute.
+
+Decision: Ship club features behind `CLUBS_ENABLED`, on in Previews and off in production until the owner turns it on. (22.6)
+- Alternative: no flag; clubs go live with the merge to `master`.
+
+Decision: 01 creates `locations` in phase 3 without `steward_club_id`, and phase 5 adds it with `ALTER TABLE ... REFERENCES clubs(id) ON DELETE SET NULL`. (23.1)
+- Alternative: create the empty `clubs` table in phase 3, before `locations`.
+- Alternative: drop the foreign key and check the club in `worker/locations.js`.
+
+### 25.2 Open questions
+
+- Pilot. Which club pilots phase 5, and whether the club at Putney Landing wants to. The plan assumes a club with a safety officer willing to run three overdue drills and keep a paper logbook alongside for 4 weeks.
+- Escalation timing. The 15, 15 and 30 minute steps (8.6) and the 2-minute delivery target are first guesses. Junior programs may want shorter (04's open question). Ask the pilot club.
+- Afternoon practices. 12.2's 18-hour window gives a 3 PM practice no evening check. Ask pilot coaches whether a midday check for afternoon practices is wanted.
+- Warn, not block. Whether clubs accept it (8.3). Watch the `against` rate and S6 volume in the pilot.
+- The kiosk lets anyone at the boathouse pick any adult's name (8.5), as a paper logbook does. Confirm with the pilot club and 03's legal review.
+- Legal review (03 section 13.5): roster-only athletes under 13 (03 section 11.7), incident retention when minors are named (9.3), the guardian phone sharing default (5.2 rule 8).
+- A safety officer with no working device. M4 tells them and shows admins (21.4). Whether to also email a weekly reminder until a device is added is open.
+- Facts still unverified: British Rowing's incident reporting page (it returned 403 to this sandbox), national incident forms for Canada and Australia, default emergency numbers outside the US (8.7), RegattaCentral's role (2.3), Google Calendar's refresh interval and which clients read `X-PUBLISHED-TTL` (14.2), and all of Putney Landing's emergency info, to collect on site.
+- Screen Wake Lock for the kiosk (8.5). MDN's browser compatibility data lists `WakeLock.request()` in Chrome 84, Firefox 126, Safari 16.4 and Safari on iOS 18.4 (from MDN browser-compat-data, `api/WakeLock.json`, fetched 2026-10-17). Whether it holds in an iOS Home Screen app, and on the older tablets clubs reuse as kiosks, is unverified. Test it on the pilot tablet.
+- Estimates to measure: about 2,000 `assess()` calls for Which crews can go (6.7), the 4 KB Now budget (20), and 21.7's notification volume.
+- D1. The one-statement booking insert, the partial indexes and the foreign key behavior in 22.6 were checked in local SQLite, not D1. Confirm on the dev database before each phase ships.
+- USRowing reporting. Nothing found suggests USRowing takes reports other than through its form (unverified). "Copy summary" (9.2) assumes copying by hand.
+- Moderation load. How many clubs ask for verification, and whether 3 days is a fair target (23.2).
+- Cross-document items for 08 to settle:
+  - One spelling of the club overdue dedupe key: 8.6's `overdue-club:<outing id>:<club_stage>` or 21.4's `odc:<outing id>:<stage>:<user id>`.
+  - 04 section 6.2's stage 5 ("at stage 3, for club outings") is now 06's club chain, which starts at `due_at + graceMin`.
+  - 05: the `club` kind and `subkind` (21.1); section 3.9 and 3.10 samples and 7.5's deep links (21.1); the quiet hours rule for `practice` and restricted `water_status` (21.3); the `refresh` post in `public/push-sw.js` (21.6); `clubContextFor()` in member models and status ids in `settingsHash()` (21.7).
+  - 18.2: `practices.check_at`, `practices_check`, `practices_rsvp` and `bookings_due` (21.7).
+  - 19.3: the club context always returns statuses (21.6).
+  - 01: `steward_club_id` moves to phase 5 (23.1).
+  - 03 and 06 both name a `CODE_LIMIT` binding (22.6).
