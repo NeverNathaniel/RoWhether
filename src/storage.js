@@ -47,10 +47,14 @@ export function savePlan(p) {
   try { localStorage.setItem(PLAN_KEY, JSON.stringify(p)); } catch (e) { /* storage blocked */ }
 }
 
-// Time until which the install bar stays hidden, or 0.
-export function loadInstallSnooze() {
-  try { return Number(localStorage.getItem(INSTALL_KEY)) || 0; } catch (e) { return 0; }
+// Install bar: how many times it was dismissed, and whether to never show it.
+export function loadInstall() {
+  try {
+    const s = JSON.parse(localStorage.getItem(INSTALL_KEY) || 'null');
+    if (s && typeof s === 'object') return { dismissed: Number(s.dismissed) || 0, never: s.never === true };
+  } catch (e) { /* storage blocked */ }
+  return { dismissed: 0, never: false };
 }
-export function saveInstallSnooze(until) {
-  try { localStorage.setItem(INSTALL_KEY, String(until)); } catch (e) { /* storage blocked */ }
+export function saveInstall(s) {
+  try { localStorage.setItem(INSTALL_KEY, JSON.stringify(s)); } catch (e) { /* storage blocked */ }
 }

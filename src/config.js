@@ -15,10 +15,14 @@ export const DEFAULTS = {
 export const SET_KEY = 'putney-rowing-settings-v1';
 export const PLAN_KEY = 'putney-rowing-plan-v1';
 export const CACHE_KEY = 'putney-rowing-cache-v1';
-export const INSTALL_KEY = 'putney-rowing-install-v1';
+// v2 counts dismissals. The v1 key held a 30-day snooze and is ignored.
+export const INSTALL_KEY = 'putney-rowing-install-v2';
 export const NUDGE_KEY = 'putney-rowing-nudge-v1';
-// How long Not now hides the install bar.
-export const INSTALL_SNOOZE_MS = 30 * 24 * 3600e3;
+// Install bar: Not now hides it until the next visit. After this many
+// dismissals it also offers Don't show again. Coming back to the tab after
+// INSTALL_VISIT_GAP_MS away counts as a new visit.
+export const INSTALL_ASKS = 5;
+export const INSTALL_VISIT_GAP_MS = 30 * 60e3;
 // Longest suggestion the form accepts. worker/suggest.js has the same limit.
 export const MAX_TEXT = 2000;
 export const REFRESH_MS = 10 * 60 * 1000;
