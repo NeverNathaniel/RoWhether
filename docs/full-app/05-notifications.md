@@ -854,6 +854,8 @@ CREATE INDEX notify_log_queued ON notify_log (status, created_at) WHERE status =
 CREATE INDEX notify_log_ref ON notify_log (ref_id) WHERE ref_id IS NOT NULL;
 ```
 
+These statements ran cleanly in SQLite 3.45.1 with foreign keys on, after 04's tables, and the checks behaved as intended: a second `night_before` pref for the same location, a `water_status` pref without a club and a `local_time` of 25:00 were refused (verified live 2026-10-17, local SQLite, not D1).
+
 `notify_prefs.club_id` has no foreign key: `notify_prefs` arrives in phase 4 and `clubs` in phase 5, and SQLite cannot add a constraint to an existing column later. 06's membership code is its only writer and deletes a member's club prefs when they leave. (Alternative for 08: rebuild `notify_prefs` in phase 5's migration with the foreign key.)
 
 Keys from browsers are normalized before storing: `+` and `/` become `-` and `_`, and `=` padding is removed (some browsers return padded base64, unverified which), so the length checks above hold.

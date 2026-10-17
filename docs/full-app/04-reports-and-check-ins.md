@@ -387,7 +387,7 @@ Steps on the dev database, with the owner's go-ahead:
 4. Count again and compare. Every old row must be present with id `legacy-<n>` and `location_id` Putney's.
 5. If it fails partway: D1 Time Travel can restore the database to a minute before (from docs, https://developers.cloudflare.com/d1/reference/time-travel/; retention per plan unverified), or re-import the backup.
 
-`PRAGMA defer_foreign_keys = true` is D1's documented way to change tables under foreign keys in a migration (from docs, https://developers.cloudflare.com/d1/reference/migrations/). Whether `wrangler d1 migrations apply` wraps each file in one transaction is unverified, so step 1 is not optional.
+Every SQL block in this document, and the rebuild run over a copy of `migrations/0001_reports.sql` with five sample rows, ran cleanly in SQLite 3.45.1 with foreign keys on, giving ids `legacy-1` to `legacy-5` with Putney's `location_id` (verified live 2026-10-17, local SQLite, not D1). `PRAGMA defer_foreign_keys = true` is D1's documented way to change tables under foreign keys in a migration (from docs, https://developers.cloudflare.com/d1/reference/migrations/). Whether `wrangler d1 migrations apply` wraps each file in one transaction is unverified, so step 1 is not optional.
 
 Production has no D1 database and no reports today, so there is nothing to migrate there. Production gets the final schema directly.
 
@@ -472,6 +472,11 @@ Admin: `GET /api/admin/reports.csv`, `GET /api/admin/reports/agreement` (3.7).
 | `worker/index.js` | Routes under `/api/locations/:slug/reports`, the aliases, admin routes. `info()` adds `turnstileKey`. |
 | `index.html` | `#report` keeps the shell, loses the static fieldsets. |
 | `wrangler.jsonc` | Secret `IP_HASH_KEY` (dashboard). Production D1 binding (phase 2 or 3, 08). |
+| `worker/hazards.js` (new) | Hazard list, post, edit, votes, end (section 4). |
+| `worker/outings.js` (new) | Outings, contacts, status link (sections 5 and 6). The escalation steps live in 05's `worker/notify/overdue.js`. |
+| `worker/moderation.js` (new) | Flags, the queue and decisions, `audit_log` writes (section 8). |
+| `worker/screen.js` (new) | `screenText()`, `parseScreen()` (8.6). |
+| `src/hazards.js`, `src/outings.js` (new) | The hazard list and post sheet; Start a row, the banner, I'm back, the row log, contacts, and the `/o/<token>` page. |
 
 ### 3.11 Edge cases
 
@@ -588,7 +593,7 @@ CREATE TABLE hazards (
   kind TEXT NOT NULL CHECK (kind IN ('debris', 'snag', 'low_bridge', 'construction', 'dredging', 'dock_closed',
                                      'ice', 'buoy_missing', 'wildlife', 'shallows', 'current', 'other')),
   note TEXT CHECK (note IS NULL OR length(note) BETWEEN 1 AND 280),
-  note_status TEXT NOT NULL DEFAULT 'none' CHECK (note_status IN ('none', 'pending', 'ok', 'held', 'hidden')),
+  note_status TEXT NOT NULL DEFAULT 'none' CHECK (note_status IN ('none', 'ok', 'held', 'hidden')),  -- the screen runs before insert
   screen TEXT CHECK (screen IS NULL OR json_valid(screen)),   -- { verdict, reasons, model, at }
   official INTEGER NOT NULL DEFAULT 0 CHECK (official IN (0, 1)),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cleared', 'expired', 'removed')),
@@ -690,7 +695,7 @@ Outings need a signed-in account: they hold contacts, a row log and a status lin
 
 Decision: the UI says "Start a row" and "I'm back", not "Sign out" and "Sign in". Recommended, because "Sign out" and "Sign in" already mean leaving and entering the account (03), and a rower tapping "Sign out" at the dock should not end up logged out. Alternative: club wording "Sign out a boat" and "Sign in", with the account actions renamed "Log out" and "Log in".
 
-Where: a "Start a row" button next to Report conditions at the top of On the water now, for signed-in viewers. Signed out: "Sign in to start a row" (quiet link). When an outing is active, a banner replaces the button on every screen of that location (07 places it): "On the water since 6:42 AM. Back by 8:00 AM." with "I'm back" and "Add time".
+Where: a "Start a row" button next to Report conditions at the top of On the water now, for signed-in viewers, moving under the hero with Report conditions outside daytime (3.2). Signed out: "Sign in to start a row" (quiet link). When an outing is active, a banner replaces the button on every screen of that location (07 places it): "On the water since 6:42 AM. Back by 8:00 AM." with "I'm back" and "Add time".
 
 The sheet "Start a row", fields in order:
 
@@ -713,7 +718,7 @@ Button: "Start". Then the banner appears. The sheet remembers boat type, boat, s
 ### 5.3 I'm back, add time, edit, cancel
 
 - "I'm back": one tap. A sheet follows, optional, "How was it?" with distance (km or mi by units) and a private note (500 chars), then "Save". Closing the sheet keeps the outing as finished.
-- "Add time": +15 min, +30 min, +1 hr, or a time. Resets the escalation (6.2). If contacts were already emailed, they get "Alex added time. Now back by 9:00 AM."
+- "Add time": +15 min, +30 min, +1 hr, or a time. Resets the escalation (6.2). If contacts were already emailed, they get "Alex added time. Now back by 9:00 AM." The new time must be within 12 hours of the start: 400 `invalid` "Back by must be within 12 hours of when you started."
 - Edit while out: boat, crew, direction, route note, back by.
 - Edit after: times (start not after end, both within 24 hours of the original), distance, note, boat, crew.
 - "Cancel this row" (while out, in a menu): "Did not go out" sets `cancelled`. If contacts were emailed, they get the all clear.
