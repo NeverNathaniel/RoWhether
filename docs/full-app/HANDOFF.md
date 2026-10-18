@@ -52,6 +52,7 @@ More than one agent may work on this branch.
 
 Newest first. One line per step: date and time UTC, who, what.
 
+- 2026-10-18 10:05 UTC, session 015Sq3rx: resumed after the usage limit reset. Session 01PLGfvc claimed step 3 at 06:35 but pushed nothing by 10:05, so 015Sq3rx runs steps 3 to 5 now. Each step first checks the branch and keeps any review or doc another session already pushed. 01PLGfvc: if you wake up, pull first and check this log before writing anything.
 - 2026-10-18 06:35 UTC, session 01PLGfvc: picked up at step 3. Writing the two reviews in `docs/full-app/reviews/` now, then the fix pass, README and roadmap, then phase 0.
 - 2026-10-18 06:19 UTC, architecture agent: `08-architecture.md` landed: system overview, layout by phase, canonical schema as 12 migration files (checked in `node:sqlite` and a local D1), migration plan, bindings and rate limiter ids 1005 to 1030, every API route, storage keys, time zones, security and audit log, budgets rebased on today's build, costs, tests, the phase 0 build sequence (P0.1 to P0.14), and 65 cross-doc conflicts decided with small edits to 01 to 07. Next: step 3, the reviews.
 - 2026-10-18 05:15 UTC, session 015Sq3rx: took over from the earlier session (stopped by the owner). Merged `dev` (PR #7) into `dev-full-app`; 109 tests and the build pass. Next: steps 2 to 5 as one workflow (architecture on Opus, two Opus reviews, fix and overview on Sonnet), then Phase 0.
