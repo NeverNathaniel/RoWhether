@@ -53,7 +53,7 @@ async function drawn(name, width) {
   const html = {};
   const real = Date.now;
   Date.now = () => c.clock;
-  try { capture(c.scenario, c.clock, c.settings, { width, sink: (k, s) => { html[k] = s; } }); } finally { Date.now = real; }
+  try { capture(c.scenario, c.clock, c.settings, { loc: c.loc, width, sink: (k, s) => { html[k] = s; } }); } finally { Date.now = real; }
   return html;
 }
 

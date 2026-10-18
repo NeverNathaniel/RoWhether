@@ -21,16 +21,16 @@ const clockLabel = mm => { const h = Math.floor(mm / 60); return h === 12 ? '12p
 
 export function summary(m) {
   let s = sunFor(m, dayKey(m.now)), when = 'Today';
-  if (!s || m.now > s.dusk) { s = sunOn(m.now + DAY); when = 'Tomorrow'; }
+  if (!s || m.now > s.dusk) { s = sunOn(m.loc, m.now + DAY); when = 'Tomorrow'; }
   return { text: `${when}: first light ${hm(s.dawn)}, sunset ${hm(s.sunset)}. ${span(s.sunset - s.sunrise)} of daylight.`, lvl: null };
 }
 
 // Dawn, sunrise, sunset and dusk for each day from 90 days back to 90 ahead,
 // as a time-of-day chart. Twilight is the band that needs lights.
 function seasonChart(m, W) {
-  const today = sunOn(m.now).noon, pts = [];
+  const today = sunOn(m.loc, m.now).noon, pts = [];
   for (let i = -90; i <= 90; i++) {
-    const t = today + i * DAY, s = sunOn(t);
+    const t = today + i * DAY, s = sunOn(m.loc, t);
     pts.push({ t, s, dawn: localMinutes(s.dawn), rise: localMinutes(s.sunrise), set: localMinutes(s.sunset), dusk: localMinutes(s.dusk) });
   }
   const c = new Chart({ t0: pts[0].t, t1: pts[pts.length - 1].t, W });
@@ -63,7 +63,7 @@ export function render(m, want) {
       aria: `${dayLabel(d.t)}: sunrise ${hm(s.sunrise)}, sunset ${hm(s.sunset)}, ${span(len)} of daylight.` };
   }), day);
 
-  const d = m.days.find(x => x.key === day), s = { ...sunFor(m, day), noon: sunOn(d.t + 12 * HOUR).noon }, prev = sunOn(s.noon - DAY);
+  const d = m.days.find(x => x.key === day), s = { ...sunFor(m, day), noon: sunOn(m.loc, d.t + 12 * HOUR).noon }, prev = sunOn(m.loc, s.noon - DAY);
   const len = s.sunset - s.sunrise, delta = len - (prev.sunset - prev.sunrise);
   const label = dayLabel(d.t + 12 * HOUR);
 

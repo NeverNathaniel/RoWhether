@@ -1,5 +1,6 @@
 // Mutable app state shared by the render and event code.
 import { loadOverrides } from './storage.js';
+import { setZone } from './format.js';
 import { PUTNEY_RECORD, PUTNEY_WATERWAY } from './putney.js';
 import { resolveLocation, effectiveSettings } from './location.js';
 
@@ -20,11 +21,12 @@ export const app = {
   reports: null    // GET /api/reports: { hours, reports }
 };
 
-// Builds app.loc and app.settings from the viewer's overrides. Until P0.9 the
-// render code still reads S.heading, so the settings carry it too; P0.10
-// removes it.
+// Builds app.loc and app.settings from the viewer's overrides, and sets the zone
+// the screens show. The render code still reads S.heading until P0.10, so the
+// settings carry it too.
 export function applyOverrides(o) {
   app.loc = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: o });
+  setZone(app.loc.tz);
   app.settings = { ...effectiveSettings(app.loc, { overrides: o }), heading: app.loc.course.heading };
 }
 applyOverrides(loadOverrides(PUTNEY_RECORD.slug));

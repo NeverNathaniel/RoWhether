@@ -3,23 +3,14 @@
 // The production address, for shared links and link previews.
 export const SITE_URL = 'https://rowhether.com/';
 
-export const LOC = { lat: 42.9607, lon: -72.5219, tz: 'America/New_York' };
-
-export const DEFAULTS = {
-  heading: 15, windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25,
-  rainCaution: 60, rainOff: 90, // percent chance; blank turns a level off
-  coldCombined: 100, flowCaution: 20000, flowOff: 28000, waterOverride: '',
-  aqiCaution: 151, aqiOff: 201 // US AQI: Unhealthy and Very unhealthy; blank turns a level off
-};
-
 // What every location starts from, before its own thresholds and the viewer's
 // changes (01 11.5). No heading (it lives in the course) and no flow limits
 // (those come from the location's gauge history, or stay blank).
 export const GLOBAL_DEFAULTS = {
   windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25,
-  rainCaution: 60, rainOff: 90,
+  rainCaution: 60, rainOff: 90, // percent chance; blank turns a level off
   coldCombined: 100, waterOverride: '',
-  aqiCaution: 151, aqiOff: 201
+  aqiCaution: 151, aqiOff: 201 // US AQI: Unhealthy and Very unhealthy; blank turns a level off
 };
 
 // localStorage keys (08 8.2): rowhether-<name>-v<n>, with :<slug> on entries
@@ -75,12 +66,11 @@ export const FOG = {
 // Water state: chop from wind. Wind along the straight has a long fetch and
 // counts fully; crosswind only crosses the river and counts for less. Chop
 // builds and settles over a couple of hours, so recent hours are blended in.
-// Wind blowing upstream against a strong current steepens it.
+// Wind blowing upstream against a strong current steepens it. The weight of
+// crosswind and the flow steps are the location's (water.cross, flow.against).
 export const WATER = {
   levels: [5, 9, 13],          // chop wind, mph: light chop, chop, rough
-  cross: 0.4,                  // weight of crosswind
   blend: [0.5, 0.3, 0.2],      // this hour, 1 hour ago, 2 hours ago
-  against: [[20000, 1.4], [10000, 1.25]], // flow cfs and multiplier
   debrisRise: 20,              // % flow rise in 6 hours that suggests debris
   names: ['Flat water', 'Light chop', 'Chop', 'Rough water'],
   short: ['Flat', 'Light', 'Chop', 'Rough']

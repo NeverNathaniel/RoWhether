@@ -26,7 +26,7 @@ const PRECIP_KEYS = ['rain', 'pop', 'storm', 'stormrisk', 'snow', 'ice'];
 function nowPrecip(m) {
   const cur = m.cur;
   const s = sunFor(m, dayKey(m.now));
-  const h0 = Math.floor(m.now / HOUR) * HOUR;
+  const h0 = m.h72[0].t; // the hour that contains now
   const end = Math.min(h0 + 6 * HOUR, s ? s.sunset : Infinity);
   const hs = m.h72.filter(h => h.t + HOUR > m.now && h.t < end);
   // Color the headline by the worst precipitation reason in the window.

@@ -6,6 +6,8 @@ import { HOUR, MIN } from './config.js';
 // in phase 0.
 const zones = new Map();
 export function zoneFormat(tz, { clock = '12' } = {}) {
+  // Intl takes a missing zone as the device's, which hides a misspelled name.
+  if (!tz) throw new Error('zoneFormat needs a time zone.');
   const id = `${tz} ${clock}`;
   if (zones.has(id)) return zones.get(id);
   const fTime = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' });

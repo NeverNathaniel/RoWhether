@@ -5,9 +5,8 @@ import { validateLocation, validateWaterway, validateSlug, RESERVED_SLUGS, resol
 import { GLOBAL_DEFAULTS, PERIODS, WATER, FOG } from '../src/config.js';
 import { zoneFormat } from '../src/format.js';
 
-// Today's DEFAULTS literal from src/config.js, copied. P0.9 removes it from
-// the module, and this copy keeps the check that Putney's data gives the same
-// limits.
+// The DEFAULTS literal src/config.js held until P0.9 removed it, copied. It
+// keeps the check that Putney's data gives the same limits.
 const DEFAULTS = {
   heading: 15, windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25,
   rainCaution: 60, rainOff: 90,

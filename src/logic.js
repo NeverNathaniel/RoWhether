@@ -1,22 +1,22 @@
 // The call logic. Pure functions over a model built from fetched data and settings.
 // Nothing here touches the DOM or storage, so it can be unit tested.
 import SunCalc from 'suncalc';
-import { LOC, HOUR, MIN, LIGHT_KEYS, FOG, PERIODS, WATER, AQI, CONFIDENCE } from './config.js';
-import { dayKey, localHour, hm, r0, fmtInt, cToF } from './format.js';
+import { HOUR, MIN, LIGHT_KEYS, FOG, PERIODS, WATER, AQI, CONFIDENCE } from './config.js';
+import { zoneFormat, hm, r0, fmtInt, cToF } from './format.js';
 
 // ---------- Sun ----------
 export function sunFor(m, key) {
   if (m.sunCache[key]) return m.sunCache[key];
   const d = m.days.find(x => x.key === key);
   if (!d) return null;
-  const st = SunCalc.getTimes(new Date(d.t + 12 * HOUR), LOC.lat, LOC.lon);
+  const st = SunCalc.getTimes(new Date(d.t + 12 * HOUR), m.loc.lat, m.loc.lon);
   const s = { dawn: +st.dawn, sunrise: +st.sunrise, sunset: +st.sunset, dusk: +st.dusk };
   m.sunCache[key] = s;
   return s;
 }
 // Sun times for any date, not just forecast days. t is any time that day.
-export function sunOn(t) {
-  const st = SunCalc.getTimes(new Date(t), LOC.lat, LOC.lon);
+export function sunOn(loc, t) {
+  const st = SunCalc.getTimes(new Date(t), loc.lat, loc.lon);
   return { dawn: +st.dawn, sunrise: +st.sunrise, noon: +st.solarNoon, sunset: +st.sunset, dusk: +st.dusk };
 }
 // The UV index in words (WHO categories).
@@ -24,7 +24,7 @@ export function uvWord(v) {
   return v < 3 ? 'Low' : v < 6 ? 'Moderate' : v < 8 ? 'High' : v < 11 ? 'Very high' : 'Extreme';
 }
 export function lightAt(m, t) {
-  const s = sunFor(m, dayKey(t));
+  const s = sunFor(m, m.fmt.dayKey(t));
   if (!s) return 'day';
   if (t < s.dawn || t > s.dusk) return 'dark';
   if (t < s.sunrise || t > s.sunset) return 'twilight';
@@ -59,19 +59,27 @@ export function flowTrend(ser) {
 
 // ---------- Wind vs. course ----------
 export function relWind(dir, heading) { return ((dir - heading + 540) % 360) - 180; } // 0 = wind from upstream
+// The flow steps where wind against the current steepens chop, highest first.
+const againstSteps = m => (m.loc.flow && m.loc.flow.against) || [];
+// Wind from the right of the upstream heading (rel > 0) comes off the right bank.
+function crosswind(banks, rel) {
+  if (!banks) return 'Crosswind.';
+  return `Crosswind off the ${(rel > 0 ? banks.right : banks.left).name} ${banks.word}.`;
+}
 export function windVsCourse(m, dir, speed) {
   if (speed == null || dir == null) return '';
   if (Math.round(speed) < 3) return 'Near calm on the course.';
-  const rel = relWind(dir, m.S.heading);
+  const course = m.loc.course;
+  const rel = relWind(dir, course.heading);
   const c = Math.cos(rel * Math.PI / 180);
   const along = Math.abs(speed * c);
   let s;
   if (c >= 0.5) s = 'Headwind rowing upstream, tailwind coming back.';
   else if (c <= -0.5) s = 'Tailwind rowing upstream, headwind coming back.';
-  else s = rel > 0 ? 'Crosswind off the New Hampshire bank.' : 'Crosswind off the Vermont bank.';
-  if (Math.abs(c) >= 0.5 && along >= 8) s += ' Chop builds along the straight.';
+  else s = crosswind(m.loc.banks, rel);
+  if (Math.abs(c) >= 0.5 && along >= 8) s += ` Chop builds along the ${course.reachWord || 'course'}.`;
   const f = flowNow(m);
-  if (c <= -0.5 && along >= 8 && f != null && f >= 10000) s += ' Wind against current steepens it.';
+  if (c <= -0.5 && along >= 8 && f != null && f >= Math.min(...againstSteps(m).map(([cfs]) => cfs))) s += ' Wind against current steepens it.';
   return s;
 }
 export function meanDir(hs) {
@@ -86,18 +94,18 @@ export function angDev(a, b) { return Math.abs(((a - b + 540) % 360) - 180); }
 // raised when the wind blows upstream against a strong current.
 export function chopWind(m, h) {
   if (h.wind == null || h.dir == null) return null;
-  const rel = relWind(h.dir, m.S.heading) * Math.PI / 180;
+  const rel = relWind(h.dir, m.loc.course.heading) * Math.PI / 180;
   const along = Math.abs(h.wind * Math.cos(rel)), cross = Math.abs(h.wind * Math.sin(rel));
-  let e = along + WATER.cross * cross;
+  let e = along + m.loc.water.cross * cross;
   const against = Math.cos(rel) <= -0.5;
-  const f = flowNow(m);
+  const f = flowNow(m), steps = againstSteps(m);
   if (against && f != null) {
-    const k = WATER.against.find(([cfs]) => f >= cfs);
+    const k = steps.find(([cfs]) => f >= cfs);
     if (k) e *= k[1];
   }
   // Same split as windVsCourse(): within 60° of the course is along it.
   const axis = Math.abs(Math.cos(rel)) >= 0.5 ? 'along' : 'cross';
-  return { e, along, cross, axis, against: against && f != null && WATER.against.some(([cfs]) => f >= cfs) };
+  return { e, along, cross, axis, against: against && f != null && steps.some(([cfs]) => f >= cfs) };
 }
 
 // Water state for an hour, given the chop wind of this and the two prior hours.
@@ -183,7 +191,7 @@ export function fogRisk(m, h) {
   if (FOG.codes.includes(h.code) || (h.vis != null && h.vis < 1609.34)) {
     hits.push({ risk: 2, type: 'model', why: 'The forecast model shows fog.' });
   }
-  const early = localHour(h.t) <= FOG.lastHour;
+  const early = m.fmt.localHour(h.t) <= FOG.lastHour;
   if (early && h.temp != null && h.dew != null && h.wind != null) {
     const spread = h.temp - h.dew;
     const v = FOG.valley;
@@ -212,12 +220,12 @@ export function fogRisk(m, h) {
 export function morningFog(m, key) {
   const s = sunFor(m, key);
   if (!s) return null;
-  const hs = m.hours.filter(h => dayKey(h.t) === key && h.t + HOUR > s.dawn - HOUR && localHour(h.t) <= FOG.lastHour);
+  const hs = m.hours.filter(h => m.fmt.dayKey(h.t) === key && h.t + HOUR > s.dawn - HOUR && m.fmt.localHour(h.t) <= FOG.lastHour);
   const foggy = hs.map(h => ({ h, f: fogRisk(m, h) })).filter(x => x.f.risk > 0);
   if (!foggy.length) return null;
   const top = foggy.reduce((a, b) => (b.f.risk > a.f.risk ? b : a)).f;
   const last = foggy[foggy.length - 1].h;
-  return { ...top, until: last.t + HOUR, lingers: localHour(last.t) === FOG.lastHour };
+  return { ...top, until: last.t + HOUR, lingers: m.fmt.localHour(last.t) === FOG.lastHour };
 }
 
 // "lifting about 9 AM" or "lingering into late morning"
@@ -228,7 +236,7 @@ export function fogLift(mf) {
 // The next morning that has not finished yet, with its fog (or null fog).
 export function nextMorning(m) {
   for (const d of m.days) {
-    const end = m.hours.find(h => dayKey(h.t) === d.key && localHour(h.t) === FOG.lastHour + 1);
+    const end = m.hours.find(h => m.fmt.dayKey(h.t) === d.key && m.fmt.localHour(h.t) === FOG.lastHour + 1);
     if (end && end.t > m.now) return { key: d.key, t: end.t, fog: morningFog(m, d.key) };
   }
   return null;
@@ -300,13 +308,14 @@ export function assess(m, h, lightT) {
 export const lvlExcept = (a, keys) => a.reasons.filter(x => !keys.includes(x.key)).reduce((m, x) => Math.max(m, x.lvl), 0);
 
 // ---------- Model ----------
-// Build everything the UI needs from raw data and settings. Returns null if
-// there is no usable forecast.
-export function buildModel(data, S, now = Date.now()) {
+// Build everything the UI needs from a location, raw data and settings.
+// Returns null if there is no usable forecast. units and club are read by later
+// steps.
+export function buildModel(loc, data, S, now = Date.now(), { units, club } = {}) {
   const d = data.wx;
   if (!d || !d.hourly || !d.daily) return null;
   const m = {
-    S, data, now, sunCache: {},
+    loc, fmt: zoneFormat(loc.tz), S, data, now, sunCache: {},
     alerts: (data.alerts || []).filter(a => a.end > now),
     hours: [], days: [], h72: [], cur: null
   };
@@ -335,7 +344,7 @@ export function buildModel(data, S, now = Date.now()) {
   });
   const D = d.daily;
   m.days = D.time.map((s, i) => ({
-    t: s * 1000, key: dayKey(s * 1000 + 12 * HOUR), sunrise: D.sunrise[i] * 1000, sunset: D.sunset[i] * 1000,
+    t: s * 1000, key: m.fmt.dayKey(s * 1000 + 12 * HOUR), sunrise: D.sunrise[i] * 1000, sunset: D.sunset[i] * 1000,
     hi: D.temperature_2m_max[i], lo: D.temperature_2m_min[i], pop: D.precipitation_probability_max[i],
     uvMax: D.uv_index_max ? D.uv_index_max[i] : null
   }));
@@ -343,7 +352,9 @@ export function buildModel(data, S, now = Date.now()) {
   const chops = m.hours.map(h => chopWind(m, h));
   m.hours.forEach((h, i) => { h.water = waterState(m, h, [chops[i - 1], chops[i - 2]]); });
 
-  const h0 = Math.floor(now / HOUR) * HOUR;
+  // The hour that contains now comes first. Forecast hours start on the zone's
+  // own hours, which are not always UTC whole hours (08 9.2).
+  const h0 = (m.hours.find(h => now < h.t + HOUR) || { t: Infinity }).t;
   m.h72 = m.hours.filter(h => h.t >= h0).slice(0, 72);
   if (!m.h72.length) return null;
 
@@ -361,7 +372,7 @@ export function buildModel(data, S, now = Date.now()) {
   m.cur.water = waterState(m, m.cur, [chopWind(m, m.hours[bi - 1] || base), chopWind(m, m.hours[bi - 2] || base)]);
 
   for (const day of m.days) day.periods = periodsFor(m, day);
-  const s = sunFor(m, dayKey(now));
+  const s = sunFor(m, m.fmt.dayKey(now));
   m.daytime = !!s && now >= s.dawn && now < s.sunset;
   m.next = m.days.flatMap(d => d.periods).find(p => !p.past) || null;
   return m;
@@ -382,8 +393,8 @@ function periodWater(hs) {
 export function periodsFor(m, day) {
   const s = sunFor(m, day.key);
   if (!s) return [];
-  const dayHours = m.hours.filter(h => dayKey(h.t) === day.key);
-  const clock = hr => { const h = dayHours.find(x => localHour(x.t) === hr); return h ? h.t : null; };
+  const dayHours = m.hours.filter(h => m.fmt.dayKey(h.t) === day.key);
+  const clock = hr => { const h = dayHours.find(x => m.fmt.localHour(x.t) === hr); return h ? h.t : null; };
   const edge = v => (v === 'dawn' ? s.dawn : v === 'sunset' ? s.sunset : clock(v));
 
   return PERIODS.map(p => {
@@ -425,7 +436,7 @@ export function periodsFor(m, day) {
 export function rowingHours(m, key) {
   const s = sunFor(m, key);
   if (!s) return [];
-  return m.hours.filter(h => dayKey(h.t) === key && h.t + HOUR > s.dawn && h.t < s.sunset);
+  return m.hours.filter(h => m.fmt.dayKey(h.t) === key && h.t + HOUR > s.dawn && h.t < s.sunset);
 }
 
 // The worst level among an hour's reasons with these keys, and that reason.
@@ -563,13 +574,16 @@ const PLAN_STEP = 30 * MIN;
 // lower is calmer.
 export function planSessions(m, minutes, when = 'any') {
   const L = minutes * MIN, out = [];
+  // The next half hour on the local clock. A dawn and the live clock carry
+  // seconds and milliseconds, which the step drops (08 9.2).
+  const step = t => t - (m.fmt.localMinutes(t) % 30) * MIN - (t % MIN) + PLAN_STEP;
   for (const d of m.days) {
-    const noon = m.hours.find(h => dayKey(h.t) === d.key && localHour(h.t) === 12);
+    const noon = m.hours.find(h => m.fmt.dayKey(h.t) === d.key && m.fmt.localHour(h.t) === 12);
     if (!noon) continue;
     let best = null;
     for (const r of callRuns(m, d.key)) {
       if (r.lvl !== 0) continue;
-      for (let t0 = r.start; t0 + L <= r.end; t0 = Math.floor(t0 / PLAN_STEP) * PLAN_STEP + PLAN_STEP) {
+      for (let t0 = r.start; t0 + L <= r.end; t0 = step(t0)) {
         if (when === 'morning' && t0 + L > noon.t) break;
         if (when === 'afternoon' && t0 < noon.t) continue;
         const hs = r.hs.filter(h => h.t < t0 + L && h.t + HOUR > t0);

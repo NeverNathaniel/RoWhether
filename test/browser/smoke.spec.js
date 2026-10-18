@@ -102,6 +102,72 @@ test.describe('smoke', () => {
     expect(bad).toEqual([]);
   });
 
+  // Dock reports and the Dev label draw only when /api/info says so, and the
+  // fixtures answer it 404, so no other spec runs them. render() hands them the
+  // model: a report is compared with the forecast water state for its hour
+  // (review Z12). Routes registered last answer first, so these go in after routeAll.
+  test('dock reports: the Dev label, and a report set against the forecast', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await page.route('**/api/info', r => r.fulfill({ json: { env: 'dev', reports: true } }));
+    await page.route('**/api/reports', r => r.fulfill({ json: { enabled: true, hours: 3, reports: [{ t: clock - 20 * 60e3, water: 'chop', fog: 'patchy', debris: false }] } }));
+    await page.goto('/');
+    await ready(page);
+    await expect(page.locator('#envBadge')).toBeVisible();
+    await expect(page.locator('#envBadge')).toHaveText('Dev');
+    await expect(page.locator('#dockReports .dock-sum')).toBeVisible();
+    await expect(page.locator('#dockReports .dock-sum')).toHaveText('At the dock: Chop, patchy fog, 20 min ago (11:40 AM). The forecast said light chop.');
+  });
+
+  // The click handler, not only shareText(): the title, the text and the link the
+  // share sheet is given (review Z13). A page with no /api/info is production.
+  test('Share this forecast gives the share sheet the title, the text and the link', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__shared = [];
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async data => { window.__shared.push(data); } });
+    });
+    await routeAll(page, scenario, clock);
+    await page.goto('/');
+    await ready(page);
+    await page.locator('#shareBtn').click();
+    await expect.poll(() => page.evaluate(() => window.__shared)).toEqual([{ title: 'Putney Landing rowing forecast', text: GOLDEN.share, url: 'https://rowhether.com/' }]);
+  });
+
+  // A section the viewer opened, and a Day by day row, stay open through the
+  // 10 minute refresh (review Z14). The fake page the golden cases draw on has
+  // no querySelectorAll, so only a browser can see this. The old node is marked,
+  // so the wait is for the redraw and not for the click.
+  test.describe('a refresh keeps open what the viewer opened', () => {
+    async function refreshed(page, selector) {
+      await page.locator(selector).first().evaluate(e => { e.dataset.old = '1'; });
+      await page.locator('#refreshBtn').click();
+      await expect(page.locator(`${selector}[data-old]`)).toHaveCount(0);
+      await ready(page);
+    }
+
+    test('an Hour by hour section in a tab', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.goto('/#wind');
+      await ready(page);
+      const first = page.locator('#detailBody details[data-keep]').first();
+      await first.locator('summary').click();
+      await expect(first).toHaveJSProperty('open', true);
+      await refreshed(page, '#detailBody details[data-keep]');
+      await expect(first).toHaveJSProperty('open', true);
+    });
+
+    test('a Day by day row on the home screen', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.goto('/');
+      await ready(page);
+      const first = page.locator('#days details.period').first();
+      await first.locator('summary').click();
+      await expect(first.locator('.forecast')).toHaveCount(1);
+      await refreshed(page, '#days details.period');
+      await expect(first).toHaveJSProperty('open', true);
+      await expect(first.locator('.forecast')).toHaveCount(1);
+    });
+  });
+
   // P0.7: the settings dialog saves only what differs from Putney's defaults
   // and the page reads it back. test/browser/settings.spec.js has the long form.
   test('a changed setting survives a reload, and only the changes are stored', async ({ page }) => {

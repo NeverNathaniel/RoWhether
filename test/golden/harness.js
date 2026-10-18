@@ -33,7 +33,7 @@ export function run(c, sink = null) {
   vi.setSystemTime(c.clock);
   try {
     // A probe computes its own output; a case is captured from a scenario.
-    const got = c.run ? JSON.parse(JSON.stringify(c.run())) : capture(c.scenario, c.clock, c.settings, { ...c.options, width: c.width, sink });
+    const got = c.run ? JSON.parse(JSON.stringify(c.run())) : capture(c.scenario, c.clock, c.settings, { ...c.options, loc: c.loc, width: c.width, sink });
     if (!sink) done.set(c.name, got);
     return got;
   } finally { vi.useRealTimers(); }

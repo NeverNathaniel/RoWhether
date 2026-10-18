@@ -158,6 +158,21 @@ describe('localMinutes', () => {
   });
 });
 
+describe('a zone that is missing', () => {
+  // Intl takes no zone as the device's own, so a misspelled name would work
+  // wherever the device is in New York and nowhere else (review Z11).
+  it('throws, for zoneFormat and for setZone', () => {
+    for (const tz of [undefined, null, '']) {
+      expect(() => zoneFormat(tz), String(tz)).toThrow(/time zone/);
+      expect(() => setZone(tz), String(tz)).toThrow(/time zone/);
+    }
+    expect(hm(Date.UTC(2026, 5, 15, 12))).toBe('8\u00a0AM');
+  });
+  it('throws for a name Intl does not know', () => {
+    expect(() => zoneFormat('America/Putney')).toThrow(RangeError);
+  });
+});
+
 describe('setZone', () => {
   it('starts on America/New_York', () => {
     expect(hm(Date.UTC(2026, 5, 15, 12))).toBe('8\u00a0AM');
@@ -173,6 +188,27 @@ describe('setZone', () => {
     expect(hm(t)).toBe('8\u00a0AM');
     expect(dayKey(Date.UTC(2026, 5, 15, 20))).toBe('2026-06-15');
     expect(localMinutes(t)).toBe(8 * 60);
+  });
+});
+
+describe('the zone of the app', () => {
+  // src/state.js sets it from the location it resolves, so the screens and the
+  // location agree. Putney is on New York time, so a record in another zone shows it.
+  it('follows the location the app starts with', async () => {
+    vi.resetModules();
+    vi.doMock('../src/putney.js', async importOriginal => {
+      const real = await importOriginal();
+      return { ...real, PUTNEY_RECORD: { ...real.PUTNEY_RECORD, tz: 'Asia/Kolkata' } };
+    });
+    try {
+      const { app } = await import('../src/state.js');
+      const fresh = await import('../src/format.js');
+      expect(app.loc.tz).toBe('Asia/Kolkata');
+      expect(fresh.hm(Date.UTC(2026, 5, 15, 12, 0))).toBe('5:30\u00a0PM');
+    } finally {
+      vi.doUnmock('../src/putney.js');
+      vi.resetModules();
+    }
   });
 });
 

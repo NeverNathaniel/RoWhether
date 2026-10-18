@@ -1,42 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULTS, HOUR, MIN } from '../src/config.js';
+import { HOUR, MIN } from '../src/config.js';
 import { dayKey, localHour, lowerFirst } from '../src/format.js';
 import { precipKind, rateWord, precipSummary, buildModel, sunOn, uvWord, rowingHours, callRuns, factorRuns, worstReasons, aqiWord, confidence, confidenceText, planSessions, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
 import { parseAlerts, parseObs, parseRiver, parseFlow, parseFlowDays, parseFlowForecast, parseAQ, parseModels, alertLevel } from '../src/data.js';
-import { PUTNEY } from '../src/putney.js';
+import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
+import { resolveLocation, effectiveSettings } from '../src/location.js';
 import { bindingsFor } from '../src/sources/index.js';
+import { T0, wx } from './helpers/forecast.js';
 
-// Midnight Eastern (EDT, UTC-4) on Mon 15 June 2026.
-const T0 = Date.UTC(2026, 5, 15, 4);
+// Putney's limits as the app holds them, without the heading (it lives in the course).
+const SETTINGS = effectiveSettings(PUTNEY);
+
 const NOON = T0 + 12 * HOUR;
 
-// A calm, warm Open-Meteo response. `over(i, t)` patches individual hours.
-function wx(over = () => ({}), days = 3) {
-  const n = days * 24, H = {
-    time: [], temperature_2m: [], apparent_temperature: [], dew_point_2m: [], precipitation_probability: [],
-    precipitation: [], weather_code: [], wind_speed_10m: [], wind_gusts_10m: [], wind_direction_10m: [], visibility: [], cape: [], cloud_cover: []
-  };
-  for (let i = 0; i < n; i++) {
-    const t = T0 + i * HOUR;
-    const h = { temp: 72, feels: 72, dew: 55, pop: 0, precip: 0, code: 0, wind: 4, gust: 8, dir: 200, vis: 24000, cape: 0, cloud: 10, ...over(i, t) };
-    H.time.push(t / 1000);
-    H.temperature_2m.push(h.temp); H.apparent_temperature.push(h.feels); H.dew_point_2m.push(h.dew);
-    H.precipitation_probability.push(h.pop); H.precipitation.push(h.precip); H.weather_code.push(h.code);
-    H.wind_speed_10m.push(h.wind); H.wind_gusts_10m.push(h.gust); H.wind_direction_10m.push(h.dir);
-    H.visibility.push(h.vis); H.cape.push(h.cape); H.cloud_cover.push(h.cloud);
-  }
-  const D = { time: [], sunrise: [], sunset: [], temperature_2m_max: [], temperature_2m_min: [], precipitation_probability_max: [] };
-  for (let d = 0; d < days; d++) {
-    const t = T0 + d * 24 * HOUR;
-    D.time.push(t / 1000); D.sunrise.push((t + 5.2 * HOUR) / 1000); D.sunset.push((t + 20.5 * HOUR) / 1000);
-    D.temperature_2m_max.push(80); D.temperature_2m_min.push(60); D.precipitation_probability_max.push(0);
-  }
-  return { hourly: H, daily: D };
-}
-
 const RIVER = { flow: { v: 6000, t: NOON }, waterC: { v: 20, t: NOON } }; // 68°F water
-const model = (over, S = DEFAULTS, extra = {}) => buildModel({ wx: wx(over), river: RIVER, ...extra }, { ...S }, NOON);
+const model = (over, S = SETTINGS, extra = {}) => buildModel(PUTNEY, { wx: wx(over), river: RIVER, ...extra }, { ...S }, NOON);
 const hourAt = (m, localHr) => m.hours.find(h => dayKey(h.t) === dayKey(NOON) && localHour(h.t) === localHr);
+const hourAt2 = (m, t) => m.hours.find(h => h.t === t);
 
 describe('format helpers', () => {
   it('keys days and hours in Eastern time', () => {
@@ -103,14 +83,14 @@ describe('assess', () => {
     expect(lvl(5, 25)).toBe(2);
   });
   it('applies rain chance thresholds from settings', () => {
-    const at = (pop, S = DEFAULTS) => hourAt(model((i, t) => (t === NOON ? { pop } : {}), S), 12).a;
+    const at = (pop, S = SETTINGS) => hourAt(model((i, t) => (t === NOON ? { pop } : {}), S), 12).a;
     expect(at(55).lvl).toBe(0);
     expect(at(60).lvl).toBe(1);
     expect(at(60).reasons[0]).toMatchObject({ key: 'pop', text: 'Rain chance 60%' });
     expect(at(90).lvl).toBe(2);
     // A blank level is off.
-    expect(at(95, { ...DEFAULTS, rainOff: '' }).lvl).toBe(1);
-    expect(at(95, { ...DEFAULTS, rainCaution: '', rainOff: '' }).lvl).toBe(0);
+    expect(at(95, { ...SETTINGS, rainOff: '' }).lvl).toBe(1);
+    expect(at(95, { ...SETTINGS, rainCaution: '', rainOff: '' }).lvl).toBe(0);
   });
   it('flags thunderstorms, storm risk, freezing rain and snow', () => {
     const at = o => hourAt(model((i, t) => (t === NOON ? o : {})), 12).a;
@@ -135,30 +115,30 @@ describe('assess', () => {
     expect(at({ temp: 33 }).reasons.map(r => r.key)).not.toContain('cold');
   });
   it('uses the water override from settings', () => {
-    const m = model((i, t) => (t === NOON ? { temp: 50 } : {}), { ...DEFAULTS, waterOverride: '40' });
+    const m = model((i, t) => (t === NOON ? { temp: 50 } : {}), { ...SETTINGS, waterOverride: '40' });
     expect(hourAt(m, 12).a.reasons.map(r => r.key)).toContain('cold');
   });
   it('applies flow thresholds', () => {
-    const at = v => hourAt(buildModel({ wx: wx(), river: { ...RIVER, flow: { v, t: NOON } } }, { ...DEFAULTS }, NOON), 12).a.lvl;
+    const at = v => hourAt(buildModel(PUTNEY, { wx: wx(), river: { ...RIVER, flow: { v, t: NOON } } }, { ...SETTINGS }, NOON), 12).a.lvl;
     expect(at(19999)).toBe(0);
     expect(at(20000)).toBe(1);
     expect(at(28000)).toBe(2);
   });
   it('applies NWS alerts only to the hours they cover', () => {
     const alerts = [{ event: 'Wind Advisory', start: NOON, end: NOON + 2 * HOUR, lvl: 2 }];
-    const m = model(undefined, DEFAULTS, { alerts });
+    const m = model(undefined, SETTINGS, { alerts });
     expect(hourAt(m, 12).a.lvl).toBe(2);
     expect(hourAt(m, 15).a.lvl).toBe(0);
   });
   it('drops expired alerts', () => {
     const alerts = [{ event: 'Dense Fog Advisory', start: T0, end: T0 + HOUR, lvl: 2 }];
-    expect(model(undefined, DEFAULTS, { alerts }).alerts).toHaveLength(0);
+    expect(model(undefined, SETTINGS, { alerts }).alerts).toHaveLength(0);
   });
 });
 
 describe('buildModel', () => {
   it('returns null without a forecast', () => {
-    expect(buildModel({}, { ...DEFAULTS }, NOON)).toBeNull();
+    expect(buildModel(PUTNEY, {}, { ...SETTINGS }, NOON)).toBeNull();
   });
   it('builds 72 hours from the current hour and assesses now', () => {
     const m = model();
@@ -232,7 +212,7 @@ describe('fog', () => {
     expect(f).toMatchObject({ risk: 1, type: 'valley' });
   });
   it('treats missing cloud cover as clear, matching the old rule', () => {
-    const m = buildModel({ wx: (() => { const d = wx((i, t) => (localHour(t) <= 10 ? { temp: 55, dew: 54, wind: 2 } : {})); delete d.hourly.cloud_cover; return d; })(), river: RIVER }, { ...DEFAULTS }, NOON);
+    const m = buildModel(PUTNEY, { wx: (() => { const d = wx((i, t) => (localHour(t) <= 10 ? { temp: 55, dew: 54, wind: 2 } : {})); delete d.hourly.cloud_cover; return d; })(), river: RIVER }, { ...SETTINGS }, NOON);
     expect(fogAt(m, 6).risk).toBe(2);
   });
   it('calls steam fog when cold, moist air sits over warmer water', () => {
@@ -248,7 +228,7 @@ describe('fog', () => {
     // Gauge water 68°F is only 8°F warmer than the air: no steam fog.
     expect(fogAt(morning(air), 6).type).not.toBe('steam');
     // A dock reading of 80°F is 20°F warmer: steam fog likely.
-    const m = model((i, t) => (localHour(t) <= 10 ? air : {}), { ...DEFAULTS, waterOverride: '80' });
+    const m = model((i, t) => (localHour(t) <= 10 ? air : {}), { ...SETTINGS, waterOverride: '80' });
     expect(fogAt(m, 6)).toMatchObject({ risk: 2, type: 'steam' });
   });
   it('does not flag valley or steam fog after the 10 AM hour', () => {
@@ -333,7 +313,7 @@ describe('periods', () => {
     const noon = model();
     expect(noon.daytime).toBe(true);
     expect(noon.next.key).toBe('midday');
-    const late = buildModel({ wx: wx(), river: RIVER }, { ...DEFAULTS }, T0 + 22 * HOUR); // 10 PM
+    const late = buildModel(PUTNEY, { wx: wx(), river: RIVER }, { ...SETTINGS }, T0 + 22 * HOUR); // 10 PM
     expect(late.daytime).toBe(false);
     expect(late.next).toMatchObject({ key: 'morning', dayKey: '2026-06-16' });
   });
@@ -373,7 +353,7 @@ describe('water state', () => {
   it('steepens when wind blows upstream against a strong current', () => {
     const wx8 = { wind: 8, dir: 195 }; // from downstream
     const low = at(steady(wx8), 12);
-    const high = at(buildModel({ wx: wx(() => wx8), river: { ...RIVER, flow: { v: 22000, t: NOON } } }, { ...DEFAULTS }, NOON), 12);
+    const high = at(buildModel(PUTNEY, { wx: wx(() => wx8), river: { ...RIVER, flow: { v: 22000, t: NOON } } }, { ...SETTINGS }, NOON), 12);
     expect(low.lvl).toBe(1);
     expect(high.lvl).toBe(2);
     expect(high.against).toBe(true);
@@ -389,7 +369,7 @@ describe('water state', () => {
   });
   it('flags debris when the river rises fast', () => {
     const ser = (a, b) => Array.from({ length: 25 }, (_, i) => ({ t: T0 + i * 30 * MIN, v: a + (b - a) * i / 24 }));
-    const withFlow = f => buildModel({ wx: wx(), river: RIVER, flow: f }, { ...DEFAULTS }, NOON);
+    const withFlow = f => buildModel(PUTNEY, { wx: wx(), river: RIVER, flow: f }, { ...SETTINGS }, NOON);
     expect(debrisLikely(withFlow(ser(5000, 8000)))).toBe(true);
     expect(debrisLikely(withFlow(ser(5000, 5300)))).toBe(false);
   });
@@ -549,13 +529,13 @@ describe('air quality', () => {
     expect(parseAQ({})).toEqual([]);
   });
   it('applies the AQI settings to the hours it covers', () => {
-    const m = buildModel({ wx: wx(), river: RIVER, aq: aqAt(160, 12, 14) }, { ...DEFAULTS }, NOON);
+    const m = buildModel(PUTNEY, { wx: wx(), river: RIVER, aq: aqAt(160, 12, 14) }, { ...SETTINGS }, NOON);
     expect(hourAt(m, 12).aqi).toBe(160);
     expect(hourAt(m, 12).a.reasons[0]).toMatchObject({ lvl: 1, key: 'aqi', text: 'Air quality AQI 160, unhealthy' });
     expect(hourAt(m, 15).a.lvl).toBe(0);
-    const off = buildModel({ wx: wx(), river: RIVER, aq: aqAt(220, 12, 14) }, { ...DEFAULTS }, NOON);
+    const off = buildModel(PUTNEY, { wx: wx(), river: RIVER, aq: aqAt(220, 12, 14) }, { ...SETTINGS }, NOON);
     expect(hourAt(off, 12).a.lvl).toBe(2);
-    const blank = buildModel({ wx: wx(), river: RIVER, aq: aqAt(220, 12, 14) }, { ...DEFAULTS, aqiCaution: '', aqiOff: '' }, NOON);
+    const blank = buildModel(PUTNEY, { wx: wx(), river: RIVER, aq: aqAt(220, 12, 14) }, { ...SETTINGS, aqiCaution: '', aqiOff: '' }, NOON);
     expect(hourAt(blank, 12).a.lvl).toBe(0);
   });
 });
@@ -569,7 +549,7 @@ describe('forecast confidence', () => {
   });
   it('matches models to forecast hours', () => {
     const models = { ids: ['a', 'b'], hours: [{ t: NOON, wind: [4, 6], precip: [0, null] }] };
-    const m = buildModel({ wx: wx(), river: RIVER, models }, { ...DEFAULTS }, NOON);
+    const m = buildModel(PUTNEY, { wx: wx(), river: RIVER, models }, { ...SETTINGS }, NOON);
     expect(hourAt(m, 12).ens).toEqual({ wind: [4, 6], precip: [0] });
     expect(hourAt(m, 13).ens).toBeNull();
   });
@@ -616,7 +596,7 @@ describe('plan a row', () => {
 
 describe('light', () => {
   it('gives sun times for any date', () => {
-    const jun = sunOn(NOON), dec = sunOn(Date.UTC(2026, 11, 21, 17));
+    const jun = sunOn(PUTNEY, NOON), dec = sunOn(PUTNEY, Date.UTC(2026, 11, 21, 17));
     expect(jun.dawn).toBeLessThan(jun.sunrise);
     expect(jun.sunset - jun.sunrise).toBeGreaterThan(15 * HOUR);
     expect(dec.sunset - dec.sunrise).toBeLessThan(9.5 * HOUR);
@@ -624,5 +604,172 @@ describe('light', () => {
   });
   it('names the UV index', () => {
     expect([1, 4, 7, 9, 12].map(uvWord)).toEqual(['Low', 'Moderate', 'High', 'Very high', 'Extreme']);
+  });
+});
+
+// The location is an input, so the same logic works for a place that is not
+// Putney: another zone, other bank names, another current.
+const place = (extra = {}) => resolveLocation({ ...PUTNEY_RECORD, ...extra }, { waterway: PUTNEY_WATERWAY });
+
+describe('the location sets the heading', () => {
+  it('reads the course from the location and not from the settings', () => {
+    // A heading in the settings is ignored; the location's 105° makes a wind from 105° a headwind.
+    const m = buildModel(place({ course: { ...PUTNEY_RECORD.course, heading: 105 } }), { wx: wx(), river: RIVER }, { ...SETTINGS, heading: 200 }, NOON);
+    expect(windVsCourse(m, 105, 6)).toMatch(/^Headwind/);
+    expect(windVsCourse(model(), 105, 6)).toBe('Crosswind off the New Hampshire bank.');
+    const along = chopWind(m, { wind: 10, dir: 105 }), across = chopWind(model(), { wind: 10, dir: 105 });
+    expect(along).toMatchObject({ axis: 'along', e: 10 });
+    expect(across.axis).toBe('cross');
+  });
+  it('takes a personal heading through a location resolved with it', () => {
+    const m = buildModel(resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: { heading: 20 } }), { wx: wx(), river: RIVER }, { ...SETTINGS }, NOON);
+    expect(m.loc.course.heading).toBe(20);
+    expect(windVsCourse(m, 20, 6)).toMatch(/^Headwind/);
+  });
+});
+
+describe('a location with other banks, reach and current', () => {
+  const loc = place({
+    banks: { word: 'shore', left: { short: 'N', name: 'North' }, right: { short: 'S', name: 'South' } },
+    course: { ...PUTNEY_RECORD.course, heading: 90, reachWord: 'reach' },
+    water: { mode: 'river', cross: 0.2 },
+    flow: { ...PUTNEY_RECORD.flow, against: [[5000, 2], [3000, 1.5]] }
+  });
+  const at = (flow, l = loc) => buildModel(l, { wx: wx(), river: { ...RIVER, flow: { v: flow, t: NOON } } }, { ...SETTINGS }, NOON);
+
+  it('names the banks, and the reach, from the record', () => {
+    const m = at(6000);
+    // The right bank is on the right facing upstream, so wind from 180° off a 90° course is off the south shore.
+    expect(windVsCourse(m, 180, 6)).toBe('Crosswind off the South shore.');
+    expect(windVsCourse(m, 0, 6)).toBe('Crosswind off the North shore.');
+    expect(windVsCourse(m, 90, 10)).toMatch(/ Chop builds along the reach\.$/);
+  });
+  it('says nothing the record cannot back', () => {
+    const bare = place({ banks: null, course: { ...PUTNEY_RECORD.course, reachWord: null } });
+    const m = at(6000, bare);
+    expect(windVsCourse(m, 105, 6)).toBe('Crosswind.');
+    expect(windVsCourse(m, 15, 10)).toMatch(/ Chop builds along the course\.$/);
+  });
+  it('steepens chop from the lowest step of its own current, not at 10,000 cfs', () => {
+    // 6,000 cfs is under Putney's 10,000 and over this river's 3,000.
+    expect(windVsCourse(at(6000), 270, 10)).toMatch(/Wind against current steepens it\.$/);
+    expect(windVsCourse(at(2500), 270, 10)).not.toMatch(/steepens/);
+    expect(windVsCourse(at(6000, PUTNEY), 195, 10)).not.toMatch(/steepens/);
+    expect(windVsCourse(at(10000, PUTNEY), 195, 10)).toMatch(/steepens/);
+  });
+  it('uses its own steps and crosswind weight for chop', () => {
+    const h = (dir, wind) => ({ wind, dir });
+    // Crosswind counts 0.2 here, where Putney's 0.4 gives 4.
+    expect(chopWind(at(6000), h(180, 10)).e).toBeCloseTo(2, 9);
+    expect(chopWind(at(6000), h(180, 10))).toMatchObject({ axis: 'cross', against: false });
+    expect(chopWind(at(6000, PUTNEY), h(105, 10)).e).toBeCloseTo(4, 9);
+    // From downstream against 6,000 cfs: the 5,000 step doubles it. 2,500 is under every step.
+    expect(chopWind(at(6000), h(270, 8))).toMatchObject({ e: 16, axis: 'along', against: true });
+    expect(chopWind(at(4000), h(270, 8))).toMatchObject({ e: 12, against: true });
+    expect(chopWind(at(2500), h(270, 8))).toMatchObject({ e: 8, against: false });
+  });
+  it('has no current to speak of without a flow record', () => {
+    const dry = place({ flow: null });
+    expect(chopWind(at(30000, dry), { wind: 8, dir: 195 })).toMatchObject({ e: 8, against: false });
+    expect(windVsCourse(at(30000, dry), 195, 10)).not.toMatch(/steepens/);
+  });
+});
+
+// Zones that are not a whole number of hours from UTC (08 9.2), and one that is
+// far from New York. The module's zone stays on New York throughout: the model
+// follows the location's own.
+describe('a location in another zone', () => {
+  const KOLKATA = 330 * MIN, KATHMANDU = 345 * MIN, AUCKLAND = 12 * HOUR;
+  const ZONES = {
+    'Asia/Kolkata': { offset: KOLKATA, loc: place({ slug: 'kolkata-ghat', name: 'Kolkata ghat', tz: 'Asia/Kolkata', lat: 22.585, lon: 88.343, country: 'IN', region: 'IN-WB' }) },
+    'Asia/Kathmandu': { offset: KATHMANDU, loc: place({ slug: 'kathmandu-ghat', name: 'Kathmandu ghat', tz: 'Asia/Kathmandu', lat: 27.717, lon: 85.324, country: 'NP', region: null }) },
+    'Pacific/Auckland': { offset: AUCKLAND, loc: place({ slug: 'auckland-harbour', name: 'Auckland harbour', tz: 'Pacific/Auckland', lat: -36.84, lon: 174.76, country: 'NZ', region: null }) }
+  };
+  // Midnight on 15 June in that zone, and a forecast that starts then, as
+  // Open-Meteo gives it for a zone: the hours start on the zone's own hours.
+  const start = z => Date.UTC(2026, 5, 15) - ZONES[z].offset;
+  const build = (z, now, over) => buildModel(ZONES[z].loc, { wx: wx(over, 3, start(z)), river: RIVER }, { ...SETTINGS }, now);
+
+  it('starts the first 72 hours at the hour that contains now', () => {
+    const i0 = start('Asia/Kolkata');
+    // 11:40 in Kolkata is 06:10 UTC. The hour that contains it starts at 05:30 UTC.
+    const m = build('Asia/Kolkata', i0 + 11 * HOUR + 40 * MIN);
+    expect(m.h72[0].t).toBe(i0 + 11 * HOUR);
+    expect(m.fmt.hm(m.h72[0].t)).toBe('11\u00a0AM');
+    expect(m.h72[0].t % HOUR).toBe(30 * MIN);
+    // On an hour start, that hour.
+    expect(build('Asia/Kolkata', i0 + 12 * HOUR).h72[0].t).toBe(i0 + 12 * HOUR);
+    // A minute before the next one, still the same hour.
+    expect(build('Asia/Kolkata', i0 + 12 * HOUR - MIN).h72[0].t).toBe(i0 + 11 * HOUR);
+  });
+  it('keys each day by the date there, which is not the date in New York at its noon', () => {
+    for (const z of Object.keys(ZONES)) {
+      expect(build(z, start(z) + HOUR).days.map(d => d.key), z).toEqual(['2026-06-15', '2026-06-16', '2026-06-17']);
+    }
+  });
+  it('keeps the days, the periods and the fog to the location clock', () => {
+    const i0 = start('Asia/Kolkata');
+    // Saturated, calm air from midnight through the 8 AM hour on the 16th, local.
+    const m = build('Asia/Kolkata', i0 + 13 * HOUR, i => (Math.floor(i / 24) === 1 && i % 24 <= 8 ? { temp: 55, dew: 54, wind: 2 } : {}));
+    expect(m.days.map(d => d.key)).toEqual(['2026-06-15', '2026-06-16', '2026-06-17']);
+    const p = Object.fromEntries(m.days[1].periods.map(x => [x.key, x]));
+    expect(p.morning.end).toBe(i0 + 34 * HOUR);   // 10:00 local on the 16th
+    expect(p.midday.end).toBe(i0 + 39 * HOUR);    // 15:00
+    expect(p.afternoon.start).toBe(i0 + 39 * HOUR);
+    // First light and sunset are Kolkata's, in Kolkata's hours: Putney's would be ten hours off.
+    const s = sunFor(m, '2026-06-16');
+    expect(m.fmt.localMinutes(s.sunrise)).toBeGreaterThan(4 * 60 + 40);
+    expect(m.fmt.localMinutes(s.sunrise)).toBeLessThan(5 * 60 + 20);
+    expect(m.fmt.localMinutes(s.sunset)).toBeGreaterThan(18 * 60);
+    expect(m.fmt.localMinutes(s.sunset)).toBeLessThan(19 * 60);
+    expect(lightAt(m, i0 + 27 * HOUR)).toBe('dark');
+    expect(lightAt(m, i0 + 36 * HOUR)).toBe('day');
+    // The rowing day has only that day's local hours.
+    expect(rowingHours(m, '2026-06-16').every(h => m.fmt.dayKey(h.t) === '2026-06-16')).toBe(true);
+    // The fog is the morning's, lifting at 9:00 local.
+    const fog = morningFog(m, '2026-06-16');
+    expect(fog).toMatchObject({ risk: 2, type: 'valley', lingers: false, until: i0 + 33 * HOUR });
+    expect(fogRisk(m, hourAt2(m, i0 + 30 * HOUR))).toMatchObject({ risk: 2, type: 'valley' });
+    expect(fogRisk(m, hourAt2(m, i0 + 37 * HOUR)).risk).toBe(0);
+    expect(nextMorning(m)).toMatchObject({ key: '2026-06-16', t: i0 + 35 * HOUR });
+  });
+
+  it('gives the sun times of that place on any date', () => {
+    // Solar noon at 88.3°E is about 11:37 in India's zone. Putney's would be near 22:00 there.
+    const sun = sunOn(ZONES['Asia/Kolkata'].loc, start('Asia/Kolkata') + 12 * HOUR), { fmt } = ZONES['Asia/Kolkata'].loc;
+    expect(fmt.localHour(sun.noon)).toBe(11);
+    expect(fmt.localMinutes(sun.sunset) - fmt.localMinutes(sun.sunrise)).toBeGreaterThan(13 * 60);
+    expect(fmt.localMinutes(sun.dawn)).toBeLessThan(fmt.localMinutes(sun.sunrise));
+  });
+
+  // The go stretch is the hour that holds first light and the one after it, with
+  // the first rougher. The calmest session of an hour starts on the local hour
+  // that follows, so it is only found if the steps land on local half hours and
+  // drop the seconds and milliseconds a first light carries (08 9.2).
+  function stepFrom(loc, first, now) {
+    const quiet = () => ({ wind: 1 });
+    const probe = buildModel(loc, { wx: wx(quiet, 3, first), river: RIVER }, { ...SETTINGS }, now);
+    const key = probe.days[0].key, dawn = sunFor(probe, key).dawn;
+    const hd = probe.hours.find(h => h.t <= dawn && dawn < h.t + HOUR).t;
+    const over = (i, t) => (t === hd ? { wind: 9 } : t < hd + 2 * HOUR ? { wind: 1 } : { wind: 20 });
+    const m = buildModel(loc, { wx: wx(over, 3, first), river: RIVER }, { ...SETTINGS }, now);
+    return { m, dawn, hd, plan: planSessions(m, 60).find(p => p.key === key) };
+  }
+
+  for (const z of Object.keys(ZONES)) {
+    it(`starts a session on a local hour in ${z}`, () => {
+      const { m, hd, plan } = stepFrom(ZONES[z].loc, start(z), start(z) + HOUR);
+      expect(plan.start).toBe(hd + HOUR);
+      expect(m.fmt.localMinutes(plan.start) % 60).toBe(0);
+      expect(plan.start % MIN).toBe(0);
+      expect(plan.end - plan.start).toBe(HOUR);
+    });
+  }
+
+  it('steps from a first light with seconds to the next half hour at the dock, as before', () => {
+    // First light at Putney on 15 June is 08:36:34.252 UTC, 4:36 in the morning.
+    const { dawn, plan } = stepFrom(PUTNEY, T0, T0 + HOUR);
+    expect(dawn).toBe(Date.UTC(2026, 5, 15, 8, 36, 34, 252));
+    expect(plan.start).toBe(Date.UTC(2026, 5, 15, 9, 0, 0, 0));
   });
 });

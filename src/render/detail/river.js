@@ -1,7 +1,7 @@
 // River: flow at North Walpole over the last 2 days and the NWS forecast for
 // the next 3, then the last 30 days for context.
-import { HOUR, WATER } from '../../config.js';
-import { fmtInt, ago, whenText, monthDay, localHour, weekday, dayKey } from '../../format.js';
+import { HOUR, MIN, WATER } from '../../config.js';
+import { fmtInt, ago, whenText, monthDay, localHour, localMinutes, weekday, dayKey } from '../../format.js';
 import { flowNow, flowTrend, flowChange, flowForecastPeak, factorLevel } from '../../logic.js';
 import { Chart, niceTicks, niceMax } from '../chart.js';
 import { fact } from '../parts.js';
@@ -13,6 +13,12 @@ export const name = 'River';
 const r100 = v => fmtInt(Math.round(v / 100) * 100);
 const cfs = v => `${fmtInt(v)} cfs`;
 const fcPts = m => (m.data.flowFcst && m.data.flowFcst.pts) || [];
+// The first start of a local hour at or after t. A zone such as India is not on
+// UTC whole hours, so the hour starts are found from the local clock.
+const hourCeil = t => {
+  const start = t - (t % MIN) - (localMinutes(t) % 60) * MIN;
+  return start === t ? t : start + HOUR;
+};
 
 // "Forecast to rise to about 10,300 cfs by Wed 8 PM."
 function outlook(m, fl) {
@@ -70,12 +76,12 @@ export function render(m) {
     if (fc.length) c.line(L, (tNow ? [tNow] : []).concat(fc.filter(p => !tNow || p.t > tNow.t)), 'cfcst');
     const pk = flowForecastPeak(m.data.flowFcst, m.now);
     if (pk && fl != null && pk.v > fl * 1.1) c.note(L, pk.t, pk.v, r100(pk.v));
-    for (let t = Math.ceil(t0 / HOUR) * HOUR; t <= t1; t += HOUR) {
+    for (let t = hourCeil(t0); t <= t1; t += HOUR) {
       if (localHour(t) === 0) c.vline(t, 'cday');
     }
     c.vline(m.now, 'cnow', 'Now');
     const ticks = [];
-    for (let t = Math.ceil(t0 / HOUR) * HOUR; t <= t1; t += HOUR) {
+    for (let t = hourCeil(t0); t <= t1; t += HOUR) {
       if (localHour(t) === 12) ticks.push({ t, text: dayKey(t) === dayKey(m.now) ? 'Today' : weekday(t) });
     }
     c.axis(ticks);

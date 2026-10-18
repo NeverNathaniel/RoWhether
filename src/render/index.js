@@ -9,7 +9,7 @@ import { renderDetail } from './detail/index.js';
 import { renderReports } from '../reports.js';
 
 export function render() {
-  app.model = buildModel(app.data, app.settings);
+  app.model = buildModel(app.loc, app.data, app.settings);
   renderHeader();
   renderDetail();
   if (!app.model) { renderNoData(); return; }

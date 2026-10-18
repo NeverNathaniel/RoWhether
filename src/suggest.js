@@ -27,13 +27,15 @@ function loadTurnstile() {
 
 function status(text) { $('sugStatus').textContent = text; }
 
-function context() {
+// What the bug reports carry about the app. The Worker lists the course heading
+// among the setting keys, and it lives in the location.
+export function suggestContext() {
   return {
     version: __APP_VERSION__,
     screen: `${window.innerWidth}x${window.innerHeight}`,
     browser: navigator.userAgent,
     installed: isStandalone(),
-    settings: app.settings
+    settings: { ...app.settings, heading: app.loc.course.heading }
   };
 }
 
@@ -81,7 +83,7 @@ async function send(e) {
     const r = await fetch('/api/suggest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, token, context: context() })
+      body: JSON.stringify({ text, token, context: suggestContext() })
     });
     let data = {};
     try { data = await r.json(); } catch (err) { /* not JSON */ }

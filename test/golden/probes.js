@@ -14,16 +14,16 @@
 // it produces. Each probe has a name (the file is test/golden/<name>.json) and
 // the clock the test pins while it runs.
 import * as C from '../../src/config.js';
-import { DEFAULTS, FOG, WATER } from '../../src/config.js';
+import { FOG, WATER } from '../../src/config.js';
 import { parseAlerts, parseObs, parseRiver, parseFlow, parseFlowDays, parseFlowForecast, parseAQ, parseModels, alertLevel, speedToMph } from '../../src/data.js';
 import * as F from '../../src/format.js';
 import * as L from '../../src/logic.js';
 import { VIEWS } from '../../src/render/detail/index.js';
 import { parseRoute } from '../../src/route.js';
-import { PUTNEY } from '../../src/putney.js';
+import { PUTNEY, PUTNEY_DEFAULTS } from '../../src/putney.js';
 import { bindingsFor, labelFor } from '../../src/sources/index.js';
 import { SCENARIOS } from '../fixtures/golden.js';
-import { CUSTOM, BLANK, TIGHT, buildModel, dataFrom } from './capture.js';
+import { BASE, CUSTOM, BLANK, TIGHT, LOCS, locWith, buildModel, dataFrom } from './capture.js';
 
 const HOUR = 3600e3, MIN = 60e3;
 // Putney's sources, for the parsers and the tables that moved out of config.js.
@@ -48,7 +48,7 @@ function dewFor(tF, rh) {
 
 // A model on a June day with nothing going on, and a mid-day hour to test.
 const JUNE = SCENARIOS['june-calm'], NOON = JUNE.clock(12);
-const modelWith = S => buildModel(dataFrom(JUNE.raw(NOON)), S, NOON);
+const modelWith = (S, loc = PUTNEY) => buildModel(loc, dataFrom(JUNE.raw(NOON)), S, NOON);
 // The model with a different river reading. assess() and friends read the reading from m.data.
 const river = (m, patch) => ({ ...m, data: { ...m.data, river: { ...m.data.river, ...patch } } });
 const withFlow = (m, v) => river(m, { flow: { ...m.data.river.flow, v } });
@@ -62,8 +62,8 @@ const hourOf = (over, t = MIDDAY) => ({ t, ...BASE, ...over });
 // ---------- assess, fogRisk ----------
 const call = (m, h) => { const a = L.assess(m, h), f = L.fogRisk(m, h); return `${a.lvl}|${reasons(a)}|${f.risk}${f.type || ''}`; };
 
-function assessProbe(S) {
-  const m = modelWith(S), out = {};
+function assessProbe(S, loc) {
+  const m = modelWith(S, loc), out = {};
   const sw = (name, values, make, mm = m) => { out[name] = sweep(values, v => call(mm, make(v))); };
 
   // Each line the settings and the rules draw, one variable at a time.
@@ -124,7 +124,7 @@ function waterProbe() {
   // The level of the water, and the sentences about the wind, as the wind picks up, in steady conditions.
   out.levels = {};
   for (const heading of [15, 200]) {
-    const m0 = modelWith({ ...DEFAULTS, heading });
+    const m0 = modelWith(BASE, locWith(heading));
     for (const f of FLOWS) {
       const m = withFlow(m0, f);
       for (const dir of DIRS) {
@@ -136,7 +136,7 @@ function waterProbe() {
     }
   }
   // The numbers: chop wind and the blend of this hour with the two before it.
-  const m0 = modelWith(DEFAULTS);
+  const m0 = modelWith(BASE);
   out.numbers = {};
   for (const f of [5000, 15000, 25000]) {
     const m = withFlow(m0, f);
@@ -336,11 +336,11 @@ function sunEdgesProbe() {
   const out = {};
   for (const [name, sc] of [['june', JUNE], ['october', SCENARIOS['october-fog']]]) {
     const clock = sc.clock(24 + 12), data = dataFrom(sc.raw(clock));
-    const m = buildModel(data, DEFAULTS, clock), key = m.days[1].key, s = L.sunFor(m, key);
+    const m = buildModel(PUTNEY, data, BASE, clock), key = m.days[1].key, s = L.sunFor(m, key);
     out[`${name}/sun`] = s;
     for (const edge of ['dawn', 'sunrise', 'sunset', 'dusk']) {
       for (const d of [-1, 0, 1]) {
-        const t = s[edge] + d, mm = buildModel(data, DEFAULTS, t);
+        const t = s[edge] + d, mm = buildModel(PUTNEY, data, BASE, t);
         out[`${name}/${edge}${d === 0 ? '' : d > 0 ? '+1' : '-1'}`] = [mm.daytime, L.lightAt(mm, t), mm.days[1].periods.map(p => [p.key, p.past, p.lightsUntil, p.lvl]), L.callRuns(mm, key).map(r => [r.lvl, r.start, r.end]), mm.next && mm.next.key];
       }
     }
@@ -350,12 +350,12 @@ function sunEdgesProbe() {
 
 // ---------- a forecast that cannot be used ----------
 function nullProbe() {
-  const raw = JUNE.raw(NOON), S = { ...DEFAULTS }, data = dataFrom(raw);
+  const raw = JUNE.raw(NOON), S = { ...BASE }, data = dataFrom(raw);
   const empty = { ...raw.wx, hourly: Object.fromEntries(Object.keys(raw.wx.hourly).map(k => [k, []])) };
   const kinds = {
-    noData: buildModel({}, S, NOON), noWx: buildModel({ wx: null }, S, NOON), noHourly: buildModel({ wx: { daily: raw.wx.daily } }, S, NOON),
-    noDaily: buildModel({ wx: { hourly: raw.wx.hourly } }, S, NOON), emptyHours: buildModel({ ...data, wx: empty }, S, NOON),
-    afterTheEnd: buildModel(data, S, NOON + 9 * 24 * HOUR), usable: buildModel(data, S, NOON)
+    noData: buildModel(PUTNEY, {}, S, NOON), noWx: buildModel(PUTNEY, { wx: null }, S, NOON), noHourly: buildModel(PUTNEY, { wx: { daily: raw.wx.daily } }, S, NOON),
+    noDaily: buildModel(PUTNEY, { wx: { hourly: raw.wx.hourly } }, S, NOON), emptyHours: buildModel(PUTNEY, { ...data, wx: empty }, S, NOON),
+    afterTheEnd: buildModel(PUTNEY, data, S, NOON + 9 * 24 * HOUR), usable: buildModel(PUTNEY, data, S, NOON)
   };
   return Object.fromEntries(Object.entries(kinds).map(([k, m]) => [k, m === null ? null : { hours: m.hours.length, days: m.days.length, h72: m.h72.length, daytime: m.daytime }]));
 }
@@ -365,13 +365,17 @@ function nullProbe() {
 // triggers them (the hero's "then a storm risk" has a phrase for each reason),
 // so they are recorded whole. The tab order and the routes are here too.
 // Putney's gauges and source names used to live in config.js. P0.8 moved them
-// to the location's bindings, where they are read from now.
+// to the location's bindings, and P0.9 did the same for the dock, the settings
+// and the two river terms of WATER, where they are read from now.
 function configProbe() {
   const names = ['SITE_URL', 'LOC', 'DEFAULTS', 'PERIODS', 'FOG', 'WATER', 'GAUGE_FLOW', 'GAUGE_TEMP', 'NWS_GAUGE', 'MODELS', 'CONFIDENCE', 'AQI', 'SOURCE_NAMES', 'FACTORS', 'THEN', 'WORD', 'WORD_PLAIN', 'LIGHT_KEYS', 'REFRESH_MS', 'HOUR', 'MIN', 'MAX_TEXT'];
   const slot = s => BINDINGS.find(b => b.slot === s);
   const moved = {
     GAUGE_FLOW: slot('river').params.flow, GAUGE_TEMP: slot('river').params.temp, NWS_GAUGE: slot('flowFcst').params.lid,
-    SOURCE_NAMES: Object.fromEntries(BINDINGS.map(b => [b.slot, labelFor(b.slot, b)]))
+    SOURCE_NAMES: Object.fromEntries(BINDINGS.map(b => [b.slot, labelFor(b.slot, b)])),
+    LOC: { lat: PUTNEY.lat, lon: PUTNEY.lon, tz: PUTNEY.tz },
+    DEFAULTS: PUTNEY_DEFAULTS,
+    WATER: { ...C.WATER, cross: PUTNEY.water.cross, against: PUTNEY.flow.against }
   };
   return {
     config: Object.fromEntries(names.map(k => [k, k in moved ? moved[k] : C[k] === undefined ? '(missing)' : C[k]])),
@@ -382,10 +386,10 @@ function configProbe() {
 }
 
 export const PROBES = [
-  { name: 'p-assess-default', clock: NOON, run: () => assessProbe(DEFAULTS) },
-  { name: 'p-assess-custom', clock: NOON, run: () => assessProbe(CUSTOM) },
+  { name: 'p-assess-default', clock: NOON, run: () => assessProbe(BASE) },
+  { name: 'p-assess-custom', clock: NOON, run: () => assessProbe(CUSTOM, LOCS.custom) },
   { name: 'p-assess-blank', clock: NOON, run: () => assessProbe(BLANK) },
-  { name: 'p-assess-tight', clock: NOON, run: () => assessProbe(TIGHT) },
+  { name: 'p-assess-tight', clock: NOON, run: () => assessProbe(TIGHT, LOCS.tight) },
   { name: 'p-water', clock: NOON, run: waterProbe },
   { name: 'p-pure', clock: NOON, run: pureProbe },
   { name: 'p-format', clock: Date.UTC(2026, 9, 18, 15), run: formatProbe },
