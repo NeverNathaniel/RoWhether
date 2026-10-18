@@ -226,6 +226,7 @@ describe('fmtFlow', () => {
 
   it('writes a blank setting as zero, as fmtInt did', () => {
     expect(fmtFlow('', 'cfs')).toBe('0 cfs');
+    expect(fmtFlow('', 'm3s')).toBe('0.00 m³/s');
   });
 
   it('writes cubic metres a second to the decimals of 01 15.6: none from 100, one from 10, two below', () => {

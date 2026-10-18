@@ -20,12 +20,12 @@ import { shareText, initShare } from '../src/share.js';
 import { installFakeDom, uninstallFakeDom } from './helpers/fakedom.js';
 import { wx, T0 } from './helpers/forecast.js';
 
-// A place on a lake: a course of 100 degrees, banks that are the north and south
-// shores, and nothing that says Vermont, New Hampshire or the Connecticut.
+// A place on a lake: a course of 100 degrees, banks that are the north shore (NS)
+// and the south shore (SS), and nothing that says Vermont, New Hampshire or the Connecticut.
 const LAKE = resolveLocation({
   ...PUTNEY_RECORD, slug: 'lake-x', name: 'Lake X',
   course: { ...PUTNEY_RECORD.course, heading: 100, reachWord: 'lake' },
-  banks: { word: 'shore', left: { short: 'N', name: 'North' }, right: { short: 'S', name: 'South' } }
+  banks: { word: 'shore', left: { short: 'NS', name: 'North' }, right: { short: 'SS', name: 'South' } }
 }, { waterway: PUTNEY_WATERWAY });
 const NO_BANKS = resolveLocation({ ...PUTNEY_RECORD, slug: 'lake-y', course: { ...PUTNEY_RECORD.course, heading: 100 }, banks: null }, { waterway: PUTNEY_WATERWAY });
 
@@ -71,7 +71,7 @@ function screen(loc, now = NOW) {
   // The settings carry no heading, as app.settings does not: a reader of S.heading gets undefined.
   const S = effectiveSettings(loc);
   const obs = { t: now, tempF: 70, wind: 5, gust: 9, dir: 200, text: 'Clear' };
-  const m = buildModel(loc, { wx: wx(across, 3, T0), river, flow, flowFcst: { issued: now, pts: [] }, obs }, S, now);
+  const m = buildModel(loc, { wx: wx(across, 3, T0), river, flow, flowFcst: { issued: now, pts: Array.from({ length: 13 }, (_, i) => ({ t: now + i * 6 * HOUR, v: 7000 + i * 600 })) }, obs }, S, now);
   Object.assign(app, { loc, model: m, settings: S, data: m.data, errors: {} });
   return { dom, m };
 }
@@ -82,8 +82,8 @@ const BROKEN = /undefined|NaN|\[object/;
 describe('the compass takes the heading and the bank names', () => {
   it('writes the short names of the left and right banks and turns the river to the heading', () => {
     const svg = compassSVG(100, LAKE.banks, 190, 8);
-    expect(svg).toContain('<text class="c-bank" x="-30" y="-24" text-anchor="middle">N</text>');
-    expect(svg).toContain('<text class="c-bank" x="30" y="-24" text-anchor="middle">S</text>');
+    expect(svg).toContain('<text class="c-bank" x="-30" y="-24" text-anchor="middle">NS</text>');
+    expect(svg).toContain('<text class="c-bank" x="30" y="-24" text-anchor="middle">SS</text>');
     expect(svg).toContain('<g transform="rotate(100)">');
     expect(svg).not.toMatch(/VT|NH/);
   });
@@ -109,8 +109,8 @@ describe('On the water now takes the course from the location', () => {
     renderNow();
     const compass = dom.el('compass').innerHTML;
     expect(compass).toContain('<g transform="rotate(100)">');
-    expect(compass).toMatch(/x="-30" y="-24" text-anchor="middle">N<\/text>/);
-    expect(compass).toMatch(/x="30" y="-24" text-anchor="middle">S<\/text>/);
+    expect(compass).toMatch(/x="-30" y="-24" text-anchor="middle">NS<\/text>/);
+    expect(compass).toMatch(/x="30" y="-24" text-anchor="middle">SS<\/text>/);
     // Upstream heading 100, so the river runs 280 degrees, which is W.
     expect(dom.el('compassCap').textContent).toMatch(/^Wind from \w+\. River runs W, upstream heading 100°\.$/);
     expect(dom.el('compassCap').textContent).toContain('River runs W, upstream heading 100°.');
@@ -137,8 +137,8 @@ describe('a full forecast takes the course from the location', () => {
     const p = m.days.flatMap(d => d.periods).find(x => !x.past);
     const html = forecastPanel(m, p);
     expect(html).toContain('<g transform="rotate(100)">');
-    expect(html).toContain('>N</text>');
-    expect(html).toContain('>S</text>');
+    expect(html).toContain('x="-30" y="-24" text-anchor="middle">NS</text>');
+    expect(html).toContain('x="30" y="-24" text-anchor="middle">SS</text>');
     expect(html).toContain('River runs W, upstream heading 100°.');
     expect(html).not.toMatch(BROKEN);
     expect(html).not.toMatch(/VT|NH/);
@@ -149,10 +149,20 @@ describe('the Wind view takes the course from the location', () => {
   it('says "Cross" with the short name of the bank the wind comes off, in the hour table', () => {
     const { m } = screen(LAKE);
     const html = wind.render(m).html;
-    // From 190 is the right bank (S), from 10 the left (N).
-    expect(html).toContain('<td>Cross, S</td>');
-    expect(html).toContain('<td>Cross, N</td>');
+    // From 190 (S) is 90 degrees to the right of 100, the right bank. From 10 (N) is the left bank.
+    expect(html).toContain('<td>S</td><td>Cross, SS</td>');
+    expect(html).toContain('<td>N</td><td>Cross, NS</td>');
+    expect(html).not.toContain('<td>S</td><td>Cross, NS</td>');
+    expect(html).not.toContain('<td>N</td><td>Cross, SS</td>');
     expect(html).not.toMatch(/Cross, (VT|NH)/);
+  });
+
+  it('escapes the short name of a bank in the table', () => {
+    const { m } = screen(resolveLocation({ ...PUTNEY_RECORD, course: { ...PUTNEY_RECORD.course, heading: 100 },
+      banks: { word: 'bank', left: { short: '<N>', name: 'North' }, right: { short: '&S', name: 'South' } } }, { waterway: PUTNEY_WATERWAY }));
+    const html = wind.render(m).html;
+    expect(html).toContain('<td>Cross, &amp;S</td>');
+    expect(html).toContain('<td>Cross, &lt;N&gt;</td>');
   });
 
   it('says only "Cross" where the place has no banks', () => {
@@ -197,6 +207,8 @@ describe('the notes name the gauges and the station of the place', () => {
     expect(facts).toMatch(/The airfield, 3 mi north\. Just now\./);
     expect(facts).toMatch(/The buoy off the dock\. Just now\./);
     expect(facts).toMatch(/The weir gauge, 2 mi up\. Just now\./);
+    expect(facts).toContain('6,000 m³/s');
+    expect(facts).not.toMatch(/\d cfs/);
     expect(facts).not.toMatch(PUTNEY_TEXT);
     expect(facts).not.toMatch(BROKEN);
   });
@@ -205,6 +217,7 @@ describe('the notes name the gauges and the station of the place', () => {
     const { dom } = screen(PUTNEY);
     renderNow();
     const facts = dom.el('facts').textContent;
+    expect(facts).toContain('6,000 cfs');
     expect(facts).toContain('Measured at Keene');
     expect(facts).toContain('Keene airport, 14 mi east. A check on the model. Just now.');
     expect(facts).toContain('Nearest main-stem gauge, near Northfield, MA, about 19 mi downstream. Just now.');
@@ -230,11 +243,17 @@ describe('the notes name the gauges and the station of the place', () => {
 });
 
 describe('the River view and the forecasts take flow and words from the place', () => {
-  it('writes the flow in the unit of the gauge', () => {
+  it('writes the flow, the forecast and the tables in the unit of the gauge', () => {
     const { m } = screen(WEIR);
     const html = river.render(m).html;
-    expect(river.summary(m).text).toMatch(/^6,000 m³\/s now\./);
+    // The forecast starts at 7,000 and climbs 600 every 6 hours, so it is rounded to the hundred and rises.
+    expect(river.summary(m).text).toMatch(/^6,000 m³\/s now\. Forecast to rise to about 14,200 m³\/s by /);
     expect(html).toContain('6,000 m³/s');
+    expect(html).toMatch(/NWS forecast peak<\/dt><dd><div class="val">14,200 m³\/s</);
+    expect(html).toMatch(/<td>7,000 m³\/s<\/td>/);
+    expect(html).toMatch(/Your settings<\/dt><dd><div class="val">20,000 m³\/s</);
+    expect(html).toMatch(/about 7,600 m³\/s, NWS forecast\./);
+    expect(html).toMatch(/: 5,\d{3} m³\/s, measured\./);
     // No number is left with cfs after it. The axis titles are P0.12's.
     expect(html).not.toMatch(/\d cfs/);
     expect(river.summary(m).text).not.toMatch(/cfs/);
@@ -243,8 +262,9 @@ describe('the River view and the forecasts take flow and words from the place', 
 
   it("writes Putney's flow in cfs", () => {
     const { m } = screen(PUTNEY);
-    expect(river.summary(m).text).toMatch(/^6,000 cfs now\./);
+    expect(river.summary(m).text).toMatch(/^6,000 cfs now\. Forecast to rise to about 14,200 cfs by /);
     expect(river.render(m).html).toContain('6,000 cfs');
+    expect(river.render(m).html).toMatch(/<td>7,000 cfs<\/td>/);
   });
 
   it('puts the place\'s own paragraphs in How this works, escaped, and none of Putney\'s', () => {
@@ -272,7 +292,10 @@ describe('the River view and the forecasts take flow and words from the place', 
   it('writes the flow in a full forecast in the unit of the gauge', () => {
     const { m } = screen(WEIR);
     const p = m.days.flatMap(d => d.periods).find(x => !x.past);
-    expect(forecastPanel(m, p)).toMatch(/6,000 m³\/s <svg class="spark"/);
+    const html = forecastPanel(m, p);
+    expect(html).toMatch(/6,000 m³\/s <svg class="spark"/);
+    expect(html).toMatch(/NWS forecast for this period: about [\d,]+00 m³\/s\./);
+    expect(html).not.toMatch(/\d cfs/);
   });
 });
 
