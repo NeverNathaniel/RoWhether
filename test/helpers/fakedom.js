@@ -5,13 +5,15 @@
 //
 // innerHTML and textContent are two views of one value, as in a browser:
 // writing either updates the other (textContent escapes, innerHTML strips tags
-// and decodes entities). innerText reads the same as textContent, which is all
-// shareText() needs, since the hero holds no block elements.
+// and decodes entities). innerText is the text with a line break at block
+// boundaries, which is what shareText() reads from the hero. The hero's
+// span.cond is a block in src/styles/app.css (.why .cond), so it counts as one.
 
-const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00A0' };
 const decode = s => s.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/gi, (all, d, x, n) =>
   d ? String.fromCodePoint(+d) : x ? String.fromCodePoint(parseInt(x, 16)) : (n.toLowerCase() in ENTITIES ? ENTITIES[n.toLowerCase()] : all));
 const strip = html => decode(html.replace(/<[^>]*>/g, ''));
+const BLOCK = /<\/?(?:div|p|ul|ol|li|dl|dt|dd|h[1-6]|table|tr|figure|figcaption|details|summary|pre|section|br)\b[^>]*>|<span class="cond">/gi;
 const escape = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
 // An object that notes when it is written to.
@@ -33,7 +35,7 @@ export class FakeElement {
   set innerHTML(v) { this.written = true; this._html = String(v ?? ''); this._text = strip(this._html); }
   get textContent() { return this._text; }
   set textContent(v) { this.written = true; this._text = String(v ?? ''); this._html = escape(this._text); }
-  get innerText() { return this._text; }
+  get innerText() { return strip(this._html.replace(BLOCK, '\n')); }
   get hidden() { return this._hidden; }
   set hidden(v) { this.written = true; this._hidden = !!v; }
   get disabled() { return this._disabled; }

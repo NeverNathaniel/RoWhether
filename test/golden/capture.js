@@ -9,7 +9,7 @@
 // this file reaches a value (a new import path, bindingsFor(PUTNEY) for SRC),
 // never what it produces.
 import { createHash } from 'node:crypto';
-import { DEFAULTS, SRC, SOURCE_NAMES, FACTORS, HOUR, MIN } from '../../src/config.js';
+import { DEFAULTS, SRC, SOURCE_NAMES, FACTORS, MIN } from '../../src/config.js';
 import { parseAlerts, parseObs, parseRiver, parseFlow, parseFlowDays, parseFlowForecast, parseAQ, parseModels, alertLevel } from '../../src/data.js';
 import * as L from '../../src/logic.js';
 import { renderHeader, renderNoData, renderHero, renderAlerts } from '../../src/render/hero.js';
@@ -70,6 +70,13 @@ function projectModel(m) {
   };
 }
 
+// Run fn with the clock at t. The render code reads Date.now() directly.
+function at(t, fn) {
+  const real = Date.now;
+  Date.now = () => t;
+  try { return fn(); } finally { Date.now = real; }
+}
+
 // Run fn with a stand-in localStorage that holds Plan a row choices.
 function withPlan(plan, fn) {
   const was = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -108,9 +115,6 @@ export function capture(scenario, clock, settings, { width = 390, sink = null } 
 
     // ----- model -----
     out.model = projectModel(m);
-    // The same data read two hours later: the current conditions are stale.
-    const later = L.buildModel(data, S, clock + 2 * HOUR);
-    out.stale = { now: later.now, daytime: later.daytime, cur: hour(later.cur), next: later.next ? period(later.next) : null, h72: T(later.h72).slice(0, 3) };
 
     // ----- text -----
     const course = {};
@@ -233,6 +237,22 @@ export function capture(scenario, clock, settings, { width = 390, sink = null } 
     installFakeDom({ width });
     renderHero();
     out.share = shareText(clock);
+
+    // ----- ninety minutes later, on the same data -----
+    // The forecast's current conditions are over 90 minutes old by now, so the
+    // model falls back to the hour's values. At 6 AM in October this lands in
+    // daylight with fog still on the river, which no case clock does.
+    const t1 = clock + 90 * MIN;
+    out.later = at(t1, () => {
+      const m1 = L.buildModel(data, S, t1);
+      Object.assign(app, { model: m1, openPeriods: new Set() });
+      const dom1 = installFakeDom({ width });
+      renderHeader(); renderHero(); renderAlerts(); renderNow(); renderDays();
+      return {
+        now: m1.now, daytime: m1.daytime, cur: hour(m1.cur), next: m1.next ? period(m1.next) : null, h72: T(m1.h72).slice(0, 3),
+        home: elements(dom1, 'later'), share: shareText(t1)
+      };
+    });
 
     return JSON.parse(JSON.stringify(out));
   } finally {

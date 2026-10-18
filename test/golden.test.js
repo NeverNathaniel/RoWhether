@@ -107,7 +107,13 @@ describe.skipIf(DUMP)('the scenarios exercise what they claim', () => {
     expect(g.text.next.fog.risk).toBe(2);
     expect(g.views.fog.days.null.day).toBe(g.text.next.key);
     expect(g.views.fog.summary.text).toMatch(/Tomorrow morning: .*fog likely/i);
-    expect(got('october-fog-0600-default').model.cur.a.reasons.map(r => r.key)).toContain('fog');
+    // At 6 AM it is still dark. Ninety minutes later it is daylight with fog on the river.
+    const dawn = got('october-fog-0600-default');
+    expect(dawn.model.daytime).toBe(false);
+    expect(dawn.model.cur.a.reasons.map(r => r.key)).toContain('fog');
+    expect(dawn.later.daytime).toBe(true);
+    expect(dawn.later.home.nowSection.hidden).toBe(false);
+    expect(dawn.later.cur.a.reasons.some(r => r.key === 'fog' && /fog likely$/.test(r.text))).toBe(true);
   });
 
   it('april-high-water has high rising flow, debris, an alert, smoke, gusts, a storm and split models', () => {
