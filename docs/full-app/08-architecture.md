@@ -229,9 +229,9 @@ Prefix dispatch, in this order (first match wins):
 | Prefix | Router | Phase |
 | --- | --- | --- |
 | `/api/info`, `/api/suggest` | inline in `worker/index.js` | today |
-| `/api/auth/`, `/api/me` (except the club and notify paths below), `/api/admin/users`, `/api/admin/audit`, `/api/mod/users` | `worker/auth/index.js` | 2 |
+| `/api/auth/`, `/api/me` (except the club, notify, outings and contacts paths below), `/api/admin/users`, `/api/admin/audit`, `/api/mod/users` | `worker/auth/index.js` | 2 |
 | `/api/admin/metrics` | `worker/admin.js` | 1 |
-| `/api/locations`, `/api/waterways`, `/api/discover`, `/api/sources` | `worker/locations.js` (club context and proxies delegate onward) | 3 |
+| `/api/locations`, `/api/waterways`, `/api/discover`, `/api/sources` | `worker/locations.js` (club context, proxies and the `/reports` and `/hazards` suffixes delegate onward) | 3 |
 | `/api/reports`, `/api/locations/:slug/reports`, `/api/admin/reports` | `worker/reports.js` | today, 3 |
 | `/api/hazards`, `/api/flags`, `/api/admin/queue` | `worker/hazards.js`, `worker/moderation.js` | 3 |
 | `/api/outings`, `/api/contacts`, `/api/me/outings`, `/api/me/contacts` | `worker/outings.js` | 3 |

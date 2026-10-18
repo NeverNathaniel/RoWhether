@@ -218,12 +218,16 @@ Topic documents that still disagree with 08, and places where two topic document
 - Problem: "Prefix dispatch, in this order (first match wins)". Row 2 is "`/api/auth/`, `/api/me` (except the club and notify paths below), ..." to `worker/auth/index.js`; row 4 is "`/api/locations`, `/api/waterways`, `/api/discover`, `/api/sources`" to "`worker/locations.js` (club context and proxies delegate onward)". Later rows give `/api/locations/:slug/reports` to `worker/reports.js` (line 235), and `/api/me/outings` and `/api/me/contacts` to `worker/outings.js` (line 237). With first match wins, `/api/me/outings` and `/api/me/contacts` match `/api/me` first (the exception names only the club and notify paths), and `/api/locations/:slug/reports`, `/api/locations/:slug/hazards` and `/api/waterways/:id/hazards` (7.3) match the locations row first, which names only club context and proxies as delegated.
 - Fix: Order the table from the most specific pattern to the broadest, or extend the two exceptions: `/api/me` except club, notify, outings and contacts paths; `worker/locations.js` delegates `/reports` and `/hazards` suffixes as it does club context.
 
+Applied: 08 section 3.5 prefix table. The `/api/me` row now excepts the outings and contacts paths as well, and the `/api/locations` row delegates the `/reports` and `/hazards` suffixes onward, as it does club context.
+
 #### C23. 04's report checks ignore `REPORTS_ENABLED`
 
 - Severity: major (phase 2, when production gets a database).
 - Where: 04 3.5 step 1 (line 203) and 3.10 (line 474); 08 6.3 (line 1652), 7.1 "Feature off" (line 1813), K52.
 - Problem: 08: `REPORTS_ENABLED` is "`"0"` until phase 3 ships", read by "`/api/info` `reports`, report routes", and a route whose feature is off "answers 404 with ... `reports_off`". 04's server checks start "1. `env.DB` bound. Else 503 `not_configured` "Reports are not set up here."" and never read the flag, and 04 3.10 still says "Production D1 binding (phase 2 or 3, 08)". Built from 04, production accepts report posts from phase 2, when 03 adds the production database, while `/api/info` hides the form. K52 records "Edit made: None".
 - Fix: 04 3.5 step 1 becomes "`env.DB` bound and `env.REPORTS_ENABLED === '1'`. Else 404 `reports_off`". 04 3.10: "Production D1 binding in phase 2 (08 5.4), reports held off by `REPORTS_ENABLED` until phase 3".
+
+Applied: 04 section 3.5 step 1 now checks `REPORTS_ENABLED` as well as `env.DB` (no binding is 503 `not_configured`, flag off is 404 `reports_off`, as 08 7.1 lists both), and 3.10 says the production D1 binding arrives in phase 2 with reports held off until phase 3.
 
 #### C24. 03's Turnstile sentences are narrower than the plan's use of Turnstile
 
