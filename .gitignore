@@ -6,3 +6,4 @@ dev-dist/
 screenshots/
 test-results/
 .dev.vars
+test/golden/out/
