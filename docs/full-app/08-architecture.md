@@ -2597,6 +2597,8 @@ Rule for every step: the golden JSON files and the screenshot images are never w
 
 ### 14.2 The steps
 
+Before building P0.6 or later, read `reviews/phase-0.md` (2026-10-18). It found gaps in the safety net that a refactor step could slip through, each shown by a mutation that passed every check. Apply its findings at the step each one guards: before P0.6, Z1 (a parity spec comparing the real page with the golden outputs), Z4, Z9, Z11 and Z16; before P0.7, Z6 and the browser half of Z8; in P0.7, Z7 and the rest of Z8; before P0.8, Z3 and Z5; in or before P0.9, Z2, Z10, Z12, Z13 and Z14; at P0.14, Z15. The steps below are otherwise unchanged.
+
 #### P0.1 Capture golden outputs
 
 Before any refactor. No change under `src/`.
