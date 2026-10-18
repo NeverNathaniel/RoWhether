@@ -2,11 +2,10 @@
 // pinned, comparing it with its file, and writing or dumping it.
 //
 //   npm test                              compares
-//   node scripts/golden.mjs write --force writes every file (P0.1 only)
 //   node scripts/golden.mjs dump <case>   writes every captured value and string in full
 //
 // Writing fails the run on purpose, so it can never pass unnoticed. A file that
-// exists is never rewritten unless GOLDEN_FORCE=1, which is for P0.1 only.
+// exists is never rewritten.
 //
 // The 19 main case files hold everything in full. The v-* and p-* files keep a
 // key over 8 KB as a digest (test/golden/digest.js), compared by digest. A dump
@@ -21,7 +20,7 @@ import { PROBES } from './probes.js';
 import { digestOf, isDigest, trimmed } from './digest.js';
 
 const DIR = dirname(fileURLToPath(import.meta.url));
-export const WRITE = process.env.GOLDEN_WRITE === '1', FORCE = process.env.GOLDEN_FORCE === '1';
+export const WRITE = process.env.GOLDEN_WRITE === '1';
 export const DUMP = process.env.GOLDEN_DUMP, OUT = process.env.GOLDEN_OUT || join(DIR, 'out');
 const fileOf = c => join(DIR, `${c.name}.json`);
 // The main cases are stored in full; the variants and probes store large keys as digests.
@@ -58,7 +57,7 @@ export function defineGolden(items) {
         const have = run(c);
         if (WRITE) {
           const text = format(MAIN.has(c) ? have : trimmed(have), c.run ? 4 : 3), f = fileOf(c);
-          if (existsSync(f) && readFileSync(f, 'utf8') !== text && !FORCE) throw new Error(`${c.name}.json exists and differs. Not rewritten. GOLDEN_FORCE=1 rewrites it.`);
+          if (existsSync(f) && readFileSync(f, 'utf8') !== text) throw new Error(`${c.name}.json exists and differs. Not rewritten.`);
           writeFileSync(f, text);
           return;
         }

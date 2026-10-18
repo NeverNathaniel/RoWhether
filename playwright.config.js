@@ -30,6 +30,9 @@ export default defineConfig({
   testMatch: '**/*.spec.js',
   outputDir: 'test-results',
   snapshotPathTemplate: 'test/browser/__screenshots__/{arg}-{projectName}{ext}',
+  // A screenshot with no baseline fails and is never written by a run. Only
+  // --update-snapshots writes one, and the baseline is not rewritten after P0.2.
+  updateSnapshots: 'none',
   reporter: 'list',
   forbidOnly: !!process.env.CI,
   retries: 0,

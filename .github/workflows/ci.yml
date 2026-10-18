@@ -13,6 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The whole history, so the checks below can reach the base commits.
+          fetch-depth: 0
+      # The golden outputs and the screenshots are never edited after P0.1 and
+      # P0.2 (08 14.1). A modified or deleted file fails the run; a new one does not.
+      - run: git diff --exit-code --diff-filter=MD c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab HEAD -- 'test/golden/*.json' && git diff --exit-code --diff-filter=MD 743e8cdd8589653bab4bd3554b09ea5eb5efff95 HEAD -- test/browser/__screenshots__
       - uses: actions/setup-node@v4
         with:
           node-version: 22

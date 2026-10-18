@@ -11,7 +11,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "TZ=Pacific/Auckland vitest run",
     "test:browser": "playwright test",
     "icons": "node scripts/icons.mjs",
     "cf:dev": "npm run build && wrangler dev",

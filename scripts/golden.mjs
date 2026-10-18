@@ -1,6 +1,6 @@
 // Helper for the golden outputs (test/golden.test.js and test/golden-variants.test.js).
 //
-//   node scripts/golden.mjs write [--force]    writes the test/golden/*.json files that do not exist yet
+//   node scripts/golden.mjs write              writes the test/golden/*.json files that do not exist yet
 //                                              (the 19 cases in full; the v-* variants and p-* probes keep each
 //                                              key over 8 KB as a sha256 digest, see test/golden/digest.js)
 //   node scripts/golden.mjs dump <case> [dir]  writes every value and string one case, variant or probe captured, in full
@@ -8,7 +8,8 @@
 //
 // write runs the test with GOLDEN_WRITE=1, which fails the run on purpose so a
 // write never passes unnoticed; this script treats that one failure as success.
-// --force rewrites files that exist. Only P0.1 may do that.
+// A file that exists is never rewritten, not even with a flag: the golden files
+// do not change after P0.1 (08 14.1), and CI checks it.
 //
 // dump goes to test/golden/out/<case>/ (git ignored): one file per HTML string,
 // and capture.json. A dump always holds the full values, also for the keys a
@@ -32,7 +33,7 @@ const vitest = env => spawnSync('npx', ['vitest', 'run', 'test/golden', ...env.e
 
 if (cmd === 'write') {
   const out = join(mkdtempSync(join(tmpdir(), 'golden-')), 'result.json');
-  const vars = { GOLDEN_WRITE: '1', ...(args.includes('--force') ? { GOLDEN_FORCE: '1' } : {}) };
+  const vars = { GOLDEN_WRITE: '1' };
   const r = vitest({ vars, extra: ['--reporter=json', '--outputFile', out] });
   let failed;
   try {
@@ -59,6 +60,6 @@ if (cmd === 'write') {
   if (r.status === 0) console.log(`Dumped ${name} to ${join(out, name)}`);
   process.exit(r.status ?? 1);
 } else {
-  console.error('Usage: node scripts/golden.mjs write [--force] | dump [<case> [dir]]');
+  console.error('Usage: node scripts/golden.mjs write | dump [<case> [dir]]');
   process.exit(2);
 }

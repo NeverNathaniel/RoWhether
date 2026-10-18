@@ -2,11 +2,19 @@
 // page.clock.setFixedTime to 12:00 Eastern on the june-calm day. Without a
 // fixed time every fixture hour is in the past and the page shows the No data
 // screen, which is too short to test the tab bar. Timers stay real.
+import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { SCENARIOS, routeAll, ready } from './fixtures.js';
 
+// Not the machine's zone or language, so a line that reads the screen's instead
+// of the location's fails here and not only on someone else's laptop (review Z11).
+test.use({ timezoneId: 'Pacific/Auckland', locale: 'de-DE' });
+
 const scenario = SCENARIOS['june-calm'];
 const clock = scenario.clock(12);
+// The nine URLs and names P0.1 recorded in a golden file. The page must ask for
+// exactly these, not only for something the fixtures answer on the same path.
+const GOLDEN = JSON.parse(readFileSync(new URL('../golden/june-calm-1200-default.json', import.meta.url), 'utf8'));
 const TABS = ['now', 'week', 'wind', 'river', 'storms', 'fog', 'temperature', 'rain', 'light', 'air'];
 
 // What the console must not show. Two things the test setup causes are let
@@ -41,10 +49,10 @@ test.describe('smoke', () => {
       await expect(page.locator('#detail')).toBeVisible();
     }
     expect(bad).toEqual([]);
-    // Nine upstream requests, none aborted and none unmatched.
+    // Exactly the nine golden requests, none aborted and none unmatched.
     expect(seen.aborted).toEqual([]);
     expect(seen.missing).toEqual([]);
-    expect(seen.served.length).toBeGreaterThanOrEqual(9);
+    expect([...seen.served].sort()).toEqual(GOLDEN.sources.map(x => x[1]).sort());
   });
 
   test('the home screen and every tab fit the page width', async ({ page }, testInfo) => {
