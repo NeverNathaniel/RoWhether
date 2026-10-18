@@ -149,13 +149,13 @@ Decision: keep one-tap reports anonymous, with Turnstile for signed-out reporter
 What protects anonymous reports:
 
 1. `REPORT_LIMIT`: 3 per 60 s per IP, as today.
-2. A daily cap per reporter: 20 reports a day per `ip_hash` across all locations, checked in D1.
+2. A daily cap per reporter: 20 reports a day per `user_id` (signed in) or per `browser_hash` (signed out), across all locations, checked in D1. Signed-out reports also have a backstop of 100 a day per `ip_hash`, which only a script that hides its browser id would reach. Signed-in reports never count against an `ip_hash`, so one boathouse wifi or one mobile carrier address cannot lock a whole club out.
 3. Turnstile, for signed-out reporters only (8.3).
-4. Replacement: a second report from the same reporter at the same location within 10 minutes replaces the first instead of adding a row, so one person cannot outvote others by tapping three times.
+4. Replacement: a second report from the same reporter at the same location within 10 minutes updates the first instead of adding a row, so one person cannot outvote others by tapping three times. The same reporter means the same `user_id` when signed in, and for a signed-out report the same browser (`browser_hash`), never the `ip_hash` alone, because many people share an address. The update merges: the fields in the new report replace the same fields, and fields it leaves out stay, so a second person's "Flat water" can never wipe an earlier "launch closed" or "thick fog".
 5. Weights (below): one anonymous report counts less than one from a signed-in rower.
 6. Flags and the moderation queue (8.5, 8.7). Signed-in users can flag a report; 3 flags hide it.
 
-`ip_hash` is `base64url(HMAC-SHA256(IP_HASH_KEY, utcDate + ":" + ip))` cut to 16 bytes. `IP_HASH_KEY` is a new Worker secret. The date in the input means hashes cannot be linked across days. The raw IP is never stored. `ip_hash` is set to NULL after 30 days (8.9).
+`ip_hash` is `base64url(HMAC-SHA256(IP_HASH_KEY, utcDate + ":" + ip))` cut to 16 bytes. `browser_hash` is the same with the browser's own random id in place of the IP: the browser keeps a UUID in `localStorage` (`rowhether-browser-v1`, in try/catch, a per-viewer convenience) and sends it as `browserId`. A browser that cannot store one sends none and is limited by `ip_hash` only. `IP_HASH_KEY` is a new Worker secret. The date in the input means hashes cannot be linked across days. The raw IP is never stored. `ip_hash` and `browser_hash` are set to NULL after 30 days (8.9).
 
 What signing in adds:
 
@@ -206,8 +206,8 @@ Cheap checks first, as `handleSuggest()` in `worker/suggest.js` does. `addReport
 6. `seenAt`: optional, defaults to now. Accepted between `now - 2 h` and `now + 2 min` (phone clocks drift). Else 400 `too_old` "That report is more than 2 hours old, so it was not sent."
 7. Session (03's `__Host-rw_session` cookie; 08 K56). A valid session sets `user_id`; a suspended user gets 403 `not_allowed` "Your account cannot post right now."
 8. No session: Turnstile token required, action `report`. Else 403 `verification_failed` "The spam check did not pass. Try again."
-9. Daily cap by `ip_hash` (signed out) or `user_id` (signed in): 20 a day. Else 429 `daily_limit` "That is a lot of reports for one day. Try again tomorrow."
-10. Replacement: the newest row from the same `user_id` or `ip_hash` at this location with `created_at` in the last 10 minutes is updated instead of inserting. The response has `"replaced": "<id>"`.
+9. Daily cap by `user_id` (signed in) or `browser_hash` (signed out): 20 a day; signed out also 100 a day per `ip_hash`. Else 429 `daily_limit` "That is a lot of reports for one day. Try again tomorrow."
+10. Replacement: the newest row from the same `user_id`, or for a signed-out report the same `browser_hash`, at this location with `created_at` in the last 10 minutes is updated by merging fields instead of inserting. A report with no `browser_hash` is never a replacement. The response has `"replaced": "<id>"`.
 11. `geo` validated (3.4), weight computed (3.3), `fc` validated (3.7).
 12. Insert with `created_at = now` (server time, as today) and `seen_at`.
 
@@ -230,7 +230,7 @@ Flags (`debris`, `smoke`, `lowWater`) show when any fresh report ticked them.
 
 `waterTemp`: the newest fresh value from the highest weight reporter. Shown as information. It is not used for the cold rule (decision below).
 
-`launch`: the newest report wins regardless of weight, because a closure is a fact someone just checked. A `closed` report shows in caution color until a newer `open` report or 12 hours.
+`launch`: a `closed` report shows at once, from anyone, in caution color, because a closure is a fact someone just checked and a wrong closure costs little. It stays for 12 hours unless an `open` report clears it, and an `open` report clears it only when it comes from a reporter with weight 1.5 or more (signed in), or when two different reporters (different users or `browser_hash`es) have said open since the closure. Until then the line shows both: "Reported closed at 6:10 AM, open at 6:20 AM." So one anonymous tap cannot undo a closure.
 
 Reports from a nearby location on the same waterway (01 section 3.1): fog and debris reports from locations within 15 km, water and wind reports within 2 km, fresh windows as above, at most 3 entries, labeled with the relation 01's waterway API gives ("Upstream at Brattleboro"). They never count toward this location's summary.
 
@@ -264,6 +264,7 @@ Sample copy:
 | Only older reports | "Earlier at the dock: flat water, no fog, 2 hr ago (5:10 AM)." |
 | No reports | "No reports from the dock in the last 3 hours." (as today) |
 | Launch closed | "Launch reported closed or blocked at 6:10 AM." |
+| Launch closed, then reported open but not yet confirmed | "Reported closed at 6:10 AM, open at 6:20 AM." |
 | Water temperature | "Water 54°F, measured at the dock at 6:30 AM." |
 | Nearby | "Upstream at Brattleboro, 9 km: patchy fog, 25 min ago." |
 | Report badges | "Putney Rowing Club member", "Checked at the dock", "Sent from away from the dock", "Sent 40 min after it was seen" |
@@ -355,6 +356,7 @@ CREATE TABLE reports_v2 (
   weight REAL NOT NULL DEFAULT 1 CHECK (weight BETWEEN 0.5 AND 3),
   fc TEXT CHECK (fc IS NULL OR (json_valid(fc) AND length(fc) <= 1024)),
   ip_hash TEXT CHECK (ip_hash IS NULL OR length(ip_hash) = 22),
+  browser_hash TEXT CHECK (browser_hash IS NULL OR length(browser_hash) = 22),   -- daily HMAC of a random browser id (3.3)
   status TEXT NOT NULL DEFAULT 'visible' CHECK (status IN ('visible', 'hidden', 'removed')),
   CHECK (water IS NOT NULL OR fog IS NOT NULL OR wind IS NOT NULL OR current IS NOT NULL
          OR tide IS NOT NULL OR low_water = 1 OR debris = 1 OR ice IS NOT NULL OR smoke = 1
@@ -372,6 +374,7 @@ ALTER TABLE reports_v2 RENAME TO reports;
 CREATE INDEX reports_loc_seen ON reports (location_id, seen_at);
 CREATE INDEX reports_user ON reports (user_id, created_at) WHERE user_id IS NOT NULL;
 CREATE INDEX reports_ip ON reports (ip_hash, created_at) WHERE ip_hash IS NOT NULL;
+CREATE INDEX reports_browser ON reports (browser_hash, created_at) WHERE browser_hash IS NOT NULL;
 CREATE INDEX reports_status ON reports (status, created_at) WHERE status <> 'visible';
 ```
 
@@ -430,7 +433,7 @@ Same origin, JSON, errors as `{ "error": "code", "message": "Human sentence." }`
 - `reports`: last 3 hours, newest first, at most 30, `status = 'visible'`. `t` is `seen_at`; `sentAt` is `created_at`.
 - `longer`: last 24 hours, only rows with `ice`, `water_c` or `launch`, at most 10.
 - `badges`: `club` (phase 5), `near`, `far`, `late`.
-- `mine`: true when the row's `user_id` is the viewer's (signed in) or its `ip_hash` matches today's hash of the viewer's IP.
+- `mine`: true when the row's `user_id` is the viewer's. Signed-out reports are never marked mine, so a shared address never claims another person's report.
 - `onWater`: 5.5. Null when 0 or 1 (decision there).
 - Rows read: the `(location_id, seen_at)` index keeps this at the rows returned plus a few. Nearby reports cost one query per nearby location, capped at 3.
 
@@ -445,6 +448,7 @@ Same origin, JSON, errors as `{ "error": "code", "message": "Human sentence." }`
   "geo": "near",
   "fc": { "v": 1, "t": 1792231200000, "wl": 1, "we": 6.8 },
   "token": "<Turnstile token, signed out only>",
+  "browserId": "2c9e4a1b-7d30-4f58-b6a2-91c0d3e7f482",
   "clientId": "6f1c2b8e-1d43-4e0f-8f6e-2b7a9c1d0e55"
 }
 ```
@@ -542,14 +546,15 @@ States: `active`, `cleared`, `expired`, `removed`.
 
 - On post: `expires_at = now + default expiry` for the kind. The poster can pick a shorter or longer expiry from a short list (1 day, 3 days, 1 week, 2 weeks, 1 month, 2 months), capped at 90 days for non-official hazards.
 - Confirm ("Still there"): any signed-in user, including the poster. Sets `last_confirmed_at = now` and `expires_at = max(expires_at, now + default expiry)`, capped at `created_at + 90 days` unless official.
-- Clear ("Gone"): any signed-in user. The hazard becomes `cleared` when any of:
+- Clear ("Gone"): any signed-in user can vote. The hazard becomes `cleared` when any of:
   - the poster clears it;
   - a moderator, or a club safety role at a club on this waterway (phase 5), clears it;
-  - two different users vote clear after the latest confirm.
-- One vote per user per hazard. Changing your vote replaces it. A confirm after clears resets the count, because only clear votes newer than `last_confirmed_at` count.
+  - two different users vote clear after the latest confirm, each from an account at least 7 days old and each with `geo = near` the hazard's pin. Other clear votes are kept and shown as votes but do not count, so two new accounts, or two people far away, cannot make a warning vanish.
+- One vote per user per hazard. Changing your vote replaces it. A confirm after clears resets the count, because only clear votes newer than `last_confirmed_at` count (`clears_since_confirm` counts only those that qualify).
+- A cleared hazard stays on the list for 24 hours after `ended_at` as a muted card, "Reported gone by 2 people at 7:10 AM" (or "Cleared by a moderator"), with "Still there". A confirm in that window reopens it as `active`. After 24 hours it drops off the list.
 - Expiry: the daily cleanup (05's daily cron) sets `expired` when `expires_at < now`. Lists filter on `expires_at > now` so a hazard disappears on time even before the cleanup runs.
 - Removed: a moderator removes it (8.7), with a reason.
-- Cleared, expired and removed hazards stay in D1 for 180 days (8.9), visible only to moderators.
+- Cleared, expired and removed hazards stay in D1 for 180 days (8.9), visible only to moderators, except that a cleared hazard also shows on the list for 24 hours (above).
 
 Sample copy:
 
@@ -560,8 +565,8 @@ Sample copy:
 | Official badge | "Posted by Putney Rowing Club" |
 | Buttons | "Still there", "Gone" |
 | After Still there | "Thanks. It will show until Nov 16." |
-| After Gone, not yet cleared | "Thanks. It clears when one more person says it is gone." |
-| Cleared | Card disappears. Toast: "Hazard cleared." |
+| After Gone, not yet cleared | "Thanks. It clears when one more person who is nearby says it is gone." |
+| Cleared | The card stays for 24 hours: "Reported gone by 2 people at 7:10 AM." with "Still there". Toast: "Hazard cleared." |
 | Note held for review | "Thanks. The pin shows now. A moderator will check the note before it shows." |
 | Note refused | The screen's message, for example "Leave out names and phone numbers, then try again." |
 
@@ -570,6 +575,7 @@ Sample copy:
 - `note`: optional, 280 characters, plain text. Line breaks become spaces. URLs are refused ("Leave out links."). Control characters stripped.
 - Screened before it shows (8.6). The pin (kind and position) is public immediately. The note is public only after a screen verdict of `ok`. `review` holds the note for the moderation queue. `reject` refuses the post with the screen's message so the poster can edit.
 - Editing the note re-runs the screen. Only the poster and moderators can edit, and only the note, the expiry and (within 24 hours) the position.
+- A junior's note (a poster for whom `isJunior()` is true, 03 11.3) always goes to the moderation queue, whatever the screen's verdict, and shows only after a moderator approves it. The pin shows at once, without a name. The same holds for launch notes and any other public free text from a junior.
 
 ### 4.6 Display
 
@@ -647,7 +653,7 @@ Phase 5 adds `ALTER TABLE hazards ADD COLUMN club_id TEXT REFERENCES clubs(id) O
 }
 ```
 
-`GET /api/waterways/:id/hazards` (public): the same list for a whole waterway, without `distanceM` and `relation`.
+`GET /api/waterways/:id/hazards` (public): the same list for a whole waterway, without `distanceM` and `relation`. Both lists also return a hazard cleared in the last 24 hours, with `"status": "cleared"`, `endedAt` and `clearedBy` (`"poster"`, `"moderator"`, `"safety"` or `"votes"` with `clearVotes`).
 
 `POST /api/hazards` (signed in)
 
@@ -747,8 +753,8 @@ Decision: show the count only at 2 or more ("2 boats on the water"). Recommended
 
 Club detail is 06's. What 06 can rely on from this table:
 
-- `outings.club_id` (added in phase 5): the club the outing belongs to, chosen in the sheet when the rower is a member of a club whose home location this is ("Rowing with Putney Rowing Club").
-- Club members with a club role that 06 names (coach, safety) see that club's outings at its locations: rower, boat, crew, direction, start, back by, stage.
+- `outings.club_id` (created with the table in phase 3, used from phase 5, K58): the club the outing belongs to, chosen in the sheet when the rower is a member of a club whose home location this is ("Rowing with Putney Rowing Club").
+- Club members with a club role that 06 names (coach, safety) see that club's outings at its locations (rows with `club_id` set): rower, boat, crew, direction, start, back by, stage. Never a member's personal outing, float plan or emergency contacts, and for a junior only the club's rows (03 11.4 rule 12).
 - `outing_crew.user_id` links (phase 5): club members can be picked as crew; they see the outing in their own row log after accepting ("Sam added you to a 2x at Putney Landing. Add it to your log?"). When staff or a kiosk name a member, the member gets a push or an email at once with "Not you? Undo" (06 8.5), and Undo removes them from the crew.
 - Escalation to the club's safety contacts as an extra step (6.2), phase 5.
 
@@ -970,7 +976,7 @@ Rules:
 
 ### 6.3 The status link
 
-`/o/<token>`: a page for the contacts. One-letter path segments can never collide with location slugs (3 to 48 chars), so no reserved word is needed. The page is the SPA (01's `not_found_handling` serves `index.html`), which calls `GET /api/outings/status/:token`. There are two kinds of token, 16 bytes in base64url (22 characters) each, and only the SHA-256 of each is stored. The rower's token is random and stored as `share_hash`; it is the `statusUrl` the rower gets at the start, for showing a friend, and it can only view. Each contact has their own token, derived as `HMAC-SHA256(NOTIFY_LINK_KEY, "status:" + outing id + ":" + contact id)` cut to 16 bytes, with its hash in `outing_contacts.token_hash`, so a retried email carries the same link and a forwarded link names whose it was. Only a contact's token can mark safe or say "still worried"; the rower's token gets 403 `rower_link`. The rows in `outing_contacts` are made at the start (or when the float plan is switched on) for each reachable contact (6.1), with the contact's name as stored on the account. The link works from the start until 24 hours after the outing ends, then returns 410 `expired` "This link has expired." The page sends `<meta name="robots" content="noindex">` and `Referrer-Policy: no-referrer`.
+`/o/<token>`: a page for the contacts. One-letter path segments can never collide with location slugs (3 to 48 chars), so no reserved word is needed. The page is a small HTML page rendered by the Worker, with no app shell: a worried person on any phone and connection gets one light document, readable with JavaScript off (`/o/*` is in `run_worker_first`, 08 7.4). Its buttons are plain forms that post to the same routes and redirect back to the page. With JavaScript, it refreshes the status every 60 seconds from `GET /api/outings/status/:token`. There are two kinds of token, 16 bytes in base64url (22 characters) each, and only the SHA-256 of each is stored. The rower's token is random and stored as `share_hash`; it is the `statusUrl` the rower gets at the start, for showing a friend, and it can only view. Each contact has their own token, derived as `HMAC-SHA256(NOTIFY_LINK_KEY, "status:" + outing id + ":" + contact id)` cut to 16 bytes, with its hash in `outing_contacts.token_hash`, so a retried email carries the same link and a forwarded link names whose it was. Only a contact's token can mark safe or say "still worried"; the rower's token gets 403 `rower_link`. The rows in `outing_contacts` are made at the start (or when the float plan is switched on) for each reachable contact (6.1), with the contact's name as stored on the account. The link works from the start until 24 hours after the outing ends, then returns 410 `expired` "This link has expired." The page sends `<meta name="robots" content="noindex">` and `Referrer-Policy: no-referrer`.
 
 ```json
 {
@@ -996,9 +1002,9 @@ Page copy, overdue:
 >
 > Boat: double (2x), "Hudson double", with Sam. Heading upstream: "To the railroad bridge and back." Conditions at the start: Caution, gusts to 19 mph.
 >
-> Launch point: 42.9607, -72.5219. [Open in maps]
+> Launch address: (the address in the location's emergency info, or the coordinates 42.9607, -72.5219 when none has been added). [Open in maps]
 >
-> Try Alex first: [+1 802 555 0123]. If you cannot reach Alex and think they may be in trouble, call 911 or the local emergency number, and give them the details on this page.
+> Try Alex first: [+1 802 555 0123]. If you cannot reach Alex and think they may be in trouble, call the emergency services for the launch, not for where you are. Emergency services at Putney Landing: 911 (United States). From outside the area: (the dispatch line, when the location has one). Give them the details on this page.
 >
 > RoWhether is not an emergency service and does not watch the water.
 >
@@ -1020,7 +1026,7 @@ Decision: let a contact end the escalation from their own status link. Recommend
 - No signal on the water at the planned time: reminders queue at the push service for their TTL (05) and arrive when the phone reconnects; the escalation goes on regardless.
 - Time zones: all times are ms. Pickers and copy use the location's zone and `tzLabel`, with the zone named in every email ("8:00 AM Eastern"). A rower whose phone is set to another zone sees the location's time with the zone named: "Back by 8:00 AM (Eastern)".
 - Daylight saving change during an outing: ms arithmetic is unaffected; copy prints local times on each side correctly through `m.fmt` (01).
-- The rower deletes their account while out: the outing is cancelled and contacts get the all clear first (03's deletion runs this before deleting).
+- The rower deletes their account while out: refused with 409 `open_outing` (03 4.10, 16.6) until they tap I'm back, which sends the all clear in the normal way. Deletion never cancels an outing or sends an all clear itself, so a person who has taken over an account cannot silence the contacts while the rower is still on the water.
 - A contact's email bounces: logged in `notify_log`, `bounced_at` is set, and the rower is told at once (6.1) by push or email and in Account, not only in the banner during an outing. If it happens during an outing, the banner also says "We could not reach Jordan by email. Call someone now."
 
 ### 6.5 Messages
@@ -1049,15 +1055,23 @@ Contact, stage 3 email:
 >
 > Alex planned to be back from rowing at Putney Landing, Putney, VT by 8:00 AM Eastern and has not said they are back. It is now 8:30 AM Eastern.
 >
-> See where and when Alex launched: https://rowhether.com/o/Qm3kZ8pL0aT4vX9yB2nR7w
+> Alex started at 6:40 AM Eastern in a double (2x), "Hudson double", with Sam, heading upstream: "To the railroad bridge and back." Conditions at the start: Caution, gusts to 19 mph.
 >
-> Try to reach Alex first. If you cannot and think they may be in trouble, call 911 or the local emergency number.
+> Launch address: (the address in the location's emergency info, or the coordinates 42.9607, -72.5219 when none has been added).
+>
+> Alex's phone: +1 802 555 0123 (only when Alex chose to share it).
+>
+> Try to reach Alex first. If you cannot and think they may be in trouble, call the emergency services for the launch, not for where you are. Emergency services at Putney Landing: 911 (United States). From outside the area: (the dispatch line, when the location has one).
+>
+> This page has the same details and a way to tell us you reached Alex: https://rowhether.com/o/Qm3kZ8pL0aT4vX9yB2nR7w
 >
 > Also told: Casey.
 >
 > RoWhether is not an emergency service. You get this because Alex listed you as an emergency contact. Stop these emails: [link]
 
 If any contact's email was refused, this message names the contact instead: "We could not email Jordan. Call someone now." It never says "We emailed" for an email the provider did not accept.
+
+The facts are in the email itself, as plain text, so a contact who cannot load the page still has what a caller needs: the launch name and address, boat and crew, direction and route note, the back-by time with its zone, the rower's phone when shared, and the emergency number for the launch's country with the location's dispatch line (06 8.7). The emergency number is looked up from the location's country in 06's checked table, never typed by a person.
 
 Contact, stage 4 email: subject "Alex is still not back from rowing", same body with "It is now 9:00 AM Eastern, an hour past the planned time."
 
@@ -1073,9 +1087,11 @@ New time email: subject "Alex added time on the water", body "Alex now plans to 
 
 The app never promises rescue or monitoring. Every surface of the float plan carries "RoWhether is not an emergency service." The first time someone turns on Tell my contacts, a one-time sheet says:
 
-> We email your contacts if you are late. We do not watch the water, call anyone, or know where you are. Your phone needs signal for us to know you started. Tell someone your plan as well.
+> We email your contacts if you are late. We do not watch the water, call anyone, or know where you are. Your phone needs signal for us to know you started, and tapping I'm back needs signal too. Your contacts get an email, not a call or a text, so make sure they know to look for it. Reminders to you come by email until notifications arrive. Tell someone your plan as well.
 >
 > [Got it]
+
+In phase 4, when push reminders arrive, the sentence "Reminders to you come by email until notifications arrive." is dropped.
 
 03 owns the terms text this depends on.
 
@@ -1119,7 +1135,7 @@ Rate limit bindings take periods of 10 or 60 seconds only (comment in `wrangler.
 
 | Action | Binding (per 60 s) | Key | Daily cap in D1 |
 | --- | --- | --- | --- |
-| Report | `REPORT_LIMIT` 3 (exists) | IP | 20 per `ip_hash` or user; 10 for the legacy alias |
+| Report | `REPORT_LIMIT` 3 (exists) | IP | 20 per user or `browser_hash`; signed out also 100 per `ip_hash`; 10 per `ip_hash` for the legacy alias |
 | Hazard post | `HAZARD_LIMIT` 3 | user id | 10; 2 for accounts under 24 h |
 | Hazard vote | `HAZARD_LIMIT` (shared) | user id | 50 |
 | Flag | `FLAG_LIMIT` 5 | user id | 30 |
@@ -1127,11 +1143,13 @@ Rate limit bindings take periods of 10 or 60 seconds only (comment in `wrangler.
 | Contact notice, contact test | `OUTING_LIMIT` (shared) | user id | 5 notices, 3 tests |
 | Status link safe, still worried | `FLAG_LIMIT` (shared) | IP | 5 a day per `outing_contacts` row |
 
-Daily caps count rows with an indexed query (`(user_id, created_at)` or `(ip_hash, created_at)`), so each check reads at most the cap plus one row.
+Daily caps count rows with an indexed query (`(user_id, created_at)`, `(browser_hash, created_at)` or `(ip_hash, created_at)`), so each check reads at most the cap plus one row.
 
 ### 8.3 Turnstile
 
-Used for signed-out reports and the status link "safe" action. The site key goes in `/api/info` as `turnstileKey` (today it comes from `GET /api/suggest`). Widget: managed mode with `appearance: 'interaction-only'`, rendered when the dialog opens so the token is usually ready by Send. Tokens are valid for 300 seconds and single use (from docs, https://developers.cloudflare.com/turnstile/get-started/server-side-validation/), so a dialog left open longer gets a fresh token with `turnstile.reset()` on Send. The Worker checks `action === 'report'` or `'safe'`. Free plan: 20 widgets per account (from docs, https://developers.cloudflare.com/turnstile/plans/); this plan needs 1 widget for all three actions.
+Used for signed-out reports and the status link "safe" and "still worried" actions. The site key goes in `/api/info` as `turnstileKey` (today it comes from `GET /api/suggest`). Widget: managed mode with `appearance: 'interaction-only'`, rendered when the dialog opens so the token is usually ready by Send. Tokens are valid for 300 seconds and single use (from docs, https://developers.cloudflare.com/turnstile/get-started/server-side-validation/), so a dialog left open longer gets a fresh token with `turnstile.reset()` on Send. The Worker checks `action === 'report'` or `'safe'`. Free plan: 20 widgets per account (from docs, https://developers.cloudflare.com/turnstile/plans/); this plan needs 1 widget for all three actions.
+
+The status page is for a worried person on any phone, who has no account to sign in with. When Turnstile cannot load or fails to start (blocked, offline, no JavaScript), the safe mark and "still worried" are accepted with the contact's own token alone, rate limited by IP and by 5 a day per contact row (8.2), rather than refused. The token is 128 bits and tied to one contact, so Turnstile adds little on this path. A report dialog's fallback stays as 3.11 says (sign in to send without it).
 
 Turnstile for a queued report: the token is fetched when the outbox flushes, not when the report was made, so a 5 AM report with no signal is sent at 7 with a fresh token and `seenAt` of 5 AM (within the 2-hour bound; older ones are dropped with a note "1 report was too old to send.").
 
@@ -1141,14 +1159,23 @@ Decision: extend the Turnstile exception in CLAUDE.md's hard constraints ("loads
 
 ### 8.4 Account age and standing
 
-From 03's `users`: `created_at` and a status (`active`, `suspended`). Suspended users cannot post reports, hazards, votes or flags (403 `not_allowed`), and their visible reports and hazard notes are hidden (`status = 'hidden'`, `note_status = 'hidden'`) by the moderator action that suspends them. Account age under 24 hours: report weight 1.0 and the hazard cap of 2 a day.
+From 03's `users`: `created_at` and a status (`active`, `suspended`). Suspended users cannot post reports, hazards, votes or flags (403 `not_allowed`), and their visible reports and hazard notes are hidden (`status = 'hidden'`, `note_status = 'hidden'`) by the moderator action that suspends them. Account age under 24 hours: report weight 1.0 and the hazard cap of 2 a day. Juniors (`isJunior()`, 03 11.3): public free text is held for a moderator (4.5), nothing shows their name (reports and hazards never do, 3.6), and they cannot add a location (01 12.1).
 
 ### 8.5 Flags
 
 Signed-in users can flag a report, a hazard or a hazard note. Reasons: `wrong` (Not what is there), `spam` (Spam), `abuse` (Abusive), `personal` (Personal information), `danger` (Dangerous advice), `other` (Something else), and for a `user` target `under_13` (This person is under 13, 03 11.2; 08 K47). Optional note, 280 chars, seen only by moderators.
 
 - One flag per user per item (`UNIQUE`).
-- Auto-hide: an item with flags from 3 different users whose accounts are at least 7 days old is hidden at once (`status = 'hidden'` or `note_status = 'hidden'`) and goes to the top of the queue.
+- Auto-hide: an item with flags from 3 different users whose accounts are at least 7 days old is hidden at once and goes to the top of the queue. What is hidden depends on the target type:
+
+| Target | What auto-hide sets |
+| --- | --- |
+| `report` | `reports.status = 'hidden'` |
+| `hazard_note` | `hazards.note_status = 'hidden'` (the pin stays) |
+| `hazard` | Nothing is hidden. A live warning is never taken down by flags: the pin goes to the top of the queue and only a moderator removes it (`status = 'removed'`). Flags on a hazard's note count against the note only |
+| `location`, `location_revision`, `club`, `user` | Nothing is hidden. The item goes to the top of the queue |
+
+`hazards.status` has no `hidden` value (08 0006), so no code path sets it.
 - A flagged item stays visible below the threshold.
 - The flagger sees "Thanks. A moderator will look at it."
 
@@ -1247,7 +1274,7 @@ The daily cleanup (05's daily cron) runs these. 03 owns the privacy policy text 
 | Data | Kept | Then |
 | --- | --- | --- |
 | Report content and `fc` | Indefinitely, for tuning | |
-| `reports.ip_hash` | 30 days | Set NULL |
+| `reports.ip_hash`, `reports.browser_hash` | 30 days | Set NULL |
 | `reports.user_id` | 2 years | Set NULL |
 | Reports removed by a moderator | 90 days | Deleted |
 | Hazards cleared, expired or removed, with votes | 180 days after ending | Deleted |
@@ -1271,8 +1298,8 @@ All proposals for 08-architecture.md, which owns numbering and the canonical sch
 | 3 | `outings`, `outing_crew` | 3 | `locations`, `users` |
 | 4 | `emergency_contacts` | 3 | `users` |
 | 5 | `flags` | 3 | `users` |
-| 6 | `reports.club_id`, `hazards.club_id`, `outings.club_id` | 5 | `clubs` (06) |
-| 7 | `outings.boat_id` | 6 | `boats` (06) |
+| 6 | `reports.club_id`, `hazards.club_id` | 5 | `clubs` (06) |
+| 7 | `outings.boat_id` (the column is created in row 3, K58) | used from 6 | `boats` (06) |
 
 Bindings and secrets added: `IP_HASH_KEY` (secret), `HAZARD_LIMIT`, `FLAG_LIMIT`, `OUTING_LIMIT` (rate limits, production and Previews), the Turnstile key in `/api/info`, and Turnstile testing keys as Preview vars.
 
@@ -1341,18 +1368,20 @@ Unit tests (Vitest, `test/`), with the stand-in D1 pattern of `test/reports.test
 
 - The existing tests keep passing through the legacy alias.
 - Checks run in order: no DB 503; unknown location 404; rate limit 429; bad JSON 400; field error 400; `seenAt` 3 hours old 400; signed out without token 403 (Turnstile stub false); signed in skips Turnstile.
-- Daily cap: the 21st report from one `ip_hash` gets 429.
+- Daily cap: the 21st report from one `browser_hash` gets 429, while a second browser on the same `ip_hash` still gets in; the 101st signed-out report from one `ip_hash` gets 429; signed-in reports do not count against an `ip_hash`.
 - Replacement within 10 minutes updates the row and returns `replaced`; after 10 minutes inserts.
-- Geolocation: `geoWord()` (browser, `test/reportlogic.test.js`) gives `near` for 300 m with accuracy 20, `far` for 4 km, `unknown` for accuracy 2,000; the Worker refuses a `geo` that is not one of the three words (400 `invalid`); the inserted bind values contain no coordinates; nothing is logged from the body.
+- Geolocation: `geoWord()` (browser, `test/reportlogic.test.js`) gives `near` for 300 m with accuracy 20, `far` for 4 km, `unknown` for accuracy 2,000; the Worker refuses a `geo` that is not one of the three words (400 `invalid`); the inserted bind values contain no coordinates; nothing is logged from the body. In the browser, the report body and the hazard vote body built with `geo` set have no `lat`, `lon` or `acc` key, and nothing in `rowhether-outbox-v1` holds one.
 - Weight: anonymous 1.0, signed in 1.5, new account 1.0, `far` halves, late x0.8, clamp.
-- `ip_hash` changes with the UTC date.
+- `ip_hash` and `browser_hash` change with the UTC date.
+- Replacement: a second signed-out report from another browser on the same `ip_hash` inserts a row; the same browser within 10 minutes merges, and a field it leaves out (`launch: closed`) is kept.
+- Launch: a `closed` report followed by one anonymous `open` shows both lines; an `open` from a weight 1.5 reporter, or from two different reporters, clears the closure.
 - `clientId` repeat returns the existing report with 200.
 - List: `longer` only includes ice, water temperature and launch rows; `mine` flags.
 - CSV: header, local times, quoting, formula prefix.
 
 Migration (`test/migrations.test.js`, new, runs Miniflare's local D1 through `wrangler`'s test utilities or `npx wrangler d1 migrations apply --local` in CI): apply 0001, insert 5 rows, apply the locations migration and seed, apply the reports rebuild, assert 5 rows with ids `legacy-1` to `legacy-5`, Putney's `location_id`, `seen_at = created_at`, and that an insert with an unknown `location_id` fails.
 
-`test/hazards.test.js` (new): default expiry per kind; requested expiry capped at 90 days; confirm extends and caps; two clears after the last confirm clear it, one does not, a confirm resets; poster clear; official skip the cap; the duplicate prompt within 50 m; `too_far`; links refused; screen `ok` publishes the note, `review` holds it with the pin visible, `reject` returns 422 with the message, failure returns 502 and stores nothing (screen stubbed); account under 24 hours capped at 2; votes counted in the same batch.
+`test/hazards.test.js` (new): clear votes from an account under 7 days old, or with `geo` far or unknown, do not count toward clearing; two qualifying clears do; a cleared hazard is listed for 24 hours with its card and a confirm reopens it; three flags hide a hazard's note and leave the pin active and queued; a junior's hazard note is held for review even when the screen says `ok`, while the pin shows at once; default expiry per kind; requested expiry capped at 90 days; confirm extends and caps; two clears after the last confirm clear it, one does not, a confirm resets; poster clear; official skip the cap; the duplicate prompt within 50 m; `too_far`; links refused; screen `ok` publishes the note, `review` holds it with the pin visible, `reject` returns 422 with the message, failure returns 502 and stores nothing (screen stubbed); account under 24 hours capped at 2; votes counted in the same batch.
 
 `test/screen.test.js` (new): `parseScreen()` for ok, review, reject, refusal becomes review, `max_tokens` throws, bad JSON throws.
 
@@ -1373,7 +1402,7 @@ Browser checks (Playwright, as in CLAUDE.md):
 - `context.setOffline(true)`: report and Start a row queue, the warning line shows with the words "when RoWhether is open and has signal"; back online they send in order and the banner updates. Then start a row online, go offline and tap I'm back: the banner shows "Not sent yet. Open RoWhether when you have signal, or Jordan will be emailed at 8:30 AM." until it sends.
 - Start a row with a later start time while online: the banner says "Planned for ..." and the float plan is armed; `outAt` in the future is accepted only with `planned: true`.
 - Start a row, Add time, I'm back at 360 px and 1280 px; the banner shows on every tab of the location.
-- `/o/<token>` with stubbed status for `out`, `overdue`, `in` and `safe`; the safe flow.
+- `/o/<token>` with stubbed status for `out`, `overdue`, `in` and `safe`; the safe flow; the same with JavaScript disabled (the page reads and the form posts) and with Turnstile blocked (the mark is accepted on the token alone); an accessibility pass at 360 px and 200% zoom (07 12.1, 12.3).
 - Hazard list with stubbed data, Still there and Gone.
 - The summary line copy for one, several, differing and none.
 

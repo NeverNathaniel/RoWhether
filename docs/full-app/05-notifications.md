@@ -112,13 +112,14 @@ Every notification sent to a user is a row in `notify_log`. Account, "Notificati
 | `water_status` | A club changes its water status (06) | On for members | push; also email when closed | high when closed, else normal | 6 h | `ws-` plus 12 of the club id | Held, except closed, and except a restriction that begins before the person's quiet hours end (06 21.3; 08 K21) | 5 |
 | `practice` | A practice the user is in is cancelled, moved or changed (06) | On for invited members | push and email | high within 12 h of the start, else normal | Until the practice start | `pr-` plus 12 of the practice id | Held, except when the practice starts before the person's quiet hours end (06 21.3; 08 K21) | 6 |
 | `overdue` | An outing escalation stage (04 section 6.2) | Always, for every outing | push and email to the rower; email to contacts | high | 15 min for push | `od-` plus 12 of the outing id | Never held | 3 email, 4 push |
-| `system` | Account mail (03), moderation digest (04), engine problems (to the owner) | Always | email | | | | | 2 |
+| `system` | Account mail (03; in phase 2 it goes out through `worker/email.js` with no `notify_log` row, and 03 14.2's audit rows cover it), moderation digest (04), engine problems (to the owner) | Always | email | | | | | 3 |
 
 ### 3.2 Copy rules
 
 - Title: at most 50 characters. Starts with the location's `shortName` (01) so a list of notifications reads by place. Dev adds " (dev)" after the short name.
 - Body: aim for 160 characters, at most 240. How much a lock screen shows is unverified; the first sentence must stand alone.
 - Never call the verdict a "call". Use Go, Caution or Stay off.
+- A forecast is worded as a forecast. Every notification about a time ahead (night-before, overnight update, morning-of, Go window) says "looks like", "likely" or "possible" before the verdict, and its body ends with "Check again before you launch." On a lock screen a bare "Go" reads as permission, which the disclaimer says it is not (03 13.2).
 - Sentence case, no em dashes, no emojis, no all caps. Times in the location's time zone (`m.fmt`, 01) as the app prints them ("6:41 AM", "10 AM").
 - Built with the same text helpers the app uses, so a notification and the screen never disagree. `periodCall(p)`, `periodSummary(p)`, `periodTime(p)` and `dayLabel(t)` move from `src/render/days.js` to a new pure module `src/text.js` (no DOM, no `app` state), which `src/render/days.js`, `src/render/hero.js` and the Worker import. `src/render/days.js` re-exports them so nothing else changes.
 - Copy builders live in `worker/notify/copy.js`, pure and tested, one function per kind returning `{ title, body, url, tag }`.
@@ -129,11 +130,11 @@ Built from `periodsFor()` (via `buildModel(loc, data, S, now)`) for the target d
 
 | Situation | Title | Body |
 | --- | --- | --- |
-| Go | "Putney: Go tomorrow morning" | "6:41 to 10 AM. Wind 3 to 6 mph N, gusts 9. 41 to 52°F. Valley fog possible, lifting about 8 AM. Flat water." |
-| Caution, fog | "Putney: Caution tomorrow morning" | "Steam fog likely, lifting about 8:30 AM. Wind 2 to 4 mph. 38 to 50°F. Lights needed until 7:09 AM." |
-| Stay off | "Putney: Stay off tomorrow morning" | "Thunderstorms. Next Go: Saturday afternoon." |
-| All three periods | "Putney tomorrow" | "Morning Go. Midday Caution: gusts to 22 mph. Afternoon Stay off: thunderstorms." |
-| With a practice (06, phase 6) | "Putney: Caution for your 5:30 AM practice" | "Gusts to 19 mph by 6 AM. Fog unlikely. Practice is still on." |
+| Go | "Putney: looks like Go tomorrow morning" | "6:41 to 10 AM. Wind 3 to 6 mph N, gusts 9. 41 to 52°F. Valley fog possible, lifting about 8 AM. Flat water. Check again before you launch." |
+| Caution, fog | "Putney: looks like Caution tomorrow morning" | "Steam fog likely, lifting about 8:30 AM. Wind 2 to 4 mph. 38 to 50°F. Lights needed until 7:09 AM. Check again before you launch." |
+| Stay off | "Putney: looks like Stay off tomorrow morning" | "Thunderstorms. Next Go: Saturday afternoon. Check again before you launch." |
+| All three periods | "Putney tomorrow" | "Morning looks like Go. Midday Caution: gusts to 22 mph. Afternoon Stay off: thunderstorms. Check again before you launch." |
+| With a practice (06, phase 6) | "Putney: Caution likely for 5:30 AM practice" | "Gusts to 19 mph by 6 AM. Fog unlikely. Practice is still on. Check again before you launch." |
 | Forecast not available | "Putney: tomorrow's forecast is not available" | "We could not reach the forecast this evening. Open the app before you row." |
 | NWS alerts, river flow or air quality could not be checked, and the checked factors give Caution or Stay off (5.3) | (normal title) | Normal body plus " NWS alerts could not be checked.", " River flow could not be checked." or " Air quality could not be checked." |
 | The same, and the checked factors give Go | "Putney: tomorrow morning, flow not checked" (or "alerts not checked", "air quality not checked", "some checks missing" for two or more) | "Everything else looks like Go. River flow could not be checked. Check again before you launch." |
@@ -164,14 +165,14 @@ Otherwise nothing is sent and `notify_log` gets `skip_reason = 'unchanged'`.
 
 | Situation | Title | Body |
 | --- | --- | --- |
-| Worse | "Putney update: now Caution this morning" | "Steam fog likely until about 8 AM. Last night it was Go." |
-| Better | "Putney update: now Go this morning" | "The rain moved through overnight. Wind 4 to 7 mph. Last night it was Caution." |
-| Stay off | "Putney update: now Stay off this morning" | "Thunderstorms possible from 7 AM. Last night it was Go." |
-| Fog appeared at the same level | "Putney update: fog this morning" | "Valley fog likely, lifting about 9 AM. Still Caution." |
+| Worse | "Putney update: now looks like Caution" | "This morning, steam fog likely until about 8 AM. Last night it looked like Go. Check again before you launch." |
+| Better | "Putney update: now looks like Go" | "This morning, the rain moved through overnight. Wind 4 to 7 mph. Last night it looked like Caution. Check again before you launch." |
+| Stay off | "Putney update: now looks like Stay off" | "This morning, thunderstorms possible from 7 AM. Last night it looked like Go. Check again before you launch." |
+| Fog appeared at the same level | "Putney update: fog this morning" | "Valley fog likely, lifting about 9 AM. Still looks like Caution. Check again before you launch." |
 
 ### 3.5 Morning-of
 
-For people who want one message before they leave the house. A pref with a local time (default 5:00 AM, 3:30 to 9:00 AM allowed) sends the morning period as in 3.3, with "this morning" in place of "tomorrow morning". Title example "Putney: Caution this morning".
+For people who want one message before they leave the house. A pref with a local time (default 5:00 AM, 3:30 to 9:00 AM allowed) sends the morning period as in 3.3, with "this morning" in place of "tomorrow morning". Title example "Putney: looks like Caution this morning".
 
 ### 3.6 NWS alert
 
@@ -198,7 +199,7 @@ A rule: "Tell me when there is a Go window of 90 minutes in the next 2 days, mor
 
 | Title | Body |
 | --- | --- |
-| "Putney: Go window Saturday morning" | "Calmest 90 minutes: 7:15 to 8:45 AM. Wind 2 to 5 mph, flat water." |
+| "Putney: possible Go window Saturday morning" | "Calmest 90 minutes looks like 7:15 to 8:45 AM. Wind 2 to 5 mph, flat water. Check again before you launch." |
 
 ### 3.9 Club water status (06)
 
@@ -465,7 +466,7 @@ Configuration (`wrangler.jsonc`):
 }
 ```
 
-Previews need their own queue (`rowhether-notify-dev`) so dev jobs never reach production consumers. Whether the `previews` block in `wrangler.jsonc` accepts `queues` as it does `d1_databases` and `ratelimits` is unverified; if not, the Preview build skips enqueueing and `/api/admin/tick` delivers inline.
+Previews need their own queue (`rowhether-notify-dev`) so dev jobs never reach production consumers. The `previews` block accepts `queues` (08 6.1); whether Preview deployments run consumers is unverified, and if they do not, the Preview build skips enqueueing and `/api/admin/tick` delivers inline.
 
 Job message (at most 4 KB):
 
@@ -475,7 +476,7 @@ Job message (at most 4 KB):
   "user": "c0ffee00-1111-4222-8333-444455556666", "contact": null,
   "channels": ["push"], "emailIfNoPush": false,
   "push": { "ttl": 36000, "urgency": "normal", "topic": "nb-3f9a1c2b7d4e",
-            "payload": { "web_push": 8030, "notification": { "title": "Putney: Go tomorrow morning", "body": "6:41 to 10 AM. Wind 3 to 6 mph N, gusts 9.", "navigate": "https://rowhether.com/putney-landing", "tag": "nb-putney-landing", "lang": "en-US", "dir": "ltr" }, "rw": { "v": 1, "log": "7d1c2e3f-0a9b-4c8d-8e7f-6a5b4c3d2e1f", "kind": "night_before" } } },
+            "payload": { "web_push": 8030, "notification": { "title": "Putney: looks like Go tomorrow morning", "body": "6:41 to 10 AM. Wind 3 to 6 mph N, gusts 9. Check again before you launch.", "navigate": "https://rowhether.com/putney-landing", "tag": "nb-putney-landing", "lang": "en-US", "dir": "ltr" }, "rw": { "v": 1, "log": "7d1c2e3f-0a9b-4c8d-8e7f-6a5b4c3d2e1f", "kind": "night_before" } } },
   "email": null,
   "notBefore": null
 }
@@ -603,8 +604,8 @@ Decision: send payloads in the Declarative Web Push format and handle the same J
 {
   "web_push": 8030,
   "notification": {
-    "title": "Putney: Caution tomorrow morning",
-    "body": "Steam fog likely, lifting about 8:30 AM. Wind 2 to 4 mph. 38 to 50°F.",
+    "title": "Putney: looks like Caution tomorrow morning",
+    "body": "Steam fog likely, lifting about 8:30 AM. Wind 2 to 4 mph. 38 to 50°F. Check again before you launch.",
     "navigate": "https://rowhether.com/putney-landing#fog/2026-10-18",
     "tag": "nb-putney-landing",
     "lang": "en-US",
@@ -1002,6 +1003,7 @@ Unit tests (Vitest, `test/`), with `fetch`, the queue and D1 stubbed in the styl
 
 - Every builder with fixture periods: Go, Caution with fog and lights, Stay off with the next Go, all three periods, forecast not available, alerts not checked, no daylight.
 - Each failed slot (`alerts`, `river`, `flow`, `aq`) adds its sentence; a Go with a failed flow slot is not titled Go; a location with no flow binding or no alerts feed adds "Not checked here: ..."; Putney with every source adds nothing.
+- Every forecast notification (night-before, overnight update, morning-of, Go window) says "looks like", "likely" or "possible" before the verdict and ends with "Check again before you launch."
 - Rules on every output: title at most 50 characters, body at most 240, no em dash or en dash characters, no word "call" (except "call 911" in 04's contact emails), starts with the location's short name, times formatted in the location's zone.
 - Change detection: level up, level down, fog appears, fog clears, same level with a storm reason, unchanged (skip).
 

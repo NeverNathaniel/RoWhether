@@ -626,7 +626,7 @@ Putney's defaults (20,000 and 28,000 cfs) were "about the top 10% and top 5% of 
 4. **Round** down to two significant figures and suggest 01 11.3's lines (08 K7): `flowCaution` = p88, `flowOff` = p95, `against` = `[[p88, 1.4], [p65, 1.25]]`. At Putney that gives 10,000, 20,000 and 28,000, today's values (01 11.3).
 5. **Cap** with NWPS when known: `flowOff` never above the NWPS action flow (`flood.categories.action.flow`, when above 0). At Putney the action flow is 75,661 cfs, so no change.
 6. **Store** in the flow binding's `stats` (01 4.4; 08 K6), and copy the suggestion into the location's default settings (01-locations.md) when the person confirms.
-7. **Refresh** yearly: the Cron Trigger on January 15 recomputes `stats`. It changes the location's default lines only when nobody has edited them since they were computed.
+7. **Refresh** yearly: the daily run (`17 9 * * *`, 08 6.4) recomputes `stats` on January 15. It changes the location's default lines only when nobody has edited them since they were computed.
 8. **Putney** keeps 20,000 and 28,000 exactly. Its `stats` are kept for reference only.
 
 Later: "High for October" context from the USGS statistics API month-of-year percentiles (verified live 2026-10-17). Not needed for the verdict.
@@ -740,7 +740,7 @@ Decision: tides and tidal currents stay information only (charts and text, no ve
 | Method and path | Phase | Auth | Purpose |
 | --- | --- | --- | --- |
 | `GET /api/discover?lat=&lon=&water=` | 3; a local script in phase 1 (08 5.6) | signed in | Discovery, as above |
-| `PUT /api/locations/:slug/sources` | 3; phase 1 curates by pull request (08 K5) | location curator or moderator | Confirm bindings. Body `{ "sources": [ { "slot": "river", "adapter": "usgs-latest", "params": { "flow": "USGS-01154500" }, "label": "USGS river gauges", "note": "..." } ] }`. Response `{ "ok": true, "sources": [...] }`. Writes `location_revisions` (01-locations.md) |
+| `PUT /api/locations/:slug/sources` | 3; phase 1 curates by pull request (08 K5) | location curator or moderator | Confirm bindings. Body `{ "sources": [ { "role": "flow", "mode": "primary", "adapter": "usgs-ogc", "ref": "USGS-01154500", "params": { "parameterCode": "00060" }, "label": "USGS river gauges", "note": "..." } ] }`, in 01 4.4's binding fields. Response `{ "ok": true, "sources": [...] }`. Writes `location_revisions` (01-locations.md) |
 | `POST /api/locations/:slug/flow-stats` | not built (08 K6: `GET /api/sources/stats` with `&fresh=1`) | | Recompute flow statistics. Response `{ "ok": true, "stats": { "p50": 6910, "p90": 21820, "p95": 28010, "days": 3939 } }` |
 | `GET /api/locations/:slug/alerts` | 7 | none | Normalized alerts for sources without CORS (Met Office, MeteoAlarm, MetService). Response `{ "alerts": [ { "event", "headline", "desc", "instr", "start", "end", "lvl" } ], "source": "meteoalarm", "fetchedAt": 0 }`. `Cache-Control: public, s-maxage=300` |
 | `GET /api/locations/:slug/obs` | 7 | none | METAR through the Worker. Response is the `obs` shape plus `station`. `s-maxage=300` |
@@ -808,7 +808,7 @@ Decision: time zone from NWS points in the US and Open-Meteo `timezone=auto` els
 
 Decision: MapLibre GL JS with OpenFreeMap tiles, lazy-loaded on the map screens only. Alternative: Leaflet with OSM tiles. Alternative: no map.
 
-Decision: map tile, style and glyph requests count as data, not as a third-party CDN load. Alternative: self-hosted PMTiles in R2.
+Decision: map tile, style, sprite and glyph requests count as data, not as a third-party CDN load, and CLAUDE.md gains the sentence "Map tiles, styles, sprites and label glyphs load from OpenFreeMap only when a map is opened. They are data, never part of the app shell." Needs the owner's approval, because it reads a hard constraint in a new way (08 17.2). Alternative: self-hosted PMTiles in R2, and the style, sprites and glyphs in `public/`.
 
 Decision: buy Open-Meteo API Standard for server-side calls when Phase 4 starts. Alternative: free API from the Worker with retries. Alternative: alerts from browser-cached data.
 

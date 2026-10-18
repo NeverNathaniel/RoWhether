@@ -118,6 +118,8 @@ Applied: 04 6.3 (each contact has their own status token, derived with `NOTIFY_L
 - Problem: The outbox is "Flushed in order on `online`, on `visibilitychange` to visible, on startup, and every 30 s while visible and non-empty" (04 line 469). Every trigger needs the page to be open; the plan names no way to send while the app is closed or the phone is locked. The offline banner says "Not sent yet. No signal. Your contacts will not be told if you are late until this sends." (line 754; 07 line 143), which reads as if it will send by itself once there is signal. A sculler who starts offline, locks the phone and rows into signal is still not covered, and does not know it. The reverse case is not covered at all: an "I'm back" queued on a dock with no signal (line 757) leaves the outing open, so contacts are emailed at T + 30 while the rower drives home; the plan handles only the late arrival of that message (line 759) and shows the rower no warning.
 - Fix: Change the copy to what is true: "Not sent yet. It sends when RoWhether is open and has signal. Until then, nobody will be told if you are late." Add the same line after a queued "I'm back": "Not sent yet. Open RoWhether when you have signal, or Jordan will be emailed at 8:30 AM." Let a rower set the float plan before leaving home (a planned start time, armed then unless cancelled), so the dock's signal does not decide whether anyone is told. Cover both cases in the Playwright offline check.
 
+Applied: 04 5.6 (the offline line now says it sends only when the app is open; a queued "I'm back" has its own warning; a planned start sets the float plan from home with `planned: true` and `outAt` up to 12 hours ahead), 3.10, 5.1, 5.2 (a Start time field), 5.3, 5.5, 5.8, 6.4 and 12 (both offline cases in the Playwright check); 07 3.4 and 11.4 (the copy); 06 8.4 (the board counts a planned row from its start). No schema change: a planned row is `status = 'out'` with a future `out_at`.
+
 #### P12. The overdue email leaves out what a caller needs, and the status page needs the whole app to load
 
 - Severity: major (phase 3).
@@ -125,12 +127,16 @@ Applied: 04 6.3 (each contact has their own status token, derived with `NOTIFY_L
 - Problem: The stage 3 email gives the location name, the times and a link: "See where and when Alex launched: https://rowhether.com/o/..." (04 line 1018). The details a caller needs (boat, crew, direction, route note, the rower's phone, where they launched) are only on the status page, and that page "is the SPA (01's `not_found_handling` serves `index.html`), which calls `GET /api/outings/status/:token`" (line 942): the whole app shell and an API call, on whatever phone and connection the contact has. The page shows only coordinates, "Launch point: 42.9607, -72.5219." (line 967), although 06 asked 04 "to show the launch address next to the coordinates" (06 line 1061) and 04 was not changed. The page and the email both say "call 911 or the local emergency number" (lines 969 and 1020). A contact in another country or state cannot reach the launch's emergency service by dialing their own, and nothing says which number serves the launch.
 - Fix: Put the facts in the email itself, as plain text: launch name and street address, boat and crew, direction and route note, back-by time with its zone, the rower's phone when shared, and the emergency number for the launch's country with the location's emergency info (06 8.7). Serve `/o/<token>` as a small Worker-rendered HTML page with no app shell, readable with JavaScript off. Word the call to action for the launch, not the reader: "Emergency services at Putney Landing: 911 (United States)." Add an optional "number for callers outside the area" (the local dispatch line) to 06's emergency info and show it here.
 
+Applied: 04 6.5 (the stage 3 and 4 emails carry the facts as plain text: launch address, boat and crew, direction and route note, back-by time with its zone, the rower's phone when shared, and the emergency services for the launch with its country, for example "Emergency services at Putney Landing: 911 (United States)", plus a dispatch line for callers outside the area) and 6.3 (the status page is a small Worker-rendered page with plain form posts, readable with JavaScript off; the copy no longer says "the local emergency number"); 06 8.7 (an optional `dispatch` number and the status page and emails as places the block shows); 07 4.1 (`/o/*` is served by the Worker); 08 6 and 7.4 (`/o/*` in `run_worker_first`, the CSP).
+
 #### P13. Emergency numbers can be typed in by whoever added the location, and the country table is unchecked
 
 - Severity: major (phase 3).
 - Where: `06-clubs.md` 8.7 lines 1035, 1050, 1052 and 1054; `01-locations.md` 2.1 line 85, 13.1 line 1246; `07-product-and-ux.md` 5.5 line 539; `08-architecture.md` 4.3 line 329.
 - Problem: The emergency number is a stored, editable field, `"number": "911"` (06 line 1035), and the hospital and other phones are free text of up to 120 characters with no format check (line 1050). 06 says only steward clubs and moderators edit emergency info and others suggest (line 1054). In 01, though, `emergency` is just a field of the location record (01 line 85), and the creator may "Edit a `published` location directly" (01 line 1246). Steward clubs arrive in phase 5, while the column and the Safety section ship in phase 3, and curated records may carry it from phase 1 (08 line 329). In phases 3 and 4 the person who added a community location can therefore type any number as the emergency number or the hospital phone, and the page offers it as a `tel:` link (07 line 539). The country table behind the default number is "unverified; check before phase 7" (06 line 1052), but 07 uses it from phase 3: "The country's number comes from 06's default table." (07 line 539).
 - Fix: Do not store `number`. Derive it from the location's country through a checked table, cite the source for each country, check it before phase 3, and refuse to publish a location in a country the table does not cover. Validate phone fields as E.164 before they become `tel:` links. Until a steward club exists, every change to emergency info is a suggestion a moderator approves, never a direct edit by the creator. Every emergency block shows "Last checked" or "Not checked yet".
+
+Applied: 06 8.7 (no stored `number`: it comes from a checked country table in `src/emergency.js`, each row citing an official source and checked by a person before phase 3 ships; E.164 check on every phone field before it becomes a `tel:` link; until a steward club exists every change to emergency info is a suggestion a moderator approves; every block shows "Last checked ..." or "Not checked yet."), 01 2.1, 12.10 (refuse a location in a country the table does not cover) and 13.1; 07 5.5. The source check itself is a task before phase 3.
 
 ### Minors
 
@@ -141,6 +147,8 @@ Applied: 04 6.3 (each contact has their own status token, derived with `NOTIFY_L
 - Problem: 03 blocks the deletion: "A boat signed out and not back (phase 3) | \"You have a boat signed out. Sign it in first, so no one is alerted by mistake.\"" (03 line 369; 409 `open_outing`, line 1524). 04 lets it through: "The rower deletes their account while out: the outing is cancelled and contacts get the all clear first (03's deletion runs this before deleting)." (04 line 989). Following 04, someone who has taken over an account could send the contacts an all clear while the rower is still out. 03's copy also says "signed out" and "Sign it in" for a boat, words 04's Decision keeps for the account (line 696).
 - Fix: Keep 03's blocker and change 04 6.4 to match. Reword 03's message in 04's words: "You are on the water since 6:42 AM. Tap I'm back first, so no one is alerted by mistake."
 
+Applied: 04 6.4 (deleting an account while out is refused until the rower taps I'm back; deletion never sends an all clear), matching 03; 03 4.10 and 16.6 (the message now reads "You are on the water since 6:42 AM. Tap I'm back first, so no one is alerted by mistake.", in 04's words).
+
 #### P15. Evening messages state Go as fact, while practice checks say "looks like"
 
 - Severity: minor (phase 4).
@@ -148,12 +156,16 @@ Applied: 04 6.3 (each contact has their own status token, derived with `NOTIFY_L
 - Problem: The night-before message titles a forecast 10 or more hours ahead as a plain verdict: "Putney: Go tomorrow morning" (05 line 132), and the overnight update says "Putney update: now Go this morning" (line 166). The same kind of evening forecast for coaches is worded as a forecast: "tomorrow's 5:45 AM practice looks like Stay off" (06 line 1306). On a lock screen, without the app's facts or the footer, a bare "Go" reads as the permission the disclaimer says it is not ("They are information, not permission.", 03 13.2).
 - Fix: Word every forecast notification as a forecast and end with a check: "Putney tomorrow morning looks like Go. ... Check again before you launch." Apply the same to the overnight update ("now looks like Go") and the Go window alert.
 
+Applied: 05 3.2 (a copy rule: every forecast notification says "looks like", "likely" or "possible" and ends with "Check again before you launch."), 3.3, 3.4, 3.5, 3.8, the payload samples in 5.6 and 6.3, and 12 (a test); 07 3.4. 06 12.2 already words coach forecasts this way.
+
 #### P16. The float plan notice leaves out the limits that matter most
 
 - Severity: minor (phase 3).
 - Where: `04-reports-and-check-ins.md` 6.6 lines 1038 and 1044; `05-notifications.md` 2.3 line 92.
 - Problem: The one-time sheet says "We email your contacts if you are late. We do not watch the water, call anyone, or know where you are. Your phone needs signal for us to know you started. Tell someone your plan as well." (04 line 1038). It does not say that finishing also needs signal (P11), that contacts get email only, with no text message or call (05 2.3), so they may not see it for hours or may find it in spam, or that in phase 3 the rower's own reminders are email only ("ship float plans in phase 3 with email reminders to the rower", line 1044), which a rower on the water will not see.
 - Fix: Add two sentences: "Tapping I'm back needs signal too. Your contacts get an email, not a call or a text, so make sure they know to look for it." In phase 3, add: "Reminders to you come by email until notifications arrive."
+
+Applied: 04 6.6 (the one-time float plan sheet now says that tapping I'm back needs signal, that contacts get an email and not a call or a text, and, in phase 3 only, that reminders to the rower come by email until notifications arrive).
 
 ## 2. Safeguarding of minors
 
@@ -195,12 +207,16 @@ Applied: 06 3.3 and its Decisions (an unverified club cannot enrol juniors, by i
 - Problem: 03 says "A junior's outings and float plans are visible to their guardians and to their club's safety officers (04, 06)." (line 778) and that emergency contacts are "visible only to the club's safety officers during an overdue escalation" (line 776). 06 says the opposite for staff: "Staff never see a junior's personal data outside the club: the personal row log, float plan contacts, other clubs, or location history" (06 line 447). For guardians, 06 shows "Their junior's rows, with the coach's name, no crewmates" on the board (line 957) and the junior's club life (line 444), while 03's activity route returns all of the junior's "outings" (line 1536) and 03 11.5 lists "Outings and float plans (04)" (line 807). 04 gives club roles "that club's outings at its locations" only (04 line 747). A build that follows 03 shows safety officers a junior's personal float plans and contacts; one that follows 06 does not.
 - Fix: One rule, written in 03 and copied into 04, 06 and the 08 routes. Suggested: staff see a junior's club outings only, never personal outings or contacts; guardians see club outings through the club and personal outings only when the junior shares them (P17); during a club overdue escalation, safety officers see the rower's emergency contacts only if the rower chose to share them with that club. Test that the guardian activity route and the board return the same set.
 
+Applied: 03 11.4 (rule 12 states the one rule: staff see club outings only, guardians see club outings and rows the junior shares, both read `boardRow()` so the activity route and the board return the same set; rule 10: no club staff member sees emergency contacts, and staff reach a junior's family through the club's guardian record) and 20 (the test); 06 5.2 rules 4 and 7 and 8.4 (guardian row); 04 5.5. No "share contacts with the club" switch was added: 06's stricter reading holds and the guardian record covers juniors.
+
 #### P21. The junior rules in 03 are missing where they act, in 01 and 04
 
 - Severity: major (phase 3).
 - Where: `03-accounts-and-privacy.md` 11.3 lines 743, 745 and 747; `04-reports-and-check-ins.md` 4.5 line 573; `01-locations.md` 12.1 line 1143, 13.3 line 1272; `07-product-and-ux.md` 5.5 line 535; `06-clubs.md` 5.2 line 446.
 - Problem: 03 sets three junior rules for other docs to apply: no name shown publicly with "reports, hazards, location edits" (line 743); public free text "Held for review by a moderator before it shows" (line 745); and "Add a location | No; suggestions are held for review" (line 747). 04 makes a hazard note public on the screen's verdict alone: "The note is public only after a screen verdict of `ok`" (04 line 573). 01 lets any account 24 hours old add a location (01 line 1143), and names the author publicly in History, "By Sam R." (line 1272), and on the location, "Community added by Sam R." (07 line 535). 04 mentions juniors once (escalation defaults); 01, 02 and 05 never do. A junior's free text goes public on a model's judgement, and a junior's name can appear on public pages, which 03 and 06 ("Junior names never appear on public pages", 06 line 446) forbid.
 - Fix: Write the junior rules into 01 and 04 where they act. Hazard notes and launch notes from juniors go to the moderation queue whatever the screen says. Juniors cannot create locations and see "Suggest a location" instead. History and the creator line show "A rower" for juniors. Add a test on each path that calls `isJunior()`.
+
+Applied: 04 4.5 (a junior's hazard and launch notes always go to the moderation queue, whatever the screen says), 8.4 and 12; 01 12.1 (juniors cannot add a location: "Suggest a location" saves a draft for a moderator, 403 `junior`), 13.3 (History and the creator line say "a rower" for a junior) and 16.3 (a test on each `isJunior()` path); 07 5.5 (the creator line); 03 11.3 (table row).
 
 ### Minors
 
@@ -211,12 +227,16 @@ Applied: 06 3.3 and its Decisions (an unverified club cannot enrol juniors, by i
 - Problem: 06 says the guardian's "Share my phone with Putney Rowing Club staff for emergencies" is "on by default" (06 line 448). 08 creates `share_phone INTEGER NOT NULL DEFAULT 0` (line 1133). 03 adopts the ICO code's "high privacy by default" (line 711). Either answer is defensible, since staff may need a parent's number in an emergency, but the two docs disagree on a contact-data default.
 - Fix: Pick one and write it in both. If it stays on by default, the join screen shows the box ticked with its reason, the privacy notice names it, and the column default is not relied on.
 
+Applied: 06 5.2 rule 8 now says the guardian's phone sharing is off until ticked, with the box shown unticked and its reason on the join screen, and the legal review line in 06 follows. This matches 08 (`memberships.share_phone DEFAULT 0`) and 03 11.1 (high privacy by default), so no 08 change was needed.
+
 #### P23. 06 can be read as letting the kiosk show juniors' names
 
 - Severity: minor (phase 5).
 - Where: `06-clubs.md` 5.2 line 446, 8.4 line 958, 8.5 line 975.
 - Problem: Rule 6 reads "Junior names never appear on public pages. The kiosk shows first name and last initial." (line 446), which in a rule about junior names says the kiosk shows juniors as first name and last initial. 8.4 says the kiosk shows "Adults as first name and last initial; junior crews unnamed" (line 958), and 8.5 lists "junior names" among what a kiosk cannot see (line 975). A boathouse screen is seen by anyone who walks in.
 - Fix: Reword rule 6: "Junior names never appear on public pages or on the kiosk, which shows adults as first name and last initial and junior crews unnamed."
+
+Applied: 06 5.2 rule 6 reworded to the finding's text, so it agrees with 8.4 and 8.5.
 
 ## 3. Privacy
 
@@ -229,6 +249,8 @@ Applied: 06 3.3 and its Decisions (an unverified club cannot enrol juniors, by i
 - Problem: 03 says: "If 04 wants proof someone is at the dock, the browser computes it and sends only a flag (`\"atDock\": true` when within 500 m of the location's dock point), not coordinates." (line 876), and rounds Near me before sending because "Rounding before the request keeps precise coordinates out of request logs" (line 875). 04 sends them: the dialog "sends `geo: { lat, lon, acc }`" (line 184), with a sample `"geo": { "lat": 42.96071, "lon": -72.52188, "acc": 18 }` (line 447), and hazard votes do the same (line 663). 04 keeps them out of D1 and logs (line 195), and 08 stores only the word (line 728), but the precise position of a person at a dock still leaves the phone on every report and vote, and sits in the offline outbox in `localStorage` until it sends (line 469). The browser already has the dock point from the location record, so the server gains nothing it could not get from a flag, which a client can fake just as easily as coordinates.
 - Fix: Follow 03: compute `near`, `far` or `unknown` in the browser from the location record and send only that word, for reports and hazard votes. Change 04 3.4, 3.9 and 4.8 and the tests to match, and keep the "no coordinates in the body" test as a check that none are sent.
 
+Applied: already handled by consistency finding C35 (04 3.4, 3.5, 3.9, 4.8 and the code map: the browser computes `near`, `far` or `unknown` with `geoWord(pos, loc)` and sends only the word, for reports and hazard votes; 03 12.2 points at it). What was left: 04 12 now checks that no request body or outbox entry carries `lat`, `lon` or `acc`. A hazard pin's own position is the hazard's location and stays, as the post sheet says.
+
 #### P25. The list of third parties that receive data is incomplete
 
 - Severity: major (phase 2 for the notice, phases 3 to 6 as each arrives).
@@ -236,12 +258,16 @@ Applied: 06 3.3 and its Decisions (an unverified club cannot enrol juniors, by i
 - Problem: 03's table, which becomes the privacy notice's processor list, names Cloudflare, Resend, Anthropic (for suggestions, and "04 may use it to triage free-text reports"), GitHub and the data agencies (lines 911 to 917). The other docs send personal data to parties it does not list: Apple, Google, Mozilla and Microsoft push services receive each device's endpoint and the timing of every alert (05 2.1); OpenFreeMap receives map tile requests, and the add flow's map is "centered on the device position if permitted" (01 line 1151), so tile requests reveal where the person is; Photon (komoot) and Open-Meteo geocoding receive what people type into search (02 lines 227 and 638 to 642); Anthropic also screens hazard notes, launch notes, club descriptions and public water status notes (04 8.6, 06 3.2, 06 7.4), not only suggestions; and calendar services such as Google fetch the private calendar feed, which holds a junior's practice times, place and seat for a guardian (06 14.1).
 - Fix: Add each party to 12.5 with what it receives and why, and to the privacy notice. Start the add flow's map from a search or a rounded position rather than the device's exact position, or say plainly that the tile service sees the area shown. Note in 06 14.1 that a calendar link is read by the calendar service the person subscribes with.
 
+Applied: 03 12.5 (new rows: place search by Open-Meteo geocoding and Photon, OpenFreeMap tiles, the push services, calendar services; the Anthropic row now lists hazard and launch notes, club descriptions and public water status notes) and 13.3 (the notice lists every row); 01 12.3 (the add flow's map starts from a search or the last region, never the device's exact position, with the line "The map service sees the area you look at."); 06 14.1 (the calendar link says the calendar service sees the times).
+
 #### P26. Incident records holding health details of minors have three different retention answers
 
 - Severity: major (phase 5).
 - Where: `03-accounts-and-privacy.md` 12.9 lines 987 and 1009; `06-clubs.md` 3.6 line 307, 9.1 lines 1093, 1101 and 1102, 9.3 lines 1140 and 1142, 16.3 line 1467.
 - Problem: Incidents hold injuries ("Medical event, Hypothermia, Heat illness, Rowing injury, First aid, Drowning", line 1093), people involved with a "minor" flag (line 1101), and witnesses' phone or email (line 1102). 03 says deletion clears the user columns and the record is kept for a set period: "Keep `incidents` with names removed, for a retention period 06 sets with legal advice (suggest 7 years for incidents involving minors)." (03 line 1009). 06 says "Keep incident records, names included, until the club deletes them or the club is deleted" (06 line 1142), with "the names written in the record stay" after an account is deleted (line 1140), and keeps them "Until the club deletes them" (line 1467). And a club deletion deletes every incident with the club 14 days after any one admin asks (line 307), which can destroy a record about a minor that the club may need to keep. So health data about minors can be kept forever with names, or destroyed early, depending on which doc is built.
 - Fix: One rule in 03 and 06, set with legal advice: a fixed retention period (03 suggests 7 years for incidents involving minors), names and health details kept only for that period, and incidents not deleted with the club before the period ends (hand the export to the club and keep the records sealed until then, readable only by site admins on a legal request). Name the incident log as health data in the privacy notice. Treat witness contact details as third-party data with the same period.
+
+Applied: 06 9.3 (one retention rule: 7 years from the incident, then the whole record is deleted; names stay inside the period; witness contacts follow the same period; incidents are sealed, not deleted, when a club is deleted, and a site admin reads them only on a legal request with an audit row; the privacy notice names the incident log as health data), 3.6 (club deletion keeps incidents and the club tombstone while any remain), 16.3 and the open Decision; 03 12.1, 12.9, 13.3 and the Decision list. The period itself is for the lawyer: recorded as the Decision (recommendation first) and as a 13.5 review item.
 
 ### Minors
 
@@ -251,6 +277,8 @@ Applied: 06 3.3 and its Decisions (an unverified club cannot enrol juniors, by i
 - Where: `03-accounts-and-privacy.md` 4.1 line 244, 11.3 lines 743 and 754, 12.1 line 859; `04-reports-and-check-ins.md` 3.6 line 274; `07-product-and-ux.md` 3.7 line 175.
 - Problem: The sign-up name hint says "Shown with your reports and in your clubs." (03 line 244); 03 11.3 has adults' names "shown to the public with reports, hazards, location edits" (line 743), and a junior turning 18 is told "Your name now shows with your reports." (line 754). 03's own inventory says "reporter names are never shown, 04" (line 859), and 04 says "Reporter names are never shown. A signed-in reporter is not identified, only badged." (04 line 274). Names do show with location creation and edits (P21). People are told the wrong thing about where their name appears, and the doc a builder reads first (03) points the wrong way.
 - Fix: State one rule in 03 11.3 and the sign-up hint: names show with locations you add or edit and in your clubs, never with reports or hazards. Change the age-up message to match ("Your name now shows with location edits.").
+
+Applied: 03 4.1 (the name hint reads "Shown with locations you add or edit, and in your clubs."), 11.3 (the table row and the age-up message: names show with location edits and in clubs, never with reports or hazards); 07 3.7 step 5.
 
 ## 4. Abuse and moderation
 
@@ -263,12 +291,16 @@ Applied: 06 3.3 and its Decisions (an unverified club cannot enrol juniors, by i
 - Problem: "Clear (\"Gone\"): any signed-in user." A hazard becomes `cleared` when "two different users vote clear after the latest confirm" (lines 547 and 550). Account age limits only posting ("Accounts under 24 hours old: at most 2 hazards a day", line 521); votes are allowed to any account, 50 a day (line 1086). On clearing, the "Card disappears" (line 566), and the record is "visible only to moderators" (line 554). One person with two email addresses can make a submerged tree warning vanish for everyone, and a mistaken "Gone" from two passers-by does the same. Flags add a second path: "an item with flags from 3 different users whose accounts are at least 7 days old is hidden at once (`status = 'hidden'` ...)" (line 1113), but `hazards.status` has no `hidden` value in 08 (`'active', 'cleared', 'expired', 'removed'`, line 773), so a build must either fail the update or map it to `removed`, taking a live warning down on three flags.
 - Fix: Count clear votes only from accounts at least 7 days old, and require either the poster, a moderator, a club safety role, or two clear votes with a `near` geolocation result. Keep a cleared hazard visible for 24 hours as "Reported gone by 2 people at 7:10 AM" before it drops off the list. Flags on a hazard hide only its note, never the pin, and send the pin to the queue. Say in 04 8.5 which column auto-hide sets for each target type.
 
+Applied: 04 4.4 (a clear vote counts only from an account at least 7 days old with `geo` near the pin, unless it comes from the poster, a moderator or a club safety role; a cleared hazard stays listed for 24 hours as "Reported gone by 2 people at 7:10 AM" and a confirm reopens it), 8.5 (a table of what auto-hide sets per target type: a hazard pin is never hidden by flags, only its note, and the pin goes to the queue; `hazards.status` has no `hidden`), 4.8 and 12; 08 4 (a comment on `clears_since_confirm`). No schema change.
+
 #### P29. One anonymous tap can undo a "launch closed" report, and a shared network can overwrite other people's reports
 
 - Severity: major (phase 3).
 - Where: `04-reports-and-check-ins.md` 3.3 lines 152, 154 and 158, 3.5 line 212, 3.6 lines 235 and 268.
 - Problem: "`launch`: the newest report wins regardless of weight, because a closure is a fact someone just checked. A `closed` report shows in caution color until a newer `open` report or 12 hours." (line 235). A single signed-out "Open" tap, from anyone anywhere, removes "Launch reported closed or blocked at 6:10 AM." (line 268) from the screen. Separately, replacement is keyed on the reporter: "the newest row from the same `user_id` or `ip_hash` at this location with `created_at` in the last 10 minutes is updated instead of inserting" (line 212). `ip_hash` is a daily hash of the IP address (line 158), and a boathouse wifi or a mobile carrier's shared address puts different people behind one IP. A second person's "Flat water" then overwrites the first person's "launch closed" or "thick fog" row instead of adding one, and the daily cap of 20 a day per `ip_hash` (line 152) can lock a whole boathouse out.
 - Fix: An `open` report clears a `closed` one only when it comes from a weight of 1.5 or more, or from two independent reporters; until then show both ("Reported closed at 6:10 AM, open at 6:20 AM."). Replace a signed-out report only when the same browser sent it (a random id kept in `localStorage`), not on `ip_hash` alone, and merge fields rather than overwrite them. Raise the daily cap for an `ip_hash` that many signed-in members also report from, or apply it to signed-out reports only.
+
+Applied: 04 3.6 (a closed launch report stays until an open report from a reporter with weight 1.5 or more, or from two different reporters; until then the line shows both), 3.3 and 3.5 (a signed-out report is replaced only by the same browser, through `browser_hash`, a daily HMAC of a random id the browser keeps in `localStorage`; the update merges fields; the daily cap is per user or per `browser_hash`, with a backstop of 100 an `ip_hash` for signed-out reports only), 3.8, 3.9 (`browserId`; `mine` only for the signed-in author), 8.2, 8.9 and 12; 08 4 (`0005_reports_locations.sql`: `reports.browser_hash` and its index), 8 (the storage key) and 10 (the hash table); 03 12.1.
 
 ## 5. Accessibility where safety depends on it
 
@@ -281,12 +313,16 @@ Applied: 06 3.3 and its Decisions (an unverified club cannot enrol juniors, by i
 - Problem: The banner changes from "On the water" to "You are 12 min past it. We email Jordan at 8:30 AM." and then to "Jordan was emailed at 8:30 AM. Tap I'm back to send the all clear." (07 lines 1249 and 1250). It is kept out of the hero's live region ("do not put the outing banner or notes inside it", line 1326) and given no role of its own, while the club water status banner has "`role=\"status\"` so a change during a visit is announced once" (line 1242) and the board announces overdue changes (line 1328). A screen reader user who has the app open hears nothing when their contacts are about to be emailed, or have been.
 - Fix: Give the banner's state line `role="status"` and announce each stage change once, with the same words as the screen. Add it to the 07 13 browser checks.
 
+Applied: 07 11.4 (the outing banner's state line has `role="status"` and each stage change is announced once, in the screen's words), 12.3 (the banner stays outside the hero live region) and 13 (a phase 3 browser check).
+
 #### P31. The contacts' status page has no accessibility plan, and its one action depends on Turnstile loading
 
 - Severity: minor (phase 3).
 - Where: `04-reports-and-check-ins.md` 3.11 line 493, 6.3 line 977, 8.3 line 1096, 12 line 1333; `07-product-and-ux.md` 12.1.
 - Problem: `/o/<token>` is read by people who are not users, often worried and on whatever phone they have. It is missing from 07's keyboard paths (12.1) and its only test is functional (04 line 1333). Its one action, "I reached Alex, they are safe", runs Turnstile (line 977; line 1096). When Turnstile cannot load, the report dialog has a fallback ("The spam check could not load. Sign in to send reports without it.", line 493), but a contact has no account to sign in with, and the plan gives no fallback for this page.
 - Fix: Add the status page to 07 12 (heading order, the phone number as a real `tel:` link, large targets, no reliance on color for "overdue") and to the browser checks with a screen reader pass. When Turnstile fails, accept the safe mark with the contact's own token alone (P9) and rate limit it, rather than refusing it.
+
+Applied: 07 12.1 (a keyboard and screen reader row for the status page: heading order, `tel:` link, targets at least 3rem, no color-only "overdue", `lang`, zoom, JavaScript off) and 13 (browser checks); 04 8.3 (when Turnstile cannot load, the safe mark is accepted on the contact's own token alone, rate limited), 12; 08 10.8.
 
 ## 6. Legal and liability
 
@@ -300,6 +336,8 @@ These are points for the owner to take to a lawyer. This review does not give le
 - Where: `03-accounts-and-privacy.md` 4.1 line 251, 11.5 line 788, 13.1 line 1020.
 - Problem: The terms outline says "Who can have an account: 13 or older. Under 18 with a parent's or guardian's permission." (03 line 1020). The product never collects that permission: a 13 to 17 year old gets "201, a junior account" straight away (line 251), and "A junior account does not need a guardian link to exist" (line 788). The terms would then state a condition the service knows it does not check, for exactly the users the plan treats most carefully.
 - Fix: Ask the lawyer which is right for a free, general audience service with junior accounts: drop the permission sentence, or collect permission (for example through the guardian link) before some features. Make the terms and the sign-up flow say the same thing.
+
+Owner: Should the terms require a parent's permission for 13 to 17 year olds, and if so how is it collected? Until the lawyer answers, 03 13.1 item 2 now says only what sign-up does (13 or older, junior protections, club joins need a guardian's approval). Decision added to 03 section 21 with that wording first, and item A added to the 13.5 review list before phase 2.
 
 #### P33. The legal review in 03 13.5 leaves out the riskiest features
 
@@ -317,6 +355,8 @@ These are points for the owner to take to a lawyer. This review does not give le
   9. Whether Vermont's Act 63 applies, and what changes if a paid tier is ever added (02's commercial section), since 03 rests "probably not a covered business" on having no revenue.
 - Fix: Add these items to the 13.5 review list, with the phase each blocks: 1 and 2 before phase 3; 3 to 8 before phase 5; 9 before any paid feature. Keep the lawyer's answers in a short file next to the plan so the fix pass can point to them.
 
+Applied: 03 13.5 (the review list now has every item: A for the parent permission sentence before phase 2; 1 and 2 before phase 3; 3 to 8 before phase 5; 9 before any paid feature; the lawyer's answers go in `docs/full-app/legal-answers.md`, a file to create when answers arrive).
+
 ### Minors
 
 #### P34. The safety disclaimer does not say that checks can be missing or set by other users
@@ -325,3 +365,5 @@ These are points for the owner to take to a lawyer. This review does not give le
 - Where: `03-accounts-and-privacy.md` 13.2 lines 1044 to 1052.
 - Problem: The draft says Go, Caution and Stay off "are what that data says against those limits" and that "Forecasts and gauges can be wrong or late" (line 1044 onward), and the footer short form is "Information only. You, your coach and your club decide. Look at the water before you launch." (line 1052). It does not say that some locations have no gauge or no official alerts, so those factors are not checked there (P5), or that at community-added locations the limits, course and emergency details come from other users and may not have been checked (P2, P13). Those are the two cases where the verdict carries the least behind it.
 - Fix: Add to the disclaimer: "Not every location has every source. Where a factor is not checked, the page says so. At community-added locations, limits and details come from other rowers and may not have been checked." Add "Some locations have fewer checks." to the footer's short form where it applies.
+
+Applied: 03 13.2 (the disclaimer says that not every location has every source, that unchecked factors are named on the page, and that limits and details at community-added locations come from other rowers and may not have been checked; the footer short form adds "Some locations have fewer checks." where it applies); 07 6.6 (the footer, unchanged for Putney).

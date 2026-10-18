@@ -67,7 +67,7 @@ Facts are marked "verified live 2026-10-17" (checked today with a request, a pac
 | Reports with text or photos, hazards, hazard votes | 3 | No | Yes (04) |
 | Adding a location, suggesting or making edits | 3 | No | Yes; account 24 hours old to add, 7 days old to suggest (01, 12.1 and 13.1) |
 | Outings, float plans, personal row log | 3 | No | Yes (04) |
-| Location alerts on this device | 4 | 05 decides; recommended yes, device only | Email alerts, rules that follow you across devices (05) |
+| Location alerts | 4 | No (05 13) | Every alert: push, email and rules that follow you across devices (05) |
 | Public club page, club water status | 5 | Yes | Never |
 | Club membership, sign-out board, club rules, safety officers | 5 | No | Yes (06) |
 | Schedule, attendance, lineups, boats, booking | 6 | No | Yes (06) |
@@ -241,7 +241,7 @@ Each flow names the screens, the API calls (16) and the copy. Screen titles are 
    - Hint: "Not there after a minute? Check spam."
 5. "Continue" sends `POST /api/auth/code/verify` `{ "codeId": "...", "code": "482913" }`. For an address with no account the answer is `{ "status": "new_account", "ticket": "..." }`.
 6. Screen "Create your account":
-   - Field "Name". Hint: "Shown with your reports and in your clubs. A first name and last initial works well." 2 to 40 characters (7).
+   - Field "Name". Hint: "Shown with locations you add or edit, and in your clubs. A first name and last initial works well." 2 to 40 characters (7).
    - Fields "Month and year you were born": a month select (blank, then January to December) and a 4-digit year text field. Hint: "Only used to apply the rules for junior rowers. We do not keep your birth date."
    - Field "Home location": a select, preset to the location open now ("Putney Landing"), with "None".
    - Button: "Create account"
@@ -366,7 +366,7 @@ One blocker:
 
 | Blocker | Copy |
 | --- | --- |
-| A boat signed out and not back (phase 3) | "You have a boat signed out. Sign it in first, so no one is alerted by mistake." Signing in runs 04's normal all clear, which is what 04 asks to happen before a deletion. |
+| A row started and not finished (phase 3) | "You are on the water since 6:42 AM. Tap I'm back first, so no one is alerted by mistake." I'm back runs 04's normal all clear. Deletion never ends an outing itself, so someone who has taken over an account cannot send the contacts an all clear while the rower is still out. |
 
 Notes, not blocking (a person's right to delete must not depend on someone else acting):
 
@@ -602,7 +602,7 @@ Decision: Favorites work signed out, kept in the browser; an account only syncs 
 | Units, home location | Profile columns (7) | Yes | |
 | Favorites | 8 | Yes | |
 | Forecast cache, location record cache, recent list, last location | Device | No | Device state, not preferences. |
-| Install snooze, nudge dismissal, passkey offer, age gate | Device | No | About this browser. |
+| Install bar choice, nudge dismissal, passkey offer, age gate | Device | No | About this browser. |
 | Add a location draft (`rowhether-add-draft-v1`, 01 12.2) | Device | No | 01 saves server drafts. |
 
 ### 9.2 Storage
@@ -740,18 +740,18 @@ Defaults while `now < junior_until`. A junior cannot change these; they lift aut
 
 | Setting | Junior | Adult |
 | --- | --- | --- |
-| Name shown to the public with reports, hazards, location edits | No: "A rower" | Yes |
+| Name shown to the public with locations they add or edit (reports and hazards never show a name, 04 3.6) | No: "a rower" | Yes |
 | Name shown to members of their clubs | Yes | Yes |
 | Public free text (report notes, hazard text, launch notes) | Held for review by a moderator before it shows. Choice-only reports and hazards show at once, without a name. | 04's rules |
 | Photos (if 04 adds them) | Not allowed | Allowed, location data removed (12.2) |
-| Add a location | No; suggestions are held for review | 01's rules |
+| Add a location | No; "Suggest a location" saves a draft a moderator reviews (01 12.1) | 01's rules |
 | Club messages | Only group broadcasts that meet 11.4 | n/a |
 | Non-safety notifications from 10 PM to 6 AM in the club's time zone | Held until 6 AM | The person's choice (05) |
 | Safety notifications (water closed, overdue boat, Stay off level weather alert) | Always | Always |
 | Visible to linked guardians | Yes, with the signal in 11.5 | n/a |
 | Export and delete own account | Yes; linked guardians are told | Yes |
 
-On the day `junior_until` passes, the daily cleanup sets it to null, guardian links end (11.5), and the person sees once: "Your account is now an adult account. Your name now shows with your reports. Change this in Account."
+On the day `junior_until` passes, the daily cleanup sets it to null, guardian links end (11.5), and the person sees once: "Your account is now an adult account. Your name now shows with location edits. Change this in Account."
 
 Decision: Hold juniors' public free text for moderator review; choice-only contributions show at once without a name.
 - Alternative: juniors post only choice-only content publicly (no free text).
@@ -773,9 +773,9 @@ These are requirements on 04, 05 and 06. They make RoWhether a platform where cl
 7. Messages are kept for the club's safeguarding record. A sender can remove a message from view; it shows "Removed by the sender", and the original stays visible to the club's safety officers and the guardians who received it, for 1 year (06 may set longer with legal advice).
 8. Junior quiet hours (11.3) for non-safety messages.
 9. A guardian can turn off club notifications to their junior's devices, except overdue messages and a closed water status (`guardian_links.mute_nonsafety` here, 06 5.2 rule 5 there), and can ask that the club not message their junior directly (`guardian_links.discontinue`): club messages then reach the junior only through the guardian's copy. This is MAAPP's "request to discontinue" in product form.
-10. No adult sees a junior's email or contact details. Club staff see the junior's name, the "Junior" label and the guardians' display names. Emergency contacts are 04's and 06's, visible only to the club's safety officers during an overdue escalation.
+10. No adult sees a junior's email or contact details. Club staff see the junior's name, the "Junior" label and the guardians' display names. Emergency contacts are 04's and no club staff member, safety officers included, ever sees them. During a club overdue escalation, staff reach a junior's family through the club's own guardian record (`club_guardians`, with the guardian's phone when the guardian chose to share it, 06 5.2 rule 8).
 11. No following, friending or contact lists between users (MAAPP social media connections). The app has no social graph.
-12. A junior's club outings are visible to the club's staff and, through the club, to their guardians. A junior's personal outings and float plans are seen by no one else unless the junior shares a row on purpose (11.5; 04 5.2).
+12. A junior's club outings are visible to the club's staff and, through the club, to their guardians. A junior's personal outings and float plans are seen by no one else unless the junior shares a row on purpose (11.5; 04 5.2). This is the one rule for who sees a junior's outings and contacts, and 04, 06 and 08 copy it: staff see club outings only, never personal outings or contacts; guardians see club outings through the club and shared rows; the guardian activity route and the board's guardian view return the same set of club outings, because both read `boardRow()` (06 8.4).
 
 Where the rules live: `worker/auth/minors.js` exports `isJunior(user, now)`, `audienceGuard({ senderId, recipients, clubRoles, guardianLinks })` and `inQuietHours(tz, now)`. 06 calls them; tests in 20.
 
@@ -854,13 +854,16 @@ Some clubs run learn-to-row for 11 and 12 year olds. They get no accounts. 06 ca
 | Synced settings, favorites | Sync | `user_settings`, `favorites` | Life of the account | The person |
 | Security activity (sign-ins, passkey and email changes, exports) | Account security | `audit_log`, kind `security` | 1 year | The person, admins |
 | Moderator and admin actions | Accountability | `audit_log`, kinds `admin`, `moderation` | 3 years | Admins |
+| Club actions (roles, rules, exports, verification) | Club accountability | `audit_log`, kind `club` | 2 years (08 10.7) | Admins; club admins for their own club (06 5.3) |
+| Safeguarding actions (guardian links made and ended, guardian approvals, message removals involving a junior, views of incidents naming a junior) | Safeguarding | `audit_log`, kind `safeguarding` | 7 years, subject to legal review (08 10.7) | Admins |
 | Guardian links | Safeguarding | `guardian_links` | While active; ended links 1 year | The junior, the guardian, admins |
 | Banned address hashes | Keep banned people out | `email_blocks` | 1 year | Admins |
 | Reports, hazards, votes (04) | Conditions for everyone | 04's tables | 04 decides | Public (reporter names are never shown, 04) |
-| Daily-keyed hash of the IP for signed-out reports (`reports.ip_hash`, 04) | Daily report cap for signed-out reporters | `reports` | Set to null after 30 days (04) | No one; cannot be linked across days and holds no raw IP |
+| Daily-keyed hashes of the IP and of a random browser id for signed-out reports (`reports.ip_hash`, `reports.browser_hash`, 04 3.3) | Daily report cap and replacement of one's own report, for signed-out reporters | `reports` | Set to null after 30 days (04) | No one; cannot be linked across days and holds no raw IP |
 | Outings, float plans, row log, emergency contacts (04) | Safety, personal log | 04's tables | 04 decides | The person; guardians; club safety officers and emergency contacts on overdue |
 | Push subscriptions, alert rules, notification log (05) | Alerts | 05's tables | 05 decides | The person |
-| Club memberships, roles, attendance, bookings, lineups, messages, damage reports, incidents (06) | Club operations | 06's tables | 06 decides | The club, per 06 |
+| Club memberships, roles, attendance, bookings, lineups, messages, damage reports (06) | Club operations | 06's tables | 06 decides | The club, per 06 |
+| Incident log (06 9): injuries, people involved with a minor flag, witness phone or email | Health data about members, including minors, and data about people who never signed up | `incidents` | 7 years from the incident (06 9.3) | Safety officers and admins of the club, and a site admin on a legal request |
 | Suggestions | Improve the app | Sent to Anthropic for a rewrite, then filed as an issue in the GitHub repository `NeverNathaniel/RoWhether`, which is public (verified live 2026-10-17) | Anthropic: 30 days (privacy center, via search); GitHub: until deleted | Public |
 | Request logs: URL, IP, user agent, console output | Operations, abuse | Cloudflare Workers Logs (`observability.enabled` in `wrangler.jsonc`) | 3 days on Free, 7 days on Paid (from docs, https://developers.cloudflare.com/workers/observability/logs/workers-logs/); 7 days on both from December 1, 2026, when Workers Logs moves to Observability pricing (from docs, https://developers.cloudflare.com/observability/pricing/) | The owner |
 | Turnstile signals | Spam check | Cloudflare | Cloudflare's terms (unverified) | Cloudflare |
@@ -912,9 +915,13 @@ Workers observability already gives request counts and errors for the API.
 | --- | --- | --- | --- |
 | Cloudflare | Processor: hosting, Workers, D1, Workers Logs, Turnstile, Email Service, Access | Everything stored server-side; request metadata | Cloudflare DPA and SCCs (unverified in this doc) |
 | Resend (only if chosen in 3.5) | Processor: email | Email addresses, email content | DPA with SCCs, US processing (verified live 2026-10-17) |
-| Anthropic | Processor: rewrites suggestion text (`worker/claude.js`); 04 may use it to triage free-text reports | Suggestion text, app context for bugs | API inputs and outputs deleted within 30 days by default, longer if flagged (privacy.claude.com, via search 2026-10-17) |
+| Anthropic | Processor: rewrites suggestion text (`worker/claude.js`) and screens public free text: hazard notes and launch notes (04 8.6), club descriptions (06 3.2) and public water status notes (06 7.4) | Suggestion text, app context for bugs, the text being screened with the location name | API inputs and outputs deleted within 30 days by default, longer if flagged (privacy.claude.com, via search 2026-10-17) |
 | GitHub | Recipient: suggestions become public issues | The rewritten and original text, app context for bugs | Users are told before sending (17.4 copy) |
 | Open-Meteo, NWS, USGS, NOAA, other agencies (02) | Independent services the browser calls | The viewer's IP; the location's coordinates | Listed in the privacy notice; no personal data sent on purpose |
+| Open-Meteo geocoding and Photon (komoot) (02) | Independent services the browser calls for place search | What the person types in a search box, and their IP | Named in the privacy notice. Search text can name a home town or a club |
+| OpenFreeMap (02, 07 10.4) | Independent service the browser calls for map tiles, on the picker map and `/add` only | The viewer's IP and the map area shown, which can reveal roughly where they are looking or standing | Named in the privacy notice. The add flow's map does not start at the device's exact position (01 12.3) |
+| Apple, Google, Mozilla and Microsoft push services (05 2.1) | Recipients: they carry each Web Push message | Each device's push endpoint, and the timing and size of every notification. The text is encrypted (RFC 8291) | Named in the privacy notice when notifications arrive (phase 4) |
+| Calendar services such as Google, Apple and Microsoft (06 14.1) | Recipients: they fetch the private calendar feed a person subscribes with | Practice times, places and the person's own seat, and for a guardian their junior's practice times | Named in the privacy notice (phase 6). The link says so |
 
 The suggestion dialog gets one line: "Your suggestion becomes a public GitHub issue. Do not include personal details."
 
@@ -984,7 +991,7 @@ The suggestion dialog gets one line: "Your suggestion becomes a public GitHub is
 | `lineups` | 06 | Remove the person from future seats; past seats show "Former member" | Others' history stays readable. |
 | `announcements` and other club notes (06 section 15) | 06 | Remove the person's announcements from view; the safeguarding copy stays for its retention with the sender set to null | 11.4 rule 7. |
 | `damage_reports` | 06 | Set the reporter to null; keep the report | Boat safety history. |
-| `incidents` | 06 | Set the user columns to null; keep the record for its retention period | Safety and possible legal record. Decision below. |
+| `incidents` | 06 | Set the user columns to null; names written in the record stay until the retention period ends (7 years from the incident, 06 9.3), then the whole record is deleted | Safety and possible legal record, and health data. Decision below. |
 | `flags` | 04 | Flags raised by the person: set the reporter to null. Flags about the person's deleted content: close as `content_deleted` | Moderation history. |
 
 Free text the person wrote inside shared records (location launch notes, revision summaries) stays, without their name. Hazard notes are hidden (04). The deletion page says so (4.10).
@@ -1006,7 +1013,8 @@ Foreign keys: D1 enforces foreign keys by default (from docs, https://developers
 
 Backups: deleted data remains in D1 Time Travel history for up to 30 days on Workers Paid (7 on Free) (from docs, https://developers.cloudflare.com/d1/reference/time-travel/). The privacy notice and the deletion email say "within 30 days". A restore from Time Travel must re-run deletions made after the restore point; the owner keeps the list of `user.deleted` audit rows for that (no identities, just times, 14.5).
 
-Decision: Keep `incidents` with names removed, for a retention period 06 sets with legal advice (suggest 7 years for incidents involving minors).
+Decision: Keep `incidents` for a fixed 7 years from the incident, names as written, and delete the whole record then, also after the person's account or the club is deleted (06 9.3). Recommended: one rule for 03 and 06, and the period 03 suggested for incidents involving minors. The lawyer sets the final period (13.5).
+- Alternative: keep `incidents` with names removed.
 - Alternative: delete incident rows with the person (loses a safety record the club may be required to keep).
 
 Decision: Delete free-text notes and photos from reports on account deletion, keep the choices without a name.
@@ -1017,7 +1025,7 @@ Decision: Delete free-text notes and photos from reports on account deletion, ke
 ### 13.1 Terms of use outline
 
 1. Who runs RoWhether and how to reach us (help@rowhether.com).
-2. Who can have an account: 13 or older. Under 18 with a parent's or guardian's permission.
+2. Who can have an account: 13 or older. If you are under 18 you get a junior account with extra protections (11.3), and joining a club needs a parent's or guardian's approval (11.5). This says only what the product does; the lawyer decides whether it must also say "with a parent's permission" and, if so, how permission is collected (Decision in 21).
 3. Information only: the safety disclaimer (13.2), in full.
 4. Your account: one person per account, no shared logins (clubs use club roles), keep your email and devices secure, tell us about misuse.
 5. What you post (reports, hazards, locations, edits, club content): it must be accurate as far as you know, and yours to share. You give RoWhether permission to show, adapt (for example convert units) and keep it, without your name after you leave (12.9). License for location data: Decision below.
@@ -1045,19 +1053,21 @@ Shown on `/terms`, on `/about`, linked from the sign-up screen, and in short for
 >
 > You, your coach and your club decide whether to go out. Forecasts and gauges can be wrong or late, and conditions on the water change fast. Look at the water before you launch. Follow your club's rules and local regulations, and wear what your program requires.
 >
+> Not every location has every source. Where a factor is not checked, the page says so. At community-added locations, limits and details come from other rowers and may not have been checked.
+>
 > Off the water at the first thunder, and back on 30 minutes after the last.
 >
 > Sign-out boards, float plans and overdue alerts are a backup. They can fail. In an emergency, call 911 or your local emergency number.
 
-Short form for the footer: "Information only. You, your coach and your club decide. Look at the water before you launch."
+Short form for the footer: "Information only. You, your coach and your club decide. Look at the water before you launch." At a location with an unchecked factor (07 6.7) or a community-added record, it adds "Some locations have fewer checks."
 
 ### 13.3 Privacy notice outline
 
 Layered: a short summary at the top, then the detail.
 
 1. Summary: "No account needed for forecasts. If you make one, we keep your email, a display name and your settings. We do not sell data, show ads or track you. We count how often the app opens at each location, with nothing that identifies you."
-2. What we collect and why: 12.1 as a table.
-3. Where it is stored and who processes it: 12.5.
+2. What we collect and why: 12.1 as a table. The incident log is named there as health data about members, including minors, with its 7 year retention.
+3. Where it is stored and who processes it: 12.5, every row, with what each receives and why.
 4. How long we keep it: 12.1 retention column (this is the published retention policy).
 5. Who can see what, including club admins and guardians (11.5).
 6. Children and juniors: 11.2 and 11.3.
@@ -1082,6 +1092,32 @@ Layered: a short summary at the top, then the detail.
 
 Decision: Have a lawyer review the terms, the privacy notice and the minors approach (11.2, 11.3, 11.5, 11.7) before phase 2 ships, and again before phase 5 (clubs with juniors) and phase 7 (EU, UK, Canada). Cost unverified.
 - Alternative: use a reputable template for phase 2 and review only before phase 5 (faster; more risk with juniors signing up in phase 2).
+
+Other docs depend on legal answers, and some make claims a lawyer should see first. This is the full list, with the phase each item blocks. These are points for the owner to take to a lawyer; this plan gives no legal advice.
+
+Before phase 2:
+
+- A. Whether the terms may say "13 or older" for juniors, or must also require a parent's permission, and how it is collected (13.1 item 2; Decision in 21).
+
+Before phase 3:
+
+1. Float plans and overdue alerts: whether offering them creates a duty or reliance if they fail (04 6.6 says "03 owns the terms text this depends on").
+2. Limits, sources and emergency details entered by users and shown to others as the basis of Go, Caution or Stay off, and the open licence chosen for community location data (13.1).
+
+Before phase 5:
+
+3. Clubs: whether RoWhether acts for the club (processor) or on its own account for member records, roster-only juniors and incidents, and whether clubs need their own terms or a data processing agreement (13.1 item 7 says only that club admins are responsible).
+4. Data about people who never signed up: emergency contacts, crew names, incident witnesses and roster-only juniors, including under-13s (11.7).
+5. Health details in incident records, retention for records about minors (the 7 year default in 06 9.3) and keeping records when a club is deleted.
+6. Email to people who are not users: emergency contact notices, guardian invites and club invites, under US commercial email law and Canada's anti-spam law. Contacts can be anywhere from phase 3, so ask this one early.
+7. Statements that the app meets MAAPP ("Clubs using RoWhether must be able to say the app is such a platform", 11.1, and "US youth sport rules on adult and minor communication are met by design", 06 intro), which clubs may rely on.
+8. What the owner must do on learning of possible abuse of a minor through a flag, a club, a guardian or help@ mail (11.5 says RoWhether does not judge safeguarding cases), and the under-13 rule's deletion "within 7 days" (11.2).
+
+Before any paid feature:
+
+9. Whether Vermont's Act 63 applies, and what changes if a paid tier is ever added (02's commercial section), since 11.1's "probably not a covered business" rests on having no revenue.
+
+The lawyer's answers go in a short file next to the plan, `docs/full-app/legal-answers.md`, one entry per number above (A, 1 to 9), so a later pass can point to them.
 
 ## 14. Security
 
@@ -1523,7 +1559,7 @@ Each later doc adds its section through a registry: `worker/auth/export.js` impo
 
 `GET /api/me/delete` 200 `{ "blockers": [{ "kind": "open_outing", "outingId": "..." }], "notes": [{ "kind": "sole_club_admin", "club": { "slug", "name" } }, { "kind": "guardian_link", "name": "Jamie R." }] }`. Read only; no recent sign-in needed.
 
-`POST /api/me/delete` `{ "confirm": "delete" }` (recent sign-in) 200 `{ "deleted": true }` (clears the cookie). 409 `open_outing` `{ "outingId" }` "You have a boat signed out. Sign it in first."; 400 `confirm` "Type delete to confirm."
+`POST /api/me/delete` `{ "confirm": "delete" }` (recent sign-in) 200 `{ "deleted": true }` (clears the cookie). 409 `open_outing` `{ "outingId" }` "You are on the water since 6:42 AM. Tap I'm back first, so no one is alerted by mistake." (the time is the outing's start); 400 `confirm` "Type delete to confirm."
 
 ### 16.7 Guardians (phase 5)
 
@@ -1730,7 +1766,7 @@ The existing `fakeDB()` in `test/reports.test.js` records SQL but runs none. Acc
 
 - `audienceGuard`: the only staff member of a club writing to a junior with no guardian is refused; a second staff member or a linked guardian (account or `club_guardians`) makes it pass; guardians are added to recipients; `discontinue` removes the junior from direct delivery but keeps the guardian copy; safety messages always pass.
 - `inQuietHours` at 9:59 PM, 10:00 PM, 5:59 AM and 6:00 AM in America/New_York, including a DST change night.
-- Guardian links end at `junior_until`; a junior can end a link, the guardian is told only that it ended, and the reason reaches site admins and the club's safety officer; an account under 7 days old cannot accept as guardian; the activity route returns club outings and shared rows but no personal row that is not shared; codes expire and allow 5 tries an hour.
+- Guardian links end at `junior_until`; a junior can end a link, the guardian is told only that it ended, and the reason reaches site admins and the club's safety officer; an account under 7 days old cannot accept as guardian; the activity route returns club outings and shared rows but no personal row that is not shared, and the same club outings as the board's guardian view; codes expire and allow 5 tries an hour.
 
 `test/admin.test.js`
 
@@ -1779,7 +1815,8 @@ Decisions, recommendation first:
 - Decision: A junior can end a guardian link, and guardians see club outings through the club and a junior's personal rows only when the junior shares them. Recommended: an adult a junior is talked into linking should not get lasting sight of where the junior rows, and parents keep club visibility through the club's confirmed guardian record. Alternatives: only guardians and admins can end a link (the earlier reading of MAAPP); guardians see all of a junior's outings. (11.5)
 - Decision: No live boat tracking in any phase. Alternative: opt-in tracking during an outing with a 24-hour retention and a visible signal. (12.2)
 - Decision: No analytics product and no tracking of people; 08 10.9 adopts an aggregate open counter, owner to confirm. Alternatives: Cloudflare Web Analytics (needs a second script exception); no counter at all. (12.3)
-- Decision: Keep `incidents` with names removed, retention set by 06 with legal advice. Alternative: delete with the person. (12.9)
+- Decision: Keep `incidents` for a fixed 7 years from the incident, names as written, then delete the whole record; the lawyer sets the period. Alternative: names removed; delete with the person. (12.9)
+- Decision: Word the terms to say what sign-up does (13 or older; juniors get protections; clubs need a guardian's approval), and let the lawyer say whether a parent's permission must be collected. Recommended: the product does not collect permission today, and a terms sentence it does not check is a promise it cannot keep. Alternative: collect permission at sign-up for 13 to 17 (an emailed parent confirmation), which adds friction and a store of parent emails. Alternative: keep "with a parent's permission" in the terms and rely on guardian links. (13.1)
 - Decision: Delete report text and photos on account deletion, keep choices without a name. Alternative: keep report text without a name. (12.9)
 - Decision: Vermont law governs the terms. Alternative: no clause until a lawyer advises. (13.1)
 - Decision: License community location data openly (ODbL or CC BY-SA). Alternative: RoWhether keeps a non-exclusive license only. (13.1)

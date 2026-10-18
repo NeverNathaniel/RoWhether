@@ -302,10 +302,10 @@ Deletion:
 
 1. Any admin taps "Delete this club" in Settings and types the club's short name.
 2. `status = 'deleting'`, `delete_after = now + 14 days`. Every admin gets an email and push: "Alex R. asked to delete Putney Rowing Club on Oct 31, 2026. Any admin can cancel before then." A banner shows to all members.
-3. During the 14 days: everything works, and the full export (16.2) is offered to admins.
+3. During the 14 days: everything works, and the full export (16.2, incidents included) is offered to admins.
 4. Any admin can cancel: back to the previous status, audit `club.delete.cancel`.
-5. After 14 days, the daily cron (05's `17 9 * * *` run) deletes, in one batch per club: rules, statuses, groups, invites, devices, practices and series, attendance, lineups, bookings, boats, damage reports, announcements, calendar tokens for this club, and incidents. Memberships are deleted. Outings keep their row for the rower's own log with `club_id` set to NULL and `rule_lvl`, `rule_text`, `club_stage`, `ack_by` cleared. `locations.steward_club_id` is set NULL. `notify_prefs` rows for the club are deleted (05 notes it has no foreign key here).
-6. The `clubs` row becomes a tombstone: `status = 'deleted'`, every optional field NULL, `name` set to "Deleted club", slug kept, `delete_after = now + 90 days`. After 90 days the row is removed and the slug is free. Holding the slug stops someone re-registering it to impersonate the old club.
+5. After 14 days, the daily cron (05's `17 9 * * *` run) deletes, in one batch per club: rules, statuses, groups, invites, devices, practices and series, attendance, lineups, bookings, boats, damage reports, announcements, and calendar tokens for this club. Memberships are deleted. Incidents are not deleted with the club: they are sealed and kept until their own retention period ends (9.3). Outings keep their row for the rower's own log with `club_id` set to NULL and `rule_lvl`, `rule_text`, `club_stage`, `ack_by` cleared. `locations.steward_club_id` is set NULL. `notify_prefs` rows for the club are deleted (05 notes it has no foreign key here).
+6. The `clubs` row becomes a tombstone: `status = 'deleted'`, every optional field NULL, `name` set to "Deleted club", slug kept, `delete_after = now + 90 days`. After 90 days the row is removed and the slug is free, unless the club still has sealed incidents, in which case the tombstone stays until the last one is deleted (`incidents.club_id` cascades, so the row must outlive them). Holding the slug stops someone re-registering it to impersonate the old club.
 7. `audit_log` keeps `club.delete.done` with the slug and who asked.
 
 If the last admin's account is deleted (03), the earliest-joined active member with the safety role becomes admin, else the earliest coach, and they are told. If there is none, the club is flagged for moderators, who can appoint an admin on request.
@@ -443,11 +443,11 @@ These apply to every club feature. They implement the MAAPP electronic communica
 1. No private messages, comments or replies anywhere. Announcements (15) are the only staff-to-member channel and are broadcast to groups.
 2. Anything staff send that reaches a junior (announcements, practice notes, lineup notes, water status notes) is visible to all of the club's staff and to that junior's guardians. This meets "copy or include another Adult Participant, or all the Minor Athletes' parents/guardians."
 3. Juniors send no free text to adults: RSVPs are choices only (no note), damage reports are choices only (no description), juniors do not file incidents, and juniors join only by invite (no request note). This covers "all communication initiated by a Minor Athlete."
-4. Guardians see their junior's club life: memberships, groups, clearances, practices, RSVPs (and can answer them), attendance, published lineups, the junior's rows on the board, announcements that reached the junior, and that an incident involving the junior was recorded (type and date).
+4. Guardians see their junior's club life: memberships, groups, clearances, practices, RSVPs (and can answer them), attendance, published lineups, the junior's club rows as the board shows them to a guardian (8.4), announcements that reached the junior, and that an incident involving the junior was recorded (type and date).
 5. A guardian can turn off club notifications to their junior's devices, except overdue messages and a closed water status ("unless there is an emergency"). Staff are not told who turned them off.
-6. Junior names never appear on public pages. The kiosk shows first name and last initial. Non-staff adults see a junior crew as "Junior crew of 9" with the coach's name.
-7. Staff never see a junior's personal data outside the club: the personal row log, float plan contacts, other clubs, or location history (04 keeps these per user).
-8. No contact details of juniors are shown to anyone in club features. A guardian chooses at join whether safety officers and coaches see their phone number ("Share my phone with Putney Rowing Club staff for emergencies", on by default, changeable in Account).
+6. Junior names never appear on public pages or on the kiosk, which shows adults as first name and last initial and junior crews unnamed. Non-staff adults see a junior crew as "Junior crew of 9" with the coach's name.
+7. Staff never see a junior's personal data outside the club: the personal row log, float plan contacts, other clubs, or location history (04 keeps these per user). Safety officers reach a junior's family through the club's guardian record (4.5), never through the rower's float plan contacts. 03 11.4 rule 12 is the one rule for who sees a junior's outings.
+8. No contact details of juniors are shown to anyone in club features. A guardian chooses at join whether safety officers and coaches see their phone number ("Share my phone with Putney Rowing Club staff for emergencies", off until the guardian ticks it, changeable in Account). The join screen shows the box unticked with its reason, "So staff can call you if something happens at practice.", so the choice is made in the open and `memberships.share_phone` defaults to 0 (08 4), matching 03's high privacy default (11.1). Staff see "No phone shared" until then.
 9. The MAAPP exceptions (close in age and others) are not modeled. The app has no one-to-one channel, so none is needed.
 
 ### 5.3 Permissions matrix
@@ -957,7 +957,7 @@ What each role sees is shaped on the server (`boardRow(row, ctx)`):
 | Admin, coach, safety officer | Everyone | Back, Add time, On it, Resolve, Edit, Cancel; Start a row for a crew |
 | Adult member, equipment manager | Adults by name; junior crews as "Junior crew of 9 with Lee M." | Back and Add time on boats they are in; Start a row |
 | Junior | Their own rows and their crewmates | Back on their own boat if self start is on |
-| Guardian | Their junior's rows, with the coach's name, no crewmates | None |
+| Guardian | Their junior's club rows, with the coach's name, no crewmates. A personal row shows only when the junior shared it (03 11.5). The same set as 03's guardian activity route | None |
 | Kiosk | Adults as first name and last initial; junior crews unnamed | Start a row (self), Back only for rows started at that kiosk |
 
 Empty: "No boats on the water. Start a row to put one here."
@@ -1035,7 +1035,7 @@ Emergency info belongs to the location, shared by every club and visitor there, 
 ```json
 {
   "v": 1,
-  "number": "911",
+  "dispatch": "+18025550100",
   "launchAddress": "Street address an ambulance can drive to",
   "launchNote": "Gravel ramp beside the docks. An ambulance can reach the top of the ramp.",
   "hospital": { "name": "Nearest emergency department", "address": "Its street address", "phone": "+1..." },
@@ -1050,18 +1050,22 @@ Emergency info belongs to the location, shared by every club and visitor there, 
 }
 ```
 
+`dispatch` is optional: the local dispatch line for a caller outside the area, in E.164 form, shown as "From outside the area: ..." next to the emergency number (04 6.3, 6.5). There is no `number` field. The number people are told to call comes from the table below, by the location's country.
+
 Lengths: `launchAddress` 200, `launchNote` 300, hospital fields 120 each, `aed` 200, `signal` 200, `vhf` 60, up to 10 landings with name 60, address 200, note 200. Putney's real values are to be collected on site; none are in this plan (the nearest hospital is probably in Brattleboro, unverified).
 
-Default `number` by country: US and CA 911, GB 999, IE and EU countries 112, AU 000, NZ 111 (unverified; check before phase 7).
+Emergency number by country, in `src/emergency.js` as data in the code, so no record and no user can change it: US and CA 911, GB 999, IE and EU countries 112, AU 000, NZ 111. Each row carries the official page it was taken from (a government or national emergency services page), and a person checks every row against its source before phase 3 ships; until then the table is unverified. Phase 3 needs only the countries where locations can exist, which is the United States until non-US sources arrive in phase 7 (01 12.10). A location in a country the table does not cover cannot be published (01 12.10, `validateLocation()`).
 
-Who edits: steward club safety officers and admins (01 section 13.4), and site moderators. Other signed-in users suggest changes through 01's suggestions (01 section 13.2). Each change is a location revision with a required summary.
+Phone numbers are checked as E.164 (`+` and 8 to 15 digits) before they are saved, and only a number that passes becomes a `tel:` link: `hospital.phone`, `dispatch` and every landing phone. Other free text (`aed`, `signal`, notes) is shown as text and never linked.
+
+Who edits: steward club safety officers and admins (01 section 13.4), and site moderators. Other signed-in users suggest changes through 01's suggestions (01 section 13.2). Each change is a location revision with a required summary. Until a location has a steward club (phases 3 and 4, and later for any location without one), every change to emergency info is a suggestion a moderator approves. The creator of a community location never edits it directly, so the person who adds a place cannot type the hospital's phone number everyone sees (01 13.1).
 
 Where it shows:
 
 - The location page "Safety" section (07 places it), for everyone.
 - The board's emergency strip, the kiosk, and stage 2 overdue emails.
 - The Start a row sheet, as a link "Emergency info".
-- 04's status link page: request to 04 to show the launch address next to the coordinates.
+- 04's status link page and the stage 3 and 4 emails (04 6.3, 6.5): the launch address, the country's emergency number and `dispatch`.
 - The incident form, to prefill the location.
 
 Offline: it is part of the location record, so it is cached with the location (01's static files in phase 1 and the app's location cache after).
@@ -1077,6 +1081,8 @@ Location Safety section copy:
 > Phone signal: weak on the dock, best at the top of the ramp.
 > Landing spots with road access: Railroad bridge, VT bank: (address)
 > Last checked Oct 17, 2026 by Putney Rowing Club.
+
+When `checkedAt` is empty, the last line reads "Not checked yet." in every place the block shows (Safety section, board strip, kiosk, status page).
 
 Decision: Emergency info lives on the location, public, edited by steward clubs and moderators.
 - Alternative: per club (every club at a shared dock keeps its own copy; copies drift apart).
@@ -1140,11 +1146,14 @@ Both links as in 2.1.
 - Who sees records: safety officers and admins (all), the person who filed (their own). Every view by staff writes `audit_log` `incident.view`.
 - Push and email never contain the narrative, injuries or names.
 - Export (safety officers and admins): CSV of all incidents in a date range in the USRowing form's order, using the form's own labels for choices; "Include names" is off by default, which replaces names with roles ("Rower 1, Cox"). A printable page per incident for the club's files (USRowing asks clubs to keep a copy).
-- Account deletion (03): `reported_by` becomes NULL; the names written in the record stay as part of the club's safety records.
+- Account deletion (03): `reported_by` becomes NULL; the names written in the record stay until the retention period below ends, as part of the club's safety records.
+- Retention, one rule (03 12.9 says the same): an incident is kept for 7 years from `occurred_at`, then the daily run deletes the whole record together: names, injury details, the narrative and witness contact details. The period is a constant, `INCIDENT_RETENTION_YEARS`, that the lawyer may change (03 13.5). Witness phone numbers and emails are data about people who never signed up, and follow the same period.
+- A club's deletion does not delete incidents. The admins get the export (16.2). The records are sealed: no club member can read them, and the incident routes answer 404 for a deleted club. A site admin can read a sealed incident only on a legal request, and each read writes an `audit_log` row `incident.sealed.view`.
+- The privacy notice names the incident log as health data about members, including minors (03 13.3).
 
-Decision: Keep incident records, names included, until the club deletes them or the club is deleted; 03 states the legal basis in the privacy policy.
+Decision: Keep incident records, names included, for a fixed 7 years from the incident, also after an account or the club is deleted; delete them together after that. Recommended, because 03 suggests 7 years for incidents involving minors and one rule is easier to state and test than two; the lawyer sets the final period and whether it runs from the incident or from a minor's 18th birthday (03 13.5). 03 states the legal basis in the privacy notice.
+- Alternative: keep records until the club deletes them or is deleted (the earlier plan; health data about minors could be kept for ever, or destroyed early).
 - Alternative: replace names with "Former member" when a person deletes their account (better for privacy, worse for insurance claims and follow-up).
-- Alternative: delete incidents after a fixed period such as 7 years (unverified whether that meets liability periods for minors; 03 decides).
 
 ## 10. Boats, damage reports and safety checks (phase 6)
 
@@ -1366,6 +1375,8 @@ Account, Calendar, "Add practices to your calendar":
 > [Copy link] [Open in Apple Calendar]
 >
 > Anyone with this link can see your practice times and seats. If you share it by mistake, stop it and make a new one.
+>
+> Your calendar app fetches this link from its own servers, so Google, Apple or Microsoft sees the practice times in it.
 
 - Token: 32 random bytes in base64url (43 characters). Only its SHA-256 is stored. Up to 5 per user, each for all clubs or one club, with a label. "Stop this link" revokes it.
 - Links: `https://rowhether.com/api/cal/<token>.ics` and the same with `webcal://` for "Open in Apple Calendar". Under `/api/`, so `run_worker_first` already routes it and the service worker never handles it (CLAUDE.md).
@@ -1467,7 +1478,7 @@ The daily run (05's `17 9 * * *` cron) applies these. 03 owns the privacy policy
 | Practices, attendance, lineups | While the club exists | |
 | Bookings | 2 years after they end | Deleted |
 | Damage reports, fixed or closed | 3 years | Deleted |
-| Incidents | Until the club deletes them (9.3) | |
+| Incidents | 7 years from the incident, also after the club is deleted (9.3) | Deleted whole: names, health details, witness contacts |
 | Kiosk devices and calendar tokens, revoked | 30 days | Deleted |
 | Announcements, not pinned | 1 year | Deleted |
 | Club columns on outings | With the outing (04) | Cleared when the club is deleted |
@@ -2789,7 +2800,7 @@ Loaded with dynamic `import()` on `/club/` routes or when a club sheet opens (20
 | `index.html` | 5 | `#clubStatus` above `#hero`; `#rowAs` above `#verdict` (from phase 2, 07; 08 K44); `#clubNotes` and `#clubAlt` under `#holds` (6.6); the public club line and "Clubs here" in `#home`; a `#club` container beside `#home` and `#detail`; one `<dialog id="clubSheet">` for club sheets. |
 | `src/main.js` | 5 | Starts `loadClubContext()` beside `refresh()`'s data fetch and on the 10-minute timer, never awaited before the first `render()`; sends `/club/` paths to `initClubPage()`; starts kiosk mode on `#kiosk`. |
 | `src/state.js` | 5 | `app.club` (the context for the active location) and `app.clubPick` (the club chosen per location). |
-| `src/config.js` | 5 | 6.9's `LIGHT_KEYS`, `THEN` and `FACTORS`; storage keys `CLUB_KEY` (`rowhether-club-v1`), `BOARD_KEY` (`rowhether-board-v1`), `INCIDENT_DRAFT_KEY` (`rowhether-incident-draft-v1`). |
+| `src/config.js` | 5 | 6.9's `LIGHT_KEYS`, `THEN` and `FACTORS`; `KEYS.club` (`rowhether-club-v1`), `KEYS.board` (`rowhether-board-v1`) and `KEYS.incidentDraft` (`rowhether-incident-draft-v1`) in 08 8.1's `KEYS` object. |
 | `src/storage.js` | 5 | `loadClubCache`, `saveClubCache`, `loadBoard`, `saveBoard`, `loadIncidentDraft`, `saveIncidentDraft`, each wrapped in try/catch. |
 | `src/logic.js` | 5 | 6.9: `buildModel(loc, data, S, now, { club })`, club reasons in `assess()`, the dock reading in `waterTemp()`, the daylight rule in `periodsFor()` and `m.daytime`. |
 | `src/render/hero.js` | 5 | `renderClubStatus`, `renderClubLine`, `renderClubNotes`, `renderClubAlt` (6.6) and the "as of" line (21.6). |
@@ -2799,17 +2810,17 @@ Loaded with dynamic `import()` on `/club/` routes or when a club sheet opens (20
 | `src/render/detail/common.js` | 5 | `limitText(S, key)`: "Club rule: 15 mph." for the How this works panels (6.5). |
 | `src/settings.js` | 5 | Club labels per field and the "Use club rules here" switch (6.5). |
 | `src/route.js` | 5 | `/club/new`, `/club/join/<token>` and `/club/<slug>` with its hash tabs (20), beside 01's location paths. |
-| `src/reports.js` | 5 | `loadInfo()` reads `clubs` from `/api/info` and hides every club entry point when it is false. |
+| `src/info.js` | 5 | `loadInfo()` (moved from `src/reports.js` in phase 1, 08 3.2) reads `clubs` from `/api/info` and hides every club entry point when it is false. |
 | `src/notify.js` (05) | 5 | The `refresh` message and club deep links (21.6). |
 | `src/account.js` (03) | 5, 6 | Your clubs, guardian approvals (M3), invite code entry; calendar links in phase 6. |
-| `src/styles/app.css` | 5 | The hero club lines and the status banner, with the status colors and the stay off hatch already there (`app.css` line 378). |
+| `src/styles/app.css` | 5 | The hero club lines and the status banner, with the status colors and the stay off hatch already there (`.seg.b2` and `.lk-b2` in `app.css`). |
 | `public/push-sw.js` (05) | 5 | The `refresh` post for `water_status` pushes (21.6). |
 
 ### 22.5 Worker, changed
 
 | File | Phase | Change |
 | --- | --- | --- |
-| `worker/index.js` | 5 | Hands 19's prefixes to `routeClubs()`; `info()` adds `clubs: !!env.DB && env.CLUBS_ENABLED === '1'`, beside today's `reports: !!env.DB`; 05's `scheduled()` calls `runClub()` and `dailyClub()`. |
+| `worker/index.js` | 5 | Hands 19's prefixes to `routeClubs()`; `info()` adds `clubs: !!env.DB && env.CLUBS_ENABLED === '1'`, beside `reports`, which is `!!env.DB && env.REPORTS_ENABLED === '1'` (08 6.3); 05's `scheduled()` calls `runClub()` and `dailyClub()`. |
 | `worker/outings.js` (04) | 5 | Calls `clubOutingFields()`; lets the club's staff use `in`, `cancel` and `PATCH` on the club's outings (19.1); sets `club_next_at` at the start. |
 | `worker/locations.js` (01) | 5 | `clubs` in `GET /api/locations/:slug` (3.5); `emergency` in `PATCH` through `cleanEmergency()`. |
 | `worker/notify/tick.js` (05) | 5 | Adds `runClub()` to the tick's runs. |
@@ -2820,7 +2831,7 @@ Loaded with dynamic `import()` on `/club/` routes or when a club sheet opens (20
 | `worker/auth/delete.js`, `worker/auth/export.js` (03) | 5, 6 | 06's tables in 03 section 12.9's cascade and the account export; succession (3.6) in the same batch as the deletion. |
 | `worker/auth/minors.js` (03) | 5 | Used, not changed: `audienceGuard()`, `isJunior()`, `inQuietHours()`. |
 | `worker/moderation.js` (04) | 5 | Flags with target `club`; club verification reviews join the queue. |
-| `worker/admin.js` (03) | 5 | Routes `/api/mod/clubs/*` to `worker/clubs/verify.js`. |
+| `worker/clubs/index.js` | 5 | `routeClubs()` also takes `/api/mod/clubs/*` (08 3.5) and sends it to `worker/clubs/verify.js`; `worker/admin.js` stays 07's metrics file. |
 | `worker/screen.js` (04) | 5 | Screens the club description, visitor info and public status notes (3.2, 7.4). |
 
 ### 22.6 Migrations and config
@@ -3133,9 +3144,9 @@ Decision: Emergency info lives on the location, public, edited by steward clubs 
 - Alternative: per club.
 - Alternative: free text in the location's launch notes.
 
-Decision: Keep incident records, names included, until the club deletes them or the club is deleted; 03 states the legal basis. (9.3)
+Decision: Keep incident records, names included, for a fixed 7 years from the incident, also after an account or the club is deleted; the lawyer sets the final period. (9.3)
+- Alternative: keep records until the club deletes them or is deleted.
 - Alternative: replace names with "Former member" when a person deletes their account.
-- Alternative: delete incidents after a fixed period such as 7 years.
 
 Decision: Coaches can take a member's booking for a practice, with notice to the member; only equipment managers or admins can within 12 hours of the start. (11.4)
 - Alternative: member bookings always win.
@@ -3209,7 +3220,7 @@ Decision: 01 creates `locations` in phase 3 without `steward_club_id`, and phase
 - Afternoon practices. 12.2's 18-hour window gives a 3 PM practice no evening check. Ask pilot coaches whether a midday check for afternoon practices is wanted.
 - Warn, not block. Whether clubs accept it (8.3). Watch the `against` rate and S6 volume in the pilot.
 - The kiosk lets anyone at the boathouse pick any adult's name (8.5), as a paper logbook does. A wrong pick now emails nobody and ends nobody's outing, and the picked member gets an Undo. Confirm with the pilot club and 03's legal review.
-- Legal review (03 section 13.5): roster-only athletes under 13 (03 section 11.7), incident retention when minors are named (9.3), the guardian phone sharing default (5.2 rule 8).
+- Legal review (03 section 13.5): roster-only athletes under 13 (03 section 11.7), incident retention when minors are named (9.3), the guardian phone sharing choice (5.2 rule 8; off by default).
 - A safety officer with no working device. M4 tells them and shows admins (21.4). Whether to also email a weekly reminder until a device is added is open.
 - Facts still unverified: British Rowing's incident reporting page (it returned 403 to this sandbox), national incident forms for Canada and Australia, default emergency numbers outside the US (8.7), RegattaCentral's role (2.3), Google Calendar's refresh interval and which clients read `X-PUBLISHED-TTL` (14.2), and all of Putney Landing's emergency info, to collect on site.
 - Screen Wake Lock for the kiosk (8.5). MDN's browser compatibility data lists `WakeLock.request()` in Chrome 84, Firefox 126, Safari 16.4 and Safari on iOS 18.4 (from MDN browser-compat-data, `api/WakeLock.json`, fetched 2026-10-17). Whether it holds in an iOS Home Screen app, and on the older tablets clubs reuse as kiosks, is unverified. Test it on the pilot tablet.
@@ -3217,11 +3228,4 @@ Decision: 01 creates `locations` in phase 3 without `steward_club_id`, and phase
 - D1. The one-statement booking insert, the partial indexes and the foreign key behavior in 22.6 were checked in local SQLite, not D1. Confirm on the dev database before each phase ships.
 - USRowing reporting. Nothing found suggests USRowing takes reports other than through its form (unverified). "Copy summary" (9.2) assumes copying by hand.
 - Moderation load. How many clubs ask for verification, and whether 3 days is a fair target (23.2).
-- Cross-document items for 08 to settle:
-  - One spelling of the club overdue dedupe key: 8.6's `overdue-club:<outing id>:<club_stage>` or 21.4's `odc:<outing id>:<stage>:<user id>`.
-  - 04 section 6.2's stage 5 ("at stage 3, for club outings") is now 06's club chain, which starts at `due_at + graceMin`.
-  - 05: the `club` kind and `subkind` (21.1); section 3.9 and 3.10 samples and 7.5's deep links (21.1); the quiet hours rule for `practice` and restricted `water_status` (21.3); the `refresh` post in `public/push-sw.js` (21.6); `clubContextFor()` in member models and status ids in `settingsHash()` (21.7).
-  - 18.2: `practices.check_at`, `practices_check`, `practices_rsvp` and `bookings_due` (21.7).
-  - 19.3: the club context always returns statuses (21.6).
-  - 01: `steward_club_id` moves to phase 5 (23.1).
-  - 03 and 06 both name a `CODE_LIMIT` binding (22.6).
+- Cross-document items for 08: settled by 08 (section 16, rows K12, K15, K16, K17, K19, K21, K22 and K23; the 21.6 and 21.7 engine additions stand as written here).
