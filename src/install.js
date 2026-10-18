@@ -1,11 +1,15 @@
 // Install prompt. A bar at the bottom of the screen offers to add the app to
 // the home screen. Where the browser can install it directly (Chrome, Edge,
 // Samsung Internet), the button does it. Elsewhere it opens short steps for
-// that browser. A quieter button in the footer stays for later. Nothing shows
-// once the app runs installed, and Not now hides the bar for 30 days.
+// that browser. Buttons in the footer and in Settings stay for later. Nothing
+// shows once the app runs installed.
+//
+// The bar comes back on every visit. Not now hides it until the next one.
+// Once it has been dismissed INSTALL_ASKS times, it also offers Don't show
+// again. A visit is a page load, or coming back after INSTALL_VISIT_GAP_MS.
 import { $ } from './state.js';
-import { INSTALL_SNOOZE_MS } from './config.js';
-import { loadInstallSnooze, saveInstallSnooze } from './storage.js';
+import { INSTALL_ASKS, INSTALL_VISIT_GAP_MS } from './config.js';
+import { loadInstall, saveInstall } from './storage.js';
 
 export function isStandalone() {
   try {
@@ -52,8 +56,16 @@ const STEPS = {
   }
 };
 
-let deferred = null; // the browser's install prompt, where it offers one
-let kind = null;     // manual steps for this browser
+// Whether the bar shows, and whether it offers Don't show again.
+export function barState(saved, { canBar, standalone, hiddenThisVisit }) {
+  const show = canBar && !standalone && !saved.never && !hiddenThisVisit;
+  return { show, offerNever: show && saved.dismissed >= INSTALL_ASKS };
+}
+
+let deferred = null;         // the browser's install prompt, where it offers one
+let kind = null;             // manual steps for this browser
+let hiddenThisVisit = false; // Not now, or the steps were opened, this visit
+let awaySince = 0;           // when the tab was last hidden
 
 function canInstall() { return !!deferred || !!kind; }
 
@@ -63,16 +75,28 @@ function showBar(on) {
 }
 
 function update() {
-  if (isStandalone()) { showBar(false); $('installRow').hidden = true; return; }
-  $('installRow').hidden = !canInstall();
+  const standalone = isStandalone();
+  $('installRow').hidden = $('setInstall').hidden = standalone || !canInstall();
   // The bar is for phones and tablets, or wherever one tap installs.
-  const barKind = deferred || (kind && kind !== 'mac');
-  showBar(!!barKind && Date.now() > loadInstallSnooze());
+  const canBar = !!deferred || (!!kind && kind !== 'mac');
+  const { show, offerNever } = barState(loadInstall(), { canBar, standalone, hiddenThisVisit });
+  showBar(show);
+  $('installNever').hidden = !offerNever;
   $('installGo').textContent = deferred ? 'Install' : 'Show me how';
 }
 
-function snooze() {
-  saveInstallSnooze(Date.now() + INSTALL_SNOOZE_MS);
+// Hide the bar until the next visit, and count it toward Don't show again.
+function dismiss() {
+  if (!hiddenThisVisit && !$('installBar').hidden) {
+    const s = loadInstall();
+    saveInstall({ ...s, dismissed: s.dismissed + 1 });
+  }
+  hiddenThisVisit = true;
+  update();
+}
+
+function never() {
+  saveInstall({ ...loadInstall(), never: true });
   update();
 }
 
@@ -90,13 +114,13 @@ async function install() {
     prompt.prompt();
     let outcome = 'dismissed';
     try { ({ outcome } = await prompt.userChoice); } catch (e) { /* ignore */ }
-    if (outcome !== 'accepted') snooze();
+    if (outcome !== 'accepted') dismiss();
     else update();
   } else if (kind) {
     showSteps();
     // The browser cannot tell when it has been added, so the bar steps
-    // aside once the steps have been seen. The footer button stays.
-    snooze();
+    // aside for this visit once the steps have been seen.
+    dismiss();
   }
 }
 
@@ -111,6 +135,14 @@ export function initInstall() {
   try { window.matchMedia('(display-mode: standalone)').addEventListener('change', update); } catch (e) { /* old browser */ }
   $('installGo').addEventListener('click', install);
   $('installBtn').addEventListener('click', install);
-  $('installLater').addEventListener('click', snooze);
+  $('setInstallBtn').addEventListener('click', install);
+  $('installLater').addEventListener('click', dismiss);
+  $('installNever').addEventListener('click', never);
+  // A phone often keeps the tab alive, so coming back after a while is a
+  // new visit too.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') { awaySince = Date.now(); return; }
+    if (awaySince && Date.now() - awaySince >= INSTALL_VISIT_GAP_MS) { hiddenThisVisit = false; update(); }
+  });
   update();
 }
