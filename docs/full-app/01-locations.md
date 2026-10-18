@@ -709,7 +709,7 @@ Phase 0 changes no visible behavior. Putney renders the same text, numbers and c
 | # | File and symbol | What it assumes | Change | Phase |
 | --- | --- | --- | --- | --- |
 | 1 | `src/config.js` `LOC` | One dock and zone | Removed. Read from `m.loc` (logic) or the active location (UI). | 0 |
-| 2 | `src/config.js` `DEFAULTS` | `heading: 15`, flow 20,000/28,000 cfs | Split: `GLOBAL_DEFAULTS` (wind, gust, rain, cold, AQI) stays; heading moves to `course`, flow limits to the record. | 0 |
+| 2 | `src/config.js` `DEFAULTS` | `heading: 15`, flow 20,000/28,000 cfs | Split: `GLOBAL_DEFAULTS` (wind, gust, rain, cold, AQI, and `waterOverride: ''`) stays; heading moves to `course`, flow limits to the record (blank when a record has none, 11.1). | 0 |
 | 3 | `src/config.js` `GAUGE_FLOW`, `GAUGE_TEMP`, `NWS_GAUGE` | Putney gauges | Bindings in the record. | 0 |
 | 4 | `src/config.js` `SRC` | URL builders closed over `LOC` and the gauge constants | `bindingsFor(loc)` returns the same keys (02 owns the adapters; 08 K3). | 0 |
 | 5 | `src/config.js` `SOURCE_NAMES` | "Keene observations", "USGS river gauges", "the NWS river forecast" | Built from binding labels: `${label} observations`. Same text for Putney. | 0 |
@@ -855,7 +855,7 @@ New keys (08-architecture.md lists the canonical set):
 Migration, `migrateStorage()` in `src/storage.js`, called at the top of `loadSettings()` and before anything else reads storage. Every step is in try/catch, as all storage access is today.
 
 1. If `rowhether-migrated-v1` exists, stop.
-2. Settings: read `putney-rowing-settings-v1`. If present, keep only keys whose value differs from Putney's record (`thresholds`, plus `heading` when not 15, plus `waterOverride` when not empty). Compare numbers as numbers and keep `''` (a level turned off) as a real override. Write `rowhether-settings-v2` as `{ "putney-landing": { "saved": Date.now(), "values": {...} } }`. `saved` keeps the Settings reminder hidden for people who saved before (`hasSavedSettings()` reads it).
+2. Settings: read `putney-rowing-settings-v1`. If present, keep only keys whose value differs from Putney's record (`thresholds`, plus `heading` when not 15, plus `waterOverride` when not empty, stored as a number; Settings keeps the typed text today, and 03 9.2 takes only numbers, 08 8.3). Compare numbers as numbers and keep `''` (a level turned off) as a real override. Write `rowhether-settings-v2` as `{ "putney-landing": { "saved": Date.now(), "values": {...} } }`. `saved` keeps the Settings reminder hidden for people who saved before (`hasSavedSettings()` reads it).
 3. Cache: copy `putney-rowing-cache-v1` to `rowhether-cache-v2:putney-landing` unchanged.
 4. Copy plan, install (`putney-rowing-install-v2`) and nudge values to their new keys.
 5. If any `putney-rowing-*` key existed, set `rowhether-last-v1` to `putney-landing`. This is what makes an installed app open on Putney with no picker.
@@ -1112,7 +1112,7 @@ Decision: Use the monthly typical water temperature for the cold check when no l
 3. The club rule overlay, when active (11.7).
 4. The viewer's overrides for this location (`rowhether-settings-v2`, synced in phase 2 through 03's `user_settings`).
 
-Output: `S` for `buildModel`, plus `S._from = { windCaution: 'location' | 'club' | 'you', ... }` for the Settings dialog.
+Output: `S` for `buildModel`, plain values only (phase 0 returns nothing else). The phase 1 Settings dialog adds a map of where each value came from, `{ windCaution: 'location' | 'club' | 'you', ... }`, kept apart from `S` so it never reaches `app.settings` or the suggestion context (08 14.2 P0.5).
 
 Overrides are stored as differences only. When a location's defaults improve, everyone who never changed that value gets the new one. Reset in Settings clears this location's overrides.
 
