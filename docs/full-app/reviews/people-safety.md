@@ -1,10 +1,12 @@
 # People and safety review
 
-Reviewed `docs/full-app/01` to `08` (branch `dev-full-app` at 59bed34) from the side of the people who use the app: rowers on the water, juniors and their guardians, coaches and club safety officers, and people affected by what others post. Started 2026-10-18 10:05 UTC (`date -u`).
+Reviewed `docs/full-app/01` to `08` (branch `dev-full-app` at 59bed34) from the side of the people who use the app: rowers on the water, juniors and their guardians, coaches and club safety officers, and people affected by what others post. Started 2026-10-18 10:05 UTC and finished 2026-10-18 10:24 UTC (`date -u`).
 
-Status: in progress
+Status: complete
 
-Count so far: 6 blocker, 17 major, 6 minor (29 findings).
+Count: 6 blocker, 19 major, 9 minor (34 findings).
+
+Blockers by the phase they block: phase 3, P1 (overdue email failures) and P2 (limits on community locations); phase 5, P10 (kiosk rows), P17 (guardian links), P18 (guardian invite links) and P19 (unverified clubs with juniors).
 
 How to read this:
 
@@ -51,7 +53,7 @@ How to read this:
 
 - Severity: major (phase 4).
 - Where: `05-notifications.md` 3.3 line 132, 5.3 lines 387 to 389; `01-locations.md` 15.7 line 1500.
-- Problem: When the gauge fetch fails, the server model is "Built without flow rules, as the app does when the gauge fails. Nothing added to the copy." (05 line 388). The app does not do that: it keeps the last good value and names the failure under the hero (01 line 1500). The server has no last good value beyond its 10-minute cache, so flow simply drops out. On a river, high flow is a main Stay off reason, and gauges often fail during floods. The result can be "Putney: Go tomorrow morning" on the lock screen (05 line 132) with no hint that flow was not checked. Alerts get a sentence ("NWS alerts could not be checked.", line 387); flow and air quality get none (lines 388 and 389).
+- Problem: When the gauge fetch fails, the server model is "Built without flow rules, as the app does when the gauge fails. Nothing added to the copy." (05 line 388). The app does not do that: it keeps the last good value and names the failure under the hero (01 line 1500). The server has no last good value beyond its 10-minute cache, so flow simply drops out. On a river, high flow is a main Stay off reason, and a gauge can stop reporting at any time, high water included. The result can be "Putney: Go tomorrow morning" on the lock screen (05 line 132) with no hint that flow was not checked. Alerts get a sentence ("NWS alerts could not be checked.", line 387); flow and air quality get none (lines 388 and 389).
 - Fix: Keep the last good flow reading server-side (in `source_cache`, with its time) and use it under the same `maxAgeH` rule as the app. When a bound slot that can raise the level is missing or too old, add a sentence ("River flow could not be checked.") and do not title the message Go; say which level the checked factors give and that flow was not checked. Test each failed slot.
 
 #### P5. The hero shows the same Go when a key factor is not checked at all
@@ -65,7 +67,7 @@ How to read this:
 
 - Severity: major (phase 4).
 - Where: `05-notifications.md` 3.1 line 109, 4.1 line 237, 4.4 line 273, 13 line 1045; `03-accounts-and-privacy.md` 11.3 line 750.
-- Problem: `nws_alert` is "Held" during quiet hours (05 line 109), and only "`overdue` and `water_status` closed ignore quiet hours" (05 line 273). Default quiet hours are "10 PM to 6 AM" (05 line 237). At Putney, civil dawn is 4:37 AM on June 21 and 4:55 AM on May 15 (computed with SunCalc 1.9.0 from the repo's `node_modules`, 2026-10-18), so the first rowing hour of the summer falls inside default quiet hours. A Severe Thunderstorm Warning issued at 5:10 AM would reach a rower on the water at 6 AM. 03 says the opposite: "Safety notifications (water closed, overdue boat, severe alert) | Always | Always" (03 line 750).
+- Problem: `nws_alert` is "Held" during quiet hours (05 line 109). Apart from the times a person schedules, only "`overdue` and `water_status` closed ignore quiet hours" (05 line 273). Default quiet hours are "10 PM to 6 AM" (05 line 237). At Putney, civil dawn is 4:37 AM on June 21 and 4:55 AM on May 15 (computed with SunCalc 1.9.0 from the repo's `node_modules`, 2026-10-18), so the first rowing hour of the summer falls inside default quiet hours. A Severe Thunderstorm Warning issued at 5:10 AM would reach a rower on the water at 6 AM. 03 says the opposite: "Safety notifications (water closed, overdue boat, severe alert) | Always | Always" (03 line 750).
 - Fix: Treat Stay off level NWS alerts as safety: never held, like `overdue` and water closed. Hold only Caution level alerts. Change 05 3.1, 4.4 and the Decision at line 1045 to match 03, and add a test with a warning issued at 5:10 AM.
 
 #### P7. Flow limits are bare numbers that silently stop working when the gauge or its unit changes
@@ -141,7 +143,7 @@ How to read this:
 
 - Severity: blocker (phase 5).
 - Where: `03-accounts-and-privacy.md` 11.5 lines 784, 789, 795, 796, 803 to 807, 820 and 824, 16.7 lines 1532 and 1536; `07-product-and-ux.md` 3.7 line 172, 3.8 line 184.
-- Problem: A guardian link shows the adult the junior's "Outings and float plans (04), attendance and lineups (06)" (03 line 807), served by `GET /api/me/juniors/:userId/activity` with "Messages, outings, attendance, reports" (line 1536). Outings carry where and when the junior launches, the back-by time and the route note: a running picture of where a minor is. Anyone can become the guardian. The junior types any address (line 795), or any adult account shows a code and "The junior enters it" (line 796). The only check is "Guardians must be 18 or older." (line 1532), which rests on the birth year that adult typed. Once linked, "The junior cannot [end it], because MAAPP expects parents to be able to see." (line 820). Club joins also wait on this link's approval (line 789; 07 line 172). An adult who persuades a 15-year-old to enter a code gets lasting sight of where and when the junior rows and a say over their club memberships, and the junior's only way out is the "Get help" page of national reporting lines (line 824). MAAPP, as 03 quotes it, is about open communication between adults and minors; it does not ask that an unconfirmed adult be able to follow a minor's location.
+- Problem: A guardian link shows the adult the junior's "Outings and float plans (04), attendance and lineups (06)" (03 line 807), served by `GET /api/me/juniors/:userId/activity` with "Messages, outings, attendance, reports" (line 1536). Outings carry where and when the junior launches, the back-by time and the route note: a running picture of where a minor is. Anyone can become the guardian. The junior types any address (line 795), or any adult account shows a code and "The junior enters it" (line 796). The only check is "Guardians must be 18 or older." (line 1532), which rests on the birth year that adult typed. Once linked, "The junior cannot [end it], because MAAPP expects parents to be able to see." (line 820). Club joins also wait on this link's approval (line 789; 07 line 172). An adult who persuades a 15-year-old to enter a code gets lasting sight of where and when the junior rows and a say over their club memberships. The junior has no way to end it in the app: only a site admin can, if someone writes in (line 820), and the junior's "Get help" link lists national reporting lines (line 824). MAAPP, as 03 quotes it, is about open communication between adults and minors; it does not ask that an unconfirmed adult be able to follow a minor's location.
 - Fix: Let the junior end a link, with a reason that goes to site admins and, when the junior is in a club, to its safety officer; the other side is told only that the link ended. Keep MAAPP's parent visibility for club communication through the club's own guardian record (06 `club_guardians`), which an admin confirms (P18). Do not show personal outings to account-level guardians by default; the junior shares a row on purpose ("Share this row with Pat"), and club outings stay visible through the club. Do not let an account under 7 days old become a guardian, and flag to admins an adult linked to juniors in several unrelated clubs.
 
 #### P18. A club guardian invite can be a reusable link, so anyone it reaches becomes a guardian of a named child
@@ -155,7 +157,7 @@ How to read this:
 
 - Severity: blocker (phase 5).
 - Where: `06-clubs.md` 2.2 line 124, 3.2 line 197, 3.3 lines 243 and 267, 4.3 line 353, 4.5 line 388, 8.4 line 954; `03-accounts-and-privacy.md` 11.4 line 770.
-- Problem: Any account at least 7 days old can create a club (06 line 197). Verification is meant to stop impersonation (line 124), but an unverified club is barred only from search, location pages, a public page and status, location claims, official hazards and more than 100 members: "Everything else works" (line 243; Decision line 267). So an unverified club can invite juniors and have a guardian approve them from a screen that reads "Sam wants to join Putney Rowing Club as a junior. Approve?" (line 388), with nothing saying the club is unverified. Its staff then see the juniors' rows on the board ("Admin, coach, safety officer | Everyone", line 954) and can broadcast to them. The message safeguard is `audienceGuard()`: "Add a second coach or a safety officer to the club before messaging juniors. Messages to juniors must reach another adult." (03 line 770). An admin can give a staff role to any account by a personal invite (06 line 353), including a second account the same person made, so one person can meet the "another adult" rule alone. A lookalike junior program, or one adult posing as a coach, can then reach juniors through the channel clubs are told meets MAAPP.
+- Problem: Any account at least 7 days old can create a club (06 line 197). Verification is meant to stop impersonation (line 124), but an unverified club is barred only from search, location pages, a public page and status, location claims, official hazards and more than 100 members: "Everything else works" (line 243; Decision line 267). So an unverified club can invite juniors and have a guardian approve them from a screen that reads "Sam wants to join Putney Rowing Club as a junior. Approve?" (line 388), with nothing saying the club is unverified. Its staff then see the juniors' rows on the board ("Admin, coach, safety officer | Everyone", line 954) and can send them club messages (water status notes from phase 5, announcements and practice notes from phase 6). The message safeguard is `audienceGuard()`: "Add a second coach or a safety officer to the club before messaging juniors. Messages to juniors must reach another adult." (03 line 770). An admin can give a staff role to any account by a personal invite (06 line 353), including a second account the same person made, so one person can meet the "another adult" rule alone. A lookalike junior program, or one adult posing as a coach, can then reach juniors through the channel clubs are told meets MAAPP.
 - Fix: Juniors can join only verified clubs; until then, junior invites are refused with "This club must be verified before juniors can join." The guardian approval screen shows "Verified club" or "Not verified yet" and the club's website. `audienceGuard()` counts as another adult only a confirmed guardian (P18) or a staff member of a verified club who is not the sender, has held the role for at least 7 days, and whose account is at least 30 days old.
 
 ### Majors
@@ -241,3 +243,59 @@ How to read this:
 - Where: `04-reports-and-check-ins.md` 3.3 lines 152, 154 and 158, 3.5 line 212, 3.6 lines 235 and 268.
 - Problem: "`launch`: the newest report wins regardless of weight, because a closure is a fact someone just checked. A `closed` report shows in caution color until a newer `open` report or 12 hours." (line 235). A single signed-out "Open" tap, from anyone anywhere, removes "Launch reported closed or blocked at 6:10 AM." (line 268) from the screen. Separately, replacement is keyed on the reporter: "the newest row from the same `user_id` or `ip_hash` at this location with `created_at` in the last 10 minutes is updated instead of inserting" (line 212). `ip_hash` is a daily hash of the IP address (line 158), and a boathouse wifi or a mobile carrier's shared address puts different people behind one IP. A second person's "Flat water" then overwrites the first person's "launch closed" or "thick fog" row instead of adding one, and the daily cap of 20 a day per `ip_hash` (line 152) can lock a whole boathouse out.
 - Fix: An `open` report clears a `closed` one only when it comes from a weight of 1.5 or more, or from two independent reporters; until then show both ("Reported closed at 6:10 AM, open at 6:20 AM."). Replace a signed-out report only when the same browser sent it (a random id kept in `localStorage`), not on `ip_hash` alone, and merge fields rather than overwrite them. Raise the daily cap for an `ip_hash` that many signed-in members also report from, or apply it to signed-out reports only.
+
+## 5. Accessibility where safety depends on it
+
+### Minors
+
+#### P30. Changes to the outing banner are not announced to screen readers
+
+- Severity: minor (phase 3).
+- Where: `07-product-and-ux.md` 11.3 line 1242, 11.4 lines 1249 and 1250, 12.3 lines 1326 and 1328.
+- Problem: The banner changes from "On the water" to "You are 12 min past it. We email Jordan at 8:30 AM." and then to "Jordan was emailed at 8:30 AM. Tap I'm back to send the all clear." (07 lines 1249 and 1250). It is kept out of the hero's live region ("do not put the outing banner or notes inside it", line 1326) and given no role of its own, while the club water status banner has "`role=\"status\"` so a change during a visit is announced once" (line 1242) and the board announces overdue changes (line 1328). A screen reader user who has the app open hears nothing when their contacts are about to be emailed, or have been.
+- Fix: Give the banner's state line `role="status"` and announce each stage change once, with the same words as the screen. Add it to the 07 13 browser checks.
+
+#### P31. The contacts' status page has no accessibility plan, and its one action depends on Turnstile loading
+
+- Severity: minor (phase 3).
+- Where: `04-reports-and-check-ins.md` 3.11 line 493, 6.3 line 977, 8.3 line 1096, 12 line 1333; `07-product-and-ux.md` 12.1.
+- Problem: `/o/<token>` is read by people who are not users, often worried and on whatever phone they have. It is missing from 07's keyboard paths (12.1) and its only test is functional (04 line 1333). Its one action, "I reached Alex, they are safe", runs Turnstile (line 977; line 1096). When Turnstile cannot load, the report dialog has a fallback ("The spam check could not load. Sign in to send reports without it.", line 493), but a contact has no account to sign in with, and the plan gives no fallback for this page.
+- Fix: Add the status page to 07 12 (heading order, the phone number as a real `tel:` link, large targets, no reliance on color for "overdue") and to the browser checks with a screen reader pass. When Turnstile fails, accept the safe mark with the contact's own token alone (P9) and rate limit it, rather than refusing it.
+
+## 6. Legal and liability
+
+These are points for the owner to take to a lawyer. This review does not give legal advice.
+
+### Majors
+
+#### P32. The terms require a parent's permission for under-18s, but sign-up never asks for it
+
+- Severity: major (phase 2).
+- Where: `03-accounts-and-privacy.md` 4.1 line 251, 11.5 line 788, 13.1 line 1020.
+- Problem: The terms outline says "Who can have an account: 13 or older. Under 18 with a parent's or guardian's permission." (03 line 1020). The product never collects that permission: a 13 to 17 year old gets "201, a junior account" straight away (line 251), and "A junior account does not need a guardian link to exist" (line 788). The terms would then state a condition the service knows it does not check, for exactly the users the plan treats most carefully.
+- Fix: Ask the lawyer which is right for a free, general audience service with junior accounts: drop the permission sentence, or collect permission (for example through the guardian link) before some features. Make the terms and the sign-up flow say the same thing.
+
+#### P33. The legal review in 03 13.5 leaves out the riskiest features
+
+- Severity: major (phases 3 to 5).
+- Where: `03-accounts-and-privacy.md` 11.1 line 713, 11.2 line 728, 11.5 line 824, 11.7 line 837, 13.1 lines 1025 and 1037, 13.5 line 1083; `04-reports-and-check-ins.md` 6.6 line 1042; `06-clubs.md` intro line 14, 9.3 line 1142.
+- Problem: 13.5 plans review of "the terms, the privacy notice and the minors approach (11.2, 11.3, 11.5, 11.7)" (03 line 1083). Other docs depend on legal answers that this list does not cover, and some make claims a lawyer should see first:
+  1. Float plans and overdue alerts: whether offering them creates a duty or reliance if they fail (P1, P3, P11). 04 says "03 owns the terms text this depends on" (04 line 1042).
+  2. Limits, sources and emergency details entered by users and shown to others as the basis of Go, Caution or Stay off (P2, P13), and the open licence chosen for community location data (03 line 1037).
+  3. Clubs: whether RoWhether acts for the club (processor) or on its own account for member records, roster-only juniors and incidents, and whether clubs need their own terms or a data processing agreement. 03 13.1 says only that "club admins are responsible for their club's rules, members and the information they enter about members" (line 1025).
+  4. Data about people who never signed up: emergency contacts, crew names, incident witnesses and roster-only juniors, including under-13s (03 line 837 already asks for review of the last before phase 6).
+  5. Health details in incident records, retention for records about minors, and keeping records when a club is deleted (P26).
+  6. Email to people who are not users: emergency contact notices, guardian invites and club invites, under US commercial email law and Canada's anti-spam law, as contacts and guardians can be anywhere from phase 3.
+  7. Statements that the app meets MAAPP: "Clubs using RoWhether must be able to say the app is such a platform" (03 line 713) and "US youth sport rules on adult and minor communication are met by design" (06 line 14), which clubs may rely on (see P17 to P19).
+  8. What the owner must do on learning of possible abuse of a minor through a flag, a club, a guardian or help@ mail: 03 says "RoWhether does not judge safeguarding cases" (line 824), and the under-13 rule promises deletion "within 7 days" (line 728).
+  9. Whether Vermont's Act 63 applies, and what changes if a paid tier is ever added (02's commercial section), since 03 rests "probably not a covered business" on having no revenue.
+- Fix: Add these items to the 13.5 review list, with the phase each blocks: 1 and 2 before phase 3; 3 to 8 before phase 5; 9 before any paid feature. Keep the lawyer's answers in a short file next to the plan so the fix pass can point to them.
+
+### Minors
+
+#### P34. The safety disclaimer does not say that checks can be missing or set by other users
+
+- Severity: minor (phase 2).
+- Where: `03-accounts-and-privacy.md` 13.2 lines 1044 to 1052.
+- Problem: The draft says Go, Caution and Stay off "are what that data says against those limits" and that "Forecasts and gauges can be wrong or late" (line 1044 onward), and the footer short form is "Information only. You, your coach and your club decide. Look at the water before you launch." (line 1052). It does not say that some locations have no gauge or no official alerts, so those factors are not checked there (P5), or that at community-added locations the limits, course and emergency details come from other users and may not have been checked (P2, P13). Those are the two cases where the verdict carries the least behind it.
+- Fix: Add to the disclaimer: "Not every location has every source. Where a factor is not checked, the page says so. At community-added locations, limits and details come from other rowers and may not have been checked." Add "Some locations have fewer checks." to the footer's short form where it applies.
