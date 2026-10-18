@@ -1,8 +1,9 @@
 // Helper for the golden outputs (test/golden.test.js and test/golden-variants.test.js).
 //
 //   node scripts/golden.mjs write [--force]    writes the test/golden/*.json files that do not exist yet
-//                                              (the 19 cases, the v-* variants and the p-* probes)
-//   node scripts/golden.mjs dump <case> [dir]  writes every string one case or variant captured, in full
+//                                              (the 19 cases in full; the v-* variants and p-* probes keep each
+//                                              key over 8 KB as a sha256 digest, see test/golden/digest.js)
+//   node scripts/golden.mjs dump <case> [dir]  writes every value and string one case, variant or probe captured, in full
 //   node scripts/golden.mjs dump               lists the cases
 //
 // write runs the test with GOLDEN_WRITE=1, which fails the run on purpose so a
@@ -10,9 +11,11 @@
 // --force rewrites files that exist. Only P0.1 may do that.
 //
 // dump goes to test/golden/out/<case>/ (git ignored): one file per HTML string,
-// and capture.json. To see what a failing step changed, dump the case on the
-// P0.1 commit (a git worktree of it) and on your branch, then `diff -r` the
-// two folders.
+// and capture.json. A dump always holds the full values, also for the keys a
+// variant or probe file stores as a digest, so a failing digest is diagnosed by
+// dumping the case on the base commit (a git worktree of it) and on your
+// branch, then `diff -r` the two folders. The base is the commit named in
+// docs/full-app/phase-0-progress.md.
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

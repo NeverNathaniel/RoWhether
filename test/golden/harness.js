@@ -3,21 +3,29 @@
 //
 //   npm test                              compares
 //   node scripts/golden.mjs write --force writes every file (P0.1 only)
-//   node scripts/golden.mjs dump <case>   writes every captured string in full
+//   node scripts/golden.mjs dump <case>   writes every captured value and string in full
 //
 // Writing fails the run on purpose, so it can never pass unnoticed. A file that
 // exists is never rewritten unless GOLDEN_FORCE=1, which is for P0.1 only.
+//
+// The 19 main case files hold everything in full. The v-* and p-* files keep a
+// key over 8 KB as a digest (test/golden/digest.js), compared by digest. A dump
+// is always in full, so a digest that fails is diagnosed by dumping the case on
+// the base commit and on HEAD and diffing.
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ALL_CASES, capture, format } from './capture.js';
+import { CASES, ALL_CASES, capture, format } from './capture.js';
 import { PROBES } from './probes.js';
+import { digestOf, isDigest, trimmed } from './digest.js';
 
 const DIR = dirname(fileURLToPath(import.meta.url));
 export const WRITE = process.env.GOLDEN_WRITE === '1', FORCE = process.env.GOLDEN_FORCE === '1';
 export const DUMP = process.env.GOLDEN_DUMP, OUT = process.env.GOLDEN_OUT || join(DIR, 'out');
 const fileOf = c => join(DIR, `${c.name}.json`);
+// The main cases are stored in full; the variants and probes store large keys as digests.
+const MAIN = new Set(CASES);
 
 const done = new Map();
 export function run(c, sink = null) {
@@ -49,14 +57,17 @@ export function defineGolden(items) {
         }
         const have = run(c);
         if (WRITE) {
-          const text = format(have, c.run ? 4 : 3), f = fileOf(c);
+          const text = format(MAIN.has(c) ? have : trimmed(have), c.run ? 4 : 3), f = fileOf(c);
           if (existsSync(f) && readFileSync(f, 'utf8') !== text && !FORCE) throw new Error(`${c.name}.json exists and differs. Not rewritten. GOLDEN_FORCE=1 rewrites it.`);
           writeFileSync(f, text);
           return;
         }
         const want = JSON.parse(readFileSync(fileOf(c), 'utf8'));
         expect(Object.keys(have).sort()).toEqual(Object.keys(want).sort());
-        for (const k of Object.keys(want)) expect(have[k], `${c.name}: ${k}`).toEqual(want[k]);
+        for (const k of Object.keys(want)) {
+          if (!MAIN.has(c) && isDigest(want[k])) expect(digestOf(have[k]), `${c.name}: ${k} (stored as a digest; dump the case to see it in full)`).toEqual(want[k]);
+          else expect(have[k], `${c.name}: ${k}`).toEqual(want[k]);
+        }
       });
     }
 
