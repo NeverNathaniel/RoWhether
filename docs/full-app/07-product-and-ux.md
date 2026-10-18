@@ -133,7 +133,7 @@ Branches:
 Avery sculls a 1x at Putney before work, alone, three mornings a week.
 
 1. Avery creates a limit set "Single" with stricter gusts (8.4, phase 2) and makes it the set for Putney. The hero shows one small line above the verdict: "Your Single limits. Change" (11.2).
-2. At 8 PM a notification arrives: "Putney: Caution tomorrow morning" (phase 4, 05 3.3). Tapping it opens `/putney-landing#fog/2026-10-18`.
+2. At 8 PM a notification arrives: "Putney: looks like Caution tomorrow morning" (phase 4, 05 3.3). Tapping it opens `/putney-landing#fog/2026-10-18`.
 3. At 5:45 AM Avery opens the app. The hero shows the morning period. The fog fact says when fog lifts.
 4. At the dock Avery taps "Start a row" (phase 3, signed in): boat type 1x (remembered), back by 7:15 AM, "Tell my contacts if I am not back" on. The sheet says "If you are not back by 7:15 AM, we remind you. At 7:45 AM we email Jordan and Casey." (04 5.2).
 5. The outing banner shows under the tab bar on every screen of Putney: "On the water since 6:02 AM. Back by 7:15 AM." with "I'm back" and "Add time" (11.4).
@@ -172,7 +172,7 @@ Jamie is 15 and rows with the Putney juniors (phase 5).
 2. Jamie opens the club's invite link `/club/join/<token>`. The page says the join waits for a parent or guardian. Jamie invites a guardian from Account, Guardians (03 11.5).
 3. Once the guardian approves, the hero at Putney shows "Putney RC rules: Juniors, 8+ with a launch." Club rules always apply for juniors (06 6.6).
 4. Screens whose content a guardian can see carry the line "Your guardian can see this." (03 11.5). The Account page names the guardian at the top.
-5. Jamie's reports show publicly without a name ("A rower"), and club messages arrive only as group broadcasts (03 11.4). Non-safety notifications wait until 6 AM.
+5. Jamie's reports show publicly without a name, as everyone's do (04 3.6), and club messages arrive only as group broadcasts (03 11.4). Non-safety notifications wait until 6 AM.
 
 ### 3.8 Parent or guardian
 
@@ -778,7 +778,7 @@ Today: two paragraphs, the data credits for Putney and the starting points sente
 - Data credits come from `attributionFor(loc)` (02, Attribution), using only the location's active bindings. Phase 1 renders the credits from the Putney record's `copy.credits` (01) and corrects the NWS office (01 Decision); phase 0 leaves `index.html` as it is (08 14.3).
 - A generic US river: "Forecast from Open-Meteo. Alerts and observations from the National Weather Service. River flow from USGS gauge 01104500 at Waltham. Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo."
 - A lake: the river sentence is left out. A location with no official alerts: the alerts sentence is left out (the gap is explained where it matters, 6.7).
-- The second paragraph stays: "Thresholds are starting points, not club rules. Lightning: off the water at the first thunder, back on 30 minutes after the last. Look at the water before you launch." For a member with club rules on, the first sentence becomes "Putney Rowing Club rules apply where marked."
+- The second paragraph stays: "Thresholds are starting points, not club rules. Lightning: off the water at the first thunder, back on 30 minutes after the last. Look at the water before you launch." At a location where a factor is not checked (6.7) or that is community-added and not verified, it ends with "Some locations have fewer checks." (03 13.2). Putney's footer does not change. For a member with club rules on, the first sentence becomes "Putney Rowing Club rules apply where marked."
 - New links line (phase 2): "Privacy", "Terms", "About", as plain text links.
 - The Install and Suggest buttons stay as they are.
 
@@ -1257,6 +1257,7 @@ One line above the verdict for club rules (06 6.6 `#clubLine`) or a limit set (8
 - On the water: `background: var(--surface)`, a 4 px left bar in `--river`, text "On the water since 6:42 AM. Back by 8:00 AM.", buttons "I'm back" (primary) and "Add time".
 - Past the back-by time: the bar and text switch to the caution color: "Back by 8:00 AM. You are 12 min past it. We email Jordan at 8:30 AM."
 - After contacts were emailed: the Stay off color and hatch on the bar: "Jordan was emailed at 8:30 AM. Tap I'm back to send the all clear."
+- The state line ("On the water since ...", "... You are 12 min past it ...", "Jordan was emailed at 8:30 AM ...") has `role="status"`, so each stage change is announced once, in the same words as the screen. A screen reader user with the app open therefore hears when their contacts are about to be emailed, or have been. The banner stays outside the hero's live region (12.3).
 - Not sent yet (04 5.6): an extra line in caution color, "Not sent yet. It sends when RoWhether is open and has signal. Until then, nobody will be told if you are late." After a queued "I'm back": "Not sent yet. Open RoWhether when you have signal, or Jordan will be emailed at 8:30 AM."
 - Planned (04 5.6): "Planned for 6:40 AM. Back by 8:00 AM. We email Jordan at 8:30 AM if you are not back." with "Cancel" and "Edit".
 - For a club row: a quiet "Board" link at the end.
@@ -1320,6 +1321,7 @@ No new colors. New custom properties: `--hatch`, `--hatch-fine`. New classes: `.
 | Report conditions | As today: radios in fieldsets, the "More" disclosure, Send. |
 | Start a row, I'm back | The sheet's fields in order, "Start" last. The banner's "I'm back" is the first focusable element after the tab bar. |
 | Board | Each row's actions are buttons in reading order. "More" opens a sheet whose first item takes focus. |
+| Status page `/o/<token>` (04 6.3) | For a contact who is not a user, often worried and on any phone: one `h1` ("Alex is not back yet"), then the details as plain paragraphs and a list, in the order a caller needs them: where, boat, when, phone. The rower's phone is a real `tel:` link and "Open in maps" a real link. Tab order is the phone link, the map link, then "I reached Alex, they are safe", which is a button at least 3rem tall. "Overdue" is words and a hatched bar, never color alone. The page sets `lang`, works at 200% zoom, and works with JavaScript off, because it is rendered by the Worker. |
 | Account and club tabs | The same tab links as the location's, with `aria-current="page"`. |
 | Notification settings | Native switches (`<input type="checkbox" role="switch">`), selects for times. |
 
@@ -1333,7 +1335,7 @@ No new colors. New custom properties: `--hatch`, `--hatch-fine`. New classes: `.
 
 ### 12.3 Screen reader text
 
-- The hero is `aria-live="polite"` today, so a new verdict after a refresh is read. Keep it, and do not put the outing banner or notes inside it.
+- The hero is `aria-live="polite"` today, so a new verdict after a refresh is read. Keep it, and do not put the outing banner or notes inside it. The outing banner's state line has its own `role="status"` (11.4), so its stage changes are read once and never twice.
 - Compare rows have one accessible name each: "Lake Quinsigamond. Go now. Best 90 minutes today: 7 to 8:30 AM." The bar has `aria-hidden="true"` because the text already says it.
 - The board's state words are in the row text (06 20), and overdue changes are announced once (5.9).
 - The account button's name includes unread notifications (4.3).
@@ -1407,6 +1409,8 @@ Phase 3
 - Add flow with discovery stubbed: each step has its own hash; Back goes back a step; the crosshair "Put the dock here" places the pin by keyboard; dedupe at 80 m blocks; Publish lands on the new page with the community note (01 16.5).
 - Quick look `/at/42.273,-71.755`: no River, Tide or Info tab; the subtitle says it is a point; "Add this location" is present signed in.
 - Start a row signed in: the banner shows on Now and on `#wind`; offline start shows the not-sent line; I'm back clears it.
+- Outing banner announcements: with the clock moved past the back-by time and then past the contact time, the state line changes twice and `getByRole('status')` reads each new text once (a screen reader pass on iOS VoiceOver and Android TalkBack is on the manual list).
+- `/o/<token>` with stubbed status: one `h1`, headings in order, the phone number is a `tel:` link, the safe button is at least 3rem tall, "overdue" is carried by words, with JavaScript disabled the page still reads and the safe form posts, and with Turnstile blocked the mark is still accepted (04 8.3).
 
 Phase 4
 

@@ -2373,7 +2373,7 @@ Rules for the content:
 | `suggest` | The suggestion form | today | existing |
 | `auth` | `POST /api/auth/code` (sign in), `POST /api/me/email`, `POST /api/me/guardians/invite` | 2, 5 | 03 6.3 |
 | `report` | `POST /api/locations/:slug/reports` when signed out | 3 | 04 8.3 |
-| `safe` | `POST /api/outings/status/:token/safe` | 3 | 04 8.3 |
+| `safe` | `POST /api/outings/status/:token/safe` and `/worried`, from a form on the Worker page. When the widget cannot load, the token alone is accepted and rate limited (04 8.3) | 3 | 04 8.3 |
 
 - `verifyTurnstile(env, token, ip, action = 'suggest')` checks `success` and that `action` matches (phase 0 adds the parameter with today's value as the default, so no caller changes; 14 step P0.13).
 - The browser loader moves from `src/suggest.js` to `src/turnstile.js` in phase 2. The script loads only when a form that needs it is first opened, never on page load. The site key comes from `/api/info` `turnstileKey` from phase 2; `GET /api/suggest` keeps returning it for the suggestion form.

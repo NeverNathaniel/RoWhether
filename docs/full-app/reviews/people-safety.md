@@ -147,6 +147,8 @@ Applied: 06 8.7 (no stored `number`: it comes from a checked country table in `s
 - Problem: 03 blocks the deletion: "A boat signed out and not back (phase 3) | \"You have a boat signed out. Sign it in first, so no one is alerted by mistake.\"" (03 line 369; 409 `open_outing`, line 1524). 04 lets it through: "The rower deletes their account while out: the outing is cancelled and contacts get the all clear first (03's deletion runs this before deleting)." (04 line 989). Following 04, someone who has taken over an account could send the contacts an all clear while the rower is still out. 03's copy also says "signed out" and "Sign it in" for a boat, words 04's Decision keeps for the account (line 696).
 - Fix: Keep 03's blocker and change 04 6.4 to match. Reword 03's message in 04's words: "You are on the water since 6:42 AM. Tap I'm back first, so no one is alerted by mistake."
 
+Applied: 04 6.4 (deleting an account while out is refused until the rower taps I'm back; deletion never sends an all clear), matching 03; 03 4.10 and 16.6 (the message now reads "You are on the water since 6:42 AM. Tap I'm back first, so no one is alerted by mistake.", in 04's words).
+
 #### P15. Evening messages state Go as fact, while practice checks say "looks like"
 
 - Severity: minor (phase 4).
@@ -154,12 +156,16 @@ Applied: 06 8.7 (no stored `number`: it comes from a checked country table in `s
 - Problem: The night-before message titles a forecast 10 or more hours ahead as a plain verdict: "Putney: Go tomorrow morning" (05 line 132), and the overnight update says "Putney update: now Go this morning" (line 166). The same kind of evening forecast for coaches is worded as a forecast: "tomorrow's 5:45 AM practice looks like Stay off" (06 line 1306). On a lock screen, without the app's facts or the footer, a bare "Go" reads as the permission the disclaimer says it is not ("They are information, not permission.", 03 13.2).
 - Fix: Word every forecast notification as a forecast and end with a check: "Putney tomorrow morning looks like Go. ... Check again before you launch." Apply the same to the overnight update ("now looks like Go") and the Go window alert.
 
+Applied: 05 3.2 (a copy rule: every forecast notification says "looks like", "likely" or "possible" and ends with "Check again before you launch."), 3.3, 3.4, 3.5, 3.8, the payload samples in 5.6 and 6.3, and 12 (a test); 07 3.4. 06 12.2 already words coach forecasts this way.
+
 #### P16. The float plan notice leaves out the limits that matter most
 
 - Severity: minor (phase 3).
 - Where: `04-reports-and-check-ins.md` 6.6 lines 1038 and 1044; `05-notifications.md` 2.3 line 92.
 - Problem: The one-time sheet says "We email your contacts if you are late. We do not watch the water, call anyone, or know where you are. Your phone needs signal for us to know you started. Tell someone your plan as well." (04 line 1038). It does not say that finishing also needs signal (P11), that contacts get email only, with no text message or call (05 2.3), so they may not see it for hours or may find it in spam, or that in phase 3 the rower's own reminders are email only ("ship float plans in phase 3 with email reminders to the rower", line 1044), which a rower on the water will not see.
 - Fix: Add two sentences: "Tapping I'm back needs signal too. Your contacts get an email, not a call or a text, so make sure they know to look for it." In phase 3, add: "Reminders to you come by email until notifications arrive."
+
+Applied: 04 6.6 (the one-time float plan sheet now says that tapping I'm back needs signal, that contacts get an email and not a call or a text, and, in phase 3 only, that reminders to the rower come by email until notifications arrive).
 
 ## 2. Safeguarding of minors
 
@@ -221,12 +227,16 @@ Applied: 04 4.5 (a junior's hazard and launch notes always go to the moderation 
 - Problem: 06 says the guardian's "Share my phone with Putney Rowing Club staff for emergencies" is "on by default" (06 line 448). 08 creates `share_phone INTEGER NOT NULL DEFAULT 0` (line 1133). 03 adopts the ICO code's "high privacy by default" (line 711). Either answer is defensible, since staff may need a parent's number in an emergency, but the two docs disagree on a contact-data default.
 - Fix: Pick one and write it in both. If it stays on by default, the join screen shows the box ticked with its reason, the privacy notice names it, and the column default is not relied on.
 
+Applied: 06 5.2 rule 8 now says the guardian's phone sharing is off until ticked, with the box shown unticked and its reason on the join screen, and the legal review line in 06 follows. This matches 08 (`memberships.share_phone DEFAULT 0`) and 03 11.1 (high privacy by default), so no 08 change was needed.
+
 #### P23. 06 can be read as letting the kiosk show juniors' names
 
 - Severity: minor (phase 5).
 - Where: `06-clubs.md` 5.2 line 446, 8.4 line 958, 8.5 line 975.
 - Problem: Rule 6 reads "Junior names never appear on public pages. The kiosk shows first name and last initial." (line 446), which in a rule about junior names says the kiosk shows juniors as first name and last initial. 8.4 says the kiosk shows "Adults as first name and last initial; junior crews unnamed" (line 958), and 8.5 lists "junior names" among what a kiosk cannot see (line 975). A boathouse screen is seen by anyone who walks in.
 - Fix: Reword rule 6: "Junior names never appear on public pages or on the kiosk, which shows adults as first name and last initial and junior crews unnamed."
+
+Applied: 06 5.2 rule 6 reworded to the finding's text, so it agrees with 8.4 and 8.5.
 
 ## 3. Privacy
 
@@ -268,6 +278,8 @@ Applied: 06 9.3 (one retention rule: 7 years from the incident, then the whole r
 - Problem: The sign-up name hint says "Shown with your reports and in your clubs." (03 line 244); 03 11.3 has adults' names "shown to the public with reports, hazards, location edits" (line 743), and a junior turning 18 is told "Your name now shows with your reports." (line 754). 03's own inventory says "reporter names are never shown, 04" (line 859), and 04 says "Reporter names are never shown. A signed-in reporter is not identified, only badged." (04 line 274). Names do show with location creation and edits (P21). People are told the wrong thing about where their name appears, and the doc a builder reads first (03) points the wrong way.
 - Fix: State one rule in 03 11.3 and the sign-up hint: names show with locations you add or edit and in your clubs, never with reports or hazards. Change the age-up message to match ("Your name now shows with location edits.").
 
+Applied: 03 4.1 (the name hint reads "Shown with locations you add or edit, and in your clubs."), 11.3 (the table row and the age-up message: names show with location edits and in clubs, never with reports or hazards); 07 3.7 step 5.
+
 ## 4. Abuse and moderation
 
 ### Majors
@@ -301,12 +313,16 @@ Applied: 04 3.6 (a closed launch report stays until an open report from a report
 - Problem: The banner changes from "On the water" to "You are 12 min past it. We email Jordan at 8:30 AM." and then to "Jordan was emailed at 8:30 AM. Tap I'm back to send the all clear." (07 lines 1249 and 1250). It is kept out of the hero's live region ("do not put the outing banner or notes inside it", line 1326) and given no role of its own, while the club water status banner has "`role=\"status\"` so a change during a visit is announced once" (line 1242) and the board announces overdue changes (line 1328). A screen reader user who has the app open hears nothing when their contacts are about to be emailed, or have been.
 - Fix: Give the banner's state line `role="status"` and announce each stage change once, with the same words as the screen. Add it to the 07 13 browser checks.
 
+Applied: 07 11.4 (the outing banner's state line has `role="status"` and each stage change is announced once, in the screen's words), 12.3 (the banner stays outside the hero live region) and 13 (a phase 3 browser check).
+
 #### P31. The contacts' status page has no accessibility plan, and its one action depends on Turnstile loading
 
 - Severity: minor (phase 3).
 - Where: `04-reports-and-check-ins.md` 3.11 line 493, 6.3 line 977, 8.3 line 1096, 12 line 1333; `07-product-and-ux.md` 12.1.
 - Problem: `/o/<token>` is read by people who are not users, often worried and on whatever phone they have. It is missing from 07's keyboard paths (12.1) and its only test is functional (04 line 1333). Its one action, "I reached Alex, they are safe", runs Turnstile (line 977; line 1096). When Turnstile cannot load, the report dialog has a fallback ("The spam check could not load. Sign in to send reports without it.", line 493), but a contact has no account to sign in with, and the plan gives no fallback for this page.
 - Fix: Add the status page to 07 12 (heading order, the phone number as a real `tel:` link, large targets, no reliance on color for "overdue") and to the browser checks with a screen reader pass. When Turnstile fails, accept the safe mark with the contact's own token alone (P9) and rate limit it, rather than refusing it.
+
+Applied: 07 12.1 (a keyboard and screen reader row for the status page: heading order, `tel:` link, targets at least 3rem, no color-only "overdue", `lang`, zoom, JavaScript off) and 13 (browser checks); 04 8.3 (when Turnstile cannot load, the safe mark is accepted on the contact's own token alone, rate limited), 12; 08 10.8.
 
 ## 6. Legal and liability
 
@@ -320,6 +336,8 @@ These are points for the owner to take to a lawyer. This review does not give le
 - Where: `03-accounts-and-privacy.md` 4.1 line 251, 11.5 line 788, 13.1 line 1020.
 - Problem: The terms outline says "Who can have an account: 13 or older. Under 18 with a parent's or guardian's permission." (03 line 1020). The product never collects that permission: a 13 to 17 year old gets "201, a junior account" straight away (line 251), and "A junior account does not need a guardian link to exist" (line 788). The terms would then state a condition the service knows it does not check, for exactly the users the plan treats most carefully.
 - Fix: Ask the lawyer which is right for a free, general audience service with junior accounts: drop the permission sentence, or collect permission (for example through the guardian link) before some features. Make the terms and the sign-up flow say the same thing.
+
+Owner: Should the terms require a parent's permission for 13 to 17 year olds, and if so how is it collected? Until the lawyer answers, 03 13.1 item 2 now says only what sign-up does (13 or older, junior protections, club joins need a guardian's approval). Decision added to 03 section 21 with that wording first, and item A added to the 13.5 review list before phase 2.
 
 #### P33. The legal review in 03 13.5 leaves out the riskiest features
 
@@ -337,6 +355,8 @@ These are points for the owner to take to a lawyer. This review does not give le
   9. Whether Vermont's Act 63 applies, and what changes if a paid tier is ever added (02's commercial section), since 03 rests "probably not a covered business" on having no revenue.
 - Fix: Add these items to the 13.5 review list, with the phase each blocks: 1 and 2 before phase 3; 3 to 8 before phase 5; 9 before any paid feature. Keep the lawyer's answers in a short file next to the plan so the fix pass can point to them.
 
+Applied: 03 13.5 (the review list now has every item: A for the parent permission sentence before phase 2; 1 and 2 before phase 3; 3 to 8 before phase 5; 9 before any paid feature; the lawyer's answers go in `docs/full-app/legal-answers.md`, a file to create when answers arrive).
+
 ### Minors
 
 #### P34. The safety disclaimer does not say that checks can be missing or set by other users
@@ -345,3 +365,5 @@ These are points for the owner to take to a lawyer. This review does not give le
 - Where: `03-accounts-and-privacy.md` 13.2 lines 1044 to 1052.
 - Problem: The draft says Go, Caution and Stay off "are what that data says against those limits" and that "Forecasts and gauges can be wrong or late" (line 1044 onward), and the footer short form is "Information only. You, your coach and your club decide. Look at the water before you launch." (line 1052). It does not say that some locations have no gauge or no official alerts, so those factors are not checked there (P5), or that at community-added locations the limits, course and emergency details come from other users and may not have been checked (P2, P13). Those are the two cases where the verdict carries the least behind it.
 - Fix: Add to the disclaimer: "Not every location has every source. Where a factor is not checked, the page says so. At community-added locations, limits and details come from other rowers and may not have been checked." Add "Some locations have fewer checks." to the footer's short form where it applies.
+
+Applied: 03 13.2 (the disclaimer says that not every location has every source, that unchecked factors are named on the page, and that limits and details at community-added locations come from other rowers and may not have been checked; the footer short form adds "Some locations have fewer checks." where it applies); 07 6.6 (the footer, unchanged for Putney).

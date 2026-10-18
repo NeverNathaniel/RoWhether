@@ -1026,7 +1026,7 @@ Decision: let a contact end the escalation from their own status link. Recommend
 - No signal on the water at the planned time: reminders queue at the push service for their TTL (05) and arrive when the phone reconnects; the escalation goes on regardless.
 - Time zones: all times are ms. Pickers and copy use the location's zone and `tzLabel`, with the zone named in every email ("8:00 AM Eastern"). A rower whose phone is set to another zone sees the location's time with the zone named: "Back by 8:00 AM (Eastern)".
 - Daylight saving change during an outing: ms arithmetic is unaffected; copy prints local times on each side correctly through `m.fmt` (01).
-- The rower deletes their account while out: the outing is cancelled and contacts get the all clear first (03's deletion runs this before deleting).
+- The rower deletes their account while out: refused with 409 `open_outing` (03 4.10, 16.6) until they tap I'm back, which sends the all clear in the normal way. Deletion never cancels an outing or sends an all clear itself, so a person who has taken over an account cannot silence the contacts while the rower is still on the water.
 - A contact's email bounces: logged in `notify_log`, `bounced_at` is set, and the rower is told at once (6.1) by push or email and in Account, not only in the banner during an outing. If it happens during an outing, the banner also says "We could not reach Jordan by email. Call someone now."
 
 ### 6.5 Messages
@@ -1087,9 +1087,11 @@ New time email: subject "Alex added time on the water", body "Alex now plans to 
 
 The app never promises rescue or monitoring. Every surface of the float plan carries "RoWhether is not an emergency service." The first time someone turns on Tell my contacts, a one-time sheet says:
 
-> We email your contacts if you are late. We do not watch the water, call anyone, or know where you are. Your phone needs signal for us to know you started. Tell someone your plan as well.
+> We email your contacts if you are late. We do not watch the water, call anyone, or know where you are. Your phone needs signal for us to know you started, and tapping I'm back needs signal too. Your contacts get an email, not a call or a text, so make sure they know to look for it. Reminders to you come by email until notifications arrive. Tell someone your plan as well.
 >
 > [Got it]
+
+In phase 4, when push reminders arrive, the sentence "Reminders to you come by email until notifications arrive." is dropped.
 
 03 owns the terms text this depends on.
 
@@ -1145,7 +1147,9 @@ Daily caps count rows with an indexed query (`(user_id, created_at)`, `(browser_
 
 ### 8.3 Turnstile
 
-Used for signed-out reports and the status link "safe" action. The site key goes in `/api/info` as `turnstileKey` (today it comes from `GET /api/suggest`). Widget: managed mode with `appearance: 'interaction-only'`, rendered when the dialog opens so the token is usually ready by Send. Tokens are valid for 300 seconds and single use (from docs, https://developers.cloudflare.com/turnstile/get-started/server-side-validation/), so a dialog left open longer gets a fresh token with `turnstile.reset()` on Send. The Worker checks `action === 'report'` or `'safe'`. Free plan: 20 widgets per account (from docs, https://developers.cloudflare.com/turnstile/plans/); this plan needs 1 widget for all three actions.
+Used for signed-out reports and the status link "safe" and "still worried" actions. The site key goes in `/api/info` as `turnstileKey` (today it comes from `GET /api/suggest`). Widget: managed mode with `appearance: 'interaction-only'`, rendered when the dialog opens so the token is usually ready by Send. Tokens are valid for 300 seconds and single use (from docs, https://developers.cloudflare.com/turnstile/get-started/server-side-validation/), so a dialog left open longer gets a fresh token with `turnstile.reset()` on Send. The Worker checks `action === 'report'` or `'safe'`. Free plan: 20 widgets per account (from docs, https://developers.cloudflare.com/turnstile/plans/); this plan needs 1 widget for all three actions.
+
+The status page is for a worried person on any phone, who has no account to sign in with. When Turnstile cannot load or fails to start (blocked, offline, no JavaScript), the safe mark and "still worried" are accepted with the contact's own token alone, rate limited by IP and by 5 a day per contact row (8.2), rather than refused. The token is 128 bits and tied to one contact, so Turnstile adds little on this path. A report dialog's fallback stays as 3.11 says (sign in to send without it).
 
 Turnstile for a queued report: the token is fetched when the outbox flushes, not when the report was made, so a 5 AM report with no signal is sent at 7 with a fresh token and `seenAt` of 5 AM (within the 2-hour bound; older ones are dropped with a note "1 report was too old to send.").
 
@@ -1398,7 +1402,7 @@ Browser checks (Playwright, as in CLAUDE.md):
 - `context.setOffline(true)`: report and Start a row queue, the warning line shows with the words "when RoWhether is open and has signal"; back online they send in order and the banner updates. Then start a row online, go offline and tap I'm back: the banner shows "Not sent yet. Open RoWhether when you have signal, or Jordan will be emailed at 8:30 AM." until it sends.
 - Start a row with a later start time while online: the banner says "Planned for ..." and the float plan is armed; `outAt` in the future is accepted only with `planned: true`.
 - Start a row, Add time, I'm back at 360 px and 1280 px; the banner shows on every tab of the location.
-- `/o/<token>` with stubbed status for `out`, `overdue`, `in` and `safe`; the safe flow.
+- `/o/<token>` with stubbed status for `out`, `overdue`, `in` and `safe`; the safe flow; the same with JavaScript disabled (the page reads and the form posts) and with Turnstile blocked (the mark is accepted on the token alone); an accessibility pass at 360 px and 200% zoom (07 12.1, 12.3).
 - Hazard list with stubbed data, Still there and Gone.
 - The summary line copy for one, several, differing and none.
 

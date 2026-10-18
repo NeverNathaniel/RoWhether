@@ -241,7 +241,7 @@ Each flow names the screens, the API calls (16) and the copy. Screen titles are 
    - Hint: "Not there after a minute? Check spam."
 5. "Continue" sends `POST /api/auth/code/verify` `{ "codeId": "...", "code": "482913" }`. For an address with no account the answer is `{ "status": "new_account", "ticket": "..." }`.
 6. Screen "Create your account":
-   - Field "Name". Hint: "Shown with your reports and in your clubs. A first name and last initial works well." 2 to 40 characters (7).
+   - Field "Name". Hint: "Shown with locations you add or edit, and in your clubs. A first name and last initial works well." 2 to 40 characters (7).
    - Fields "Month and year you were born": a month select (blank, then January to December) and a 4-digit year text field. Hint: "Only used to apply the rules for junior rowers. We do not keep your birth date."
    - Field "Home location": a select, preset to the location open now ("Putney Landing"), with "None".
    - Button: "Create account"
@@ -366,7 +366,7 @@ One blocker:
 
 | Blocker | Copy |
 | --- | --- |
-| A boat signed out and not back (phase 3) | "You have a boat signed out. Sign it in first, so no one is alerted by mistake." Signing in runs 04's normal all clear, which is what 04 asks to happen before a deletion. |
+| A row started and not finished (phase 3) | "You are on the water since 6:42 AM. Tap I'm back first, so no one is alerted by mistake." I'm back runs 04's normal all clear. Deletion never ends an outing itself, so someone who has taken over an account cannot send the contacts an all clear while the rower is still out. |
 
 Notes, not blocking (a person's right to delete must not depend on someone else acting):
 
@@ -740,7 +740,7 @@ Defaults while `now < junior_until`. A junior cannot change these; they lift aut
 
 | Setting | Junior | Adult |
 | --- | --- | --- |
-| Name shown to the public with reports, hazards, location edits | No: "A rower" | Yes |
+| Name shown to the public with locations they add or edit (reports and hazards never show a name, 04 3.6) | No: "a rower" | Yes |
 | Name shown to members of their clubs | Yes | Yes |
 | Public free text (report notes, hazard text, launch notes) | Held for review by a moderator before it shows. Choice-only reports and hazards show at once, without a name. | 04's rules |
 | Photos (if 04 adds them) | Not allowed | Allowed, location data removed (12.2) |
@@ -751,7 +751,7 @@ Defaults while `now < junior_until`. A junior cannot change these; they lift aut
 | Visible to linked guardians | Yes, with the signal in 11.5 | n/a |
 | Export and delete own account | Yes; linked guardians are told | Yes |
 
-On the day `junior_until` passes, the daily cleanup sets it to null, guardian links end (11.5), and the person sees once: "Your account is now an adult account. Your name now shows with your reports. Change this in Account."
+On the day `junior_until` passes, the daily cleanup sets it to null, guardian links end (11.5), and the person sees once: "Your account is now an adult account. Your name now shows with location edits. Change this in Account."
 
 Decision: Hold juniors' public free text for moderator review; choice-only contributions show at once without a name.
 - Alternative: juniors post only choice-only content publicly (no free text).
@@ -1025,7 +1025,7 @@ Decision: Delete free-text notes and photos from reports on account deletion, ke
 ### 13.1 Terms of use outline
 
 1. Who runs RoWhether and how to reach us (help@rowhether.com).
-2. Who can have an account: 13 or older. Under 18 with a parent's or guardian's permission.
+2. Who can have an account: 13 or older. If you are under 18 you get a junior account with extra protections (11.3), and joining a club needs a parent's or guardian's approval (11.5). This says only what the product does; the lawyer decides whether it must also say "with a parent's permission" and, if so, how permission is collected (Decision in 21).
 3. Information only: the safety disclaimer (13.2), in full.
 4. Your account: one person per account, no shared logins (clubs use club roles), keep your email and devices secure, tell us about misuse.
 5. What you post (reports, hazards, locations, edits, club content): it must be accurate as far as you know, and yours to share. You give RoWhether permission to show, adapt (for example convert units) and keep it, without your name after you leave (12.9). License for location data: Decision below.
@@ -1053,11 +1053,13 @@ Shown on `/terms`, on `/about`, linked from the sign-up screen, and in short for
 >
 > You, your coach and your club decide whether to go out. Forecasts and gauges can be wrong or late, and conditions on the water change fast. Look at the water before you launch. Follow your club's rules and local regulations, and wear what your program requires.
 >
+> Not every location has every source. Where a factor is not checked, the page says so. At community-added locations, limits and details come from other rowers and may not have been checked.
+>
 > Off the water at the first thunder, and back on 30 minutes after the last.
 >
 > Sign-out boards, float plans and overdue alerts are a backup. They can fail. In an emergency, call 911 or your local emergency number.
 
-Short form for the footer: "Information only. You, your coach and your club decide. Look at the water before you launch."
+Short form for the footer: "Information only. You, your coach and your club decide. Look at the water before you launch." At a location with an unchecked factor (07 6.7) or a community-added record, it adds "Some locations have fewer checks."
 
 ### 13.3 Privacy notice outline
 
@@ -1090,6 +1092,32 @@ Layered: a short summary at the top, then the detail.
 
 Decision: Have a lawyer review the terms, the privacy notice and the minors approach (11.2, 11.3, 11.5, 11.7) before phase 2 ships, and again before phase 5 (clubs with juniors) and phase 7 (EU, UK, Canada). Cost unverified.
 - Alternative: use a reputable template for phase 2 and review only before phase 5 (faster; more risk with juniors signing up in phase 2).
+
+Other docs depend on legal answers, and some make claims a lawyer should see first. This is the full list, with the phase each item blocks. These are points for the owner to take to a lawyer; this plan gives no legal advice.
+
+Before phase 2:
+
+- A. Whether the terms may say "13 or older" for juniors, or must also require a parent's permission, and how it is collected (13.1 item 2; Decision in 21).
+
+Before phase 3:
+
+1. Float plans and overdue alerts: whether offering them creates a duty or reliance if they fail (04 6.6 says "03 owns the terms text this depends on").
+2. Limits, sources and emergency details entered by users and shown to others as the basis of Go, Caution or Stay off, and the open licence chosen for community location data (13.1).
+
+Before phase 5:
+
+3. Clubs: whether RoWhether acts for the club (processor) or on its own account for member records, roster-only juniors and incidents, and whether clubs need their own terms or a data processing agreement (13.1 item 7 says only that club admins are responsible).
+4. Data about people who never signed up: emergency contacts, crew names, incident witnesses and roster-only juniors, including under-13s (11.7).
+5. Health details in incident records, retention for records about minors (the 7 year default in 06 9.3) and keeping records when a club is deleted.
+6. Email to people who are not users: emergency contact notices, guardian invites and club invites, under US commercial email law and Canada's anti-spam law. Contacts can be anywhere from phase 3, so ask this one early.
+7. Statements that the app meets MAAPP ("Clubs using RoWhether must be able to say the app is such a platform", 11.1, and "US youth sport rules on adult and minor communication are met by design", 06 intro), which clubs may rely on.
+8. What the owner must do on learning of possible abuse of a minor through a flag, a club, a guardian or help@ mail (11.5 says RoWhether does not judge safeguarding cases), and the under-13 rule's deletion "within 7 days" (11.2).
+
+Before any paid feature:
+
+9. Whether Vermont's Act 63 applies, and what changes if a paid tier is ever added (02's commercial section), since 11.1's "probably not a covered business" rests on having no revenue.
+
+The lawyer's answers go in a short file next to the plan, `docs/full-app/legal-answers.md`, one entry per number above (A, 1 to 9), so a later pass can point to them.
 
 ## 14. Security
 
@@ -1531,7 +1559,7 @@ Each later doc adds its section through a registry: `worker/auth/export.js` impo
 
 `GET /api/me/delete` 200 `{ "blockers": [{ "kind": "open_outing", "outingId": "..." }], "notes": [{ "kind": "sole_club_admin", "club": { "slug", "name" } }, { "kind": "guardian_link", "name": "Jamie R." }] }`. Read only; no recent sign-in needed.
 
-`POST /api/me/delete` `{ "confirm": "delete" }` (recent sign-in) 200 `{ "deleted": true }` (clears the cookie). 409 `open_outing` `{ "outingId" }` "You have a boat signed out. Sign it in first."; 400 `confirm` "Type delete to confirm."
+`POST /api/me/delete` `{ "confirm": "delete" }` (recent sign-in) 200 `{ "deleted": true }` (clears the cookie). 409 `open_outing` `{ "outingId" }` "You are on the water since 6:42 AM. Tap I'm back first, so no one is alerted by mistake." (the time is the outing's start); 400 `confirm` "Type delete to confirm."
 
 ### 16.7 Guardians (phase 5)
 
@@ -1788,6 +1816,7 @@ Decisions, recommendation first:
 - Decision: No live boat tracking in any phase. Alternative: opt-in tracking during an outing with a 24-hour retention and a visible signal. (12.2)
 - Decision: No analytics product and no tracking of people; 08 10.9 adopts an aggregate open counter, owner to confirm. Alternatives: Cloudflare Web Analytics (needs a second script exception); no counter at all. (12.3)
 - Decision: Keep `incidents` for a fixed 7 years from the incident, names as written, then delete the whole record; the lawyer sets the period. Alternative: names removed; delete with the person. (12.9)
+- Decision: Word the terms to say what sign-up does (13 or older; juniors get protections; clubs need a guardian's approval), and let the lawyer say whether a parent's permission must be collected. Recommended: the product does not collect permission today, and a terms sentence it does not check is a promise it cannot keep. Alternative: collect permission at sign-up for 13 to 17 (an emailed parent confirmation), which adds friction and a store of parent emails. Alternative: keep "with a parent's permission" in the terms and rely on guardian links. (13.1)
 - Decision: Delete report text and photos on account deletion, keep choices without a name. Alternative: keep report text without a name. (12.9)
 - Decision: Vermont law governs the terms. Alternative: no clause until a lawyer advises. (13.1)
 - Decision: License community location data openly (ODbL or CC BY-SA). Alternative: RoWhether keeps a non-exclusive license only. (13.1)
