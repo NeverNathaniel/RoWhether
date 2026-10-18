@@ -224,7 +224,7 @@ export function capture(scenario, clock, settings, { loc = PUTNEY, width = 390, 
       confidence: conf,
       precip: {
         next12: L.precipSummary(m.h72.slice(0, 12)),
-        notes: Object.fromEntries(m.days.map(d => { const s = L.precipSummary(L.rowingHours(m, d.key)); return [d.key, s && precipNote(s, m.now)]; }))
+        notes: Object.fromEntries(m.days.map(d => { const s = L.precipSummary(L.rowingHours(m, d.key)); return [d.key, s && precipNote(s, m.now, m.u)]; }))
       },
       flow: { now: L.flowNow(m), trend: L.flowTrend(data.flow), change: L.flowChange(data.flow), waterTemp: L.waterTemp(m), overridden: L.waterOverridden(S) },
       light: m.hours.map(h => ({ day: 'd', twilight: 't', dark: 'n' }[L.lightAt(m, h.t + 30 * MIN)])).join(''),
