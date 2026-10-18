@@ -181,9 +181,7 @@ Weights are stored, not recomputed, so changing the table only affects new rows.
 
 ### 3.4 Geolocation check
 
-Optional, off by default. When "Check that I am at the dock" is ticked, the dialog calls `navigator.geolocation.getCurrentPosition` with `{ enableHighAccuracy: true, maximumAge: 60000, timeout: 8000 }` when Send is tapped, and sends `geo: { lat, lon, acc }`.
-
-The Worker computes the distance to the location's dock point (01's `lat`, `lon`) with haversine and stores only one word:
+Optional, off by default. When "Check that I am at the dock" is ticked, the dialog calls `navigator.geolocation.getCurrentPosition` with `{ enableHighAccuracy: true, maximumAge: 60000, timeout: 8000 }` when Send is tapped. The browser computes the distance to the location's dock point (01's `lat`, `lon`, which it already holds) with haversine, in `geoWord(pos, loc)` in `src/reportlogic.js`, and sends only one word, `geo: "near" | "far" | "unknown"`. Coordinates never leave the phone (03 12.2). The Worker checks that the word is one of the three and stores it:
 
 | Stored `geo` | Rule |
 | --- | --- |
@@ -192,15 +190,15 @@ The Worker computes the distance to the location's dock point (01's `lat`, `lon`
 | `unknown` | `acc` > 1,000 m, or the browser refused or timed out |
 | NULL | The box was not ticked |
 
-1,500 m covers a rower reporting from the course, not just the dock. The coordinates are used once in memory and never stored or logged. `worker/reports.js` must not pass the request body to `console.log`; a test checks that the inserted row has no coordinate columns and that the error path logs no body.
+1,500 m covers a rower reporting from the course, not just the dock. The coordinates are used once in the browser to pick the word and are never sent, stored or logged. `worker/reports.js` must not pass the request body to `console.log`; a test checks that the inserted row has no coordinate columns and that the error path logs no body.
 
-Decision: offer an opt-in geolocation check and store only `near`, `far` or `unknown`. Recommended. Alternative: no check (simplest, weights ignore place). Alternative: store rounded coordinates for analysis (more useful for tuning, a privacy cost the reports do not need).
+Decision: offer an opt-in geolocation check, computed in the browser, and store only `near`, `far` or `unknown`. Recommended. Alternative: no check (simplest, weights ignore place). Alternative: store rounded coordinates for analysis (more useful for tuning, a privacy cost the reports do not need).
 
 ### 3.5 Server checks, in order
 
 Cheap checks first, as `handleSuggest()` in `worker/suggest.js` does. `addReport(request, env, loc, now, deps)` with `deps = { verifyTurnstile, getSession }` injectable for tests.
 
-1. `env.DB` bound. Else 503 `not_configured` "Reports are not set up here."
+1. `env.DB` bound and `env.REPORTS_ENABLED === '1'` (08 6.3). No `DB` binding: 503 `not_configured` "Reports are not set up here." Flag off: 404 `reports_off`.
 2. The location exists and is not `archived` (01). Else 404 `not_found` "No location at that address."
 3. `REPORT_LIMIT` by IP. Else 429 `rate_limited`.
 4. Body is JSON and under 4 KB. Else 400 `bad_request` "That did not send. Try again."
@@ -210,7 +208,7 @@ Cheap checks first, as `handleSuggest()` in `worker/suggest.js` does. `addReport
 8. No session: Turnstile token required, action `report`. Else 403 `verification_failed` "The spam check did not pass. Try again."
 9. Daily cap by `ip_hash` (signed out) or `user_id` (signed in): 20 a day. Else 429 `daily_limit` "That is a lot of reports for one day. Try again tomorrow."
 10. Replacement: the newest row from the same `user_id` or `ip_hash` at this location with `created_at` in the last 10 minutes is updated instead of inserting. The response has `"replaced": "<id>"`.
-11. `geo` computed (3.4), weight computed (3.3), `fc` validated (3.7).
+11. `geo` validated (3.4), weight computed (3.3), `fc` validated (3.7).
 12. Insert with `created_at = now` (server time, as today) and `seen_at`.
 
 ### 3.6 Display rules
@@ -306,8 +304,8 @@ The server keeps known keys only, requires finite numbers in plausible ranges (f
 
 How the owner gets it out:
 
-1. `GET /api/admin/reports.csv?location=putney-landing&from=2026-05-01&to=2026-10-31` (owner and moderators, 03's site roles). One row per report, newest last. Columns: `id, location, water_type, seen_local, seen_utc, local_hour, water, fog, wind, current, tide, low_water, debris, ice, smoke, water_f, launch, geo, signed_in, club, weight, fc_lvl, fc_wl, fc_we, fc_w, fc_g, fc_d, fc_rel, fc_fr, fc_ft, fc_T, fc_Td, fc_rh, fc_c6, fc_wt, fc_q, fc_vis, fc_pop, fc_aqi, fc_age_min`. `seen_local` uses the location's time zone. At most 50,000 rows per request; `from` and `to` are local dates.
-2. `GET /api/admin/reports/agreement?location=putney-landing&days=90` returns confusion matrices for the admin page:
+1. `GET /api/mod/reports.csv?location=putney-landing&from=2026-05-01&to=2026-10-31` (owner and moderators, 03's site roles). One row per report, newest last. Columns: `id, location, water_type, seen_local, seen_utc, local_hour, water, fog, wind, current, tide, low_water, debris, ice, smoke, water_f, launch, geo, signed_in, club, weight, fc_lvl, fc_wl, fc_we, fc_w, fc_g, fc_d, fc_rel, fc_fr, fc_ft, fc_T, fc_Td, fc_rh, fc_c6, fc_wt, fc_q, fc_vis, fc_pop, fc_aqi, fc_age_min`. `seen_local` uses the location's time zone. At most 50,000 rows per request; `from` and `to` are local dates.
+2. `GET /api/mod/reports/agreement?location=putney-landing&days=90` returns confusion matrices for the admin page:
 
 ```json
 {
@@ -444,7 +442,7 @@ Same origin, JSON, errors as `{ "error": "code", "message": "Human sentence." }`
   "water": "light", "fog": "patchy", "wind": "light", "current": "normal",
   "debris": false, "smoke": false,
   "waterTemp": { "value": 54.5, "unit": "F" },
-  "geo": { "lat": 42.96071, "lon": -72.52188, "acc": 18 },
+  "geo": "near",
   "fc": { "v": 1, "t": 1792231200000, "wl": 1, "we": 6.8 },
   "token": "<Turnstile token, signed out only>",
   "clientId": "6f1c2b8e-1d43-4e0f-8f6e-2b7a9c1d0e55"
@@ -457,13 +455,13 @@ Same origin, JSON, errors as `{ "error": "code", "message": "Human sentence." }`
 
 Legacy routes: `GET /api/reports` and `POST /api/reports` keep working for Putney Landing until phase 4 ships, so a home screen app that has not updated yet still works. They call the new handlers with Putney's record. The POST alias accepts the old body (`water`, `fog`, `debris`) and applies the same checks; old clients have no Turnstile, so the alias accepts signed-out reports without it but at weight 0.5 and under a tighter limit (10 a day per `ip_hash`). `/api/info` keeps `reports: true` for old clients and adds `turnstileKey` (8.3).
 
-Admin: `GET /api/admin/reports.csv`, `GET /api/admin/reports/agreement` (3.7).
+Admin: `GET /api/mod/reports.csv`, `GET /api/mod/reports/agreement` (3.7).
 
 ### 3.10 Code changes
 
 | File | Change |
 | --- | --- |
-| `src/reportlogic.js` (new) | `REPORT_FIELDS`, `REPORT_HOURS`, `LONG_HOURS`, `fieldsFor(loc, model)`, `cleanReport(body, loc)` (shared), `summarize(reports, now, loc, model)`, `reportText(r)` (moved from `src/reports.js`), `forecastNote(summary, model)`, `fcSnapshot(m, t)`. Pure, no DOM. |
+| `src/reportlogic.js` (new) | `REPORT_FIELDS`, `REPORT_HOURS`, `LONG_HOURS`, `fieldsFor(loc, model)`, `cleanReport(body, loc)` (shared), `summarize(reports, now, loc, model)`, `reportText(r)` (moved from `src/reports.js`), `forecastNote(summary, model)`, `fcSnapshot(m, t)`, `geoWord(pos, loc)` (3.4). Pure, no DOM. |
 | `src/reports.js` | `loadReports()` calls `/api/locations/${app.loc.slug}/reports`. `renderReports()` renders `summarize()` output. `buildReportForm(loc)` replaces the static fieldsets. `initReports()` adds Turnstile (lazy, shared loader) and the outbox. |
 | `src/turnstile.js` (new) | The lazy Turnstile loader now in `src/suggest.js`, shared by the suggestion and report dialogs. |
 | `src/outbox.js` (new) | A small queue in `localStorage` key `rowhether-outbox-v1`: `[{ id, url, method, body, createdAt, tries }]`, at most 20 items, each dropped after 24 hours. Flushed in order on `online`, on `visibilitychange` to visible, on startup, and every 30 s while visible and non-empty. Used by reports (a signed-out report gets its Turnstile token when it flushes, 8.3), outings (5.6) and hazard votes. Every access in try/catch. |
@@ -471,7 +469,7 @@ Admin: `GET /api/admin/reports.csv`, `GET /api/admin/reports/agreement` (3.7).
 | `worker/turnstile.js` | `verifyTurnstile(env, token, ip, action = 'suggest')`: the action becomes a parameter. |
 | `worker/index.js` | Routes under `/api/locations/:slug/reports`, the aliases, admin routes. `info()` adds `turnstileKey`. |
 | `index.html` | `#report` keeps the shell, loses the static fieldsets. |
-| `wrangler.jsonc` | Secret `IP_HASH_KEY` (dashboard). Production D1 binding (phase 2 or 3, 08). |
+| `wrangler.jsonc` | Secret `IP_HASH_KEY` (dashboard). Production D1 binding in phase 2 (08 5.4), reports held off by `REPORTS_ENABLED` until phase 3. |
 | `worker/hazards.js` (new) | Hazard list, post, edit, votes, end (section 4). |
 | `worker/outings.js` (new) | Outings, contacts, status link (sections 5 and 6). The escalation steps live in 05's `worker/notify/overdue.js`. |
 | `worker/moderation.js` (new) | Flags, the queue and decisions, `audit_log` writes (section 8). |
@@ -660,7 +658,7 @@ Phase 5 adds `ALTER TABLE hazards ADD COLUMN club_id TEXT REFERENCES clubs(id) O
 
 201 `{ "hazard": { "...": "as above" }, "noteHeld": false }`. Errors: 401 `sign_in` "Sign in to report a hazard.", 403 `not_allowed`, 429 `rate_limited` or `daily_limit`, 400 `invalid` with `"field"`, 400 `too_far`, 400 `links` "Leave out links.", 422 `rejected` with the screen's message, 502 `unavailable` "Could not check the note right now. Post without a note, or try again later." (when the screen fails; the pin is not created, so the poster decides).
 
-`POST /api/hazards/:id/votes` (signed in) `{ "vote": "confirm" | "clear", "geo": { "lat", "lon", "acc" } }` returns 200 `{ "hazard": {...}, "status": "active" | "cleared" }`.
+`POST /api/hazards/:id/votes` (signed in) `{ "vote": "confirm" | "clear", "geo": "near" | "far" | "unknown" }` returns 200 `{ "hazard": {...}, "status": "active" | "cleared" }`.
 
 `PATCH /api/hazards/:id` (poster or moderator) `{ "note", "expiresInH", "lat", "lon", "place" }`.
 
@@ -708,11 +706,13 @@ The sheet "Start a row", fields in order:
 | Route note | Text, 120 chars | Empty | Private: you, your contacts if overdue, your club. Not screened. |
 | Launch escort | Switch "A launch is with us" | Off | |
 | Back by | Time picker in the location's time zone, 5-minute steps | Now plus 90 minutes, rounded up to 5 minutes | 10 minutes to 12 hours after the start |
-| Tell my contacts if I am not back | Switch | On when contacts exist; hidden with "Add emergency contacts" link when none | 6 |
+| Tell my contacts if I am not back | Switch | On when at least one contact can be reached (6.1); hidden with "Add emergency contacts" link when none exist; off and disabled when none can be reached | 6 |
 | Show this row to my guardians | Switch, juniors with an active guardian link only | Off | A shared row shows on the guardian's page until 24 hours after it ends (03 11.5). `outings.share_guardians`. |
 | Count me in "boats on the water" | Switch | On | 5.5 |
 
-Footer line with a float plan: "If you are not back by 8:00 AM, we remind you. At 8:30 AM we email Jordan and Casey." Without one: "If you are not back by 8:00 AM, we remind you."
+Footer line with a float plan: "If you are not back by 8:00 AM, we remind you. At 8:30 AM we email Jordan and Casey." It names only contacts who can be reached (6.1). Without one: "If you are not back by 8:00 AM, we remind you." When a contact exists but none can be reached, the switch is off and the footer says why in caution color: "Jordan asked not to get these emails. Nobody will be told if you are late." or "We could not email Jordan. Nobody will be told if you are late." When only some can, it names them and adds "Casey asked not to get these emails."
+
+While the tick is unhealthy (`GET /api/health` answers 503, 05 5.2), a caution line sits above the button and on the outing banner: "Late alerts are delayed right now. Tell someone your plan."
 
 Button: "Start". Then the banner appears. The sheet remembers boat type, boat, seats and direction per location in `localStorage` (`rowhether-outing-last-v1`).
 
@@ -818,6 +818,24 @@ CREATE TABLE outing_crew (
 CREATE INDEX outing_crew_user ON outing_crew (user_id) WHERE user_id IS NOT NULL;
 ```
 
+Each contact who can be reached when a float plan starts gets a row in `outing_contacts` (6.3). The contact's status link is derived, not stored, so a retried email carries the same link:
+
+```sql
+CREATE TABLE outing_contacts (
+  id TEXT PRIMARY KEY,
+  outing_id TEXT NOT NULL REFERENCES outings(id) ON DELETE CASCADE,
+  contact_id TEXT REFERENCES emergency_contacts(id) ON DELETE SET NULL,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 60),   -- as stored on the account at the start
+  token_hash TEXT UNIQUE CHECK (token_hash IS NULL OR length(token_hash) = 43),  -- SHA-256 of this contact's status token, base64url
+  marked_safe_at INTEGER,
+  marked_note TEXT CHECK (marked_note IS NULL OR length(marked_note) <= 120),
+  worried_at INTEGER,                                         -- "I am still worried" (6.3)
+  created_at INTEGER NOT NULL,
+  UNIQUE (outing_id, contact_id)
+);
+CREATE INDEX outing_contacts_outing ON outing_contacts (outing_id);
+```
+
 `outings_one_active` enforces one active outing per user in the database itself, so two phones cannot race. The rower's own seat is not a crew row; the rower is `outings.user_id`.
 
 06 8.1 replaces this table with 06 18.3's statement, which creates `club_id`, `boat_id` and the other club columns in phase 3 as plain columns, unused until phase 5 and 6, and makes `user_id` nullable (08 4.4, K58). No `ALTER` follows.
@@ -870,7 +888,8 @@ Errors: 401 `sign_in` "Sign in to start a row.", 409 `already_out` "You started 
 | `GET /api/me/outings?before=<ms>&limit=50` | | `{ "outings": [...], "next": <ms or null> }` |
 | `GET /api/me/outings.csv?from=2026-01-01&to=2026-12-31` | | CSV (7) |
 | `GET /api/outings/status/:token` | | 6.3 |
-| `POST /api/outings/status/:token/safe` | `{ "name": "Jordan", "note": "Talked to Alex by phone.", "token": "<Turnstile>" }` | 200 `{ "status": "safe" }` |
+| `POST /api/outings/status/:token/safe` | a contact's token only: `{ "confirm": true, "note": "Talked to Alex by phone.", "token": "<Turnstile>" }`. No name: the contact's stored name is recorded | 200 `{ "status": "safe" }`; 403 `rower_link` "This link is for viewing. Contacts use their own link." |
+| `POST /api/outings/status/:token/worried` | a contact's token only: `{ "note": "I still cannot reach Alex." }` | 200 `{ "status": "overdue" }` |
 
 `POST /api/outings/:id/in` on an outing that is already `in` returns 200 with the outing (idempotent). On a `closed` outing it reopens it as `in` with the given time.
 
@@ -892,6 +911,8 @@ When a contact is added or their email changes, they get one notice email at onc
 
 The stop link opens a page whose one button sets `opted_out_at`; a `GET` never acts, because mail scanners open links (08 7.4, K36). The same user cannot add an address that opted out of their alerts again (409 `contact_opted_out` "Jordan asked not to get these emails. Choose someone else."). At most 5 notice emails a day per user, to keep the feature from being a way to send email to strangers.
 
+A contact is reachable only when they have an email address, the notice was accepted by the email provider (`notice_sent_at` is set only then), they have not opted out and the address has not bounced (`bounced_at`). While SMS is off (05 2.3), a contact with only a phone is not reachable. The Start a row sheet, stage 3 and the Account list all use this one test. The rower is told at once when it changes: when a contact opts out, when an address bounces, and when a notice is refused. They get a push (phase 4) or an email, and an item under Account, "Notifications": "Jordan asked not to get these emails. Casey will still be told." or, when it was the last reachable contact, "Jordan asked not to get these emails. Nobody will be told if you are late. Add another contact." The contact's row in Account shows the same state, "Opted out" or "Email bounced".
+
 "Send a test" on each contact sends the overdue email with "This is a test" at the top, at most 3 a day.
 
 ```sql
@@ -903,8 +924,9 @@ CREATE TABLE emergency_contacts (
   relation TEXT CHECK (relation IS NULL OR length(relation) <= 40),
   email TEXT CHECK (email IS NULL OR (length(email) <= 254 AND email LIKE '%_@_%._%')),
   phone TEXT CHECK (phone IS NULL OR (phone GLOB '+[1-9]*' AND length(phone) BETWEEN 8 AND 16)),
-  notice_sent_at INTEGER,
+  notice_sent_at INTEGER,                 -- when the provider accepted the notice email
   opted_out_at INTEGER,
+  bounced_at INTEGER,                     -- a hard bounce on any email to this address (05 5.7)
   stop_hash TEXT UNIQUE,                  -- SHA-256 of the stop link token, base64url
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
@@ -925,7 +947,7 @@ T is `due_at`. Defaults; `grace_min` and `contact_after_min` are set per outing 
 | 0 | Start | none | | `next_check_at = T` |
 | 1 | T | Rower | push (phase 4), email, and the in-app banner | "Time to head in?" |
 | 2 | T + `grace_min` (15) | Rower | push, email | "You are 15 minutes past your time." Says when contacts will be emailed. |
-| 3 | T + `contact_after_min` (30), float plans only | Contacts not opted out | email (SMS if chosen, 05) | The overdue email with the status link. The rower is told only after the provider has accepted each email: "We emailed Jordan and Casey." For a contact whose email was refused, or not accepted within 2 minutes: "We could not email Jordan. Call someone now." |
+| 3 | T + `contact_after_min` (30), float plans only | Reachable contacts (6.1) | email (SMS if chosen, 05) | The overdue email with the status link. The rower is told only after the provider has accepted each email: "We emailed Jordan and Casey." For a contact whose email was refused, or not accepted within 2 minutes: "We could not email Jordan. Call someone now." |
 | 4 | Stage 3 + 30 min, float plans only | Contacts | email | "Still not back." |
 | 5 | Club outings, phase 5 | The club's staff (06) | 06's channels | Not a stage of this chain: 06 8.6 runs its own club chain on `club_stage` from `due_at + graceMin` (08 K17). |
 | 6 | T + 24 h | none | | `status = 'closed'`, link expires. Without a float plan this happens at T + 6 h after stage 2. |
@@ -939,10 +961,11 @@ Rules:
 - Worst-case lateness: one minute (cron period) plus delivery.
 - Quiet hours never hold overdue messages (05).
 - Overdue email is a lane of its own (05 5.7): the tick sends stages 3 and 4 itself, ahead of the queue that alerts use, and two failures for one email alert the owner at once (05 5.8).
+- A heartbeat watches the tick (05 5.2). When it is more than 5 minutes old, or `runOverdue` has failed 3 times in a row, the owner is alerted and the app tells the rower that late alerts are delayed (5.2).
 
 ### 6.3 The status link
 
-`/o/<token>`: a page for the contacts. One-letter path segments can never collide with location slugs (3 to 48 chars), so no reserved word is needed. The page is the SPA (01's `not_found_handling` serves `index.html`), which calls `GET /api/outings/status/:token`. The token is 16 random bytes in base64url (22 characters); only its SHA-256 is stored (`share_hash`). The link works from the start until 24 hours after the outing ends, then returns 410 `expired` "This link has expired." The page sends `<meta name="robots" content="noindex">` and `Referrer-Policy: no-referrer`.
+`/o/<token>`: a page for the contacts. One-letter path segments can never collide with location slugs (3 to 48 chars), so no reserved word is needed. The page is the SPA (01's `not_found_handling` serves `index.html`), which calls `GET /api/outings/status/:token`. There are two kinds of token, 16 bytes in base64url (22 characters) each, and only the SHA-256 of each is stored. The rower's token is random and stored as `share_hash`; it is the `statusUrl` the rower gets at the start, for showing a friend, and it can only view. Each contact has their own token, derived as `HMAC-SHA256(NOTIFY_LINK_KEY, "status:" + outing id + ":" + contact id)` cut to 16 bytes, with its hash in `outing_contacts.token_hash`, so a retried email carries the same link and a forwarded link names whose it was. Only a contact's token can mark safe or say "still worried"; the rower's token gets 403 `rower_link`. The rows in `outing_contacts` are made at the start (or when the float plan is switched on) for each reachable contact (6.1), with the contact's name as stored on the account. The link works from the start until 24 hours after the outing ends, then returns 410 `expired` "This link has expired." The page sends `<meta name="robots" content="noindex">` and `Referrer-Policy: no-referrer`.
 
 ```json
 {
@@ -953,6 +976,7 @@ Rules:
   "direction": "upstream", "routeNote": "To the railroad bridge and back.", "escort": false,
   "outAt": 1792231200000, "dueAt": 1792236600000, "inAt": null,
   "conditions": { "lvl": 1, "text": "Caution: gusts to 19 mph" },
+  "viewer": { "kind": "contact", "name": "Jordan" },
   "safe": null, "updatedAt": 1792238460000
 }
 ```
@@ -977,9 +1001,11 @@ Page copy, overdue:
 
 Back: "**Alex is back.** Finished at 8:41 AM (Eastern)." Safe: "**Jordan reached Alex at 8:44 AM.** No more emails will be sent."
 
-"I reached Alex, they are safe" asks for the contact's name and an optional note (120 chars), runs Turnstile, sets `safe_by = 'contact'`, stops the escalation and tells the other contacts and the rower. It is the answer for a dead phone (6.4).
+"I reached Alex, they are safe" opens one confirmation, "Have you spoken to Alex, or seen Alex, since 6:40 AM?" with "Yes, Alex is safe" and "Not yet", and an optional note (120 chars). On Yes it runs Turnstile (when it cannot load, see 8.3), records `marked_safe_at` against that contact's stored name (nobody types a name), sets `safe_by = 'contact'` and stops the escalation. The rower and every other contact are told who and when: "Jordan said at 8:44 AM that they reached Alex and Alex is safe. No more emails will be sent. Still worried? Tell us: [link]" (6.5). It is the answer for a dead phone (6.4).
 
-Decision: let a contact end the escalation from the status link. Recommended: the commonest false alarm is a rower who is fine but whose phone died, and their brother has just talked to them. Alternative: only the rower or the club can end it.
+"I am still worried" is on the same page once someone has marked safe. It sets `worried_at` for that contact, clears `safe_by`, puts the outing back on the timeline at stage 4 and emails the others, "Casey is still worried about Alex." After a reopen, one contact's mark no longer ends it: it takes the rower, a club safety role, or two different contacts.
+
+Decision: let a contact end the escalation from their own status link. Recommended: the commonest false alarm is a rower who is fine but whose phone died, and their brother has just talked to them. Each contact has a link of their own, the mark carries their stored name, the others are told, and any of them can reopen it, so one forwarded link or one mistaken mark cannot silence the rest. Alternative: only the rower or the club can end it.
 
 ### 6.4 False alarms, dead phones, no signal, time zones
 
@@ -990,7 +1016,7 @@ Decision: let a contact end the escalation from the status link. Recommended: th
 - Time zones: all times are ms. Pickers and copy use the location's zone and `tzLabel`, with the zone named in every email ("8:00 AM Eastern"). A rower whose phone is set to another zone sees the location's time with the zone named: "Back by 8:00 AM (Eastern)".
 - Daylight saving change during an outing: ms arithmetic is unaffected; copy prints local times on each side correctly through `m.fmt` (01).
 - The rower deletes their account while out: the outing is cancelled and contacts get the all clear first (03's deletion runs this before deleting).
-- A contact's email bounces: logged in `notify_log`; the rower sees "We could not reach Jordan by email" in the banner and in Account.
+- A contact's email bounces: logged in `notify_log`, `bounced_at` is set, and the rower is told at once (6.1) by push or email and in Account, not only in the banner during an outing. If it happens during an outing, the banner also says "We could not reach Jordan by email. Call someone now."
 
 ### 6.5 Messages
 
@@ -1029,6 +1055,8 @@ Contact, stage 3 email:
 If any contact's email was refused, this message names the contact instead: "We could not email Jordan. Call someone now." It never says "We emailed" for an email the provider did not accept.
 
 Contact, stage 4 email: subject "Alex is still not back from rowing", same body with "It is now 9:00 AM Eastern, an hour past the planned time."
+
+Safe mark email, to the rower and the other contacts: subject "Jordan reached Alex", body "Jordan said at 8:44 AM Eastern that they reached Alex and Alex is safe. No more emails will be sent. If you are still worried, say so here: [link]" (the recipient's own status link).
 
 All clear email: subject "Alex is back from rowing", body "Alex finished at 8:41 AM Eastern. No action needed."
 
@@ -1076,7 +1104,7 @@ Later, not planned in detail: import and export with Concept2 Logbook, Strava an
 | Report | Anyone | None | Rate limit, daily cap, Turnstile (signed out), choices only | Flags, weights, moderator hide |
 | Hazard | Signed in | Note, 280 chars | Rate limits, account age caps, screen of the note | Votes, flags, moderator remove |
 | Outing | Signed in | Route note 120, log note 500, crew names | None (private) | Not public |
-| Status link "safe" | Holder of the link | Name 60, note 120 | Turnstile | Logged, shown to the rower |
+| Status link "safe" and "still worried" | Holder of a contact's own link | Note 120 (the name is the stored one) | Turnstile, or the token alone when it cannot load (8.3) | Logged, shown to the rower and the other contacts, who can reopen it |
 | Location edits | 01 | 01 | 01 | 01 |
 | Flag | Signed in | Note 280, moderators only | Rate limit | Moderator decision |
 
@@ -1092,7 +1120,7 @@ Rate limit bindings take periods of 10 or 60 seconds only (comment in `wrangler.
 | Flag | `FLAG_LIMIT` 5 | user id | 30 |
 | Outing create and update | `OUTING_LIMIT` 10 | user id | 20 outings started |
 | Contact notice, contact test | `OUTING_LIMIT` (shared) | user id | 5 notices, 3 tests |
-| Status link safe | `FLAG_LIMIT` (shared) | IP | none |
+| Status link safe, still worried | `FLAG_LIMIT` (shared) | IP | 5 a day per `outing_contacts` row |
 
 Daily caps count rows with an indexed query (`(user_id, created_at)` or `(ip_hash, created_at)`), so each check reads at most the cap plus one row.
 
@@ -1168,7 +1196,7 @@ Only hazard notes are screened in this document. Location launch notes are 01's 
 
 ### 8.7 The owner moderation queue
 
-`/admin`, Moderation tab (01's `/admin` has the location revisions tab). Moderators and the owner (03's site roles).
+`/mod`, Queue tab (01's Locations tab on the same page has the location revisions). Moderators and the owner (03's site roles). `/mod` and `/api/mod/*` sit outside Cloudflare Access, which allows only the owner (03 3.7).
 
 Queue items, oldest first within each group:
 
@@ -1190,10 +1218,10 @@ Every action writes `audit_log` (08 and 03 define it): actor, action, target typ
 
 API:
 
-- `GET /api/admin/queue?group=hidden|held|flagged|revisions&before=<ms>&limit=50` returns `{ "items": [{ "type", "id", "createdAt", "content", "location", "author", "flags", "screen" }], "next" }`.
-- `POST /api/admin/queue/:type/:id/decision` `{ "action": "keep" | "hide" | "remove" | "suspend", "note": "...", "until": <ms or null> }` returns 200 `{ "status" }`.
+- `GET /api/mod/queue?group=hidden|held|flagged|revisions&before=<ms>&limit=50` returns `{ "items": [{ "type", "id", "createdAt", "content", "location", "author", "flags", "screen" }], "next" }`.
+- `POST /api/mod/queue/:type/:id/decision` `{ "action": "keep" | "hide" | "remove" | "suspend", "note": "...", "until": <ms or null> }` returns 200 `{ "status" }`.
 
-A queue count shows on `/admin` and, for the owner, as a daily email digest when anything waits longer than 24 hours (05).
+A queue count shows on `/mod` and, for the owner, as a daily email digest when anything waits longer than 24 hours (05).
 
 ### 8.8 Photos
 
@@ -1219,7 +1247,7 @@ The daily cleanup (05's daily cron) runs these. 03 owns the privacy policy text 
 | Reports removed by a moderator | 90 days | Deleted |
 | Hazards cleared, expired or removed, with votes | 180 days after ending | Deleted |
 | Outings, crew, notes | Until the user deletes them or the account | |
-| Outing status token | 24 hours after the outing ends | `share_hash` set NULL |
+| Outing status tokens | 24 hours after the outing ends | `share_hash` and every `outing_contacts.token_hash` set NULL; the contact rows keep the name and the safe mark for the rower's log |
 | `outings.snap` | With the outing | |
 | Emergency contacts | Until the user removes them or deletes the account | |
 | Flags | 1 year after resolution | Deleted |
@@ -1251,8 +1279,8 @@ Bindings and secrets added: `IP_HASH_KEY` (secret), `HAZARD_LIMIT`, `FLAG_LIMIT`
 | `POST /api/locations/:slug/reports` | none (Turnstile) or session | 3 | Add a report |
 | `DELETE /api/reports/:id` | author or moderator | 3 | Remove a report |
 | `GET`, `POST /api/reports` | as today | 3 to 4 | Legacy Putney alias |
-| `GET /api/admin/reports.csv` | owner, moderator | 3 | Export for tuning |
-| `GET /api/admin/reports/agreement` | owner, moderator | 3 | Confusion matrices |
+| `GET /api/mod/reports.csv` | owner, moderator | 3 | Export for tuning |
+| `GET /api/mod/reports/agreement` | owner, moderator | 3 | Confusion matrices |
 | `GET /api/locations/:slug/hazards` | none | 3 | Hazards near a location |
 | `GET /api/waterways/:id/hazards` | none | 3 | Hazards on a waterway |
 | `POST /api/hazards` | session | 3 | Post a hazard |
@@ -1273,8 +1301,8 @@ Bindings and secrets added: `IP_HASH_KEY` (secret), `HAZARD_LIMIT`, `FLAG_LIMIT`
 | `GET /api/outings/status/:token` | token | 3 | Status link data |
 | `POST /api/outings/status/:token/safe` | token and Turnstile | 3 | Contact marks safe |
 | `POST /api/flags` | session | 3 | Flag content |
-| `GET /api/admin/queue` | moderator | 3 | Moderation queue |
-| `POST /api/admin/queue/:type/:id/decision` | moderator | 3 | Moderation action |
+| `GET /api/mod/queue` | moderator | 3 | Moderation queue |
+| `POST /api/mod/queue/:type/:id/decision` | moderator | 3 | Moderation action |
 
 `PUT /api/me/contacts` body: `{ "contacts": [{ "id": null, "name": "Jordan", "relation": "brother", "email": "jordan@example.com", "phone": null }] }`, returns 200 `{ "contacts": [...], "noticesSent": 1 }`. Errors: 400 `invalid` with `"field"` and `"index"`, 400 `too_many` "Up to 3 contacts.", 409 `contact_opted_out`.
 
@@ -1310,7 +1338,7 @@ Unit tests (Vitest, `test/`), with the stand-in D1 pattern of `test/reports.test
 - Checks run in order: no DB 503; unknown location 404; rate limit 429; bad JSON 400; field error 400; `seenAt` 3 hours old 400; signed out without token 403 (Turnstile stub false); signed in skips Turnstile.
 - Daily cap: the 21st report from one `ip_hash` gets 429.
 - Replacement within 10 minutes updates the row and returns `replaced`; after 10 minutes inserts.
-- Geolocation: 300 m with accuracy 20 gives `near`; 4 km gives `far`; accuracy 2,000 gives `unknown`; the inserted bind values contain no coordinates; nothing is logged from the body.
+- Geolocation: `geoWord()` (browser, `test/reportlogic.test.js`) gives `near` for 300 m with accuracy 20, `far` for 4 km, `unknown` for accuracy 2,000; the Worker refuses a `geo` that is not one of the three words (400 `invalid`); the inserted bind values contain no coordinates; nothing is logged from the body.
 - Weight: anonymous 1.0, signed in 1.5, new account 1.0, `far` halves, late x0.8, clamp.
 - `ip_hash` changes with the UTC date.
 - `clientId` repeat returns the existing report with 200.
@@ -1323,11 +1351,13 @@ Migration (`test/migrations.test.js`, new, runs Miniflare's local D1 through `wr
 
 `test/screen.test.js` (new): `parseScreen()` for ok, review, reject, refusal becomes review, `max_tokens` throws, bad JSON throws.
 
-`test/outings.test.js` (new): create with valid times; `dueAt` under 10 minutes and over 12 hours refused; one active outing (second create 409); `clientId` idempotency; client time bounds and `clock_skew`; I'm back is idempotent; I'm back on `closed` reopens; Add time resets `stage` and `next_check_at`; cancel; delete refused while out; status token stored only as a hash; status link 410 after 24 hours; safe action requires Turnstile and stops the escalation; the timeline with a fake clock: stage 1 at T, stage 2 at T + 15, stage 3 at T + 30 only with a float plan, stage 4 at T + 60, close at T + 24 h, and close at T + 6 h after stage 2 without a float plan; each stage writes one `notify_log` key and a second run at the same minute writes nothing; contacts opted out are skipped; all clear goes only to contacts who were emailed; times across the New York DST change on 2026-11-01.
+`test/outings.test.js` (new): create with valid times; `dueAt` under 10 minutes and over 12 hours refused; one active outing (second create 409); `clientId` idempotency; client time bounds and `clock_skew`; I'm back is idempotent; I'm back on `closed` reopens; Add time resets `stage` and `next_check_at`; cancel; delete refused while out; status tokens stored only as hashes; status link 410 after 24 hours; each contact has their own token (derived the same on a retry) and the rower's token gets 403 on safe; a safe mark needs the confirmation, is recorded against the stored name, stops the escalation and tells the rower and the other contacts who and when; "still worried" reopens at stage 4, after which one contact's mark does not end it and two different contacts do; the timeline with a fake clock: stage 1 at T, stage 2 at T + 15, stage 3 at T + 30 only with a float plan, stage 4 at T + 60, close at T + 24 h, and close at T + 6 h after stage 2 without a float plan; each stage writes one `notify_log` key and a second run at the same minute writes nothing; contacts opted out are skipped; all clear goes only to contacts who were emailed; times across the New York DST change on 2026-11-01.
 
 `test/overdue-delivery.test.js` (new): a stub provider that throws for one contact: the rower's stage 3 message names that contact's failure and does not say "We emailed" for it; the step is retried on the next ticks; a second failure alerts the owner; the other contact is still emailed; the overdue send runs ahead of queued alerts.
 
-`test/contacts.test.js` (new): up to 3; E.164 phone check; notice email on add and on email change only; notice cap 5 a day; opted-out address refused for that user; stop link sets `opted_out_at`.
+In `test/outings.test.js` and `test/notify-engine.test.js` (05 12): with `/api/health` stubbed to 503, the Start a row sheet and the banner show "Late alerts are delayed right now. Tell someone your plan."; a 200 hides it.
+
+`test/contacts.test.js` (new): up to 3; E.164 phone check; notice email on add and on email change only; notice cap 5 a day; opted-out address refused for that user; stop link sets `opted_out_at`; a contact who opts out, whose address bounces or whose notice is refused is not reachable, the rower is told at once, and the Start a row footer names only reachable contacts and turns the switch off when none can be reached; stage 3 skips unreachable contacts.
 
 `test/flags.test.js` (new): one flag per user per item; auto-hide at 3 flags from accounts at least 7 days old and not before; decisions write `audit_log`; suspend hides content.
 

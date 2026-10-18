@@ -214,7 +214,7 @@ The `/admin` tools (07 14.5's Metrics tab in phase 1) are owner only before acco
 2. The Worker also validates the `Cf-Access-Jwt-Assertion` header on those paths with `jose` (`jwtVerify` and `createRemoteJWKSet` against `${TEAM_DOMAIN}/cdn-cgi/access/certs`, issuer `TEAM_DOMAIN`, audience `POLICY_AUD`), the pattern Cloudflare documents (from docs, https://developers.cloudflare.com/changelog/post/2025-10-03-one-click-access-for-workers/). Pin `"jose": "6.2.12"` (latest, verified live 2026-10-17). Vars: `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` (not secret).
 3. Zero Trust Free plan seat count: believed to be 50 users, unverified (not stated on the pages checked).
 
-From phase 2, admin routes require `site_role = 'admin'` in a passkey session (10). Decision: keep Cloudflare Access in front of `/admin*` and `/api/admin/*` after phase 2 as a second lock.
+From phase 2, admin routes require `site_role = 'admin'` in a passkey session (10). Decision: keep Cloudflare Access in front of `/admin*` and `/api/admin/*` after phase 2 as a second lock. Access allows the owner only and answers before the Worker runs, so no moderator route sits under it: moderators use the `/mod` page and `/api/mod/*`, guarded by site role and a passkey session alone (08 3.5, 07 5.14).
 - Alternative: remove Access in phase 2 and rely on site roles alone (one less system; one less layer).
 
 ## 4. Flows
@@ -536,7 +536,7 @@ Copy for limits: "Too many tries. Wait a minute and try again." (binding), "Too 
 - Tokens are valid for 300 seconds and can be validated once; a replay fails with `timeout-or-duplicate` (from docs, https://developers.cloudflare.com/turnstile/get-started/server-side-validation/, updated Sep 16, 2026). After a failed send, the client calls `turnstile.reset` before the next try.
 - Script loading: CLAUDE.md allows the Turnstile script only "when the suggestion form is first opened". Accounts need it when the sign-in email field first gets focus. If it fails to load: "The spam check did not load. Check your connection, or use a passkey."
 
-Decision: Extend the CLAUDE.md Turnstile exception to "when the suggestion form or the sign-in email field is first used". This changes a hard-constraint sentence and needs the owner's approval.
+Decision: Extend the CLAUDE.md Turnstile exception to 08 10.8's sentence: "It loads only when a form that needs it is first opened: suggestions, sign in, changing your email, inviting a guardian, a report sent while signed out, and the status link's safe button." This changes a hard-constraint sentence and needs the owner's approval.
 - Alternative: no Turnstile on codes; rely on rate limits alone (cheaper to abuse for sending mail to strangers).
 
 ### 6.4 No account enumeration
@@ -591,7 +591,7 @@ Decision: Favorites work signed out, kept in the browser; an account only syncs 
 
 | Item | Scope | Syncs | Why |
 | --- | --- | --- | --- |
-| Threshold overrides: `windCaution`, `windOff`, `gustCaution`, `gustOff`, `rainCaution`, `rainOff`, `coldCombined`, `flowCaution`, `flowOff`, `aqiCaution`, `aqiOff`, `streamCaution`, `streamOff`, `minLaunch`, `levelLow`, `levelHigh` (01 11.1) | Per location | Yes | The point of sync. |
+| Threshold overrides: `windCaution`, `windOff`, `gustCaution`, `gustOff`, `rainCaution`, `rainOff`, `coldCombined`, `flowCaution`, `flowOff`, `aqiCaution`, `aqiOff`, `streamCaution`, `streamOff`, `minLaunch`, `levelLow`, `levelHigh` (01 11.1) | Per location | Yes | The point of sync. Saved with `limitBasis`, the binding each flow, tide and level limit was set for (01 11.1), so a limit never meets a different gauge or unit. |
 | `heading` (personal course heading, 01 8.6) | Per location | Yes | |
 | `waterOverride` (dock water temperature reading) | Per location | Yes | Same person, same dock, any device. |
 | `saved` (first time Settings was saved for this location) | Per location | Yes | Keeps the Settings reminder (`#setNudge`) hidden on every device. |
@@ -747,7 +747,7 @@ Defaults while `now < junior_until`. A junior cannot change these; they lift aut
 | Add a location | No; suggestions are held for review | 01's rules |
 | Club messages | Only group broadcasts that meet 11.4 | n/a |
 | Non-safety notifications from 10 PM to 6 AM in the club's time zone | Held until 6 AM | The person's choice (05) |
-| Safety notifications (water closed, overdue boat, severe alert) | Always | Always |
+| Safety notifications (water closed, overdue boat, Stay off level weather alert) | Always | Always |
 | Visible to linked guardians | Yes, with the signal in 11.5 | n/a |
 | Export and delete own account | Yes; linked guardians are told | Yes |
 
@@ -873,7 +873,7 @@ Never logged by the Worker: session tokens, codes, tickets, link tokens, request
 ### 12.2 Precise location
 
 - The app never asks for the browser's location on its own. 07's "Near me" in the picker asks only when tapped, rounds to 2 decimals (about 1 km) in the browser before calling `GET /api/locations?near=...`, and stores nothing. Rounding before the request keeps precise coordinates out of request logs.
-- Reports, hazards and outings attach to a location id, never to raw GPS. If 04 wants proof someone is at the dock, the browser computes it and sends only a flag (`"atDock": true` when within 500 m of the location's dock point), not coordinates.
+- Reports, hazards and outings attach to a location id, never to raw GPS. If 04 wants proof someone is at the dock, the browser computes it and sends only one word (`"geo": "near"`, `far` or `unknown`, by 04 3.4's rule: within 1,500 m plus the reading's accuracy, accuracy no worse than 1,000 m), not coordinates.
 - No live tracking of boats in any phase.
 - Photos (if 04 adds them): location metadata (EXIF GPS) is stripped before storage.
 - Home location is a location id, not an address.
@@ -893,7 +893,7 @@ Workers observability already gives request counts and errors for the API.
 
 - `__Host-rw_session`, strictly necessary for sign-in, and on a paired club boathouse screen only, `rw_kiosk` (06 8.5), strictly necessary for that screen. No consent banner, because it is essential (ePrivacy and UK PECR exempt strictly necessary storage; legal reading, unverified).
 - `CF_Authorization`: set by Cloudflare Access on `/admin*` for the owner only (3.7).
-- Turnstile: whether it sets cookies is unverified; it runs only on the sign-in and suggestion forms.
+- Turnstile: whether it sets cookies is unverified; it runs only on the forms that need it: suggestions, sign in, email change, guardian invites, signed-out reports and the status link.
 - `localStorage` keys, all functional: 01's set (`rowhether-settings-v2`, `rowhether-cache-v2:<slug>`, `rowhether-loc-v1:<slug>`, `rowhether-last-v1`, `rowhether-recent-v1`, `rowhether-plan-v1`, `rowhether-install-v1`, `rowhether-nudge-v1`, `rowhether-migrated-v1`) plus this doc's:
 
 | Key | Content |
@@ -1555,7 +1555,7 @@ All need `site_role = 'admin'`, a passkey session, and Cloudflare Access (3.7). 
 | `POST /api/admin/users/:id/age` * | `{ "juniorUntil": 1803000000000, "reason" }` | `juniorUntil` is ms or null (adult). Section 7. |
 | `GET /api/admin/audit?kind=&before=&limit=` | | Max 100 per page. |
 
-Moderators get `POST /api/mod/users/:id/name-reset` and `POST /api/mod/users/:id/suspend` (up to 30 days); 04 owns the rest of `/api/mod/*`.
+Moderators get `POST /api/mod/users/:id/name-reset` and `POST /api/mod/users/:id/suspend` (up to 30 days); 04 owns the rest of `/api/mod/*` (the queue and the report exports), and 06 the club review routes.
 
 ## 17. UI
 
@@ -1768,7 +1768,7 @@ Decisions, recommendation first:
 - Decision: Delete accounts at once, no grace period. Alternative: 14-day grace period. (4.10)
 - Decision: 180-day idle, 400-day absolute session lifetime. Alternatives: 90-day idle; 30-day idle with silent re-auth. (5.3)
 - Decision: Accounts on for Previews behind Cloudflare Access, email only to verified addresses. Alternative: accounts off on Previews. (5.7)
-- Decision: Extend the CLAUDE.md Turnstile exception to the sign-in email field (changes a hard-constraint sentence). Alternative: no Turnstile on codes. (6.3)
+- Decision: Extend the CLAUDE.md Turnstile exception to every form that needs it, as worded in 08 10.8 (changes a hard-constraint sentence). Alternative: no Turnstile on codes. (6.3)
 - Decision: Favorites work signed out; an account only syncs them. Alternative: favorites need an account. (8)
 - Decision: Per-key last writer wins, with a prompt only at first sign-in on a device. Alternatives: stricter value always wins; whole-document last writer wins. (9.3)
 - Decision: Ask month and year of birth from everyone at sign-up, store only `junior_until`. Alternatives: ask only when joining a club as a junior; never ask. (11.2)

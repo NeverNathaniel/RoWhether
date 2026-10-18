@@ -253,7 +253,7 @@ Proof methods. The token is `rw-` plus 22 base64url characters from 16 random by
 
 When a method passes, `verify_passed_at` is set and the status moves to `pending_review`. The admin sees: "Check passed. A moderator will review Putney Rowing Club. We will email you when it is verified."
 
-Moderator review (03's site roles `moderator` and `admin`) in the owner tools at `/admin`. Every box is required:
+Moderator review (03's site roles `moderator` and `admin`) in the moderator tools at `/mod`. Every box is required:
 
 - The website or evidence names this club and where it rows.
 - The home location is where the club launches.
@@ -561,6 +561,7 @@ The keys and units are 01's threshold contract (01 section 11.1), plus five club
 Rules:
 
 - A key the location does not support is refused (01 section 11.7): no `flowOff` at a location without a flow binding.
+- A rule's flow, tide and level limits are saved with `limits.basis`, filled by the Worker from the location's current binding. If the binding changes, those limits stop applying and the club's admins and safety officers are told (01 11.1).
 - Caution must not be stricter than stay off within one rule (as the Settings dialog checks today).
 - Empty means "this rule does not set it". A club rule cannot turn a level off. A club that does not want a rain level can set `rainOff` to 100.
 - The fixed rules in `assess()` stay for everyone and cannot be loosened by a club: dark, thunderstorm codes, freezing rain, air below 32°F, visibility under a quarter mile, NWS alerts. `visOff` therefore matters only above 0.25 mi; the USRowing 100 yard fog line (0.06 mi) is already covered.
@@ -2094,8 +2095,8 @@ JSON under `/api/`, same origin only, signed in through 03's `__Host-rw_session`
 | `POST /api/clubs/:slug/locations`, `DELETE /api/clubs/:slug/locations/:location` | Admin | Link or unlink a location; one primary |
 | `POST /api/clubs/:slug/verify` | Admin | Start a method: `{ "method": "meta" | "dns" | "email" | "manual", "email", "evidence" }` |
 | `POST /api/clubs/:slug/verify/check` | Admin | Run the check; `{ "code" }` for email |
-| `POST /api/admin/clubs/:slug/review` | Site moderator | `{ "decision": "approve" | "reject", "reason" }` |
-| `POST /api/admin/clubs/:slug/suspend`, `.../restore` | Site moderator | With a reason |
+| `POST /api/mod/clubs/:slug/review` | Site moderator | `{ "decision": "approve" | "reject", "reason" }` |
+| `POST /api/mod/clubs/:slug/suspend`, `.../restore` | Site moderator | With a reason |
 | `POST /api/clubs/:slug/delete`, `POST /api/clubs/:slug/delete/cancel` | Admin | `{ "confirm": "Putney RC" }` |
 | `GET /api/clubs/:slug/export`, `GET /api/clubs/:slug/export.csv?table=` | Admin (incidents: 16.2) | Export |
 | `GET /api/me/clubs` | Signed in | The viewer's memberships, pending approvals and invites |
@@ -2819,7 +2820,7 @@ Loaded with dynamic `import()` on `/club/` routes or when a club sheet opens (20
 | `worker/auth/delete.js`, `worker/auth/export.js` (03) | 5, 6 | 06's tables in 03 section 12.9's cascade and the account export; succession (3.6) in the same batch as the deletion. |
 | `worker/auth/minors.js` (03) | 5 | Used, not changed: `audienceGuard()`, `isJunior()`, `inQuietHours()`. |
 | `worker/moderation.js` (04) | 5 | Flags with target `club`; club verification reviews join the queue. |
-| `worker/admin.js` (03) | 5 | Routes `/api/admin/clubs/*` to `worker/clubs/verify.js`. |
+| `worker/admin.js` (03) | 5 | Routes `/api/mod/clubs/*` to `worker/clubs/verify.js`. |
 | `worker/screen.js` (04) | 5 | Screens the club description, visitor info and public status notes (3.2, 7.4). |
 
 ### 22.6 Migrations and config

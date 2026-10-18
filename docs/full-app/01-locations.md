@@ -103,7 +103,7 @@ Fields are in phase 0 as a file (no D1), phase 1 as the curated static list, pha
 ### 2.2 Slug rules
 
 - Pattern: `^[a-z0-9]+(-[a-z0-9]+)*$`, 3 to 48 chars.
-- Reserved, refused: `api, add, admin, account, club, assets, about, privacy, terms, help, settings, login, logout, static, sw, manifest, index` (`index` because shells are `dist/<slug>.html`, 08 K25). Also refused: anything that matches a built file or folder at the top of `dist/` (`locations`, `icon-192`, `favicon`, `workbox-*`, `registerSW`), checked at build time in phase 1 and in the Worker in phase 3.
+- Reserved, refused: `api, add, admin, mod, account, club, assets, about, privacy, terms, help, settings, login, logout, static, sw, manifest, index` (`index` because shells are `dist/<slug>.html`, 08 K25). Also refused: anything that matches a built file or folder at the top of `dist/` (`locations`, `icon-192`, `favicon`, `workbox-*`, `registerSW`), checked at build time in phase 1 and in the Worker in phase 3.
 - Generated from the name: NFKD, strip accents, lowercase, every run of other characters becomes one hyphen, trim hyphens, cut to 48 at a hyphen.
 - On a clash: add the region suffix (`riverside-park-ct`), then `-2`, `-3`.
 - Changing a slug is a moderator action. The old slug goes into `location_aliases` and keeps working forever.
@@ -279,7 +279,7 @@ CREATE TABLE IF NOT EXISTS locations (
   slug TEXT NOT NULL UNIQUE
     CHECK (length(slug) BETWEEN 3 AND 48 AND slug NOT GLOB '*[^a-z0-9-]*'
            AND slug NOT GLOB '-*' AND slug NOT GLOB '*-' AND slug NOT GLOB '*--*'
-           AND slug NOT IN ('api', 'add', 'admin', 'account', 'club', 'assets', 'about', 'privacy',
+           AND slug NOT IN ('api', 'add', 'admin', 'mod', 'account', 'club', 'assets', 'about', 'privacy',
                             'terms', 'help', 'settings', 'login', 'logout', 'static', 'sw', 'manifest',
                             'locations')),
   name TEXT NOT NULL CHECK (length(name) BETWEEN 3 AND 60),
@@ -818,6 +818,7 @@ The resolved location:
 | `waterState(m, h, prev)` | `WATER.levels`, `WATER.blend` | `water.levels`, `water.blend` (default `WATER`) | None for Putney. |
 | `waterWhy(ws)` | river text | becomes `waterWhy(ws, loc)`; `water.mode`, `course.reachWord` | Text by mode (9). |
 | `debrisLikely(m)` | flow change of the series | `flow.measure` | Only with a discharge or stage binding on river, tidal or canal water. |
+| `notChecked(m)` | none | `waterType`, `flow`, `sources.alerts`, the age of the flow reading | New, phase 1. Lists the factors that could change the level and are not checked here or now: `flow` when a river, tidal river or canal location has no flow binding, or its reading is older than `flow.maxAgeH`; `alerts` when there is no alerts binding. Empty for Putney while its sources answer, so its screens do not change. The hero, Share and 05's messages print it (07 6.7). |
 | `fogRisk(m, h)` | `FOG`, Eastern hours | `fog`, `fmt.localHour`, `waterTemp` | Steam fog uses only a live or dock reading, never the monthly fallback. |
 | `morningFog`, `nextMorning`, `fogLift` | `FOG.lastHour`, Eastern | `fog.lastHour`, `fmt` | None for Putney. |
 | `waterTemp(m)` | override or gauge, no age limit | `waterTemp.maxAgeH`, `waterTemp.fallback` | New `waterTemp(m, { forCold: true })` may return the monthly value, flagged `typical`. |
@@ -1063,6 +1064,14 @@ The `VIEWS` registry in `src/render/detail/index.js` gains an optional `when(loc
 
 Bounds for a location that is not `verified` (phase 3): no limit may be looser than the global defaults (wind 10 and 15 mph, gusts 18 and 25 mph, cold line 100°F, rain chance 60 and 90%, AQI 151 and 201; looser means a higher wind, gust, rain or AQI number and a lower cold line), and no level may be blank, except `flowCaution` and `flowOff` at a location with no flow history (11.3). A stricter limit is fine. `validateLocation()` enforces it on create and on every edit (12.10, 13.1), so one creator cannot publish limits that show Go in 40 mph wind to every visitor. Only a moderator or a steward club admin can loosen a limit, through a reviewed revision (13.5). A verified location is not bound. Putney's record is verified.
 
+Limit basis (phase 1). A limit in a binding's unit (`flowCaution`, `flowOff`, `minLaunch`, `levelLow`, `levelHigh`) means nothing without that binding, so it is stored with it: `basis`, a map `{ flow, tide, level }` of `adapter:ref:unit` strings, for example `usgs-ogc:USGS-01154500:cfs`. It sits beside the numbers in the location's `thresholds`, in a club rule's `limits` (06 6.2) and in a person's overrides for the location (`limitBasis`, synced in 03's `user_settings`, 08 7.5). `effectiveSettings()` applies a limit only while its basis equals the location's current primary binding for that role. Putney's record carries `usgs-ogc:USGS-01154500:cfs`, so its values do not change. `validateLocation()` refuses a flow, tide or level limit without a binding for the role, or whose `basis` names another binding.
+
+When the primary binding for a role changes (a gauge swapped or retired, 15.7; a source edit, 13.2), limits made for the old binding stop applying:
+
+- The location's defaults are recomputed from the new binding's history (11.3), or left blank when there is none.
+- A person's limit is ignored and kept. Settings and How this works say "Your flow limits were for the North Walpole gauge. Set them again for this gauge."
+- A club rule's limit for that key is ignored, and the club's admins and safety officers get an in-app notice and an email (05 kind `system`): "Your club's flow limit no longer applies at Putney Landing. The gauge changed. Set it again."
+
 Weather values stay in US customary units internally (Open-Meteo is requested in mph, °F and inches, `SRC.wx` today). Display conversion is 07's. Flow, level and tide stay in the source's native unit so a threshold never drifts through rounding.
 
 Decision: Keep internal weather units as mph, °F and inches everywhere and convert only for display.
@@ -1268,6 +1277,7 @@ After publishing, the creator edits name, notes and similar text directly. A cha
 - Suggestion: insert a `pending` revision with `base_revision`. Stewards, the creator (for `published`) and moderators see a count on the location page: "1 suggested change". Approving re-applies `changes` to the current record. If a field in `changes` has changed since `base_revision`, the approver sees both values and picks one.
 - Pending suggestions older than 30 days become `withdrawn` with note "Expired".
 - `changes` format: `{ "course": [{ "kind": "heading", "heading": 15 }, { "kind": "heading", "heading": 18 }], "sources": [[...], [...]] }`. Sources are compared and replaced as a whole list.
+- A change that swaps the primary flow, tide or level binding must also carry the new `thresholds` for that role (recomputed by 11.3, or blank), and the approver sees "Limits for the old gauge stop applying, for everyone who set their own and for club rules." before approving (11.1).
 - Summaries are required, 1 to 200 chars: "Heading checked on site with a compass: 18°."
 - Notification of new suggestions to the steward and creator is 05's.
 
@@ -1502,8 +1512,8 @@ The Light view's six-month chart draws gaps where a time does not exist, with a 
 ### 15.7 Gauges offline or retired
 
 - Request fails: as today, the last good value is kept and the failure is named under the hero.
-- Reading old: the flow fact shows its age as today ("2 hr ago"). Over `staleSwitchH` (6 h) with a fresher fallback: the fallback is used and named ("Using the Wellesley gauge. Waltham has not reported since 3 AM."). Over `maxAgeH` (24 h from phase 1): not used for Go, Caution or Stay off. Fact note: "Last reading 2 days ago, not used for Go, Caution or Stay off."
-- Health check (phase 3, a daily cron in the Worker; scheduling is 08's): for each active binding, fetch the latest value; set `last_ok_at`, `last_checked_at`. No data for 3 days: `offline`. No data for 30 days: `retired`, and the steward club and moderators are notified (05) with "The North Walpole gauge stopped reporting 30 days ago. Pick a new one for Putney Landing." A retired binding is skipped by `resolveSources`; with no flow binding left, the River tab hides.
+- Reading old: the flow fact shows its age as today ("2 hr ago"). Over `staleSwitchH` (6 h) with a fresher fallback: the fallback is used and named ("Using the Wellesley gauge. Waltham has not reported since 3 AM."). Over `maxAgeH` (24 h from phase 1): not used for Go, Caution or Stay off. Fact note: "Last reading 2 days ago, not used for Go, Caution or Stay off." The hero says it too, in its not-checked line: "River flow not checked: the gauge has not reported for 2 days." (`notChecked()`, 07 6.7).
+- Health check (phase 3, a daily cron in the Worker; scheduling is 08's): for each active binding, fetch the latest value; set `last_ok_at`, `last_checked_at`. No data for 3 days: `offline`. No data for 30 days: `retired`, and the steward club and moderators are notified (05) with "The North Walpole gauge stopped reporting 30 days ago. Pick a new one for Putney Landing." A retired binding is skipped by `resolveSources`; with no flow binding left, the River tab hides. Limits made for it stop applying (11.1).
 
 ### 15.8 Two gauges for one location
 

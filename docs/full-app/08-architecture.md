@@ -229,14 +229,15 @@ Prefix dispatch, in this order (first match wins):
 | Prefix | Router | Phase |
 | --- | --- | --- |
 | `/api/info`, `/api/suggest` | inline in `worker/index.js` | today |
+| `/api/health` | `worker/notify/routes.js` | 3 |
 | `/api/auth/`, `/api/me` (except the club, notify, outings and contacts paths below), `/api/admin/users`, `/api/admin/audit`, `/api/mod/users` | `worker/auth/index.js` | 2 |
 | `/api/admin/metrics` | `worker/admin.js` | 1 |
 | `/api/locations`, `/api/waterways`, `/api/discover`, `/api/sources` | `worker/locations.js` (club context, proxies and the `/reports` and `/hazards` suffixes delegate onward) | 3 |
-| `/api/reports`, `/api/locations/:slug/reports`, `/api/admin/reports` | `worker/reports.js` | today, 3 |
-| `/api/hazards`, `/api/flags`, `/api/admin/queue` | `worker/hazards.js`, `worker/moderation.js` | 3 |
+| `/api/reports`, `/api/locations/:slug/reports`, `/api/mod/reports` | `worker/reports.js` | today, 3 |
+| `/api/hazards`, `/api/flags`, `/api/mod/queue` | `worker/hazards.js`, `worker/moderation.js` | 3 |
 | `/api/outings`, `/api/contacts`, `/api/me/outings`, `/api/me/contacts` | `worker/outings.js` | 3 |
 | `/api/push/`, `/api/notify/`, `/api/me/notify`, `/api/me/notifications`, `/api/admin/tick`, `/api/admin/notify` | `worker/notify/routes.js` | 3, 4 |
-| `/api/clubs/`, `/api/invites/`, `/api/kiosk/`, `/api/cal/`, `/api/me/clubs`, `/api/me/calendar-links`, `/api/me/juniors/:membershipId/approve`, `/api/locations/:slug/club-context`, `/api/admin/clubs/` | `worker/clubs/index.js` `routeClubs()` | 5 |
+| `/api/clubs/`, `/api/invites/`, `/api/kiosk/`, `/api/cal/`, `/api/me/clubs`, `/api/me/calendar-links`, `/api/me/juniors/:membershipId/approve`, `/api/locations/:slug/club-context`, `/api/mod/clubs/` | `worker/clubs/index.js` `routeClubs()` | 5 |
 | any other `/api/` path | 404 JSON | today |
 
 Each router is a table of `[method, pattern, handler, options]` read by `worker/router.js`, where `options` names the auth guard and the rate limit binding. No router dependency (06 19 does the same for clubs).
@@ -291,6 +292,7 @@ Decision: A small route table per area, dispatched by prefix in `worker/index.js
 | `outings` | `0007_outings.sql` | 3 | 04 5.7 as changed by 06 18.3 | `id` | `user_id` CASCADE; `location_id` no action; `created_by`, `ack_by` SET NULL; club columns plain |
 | `outing_crew` | `0007` | 3 | 06 18.3 | `(outing_id, seat)` | `outing_id` CASCADE; `user_id` SET NULL |
 | `emergency_contacts` | `0007` | 3 | 04 6.1 | `id` | `user_id` CASCADE |
+| `outing_contacts` | `0007` | 3 | 04 5.7 | `id`; `(outing_id, contact_id)` unique; `token_hash` unique | `outing_id` CASCADE; `contact_id` SET NULL |
 | `push_subscriptions` | `0008_notify.sql` | 3 (used from 4) | 05 8 | `id`; `endpoint_hash` unique | `user_id` CASCADE |
 | `notify_prefs` | `0008` | 3 (used from 4) | 05 8, 06 21.1 | `id` | `user_id` CASCADE; `location_id` CASCADE; `club_id` none |
 | `notify_log` | `0008` | 3 | 05 8, 06 21.1 | `id`; `dedupe_key` unique | `user_id` CASCADE; `contact_id`, `pref_id`, `location_id` SET NULL |
@@ -327,7 +329,7 @@ That is 47 tables after phase 6, plus `locations_fts` (verified live 2026-10-18:
 | `users` | New `phone` (E.164) and `phone_for_contacts` (0 or 1) | 04 6.1 shows the rower's phone on the status link "as a profile field (03)", and 06 5.2 rule 8 shares a guardian's phone with staff. 03 had no column. |
 | `locations` | No `steward_club_id` in `0003`; added by `0010` | 06 23.1: a reference to `clubs` before phase 5 makes every insert fail. |
 | `locations` | `emergency` JSON column created in `0003`, not added in phase 5 | 07 4.4 shows the Safety section in the Info tab from phase 3, and curated records may carry emergency info from phase 1 (06 8.7: "part of the location record"). The column costs nothing while empty. |
-| `locations` | Reserved slugs gain `index`; `at` needs no entry | Per-location shells are `dist/<slug>.html` (07 4.2), so a slug `index` would overwrite the app shell. `at` (07 16) is two letters and already refused by the 3 to 48 rule. |
+| `locations` | Reserved slugs gain `index` and `mod`; `at` needs no entry | Per-location shells are `dist/<slug>.html` (07 4.2), so a slug `index` would overwrite the app shell, and `mod` is the moderator page's path (07 4.1). `at` (07 16) is two letters and already refused by the 3 to 48 rule. |
 | `location_sources` | 01's role columns, plus 02's `origin`, `fail_count`, `confirmed_by`, `confirmed_at`; status list `active`, `suggested`, `offline`, `retired`, `rejected`; a partial unique index for one active primary per owner and role | 01 and 02 proposed different tables (15, conflict K2). 02's `location_slug`, `slot`, `rank`, `river_km`, `direction`, `straight_km` and `stale` are not used. |
 | `flow_stats` (02) | Not created | Statistics live on the flow binding's `stats` JSON (01 4.4), and computed results are cached in `source_cache` for 30 days (conflict K6). |
 | `source_cache` | Kept from 02, with an expiry index | The one Worker-side cache that must survive across data centers (6.6). |
@@ -527,7 +529,7 @@ CREATE TABLE IF NOT EXISTS locations (
   slug TEXT NOT NULL UNIQUE
     CHECK (length(slug) BETWEEN 3 AND 48 AND slug NOT GLOB '*[^a-z0-9-]*'
            AND slug NOT GLOB '-*' AND slug NOT GLOB '*-' AND slug NOT GLOB '*--*'
-           AND slug NOT IN ('api', 'add', 'admin', 'account', 'club', 'assets', 'about', 'privacy',
+           AND slug NOT IN ('api', 'add', 'admin', 'mod', 'account', 'club', 'assets', 'about', 'privacy',
                             'terms', 'help', 'settings', 'login', 'logout', 'static', 'sw', 'manifest',
                             'locations', 'index')),
   name TEXT NOT NULL CHECK (length(name) BETWEEN 3 AND 60),
@@ -912,6 +914,7 @@ CREATE TABLE IF NOT EXISTS emergency_contacts (
   phone TEXT CHECK (phone IS NULL OR (phone GLOB '+[1-9]*' AND length(phone) BETWEEN 8 AND 16)),
   notice_sent_at INTEGER,
   opted_out_at INTEGER,
+  bounced_at INTEGER,
   stop_hash TEXT UNIQUE,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
@@ -919,6 +922,22 @@ CREATE TABLE IF NOT EXISTS emergency_contacts (
   CHECK (email IS NOT NULL OR phone IS NOT NULL)
 );
 CREATE INDEX IF NOT EXISTS emergency_contacts_email ON emergency_contacts (email);
+
+-- One row per reachable contact when a float plan starts (04 6.3). The contact's status link
+-- is derived from NOTIFY_LINK_KEY, so a retried email carries the same link.
+CREATE TABLE IF NOT EXISTS outing_contacts (
+  id TEXT PRIMARY KEY,
+  outing_id TEXT NOT NULL REFERENCES outings(id) ON DELETE CASCADE,
+  contact_id TEXT REFERENCES emergency_contacts(id) ON DELETE SET NULL,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 60),
+  token_hash TEXT UNIQUE CHECK (token_hash IS NULL OR length(token_hash) = 43),
+  marked_safe_at INTEGER,
+  marked_note TEXT CHECK (marked_note IS NULL OR length(marked_note) <= 120),
+  worried_at INTEGER,
+  created_at INTEGER NOT NULL,
+  UNIQUE (outing_id, contact_id)
+);
+CREATE INDEX IF NOT EXISTS outing_contacts_outing ON outing_contacts (outing_id);
 ```
 
 #### 0008_notify.sql (phase 3)
@@ -1714,7 +1733,7 @@ From phase 1, the app sends `?loc=<slug>&k=first|return&m=standalone|browser` wi
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | yes | testing keys as vars (6.3) | today | existing |
 | `AUTH_PEPPER` | yes | its own dev value | 2 | 03 14.3 |
 | `IP_HASH_KEY` | yes | its own dev value | 3 | 04 3.3 |
-| `NOTIFY_LINK_KEY` | yes | its own dev value | 4 | 05 7.6 |
+| `NOTIFY_LINK_KEY` | yes | its own dev value | 3 | 04 6.3 (contact status links), 05 7.6 |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | yes | their own pair | 4 | 05 6.2 |
 | `OPEN_METEO_KEY` | yes (if the owner buys the plan) | never | 4 | 02 |
 | `RESEND_API_KEY` | only if Resend is chosen over Email Service | never | 2 | 03 3.5 |
@@ -1852,7 +1871,7 @@ Phase 4 adds `NOTIFY_LIMIT` (1019, 1020) and `VAPID_SUBJECT` in both blocks. Pha
 
 ### 7.3 Every route
 
-Auth words: **none** (anyone); **session** (signed in); **recent** (session with a sign-in in the last 10 minutes, 03 5.4); **mod** (site role moderator or admin in a passkey session, 03 10); **admin** (site role admin, passkey session and Cloudflare Access); **owner** (Cloudflare Access only, phase 1, then admin); **token** (a capability token in the path or query); **Turnstile** (a Turnstile token in the body); **club roles** (06 5.3 through `requireCan`); **kiosk** (the `rw_kiosk` cookie). Rate limit names are the bindings in 6.2; "D1" means a count in D1 only.
+Auth words: **none** (anyone); **session** (signed in); **recent** (session with a sign-in in the last 10 minutes, 03 5.4); **mod** (site role moderator or admin in a passkey session, 03 10); **admin** (site role admin, passkey session and Cloudflare Access); **owner** (Cloudflare Access only, phase 1, then admin; Access allows the owner only and answers before the Worker runs, so every route under `/api/admin/*` is owner or admin, and moderator routes live under `/api/mod/*` with no Access, 03 3.7); **token** (a capability token in the path or query); **Turnstile** (a Turnstile token in the body); **club roles** (06 5.3 through `requireCan`); **kiosk** (the `rw_kiosk` cookie). Rate limit names are the bindings in 6.2; "D1" means a count in D1 only.
 
 Today and phase 1:
 
@@ -1862,7 +1881,7 @@ Today and phase 1:
 | GET | `/api/suggest` | none | none | today | existing |
 | POST | `/api/suggest` | Turnstile | `SUGGEST_LIMIT` | today | existing |
 | GET | `/api/reports` | none | none | today; alias until 4 | existing, 04 3.9 |
-| POST | `/api/reports` | none (Turnstile from 3) | `REPORT_LIMIT` | today; alias until 4 | existing, 04 3.9 |
+| POST | `/api/reports` | none (no Turnstile: weight 0.5, D1 10 a day per `ip_hash`, 04 3.9) | `REPORT_LIMIT` | today; alias until 4 | existing, 04 3.9 |
 | GET | `/api/admin/metrics?days=7` | owner | none | 1 | 07 14.5, 08 |
 
 Phase 1 adds no other route. Locations are static files: `/locations/index.json` and `/locations/<slug>.json` (01 14.10). Discovery and flow statistics are scripts (5.6).
@@ -1931,7 +1950,7 @@ Reports, hazards, outings, moderation (phase 3, owner 04 10):
 | GET | `/api/locations/:slug/reports` | none | none | 3 |
 | POST | `/api/locations/:slug/reports` | Turnstile, or session | `REPORT_LIMIT`, D1 20 a day | 3 |
 | DELETE | `/api/reports/:id` | author or mod | `FLAG_LIMIT` | 3 |
-| GET | `/api/admin/reports.csv`, `/api/admin/reports/agreement` | owner or mod | none | 3 |
+| GET | `/api/mod/reports.csv`, `/api/mod/reports/agreement` | mod | none | 3 |
 | GET | `/api/locations/:slug/hazards`, `/api/waterways/:id/hazards` | none | none | 3 |
 | POST | `/api/hazards` | session | `HAZARD_LIMIT`, D1 10 a day | 3 |
 | PATCH | `/api/hazards/:id` | author or mod | `HAZARD_LIMIT` | 3 |
@@ -1941,16 +1960,17 @@ Reports, hazards, outings, moderation (phase 3, owner 04 10):
 | PATCH | `/api/outings/:id` | rower; club staff from 5 | `OUTING_LIMIT` | 3 |
 | POST | `/api/outings/:id/in`, `/api/outings/:id/cancel` | rower; club staff from 5 | `OUTING_LIMIT` | 3 |
 | DELETE | `/api/outings/:id` | rower | `OUTING_LIMIT` | 3 |
+| GET | `/api/health` | none (cached 30 s) | none | 3 |
 | GET | `/api/me/outings`, `/api/me/outings.csv` | session | none | 3 |
 | GET, PUT | `/api/me/contacts` | session | `OUTING_LIMIT` on PUT | 3 |
 | POST | `/api/me/contacts/:id/test` | session | `OUTING_LIMIT`, D1 3 a day | 3 |
 | GET | `/api/contacts/stop?t=` | token | `FLAG_LIMIT` (IP) | 3 |
 | POST | `/api/contacts/stop?t=` | token (form post) | `FLAG_LIMIT` (IP) | 3 |
 | GET | `/api/outings/status/:token` | token | `FLAG_LIMIT` (IP) | 3 |
-| POST | `/api/outings/status/:token/safe` | token, Turnstile | `FLAG_LIMIT` (IP) | 3 |
+| POST | `/api/outings/status/:token/safe`, `/api/outings/status/:token/worried` | a contact's token, Turnstile or the token alone (04 8.3) | `FLAG_LIMIT` (IP), D1 5 a day per contact row | 3 |
 | POST | `/api/flags` | session | `FLAG_LIMIT`, D1 30 a day | 3 |
-| GET | `/api/admin/queue` | mod | none | 3 |
-| POST | `/api/admin/queue/:type/:id/decision` | mod | none | 3 |
+| GET | `/api/mod/queue` | mod | none | 3 |
+| POST | `/api/mod/queue/:type/:id/decision` | mod | none | 3 |
 
 Notifications (owner 05 9):
 
@@ -1981,7 +2001,7 @@ Clubs (phase 5, owner 06 19.1). Every write here uses `CLUB_LIMIT` unless the ro
 | GET, PATCH | `/api/clubs/:slug` | none (shaped by role); PATCH admin | `CLUB_LIMIT` | 5 |
 | POST, DELETE | `/api/clubs/:slug/locations`, `/api/clubs/:slug/locations/:location` | club admin | `CLUB_LIMIT` | 5 |
 | POST | `/api/clubs/:slug/verify`, `/api/clubs/:slug/verify/check` | club admin | `CLUB_LIMIT`, D1 5 code tries | 5 |
-| POST | `/api/admin/clubs/:slug/review`, `/suspend`, `/restore` | mod | none | 5 |
+| POST | `/api/mod/clubs/:slug/review`, `/suspend`, `/restore` | mod | none | 5 |
 | POST | `/api/clubs/:slug/delete`, `/api/clubs/:slug/delete/cancel` | club admin, recent | `CLUB_LIMIT` | 5 |
 | GET | `/api/clubs/:slug/export`, `/api/clubs/:slug/export.csv?table=` | club admin (incidents: 06 16.2) | none | 5 |
 | GET | `/api/me/clubs` | session | none | 5 |
@@ -2070,6 +2090,7 @@ A `GET` never acts, because mail scanners follow links (conflict K36). The two W
 | `loc:<location id>` | `windCaution`, `windOff`, `gustCaution`, `gustOff`, `rainCaution`, `rainOff`, `coldCombined`, `flowCaution`, `flowOff`, `aqiCaution`, `aqiOff` | number, `""` (level off) or null (back to the location default) | 2 | 01 11.1, 03 9.1 |
 | `loc:<location id>` | `streamCaution`, `streamOff`, `minLaunch`, `levelLow`, `levelHigh` | same | 2 (shown only where the location has the source) | 01 11.1 |
 | `loc:<location id>` | `heading`, `waterOverride`, `saved` | number or `""` | 2 | 01 8.6, 03 9.1 |
+| `loc:<location id>` | `limitBasis` | `{ flow, tide, level }`, each an `adapter:ref:unit` string or null | 2 | 01 11.1 |
 | `loc:<location id>` | `useClubRules` | boolean | 5 | 01 11.7 |
 | `loc:<location id>` | `activeSet` | `1` to `6` or null | 2 | 07 8.4 |
 | `global` | `plan` | `{ minutes, when }` | 2 | 03 9.1 |
@@ -2270,7 +2291,8 @@ CSRF in one sentence: a write needs a same-origin `Origin` header and a JSON bod
 | Guardian link code | 8 Crockford base32 characters | HMAC with `AUTH_PEPPER`, hex | single use | 03 11.5 |
 | Blocked email | the address | HMAC with `AUTH_PEPPER`, hex | 1 year | 03 6.5 |
 | WebAuthn user handle | 16 random bytes, base64url (22) | plain (it identifies nothing) | account | 03 3.4 |
-| Status link token | 16 random bytes, base64url | SHA-256, base64url (43) | 24 hours after the row ends | 04 6.3 |
+| Status link token, the rower's | 16 random bytes, base64url | SHA-256, base64url (43), `outings.share_hash` | 24 hours after the row ends | 04 6.3 |
+| Status link token, a contact's | `HMAC(NOTIFY_LINK_KEY, "status:" + outing id + ":" + contact id)`, first 16 bytes, base64url (22) | SHA-256, base64url (43), `outing_contacts.token_hash` | 24 hours after the row ends | 04 6.3 |
 | Contact stop token | random, base64url | SHA-256, base64url | until used | 04 6.1 |
 | Report `ip_hash` | the IP and the UTC date | HMAC with `IP_HASH_KEY`, first 16 bytes, base64url (22) | 30 days, then NULL (04 8.9) | 04 3.3 |
 | Push endpoint | the endpoint URL | SHA-256, base64url, for lookups; the URL itself is stored to send | until gone | 05 8 |
@@ -2350,7 +2372,7 @@ Rules for the content:
 
 - `verifyTurnstile(env, token, ip, action = 'suggest')` checks `success` and that `action` matches (phase 0 adds the parameter with today's value as the default, so no caller changes; 14 step P0.13).
 - The browser loader moves from `src/suggest.js` to `src/turnstile.js` in phase 2. The script loads only when a form that needs it is first opened, never on page load. The site key comes from `/api/info` `turnstileKey` from phase 2; `GET /api/suggest` keeps returning it for the suggestion form.
-- CLAUDE.md's exception sentence ("It loads only when the suggestion form is first opened") becomes, with the phase 2 merge and the owner's approval: "It loads only when a form that needs it is first opened: suggestions, sign in, a report sent while signed out, and the status link's safe button."
+- CLAUDE.md's exception sentence ("It loads only when the suggestion form is first opened") becomes, with the phase 2 merge and the owner's approval: "It loads only when a form that needs it is first opened: suggestions, sign in, changing your email, inviting a guardian, a report sent while signed out, and the status link's safe button."
 - Previews use Turnstile's published testing keys (6.3). Whether the testing secret's answer carries the `action` is unverified; if it does not, the phase 2 test on dev will show it, and the action check is then skipped only when `APP_ENV` is not `production`.
 
 ### 10.9 Analytics
@@ -2380,8 +2402,8 @@ Decision: Adopt 07's Tier 1 counter in phase 1. One data point per app start wit
 ```
 
 - `style-src 'unsafe-inline'` is needed: the app writes `style` attributes (`src/render/detail/common.js` week strip, `week.js` bars and ticks, `storms.js`, and `index.html`, read 2026-10-18). The built `index.html` has no inline script (one module script tag, read 2026-10-18), so `script-src` needs no `'unsafe-inline'`.
-- The picker's town search uses Open-Meteo geocoding from phase 1 (07 5.2.1), so its host is in the phase 1 list. Phase 3 adds `https://tiles.openfreemap.org` to `connect-src` for the map, and `blob:` to `img-src` and `worker-src` if MapLibre needs them (unverified; the phase 3 browser test with the map open shows any violation in the console). Phase 7 adds each new adapter's hosts.
-- `test/csp.test.js` (phase 1) reads `public/_headers` and fails when a host listed by any browser adapter in `src/sources/` (each adapter exports `hosts`) is missing from `connect-src`. 03 14.4 asked for the header to be generated from the catalog; a hand-written header with this test is simpler and shows the policy in one place.
+- The picker's town search uses Open-Meteo geocoding from phase 1 (07 5.2.1), so its host is in the phase 1 list. Phase 3 adds `https://tiles.openfreemap.org` to `connect-src` for the map, `https://photon.komoot.io` for the add flow's boathouse search (02 place search, 07 5.6; if the owner declines Photon, drop both the search box and this host), and `blob:` to `img-src` and `worker-src` if MapLibre needs them (unverified; the phase 3 browser test with the map open shows any violation in the console). Phase 7 adds each new adapter's hosts.
+- `test/csp.test.js` (phase 1) reads `public/_headers` and fails when a host listed by any browser adapter in `src/sources/` (each adapter exports `hosts`) is missing from `connect-src`. It also checks a short list of hosts that are not adapters (`https://geocoding-api.open-meteo.com` from phase 1; `https://tiles.openfreemap.org` and `https://photon.komoot.io` from phase 3). 03 14.4 asked for the header to be generated from the catalog; a hand-written header with this test is simpler and shows the policy in one place.
 - The Turnstile `script-src` and `frame-src` entries follow Cloudflare's CSP guidance (from docs, unverified here). After the phase 1 merge, open the suggestion form on production and confirm the console shows no CSP violation; the phase 2 browser test does the same for the sign-in form.
 - Worker responses set their own headers: JSON routes `Cache-Control` as 7.1 and `X-Content-Type-Options: nosniff`; the two HTML pages the CSP in 7.4.
 
@@ -2774,7 +2796,7 @@ Each row is a place where two documents disagreed, or where one document's plan 
 | K6 | 01 4.4 and 14.9, 02 | `flow_stats` table (02) against `stats` JSON on the flow binding (01) | 01's: statistics belong to the gauge binding; computed results are cached in `source_cache` for 30 days (6.6) | 02: the `flow_stats` paragraph, steps 6 to 8, the `GET /api/locations/:slug` line, the flow-stats endpoint row |
 | K7 | 01 11.3, 02 | Flow defaults p90 and p95 rounded to nearest (02) against p88 and p95 rounded down, with `against` from p65 and p88 (01) | 01's: it reproduces Putney's 10,000, 20,000 and 28,000 exactly from the same data, which 02's rule does not (22,000) | 02: step 4, the discovery sample, the suggestion copy, the flowstats test bullets |
 | K8 | 01 15.7, 02 | Health check: stale after 3 failed checks, phase 1 (02) against offline after 3 days and retired after 30, phase 3 (01) | 01's states and phase 3, run by the daily cron at 09:17 UTC (02's minute) | 02: Health checks paragraph and the phase 3 bullet |
-| K9 | 02 Phases, 01 8 | 02's phase 0 adds per-slot refresh and staleness, a visible change | The fields exist in phase 0 and are unused; behavior ships in phase 1 with 01's `maxAgeH` | 02: phase 0 bullet |
+| K9 | 02 Phases, 01 8 | 02's phase 0 adds per-slot refresh and staleness, a visible change | The fields exist in phase 0 and are unused; behavior ships in phase 1 with 01's `maxAgeH` deciding whether a flow or water temperature value is used, and `staleMs` (never shorter) deciding when the hero names the source as stale | 02: phase 0 bullet, adapter catalog and `staleMs` paragraph |
 | K10 | 02 Decision | Switch USGS v0 to v1 in phase 0 "behind the parity test", which requires identical URLs | Phase 1 | 02: the Decision |
 | K11 | 01 8.1 row 18, 02 | `parseFlowDays` at local noon in phase 0 | Phase 1; phase 0 keeps `T16:00:00Z`, so the golden files stay equal | 01: row 18; 02: phase 0 bullet |
 | K12 | 01 5, 06 23.1 | `locations.steward_club_id REFERENCES clubs` in phase 3, before `clubs` exists | Added by `0010` in phase 5 (verified: a reference to a missing table refuses every insert) | 01: field row and a note at the top of section 5 |
@@ -2790,7 +2812,7 @@ Each row is a place where two documents disagreed, or where one document's plan 
 | K22 | 05 3.9 and 3.10, 06 21.5 | Two sets of club message copy | 06 21.5 | 05: one line under each heading |
 | K23 | 05 7.5, 06 20 | Deep links `/club/<slug>` and `?open=practice:<id>` against 06's hash routes | `/club/<slug>#today` and `/club/<slug>#practice/<id>` | 05: two rows |
 | K24 | 01 7.2, 7.3, 16.4, 07 4.2 | Shells at `dist/<slug>/index.html`, which `auto-trailing-slash` redirects to `/<slug>/` | `dist/<slug>.html`, excluded from the precache by name (8.4) | 01: 7.2 row, 7.3 bullet, 16.4 bullets |
-| K25 | 01 2.2, 07 16 | Reserved slugs: 07 asks for `at`; `index` is missing | Add `index` (a slug `index` would write `dist/index.html`); `at` needs nothing, as slugs are 3 to 48 characters | 01: 2.2 list (the CHECK is in 08 4.4) |
+| K25 | 01 2.2, 07 16 | Reserved slugs: 07 asks for `at`; `index` is missing | Add `index` (a slug `index` would write `dist/index.html`) and `mod` (the moderator page, 07 4.1); `at` needs nothing, as slugs are 3 to 48 characters | 01: 2.2 list (the CHECK is in 08 4.4) |
 | K26 | 01 11.2, 07 7.4 | Cold line in Celsius "38°C" | 20°C: a sum of two temperatures converts with the offset counted twice | 01: 11.2 row |
 | K27 | 01 8.6, 07 9.2 | Cache 5 locations against 10 with an index | 07's 10 with `rowhether-cache-index-v1`: Compare must work offline for favorites | 01: two rows of 8.6 |
 | K28 | 01 8.1 row 27, 07 7.9 | Fog "miles" units in phase 7 | Phase 2, when the units choice ships | 01: row 27 |

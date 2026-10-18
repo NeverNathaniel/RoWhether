@@ -204,18 +204,19 @@ Paths name the place. The hash names the part of that place, as it does today fo
 | `/club/new`, `/club/join/<token>` | Create a club, invite preview (06 20) | 5 | Yes, preview no | `club` chunk |
 | `/club/<slug>` with 06's hashes (`#today`, `#board`, `#kiosk`, `#schedule`, `#rules`, `#members`, `#safety`, `#settings`, phase 6 `#boats`, `#practice/<id>`) | Club pages (5.8) | 5 | Public page no | `club` chunk |
 | `/o/<token>` | An outing's status link for emergency contacts (04 6.3) | 3 | No | main bundle |
-| `/admin` with `#queue`, `#locations`, `#users`, `#notify`, `#metrics`, `#audit` | Owner and moderator tools (5.14) | 1 (metrics), 3 | Owner, then site roles | `admin` chunk |
+| `/admin` with `#users`, `#notify`, `#metrics`, `#audit` | Owner and admin tools, behind Cloudflare Access (5.14) | 1 (metrics), 2 and later | Owner, then site role `admin` | `admin` chunk |
+| `/mod` with `#queue`, `#locations` | Moderator tools, outside Access (5.14) | 3 | Site role `moderator` or `admin` | `admin` chunk |
 | `/privacy`, `/terms`, `/about` | Static pages (5.15) | 2 | No | static HTML |
 
 `?open=<kind>:<id>` is read once at start by 05's `handleOpenParam()` and removed with `history.replaceState`. This document adds `?open=picker` for the "Pick a location" link in emails and the 90-day note.
 
-Reserved words: 01's list (01 2.2) already covers `add`, `admin`, `account`, `club`, `about`, `privacy` and `terms`. `at` must be added for quick looks (section 16). `o` cannot collide because slugs are at least 3 characters.
+Reserved words: 01's list (01 2.2) already covers `add`, `admin`, `account`, `club`, `about`, `privacy` and `terms`, and gains `mod` for the moderator page. `at` must be added for quick looks (section 16). `o` cannot collide because slugs are at least 3 characters.
 
 ### 4.2 How routing works
 
 `src/route.js` grows from hash routes to path plus hash routes.
 
-- `parseRoute(loc)` takes `location` and returns `{ page, slug, tab, day, section }`. `page` is one of `home`, `location`, `point`, `add`, `account`, `club`, `status`, `admin`, `notfound`. Today's `parseRoute(hash)` becomes the hash half and keeps its tests.
+- `parseRoute(loc)` takes `location` and returns `{ page, slug, tab, day, section }`. `page` is one of `home`, `location`, `point`, `add`, `account`, `club`, `status`, `admin` (for `/admin` and `/mod`), `notfound`. Today's `parseRoute(hash)` becomes the hash half and keeps its tests.
 - Links between pages are ordinary `<a href>` elements with `data-nav`. A click handler on `document` calls `navigate(href)` for same-origin `data-nav` links: `history.pushState`, then `show()`. Modifier clicks and middle clicks fall through to the browser, so "open in new tab" works.
 - `popstate` and `hashchange` both call `show()`. Changing tabs stays a hash change (a history entry, as now). Picking a day stays `history.replaceState` (as `setDay()` does now).
 - Opening another location: `setZone(loc.tz)` (01 8.2), read `rowhether-loc-v1:<slug>` and `rowhether-cache-v2:<slug>`, render at once if both exist, then fetch the record and the data (01 7.4). The previous location's model is dropped. `app.openPeriods`, `app.detailDay` and `app.homeScroll` reset, because a picked day or open row belongs to a place.
@@ -284,7 +285,7 @@ Rules:
 
 Header on pages that are not a location (account, club, add, admin, quick look):
 
-- `h1` is the page title ("Your account", "Putney Rowing Club", "Add a location", "Admin"). On club pages the badge line shows "Verified club" when it is.
+- `h1` is the page title ("Your account", "Putney Rowing Club", "Add a location", "Admin", "Moderation"). On club pages the badge line shows "Verified club" when it is.
 - The subtitle is the page's one-line purpose, and it ends with a link back to the location the viewer came from: "Back to Putney Landing". The link uses `data-nav` and keeps the tab the viewer left on.
 - No Refresh or Settings buttons. The account button stays at the right.
 
@@ -312,7 +313,7 @@ Decision: The location's information page is a tab, `#info`, at the end of the t
 
 CLAUDE.md says the tab bar under the header is the only navigation. With many locations, accounts and clubs, there are places that are not part of one location's forecast.
 
-Decision: Keep the tab bar for the parts of one location only. Reach everything else from the header: the location name opens the switcher, and the account button opens Account. Club pages, Add a location and Admin are reached from those two and from links in context, and each page outside a location has its own text tabs in the same style. Recommended: the tab bar keeps one meaning, the Now screen gains no new chrome, and every new place has exactly one way in from the header.
+Decision: Keep the tab bar for the parts of one location only. Reach everything else from the header: the location name opens the switcher, and the account button opens Account. Club pages, Add a location, Admin and Moderation are reached from those two and from links in context, and each page outside a location has its own text tabs in the same style. Recommended: the tab bar keeps one meaning, the Now screen gains no new chrome, and every new place has exactly one way in from the header.
 - Alternative: add Places, Club and Account tabs to the bar. One bar, but it mixes levels, and with 12 location tabs it pushes Week and Wind off the screen on a phone.
 - Alternative: a bottom navigation bar, the common app pattern. It adds permanent chrome, competes with the install bar for the bottom edge, and makes the Now screen louder.
 - Alternative: a menu button that holds everything. It hides the switcher behind two taps.
@@ -329,7 +330,7 @@ Every place and its ways in:
 | Account and its tabs | Account button | "Sign in to ..." links in sheets; notification deep links (`/account#notifications`) |
 | A club | Account, Your clubs | The hero club line (members), the public status line under the hero, Info's Clubs here, notification deep links |
 | The sign-out board | Account, Your clubs, the club, Board | The hero club line, the outing banner's "Board" link for club rows |
-| Admin | Account, "Admin" (shown to moderators and admins only) | The owner's moderation digest email (04) |
+| Admin, Moderation | Account, "Admin" (admins only) and "Moderation" (moderators and admins) | The owner's moderation digest email (04) |
 | Privacy, terms, about | none | Footer links |
 
 ### 4.6 Banners and notes above the hero
@@ -559,7 +560,7 @@ Phase 3. `/add`, from the picker's "Add a location", search with no results, or 
 
 | Step | Screen |
 | --- | --- |
-| 1 `#where` | The map (10.4) with a fixed crosshair at the center, not a dragged pin, so a keyboard user can pan with the arrow keys and press "Put the dock here". "Use my location" (refused over 100 m accuracy, 01 12.3). Coordinates under the map, editable as numbers. Dedupe answers from 01 12.3 appear under the map as they change: blocked, needs a reason, or a notice. |
+| 1 `#where` | A search box above the map moves it to a boathouse or town (Photon for boathouse names, Open-Meteo geocoding for towns, after 300 ms of no typing, never Nominatim; 02, place search). The map (10.4) with a fixed crosshair at the center, not a dragged pin, so a keyboard user can pan with the arrow keys and press "Put the dock here". "Use my location" (refused over 100 m accuracy, 01 12.3). Coordinates under the map, editable as numbers. Dedupe answers from 01 12.3 appear under the map as they change: blocked, needs a reason, or a notice. |
 | 2 `#name` | Name, short name, address preview "rowhether.com/lake-quinsigamond" with the checks as you type (01 12.4), water type as six radio cards with one line each, locality, country, region, time zone with "Change". |
 | 3 `#water` | Waterway cards, then one card per role from discovery (02, "What the person adding the location sees"): the suggestion, its distance, its latest reading, and "Use this", "Pick another", "None". Warnings inside the card in caution color with a word, never color alone. Discovery is loading: "Looking for gauges, alerts and stations near your pin." |
 | 4 `#course` | River, tidal, canal: "Which way is upstream?" with "Set the direction" (an arrow on the map rotated with a slider or typed in degrees, the suggestion preselected and labeled "Suggested 21° from the upstream gauge. Check it against the water.") or "Draw the course" (crosshair plus "Add point here", "Undo last point", the length and each segment's heading listed under the map). Lakes: "Draw your usual course, or skip", then the open water size question. Banks with "Rename". |
@@ -579,7 +580,7 @@ After Publish: the new page `/<slug>` with the note "Published. It shows as comm
 
 | Tab | Hash | Content | Phase |
 | --- | --- | --- | --- |
-| Profile | `#profile` (default) | 03 17.4 sections 1, 2, 3, 5, 6, 7: profile, sign-in methods, where you're signed in, recent security activity, your data, sign out. Units and clock (7.1). "Admin" link for moderators and admins. | 2 |
+| Profile | `#profile` (default) | 03 17.4 sections 1, 2, 3, 5, 6, 7: profile, sign-in methods, where you're signed in, recent security activity, your data, sign out. Units and clock (7.1). "Moderation" link for moderators and admins, "Admin" link for admins. | 2 |
 | Notifications | `#notifications` | Recent notifications, then the settings (5.12) | 4 |
 | Row log | `#rows` | 04 section 7 (8.5) | 3 |
 | Emergency contacts | `#contacts` | 04 6.1 | 3 |
@@ -668,11 +669,12 @@ Entry points elsewhere (05 7.1), placed:
 
 Every number field shows its unit in the label, in the viewer's units ("Caution at, km/h"), and converts on save (7.4).
 
-### 5.14 Admin
+### 5.14 Admin and moderation
 
-`/admin`, the `admin` chunk, never precached. Phase 1 behind Cloudflare Access (03 3.7); from phase 2 also needs site role `moderator` or `admin` with a passkey session (03 10).
+`/admin` and `/mod` are two pages of the `admin` chunk, never precached. `/admin` is behind Cloudflare Access in phase 1 and, as a second lock, after phase 2 (03 3.7); from phase 2 it also needs site role `admin` with a passkey session (03 10). `/mod` is outside Access, which allows only the owner, so moderators can open it; it needs site role `moderator` or `admin` with a passkey session. Its routes are `/api/mod/*` (08 7.3).
 
-- Header "Admin", text tabs: Queue (04 8.7, phase 3), Locations (01 13: verify, archive, merge, suggestions; phase 3), Users (03 16.8; admins only), Notifications (05's stats, phase 4), Metrics (14.5), Audit (03 14.2).
+- `/admin`: header "Admin", text tabs Users (03 16.8), Notifications (05's stats, phase 4), Metrics (14.5), Audit (03 14.2).
+- `/mod`: header "Moderation", text tabs Queue (04 8.7, phase 3) and Locations (01 13: verify, archive, merge, suggestions; phase 3).
 - Tables are allowed here (wide data, owner use), each inside a `.hours-wrap` so they scroll inside the panel at 360 px.
 - Every destructive action opens a confirm sheet naming the thing and the effect: "Merge Putney town dock into Putney Landing? 14 reports, 3 favorites and 1 alert rule move. This cannot be undone."
 
@@ -727,7 +729,7 @@ New:
 | Quick look | text starts "Rowing near Worcester, MA, 6:41 AM:"; URL `SITE_URL + 'at/' + lat + ',' + lon` | |
 | Share this location (Info tab) | title `${loc.name} on RoWhether`, text "Rowing conditions at Lake Quinsigamond.", URL as above | |
 
-The text is still read from the hero (`$('verdict')`, `$('why')`, `$('holds')`), so it always matches the screen, including the club line when it applies. Units follow the viewer (7.3). The button keeps its label and its "Copied" and "Could not share" flashes.
+The text is still read from the hero (`$('verdict')`, `$('why')`, `$('holds')`, and `$('notChecked')` when it shows), so it always matches the screen, including the club line when it applies. A shared Go at a location with an unchecked factor therefore carries "Not checked here: river flow." with it. Units follow the viewer (7.3). The button keeps its label and its "Copied" and "Could not share" flashes.
 
 ### 6.3 App name and manifest
 
@@ -761,7 +763,7 @@ Decision: Name the app RoWhether everywhere from phase 1: `name: 'RoWhether'`, `
 | `/` after it | "RoWhether rowing conditions" | "Go, caution or stay off: rowing conditions for your launch site, hour by hour." |
 | Quick look | "Rowing near Worcester, MA" | (runtime only) |
 | Club | "Putney Rowing Club on RoWhether" | (runtime only) |
-| Account, Add, Admin | "Your account", "Add a location", "Admin" | none, and `<meta name="robots" content="noindex">` set at runtime |
+| Account, Add, Admin, Moderation | "Your account", "Add a location", "Admin", "Moderation" | none, and `<meta name="robots" content="noindex">` set at runtime |
 
 `document.title` is set on every page change.
 
@@ -786,7 +788,9 @@ Today: two paragraphs, the data credits for Putney and the starting points sente
 | No river gauge, river | River tab hidden; Week, River row | "No river gauge here, so flow is not checked." |
 | No river gauge, lake | Week, River row | "This is a lake. Flow is not checked." |
 | Limits differ from the global defaults at a community-added location that is not verified (01 11.1) | Hero, one quiet line under the verdict | "Limits here were set by the person who added this location." Not shown for curated or verified locations, so Putney's screens do not change. |
-| Gauge reading too old (over 24 h, 01 15.7) | River flow fact note | "Last reading 2 days ago, not used for Go, Caution or Stay off." |
+| A factor that could change the level is not checked: a river with no gauge, a location with no official alerts feed (`notChecked()`, 01 8.4) | Hero, one quiet line under the verdict, `#notChecked` | "Not checked here: river flow, official alerts." Names only the factors that apply. Share and 05's night-before message carry it too. Not shown at Putney while its sources answer. |
+| Gauge reading too old (over 24 h, 01 15.7) | Hero, `#notChecked` | "River flow not checked: the gauge has not reported for 2 days." |
+| Same | River flow fact note | "Last reading 2 days ago, not used for Go, Caution or Stay off." |
 | Gauge switched to the fallback (01 15.7) | River flow fact note | "Using the Wellesley gauge. Waltham has not reported since 3 AM." |
 | No official alerts feed (outside the US until phase 7) | Storms tab | "No official warnings feed for this country yet. Check your national weather service before you row." (02) |
 | Same | Week, Alerts row | "Not available here" |
@@ -1088,7 +1092,7 @@ Ten locations at 60,000 characters is 600,000 characters, plus records, settings
 | Info tab | From the cached record. Hazards from the last fetch with "As of Oct 16". Emergency info is part of the record (06 8.7), so it is there |
 | Report dialog, Start a row, I'm back | Through 04's outbox, with its offline copy |
 | Board | 06 8.4: the last board with "Not updated since 6:41 AM. No connection." |
-| Account, Add, Admin, Compare refresh | "This page needs a connection." with "Try again", from the main bundle when the page's chunk is not cached |
+| Account, Add, Admin, Moderation, Compare refresh | "This page needs a connection." with "Try again", from the main bundle when the page's chunk is not cached |
 | Static pages | From the precache (4.2) |
 
 ### 9.6 Service worker
@@ -1155,7 +1159,7 @@ Each is a dynamic `import()` with a stable file name, so Workbox patterns can in
 | `src/add/` | `/add` | No | 10 to 15 KB gzip (estimate), plus the map |
 | `src/auth.js`, `src/account.js`, the WebAuthn browser library | The sign-in dialog, `/account` (03 17.5) | Yes, so the account page can say it is offline | 03's |
 | `src/club/` | `/club/` routes, a club sheet (06 20) | Yes (06's offline board) | 06's |
-| `src/admin/` | `/admin` | No | 10 KB gzip (estimate) |
+| `src/admin/` | `/admin` and `/mod` | No | 10 KB gzip (estimate) |
 | Turnstile | First open of a form that needs it (CLAUDE.md exception) | No | third party |
 
 ### 10.4 The map
@@ -1231,7 +1235,7 @@ One line above the verdict for club rules (06 6.6 `#clubLine`) or a limit set (8
 - `font-size: .9375rem`, `font-weight: 500`, `color: var(--muted)`, `margin: 0 0 .5rem`.
 - "Change" is a text button, underlined, in `--river`, not a pill, so the hero still has one loud thing.
 - At most two lines at 360 px. Longer club scopes shorten their scope words first ("Masters, 1x" instead of "Masters, 1x without a launch").
-- Under the hero's `holds` line: 06's `#clubNotes` and `#clubAlt` in the same muted style, and the public club status line for everyone, linked to the club page: "Putney Rowing Club: closed to club rowing until 6 PM. High water."
+- Under the hero's `holds` line: `#notChecked` (6.7) and 06's `#clubNotes` and `#clubAlt` in the same muted style, and the public club status line for everyone, linked to the club page: "Putney Rowing Club: closed to club rowing until 6 PM. High water."
 
 ### 11.3 Water status banner
 

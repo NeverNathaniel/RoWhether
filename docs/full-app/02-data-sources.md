@@ -41,7 +41,7 @@ Some hosts could not be reached from the sandbox. `api.open-meteo.com` timed out
 - **Browser first for keyless CORS sources.** This is the current hard constraint and it stays: the browser fetches Open-Meteo, NWS, USGS, NWPS and NOAA directly. It keeps Worker cost and load at zero, and free-tier limits apply per viewer, not to the site.
 - **The Worker handles four kinds of work only:** anything that needs a key; sources without CORS; discovery and history jobs (many dependent calls whose result is stored and shared); and server-side engines (notifications in 05-notifications.md, health checks below).
 - **Each source fails on its own.** `fetchAll()` keeps `Promise.allSettled`. The last good value stays and the failure is named under the hero, as now.
-- **Absent is not the same as failed.** A source that does not exist for a region is never reported as a failure, and never reads as "no concern". It is stated where that factor is explained (see Graceful degradation).
+- **Absent is not the same as failed.** A source that does not exist for a region is never reported as a failure, and never reads as "no concern". It is stated where that factor is explained (see Graceful degradation), and in one quiet line under the hero when the factor could change the level (07 6.7).
 - **Internal units stay as they are:** mph, °F, inches, cfs, and °C for water temperature from gauges (converted by `cToF` in `src/format.js`). Parsers convert foreign units on the way in (m³/s, L/s, km/h, knots, meters). Display units are a separate layer (07-product-and-ux.md). This keeps every threshold, test and rule in `src/logic.js` unchanged.
 
 Decision: keep US units as the internal canonical units and convert in parsers and formatters. Recommended, because `src/logic.js`, `DEFAULTS`, `WATER`, `FOG` and every test use them. Alternative: move to SI internally, which touches every threshold and test for no user-visible gain.
@@ -304,7 +304,7 @@ A slot is what the rest of the app reads from `app.data`. The nine current keys 
  * @property {string[]} regions       // ISO 3166-1 alpha-2 codes, or ['*'] for global
  * @property {'browser'|'worker'} via // 'worker' means url() points at our own /api/...
  * @property {number} refreshMs       // how often the browser refetches while visible
- * @property {number} staleMs         // after this, the last good value is dropped and the slot reads as missing
+ * @property {number} staleMs         // after this, the last good value is dropped and the slot reads as missing (flow and water temperature: the location's maxAgeH decides use, and staleMs only names the source as stale)
  * @property {(ctx: DiscoverCtx) => Promise<Candidate[]|null>} discover
  *                                    // Worker only; null when the adapter does not apply here
  * @property {(b: Binding, loc: Location, now: number) => string} url
@@ -377,31 +377,31 @@ Code changes that come with this:
 | `om-models` | models | * | browser | 60 min | 24 h | 0 |
 | `nws-alerts` | alerts | US | browser | 10 min | 1 h | 0 |
 | `nws-obs` | obs | US | browser | 10 min | 3 h | 0 |
-| `usgs-latest` | river | US | browser | 10 min | 12 h | 0 |
-| `usgs-recent` | flow | US | browser | 10 min | 12 h | 0 |
+| `usgs-latest` | river | US | browser | 10 min | 24 h | 0 |
+| `usgs-recent` | flow | US | browser | 10 min | 24 h | 0 |
 | `usgs-daily` | flowDays | US | browser | 6 h | 7 days | 0 |
 | `nwps-forecast` | flowFcst | US | browser | 60 min | 24 h | 0 |
 | `nwps-tide` | tide | US | browser | 60 min | 24 h | 1 |
 | `coops-tide` | tide | US | browser | 6 h | 7 days | 1 |
-| `coops-temp` | waterTemp | US | browser | 10 min | 12 h | 1 |
+| `coops-temp` | waterTemp | US | browser | 10 min | 72 h | 1 |
 | `coops-currents` | current | US | browser | 6 h | 7 days | 1 |
 | `om-flood` | flow, flowDays, flowFcst | * | browser | 6 h | 3 days | 1 |
-| `om-marine` | waterTemp | * | browser | 6 h | 2 days | 1 |
+| `om-marine` | waterTemp | * | browser | 6 h | 3 days | 1 |
 | `eccc-alerts` | alerts | CA | browser | 10 min | 1 h | 7 |
-| `eccc-hydro` | river, flow | CA | browser | 10 min | 12 h | 7 |
+| `eccc-hydro` | river, flow | CA | browser | 10 min | 24 h | 7 |
 | `eccc-hydro-daily` | flowDays | CA | browser | 6 h | 7 days | 7 |
 | `eccc-obs` | obs | CA | browser | 10 min | 3 h | 7 |
 | `chs-tide` | tide | CA | browser | 6 h | 7 days | 7 |
-| `ea-level` | river, flow | GB | browser | 15 min | 12 h | 7 |
+| `ea-level` | river, flow | GB | browser | 15 min | 24 h | 7 |
 | `ea-floods` | alerts | GB | browser | 15 min | 1 h | 7 |
-| `hubeau-hydro` | river, flow | FR | browser | 10 min | 12 h | 7 |
-| `pegel-hydro` | river, flow | DE | browser | 15 min | 12 h | 7 |
+| `hubeau-hydro` | river, flow | FR | browser | 10 min | 24 h | 7 |
+| `pegel-hydro` | river, flow | DE | browser | 15 min | 24 h | 7 |
 | `metar-obs` | obs | * | worker | 10 min | 3 h | 7 |
 | `metoffice-warnings` | alerts | GB | worker | 10 min | 1 h | 7 |
 | `meteoalarm` | alerts | EU members of MeteoAlarm | worker | 10 min | 1 h | 7 |
 | `metservice-warnings` | alerts | NZ | worker | 10 min | 1 h | 7 |
 
-`staleMs` closes a gap in today's cache: the last good value is kept forever. A flow reading from four days ago should not drive the verdict. Past `staleMs` the slot reads as missing and the hero names it: "River flow data is more than 12 hours old."
+`staleMs` closes a gap in today's cache: the last good value is kept forever. A flow reading from four days ago should not drive the verdict. One rule with 01's `maxAgeH` (01 15.7, 08 K9): for flow and water temperature, `maxAgeH` decides whether a value is used for the verdict (24 h and 72 h from phase 1), and `staleMs` only decides when the hero names the source as stale, so it is never shorter than `maxAgeH`. The copy is 07 6.7's: "River flow not checked: the gauge has not reported for 2 days." For every other slot, past `staleMs` the slot reads as missing.
 
 ### Alert levels by source
 
@@ -439,7 +439,7 @@ New table. Belongs in the canonical schema in 08-architecture.md. Holds every bi
 | `river_km` | REAL | NULL | along the river, positive |
 | `direction` | TEXT | NULL, CHECK in ('up','down','at') | relative to the launch |
 | `straight_km` | REAL | NULL | great-circle distance |
-| `confirmed_by` | TEXT | NULL, REFERENCES users(id) | who confirmed it in /add or /admin |
+| `confirmed_by` | TEXT | NULL, REFERENCES users(id) | who confirmed it in /add or /mod |
 | `confirmed_at` | INTEGER | NULL | ms |
 | `last_ok_at` | INTEGER | NULL | ms, from the health check |
 | `fail_count` | INTEGER | NOT NULL DEFAULT 0 | consecutive failed health checks |
@@ -716,7 +716,7 @@ ECCC and MeteoAlarm alert text must be shown without changes to content or inten
 
 Two states per slot, kept apart in code and copy:
 
-- **Not available here:** no binding for this slot at this location. Nothing in the hero. The relevant tab says what is missing and what to do.
+- **Not available here:** no binding for this slot at this location. For a factor that could change the level (river flow on a river, official alerts), one quiet line under the hero says so: "Not checked here: river flow, official alerts." (07 6.7). The relevant tab says what is missing and what to do. Putney has every source, so its hero shows no line.
 - **Failed:** a binding exists but the fetch or parse failed. The hero note names it, as today: "Could not reach USGS river gauges. Showing the last data received where available."
 
 | Slot missing | What still works | What changes | Copy where it shows |
@@ -788,7 +788,7 @@ Fixtures recorded from the live responses of 2026-10-17 go in `test/fixtures/sou
 - `test/logic.test.js` additions
   - `buildModel` with no `river` slot: no `flow` reasons, no debris warning, no throw.
   - `waterTemp()` precedence: Settings reading, then `river.waterC`, then `waterTemp`.
-  - A slot older than `staleMs` is treated as missing.
+  - A slot older than `staleMs` is treated as missing, except flow and water temperature, where the location's `maxAgeH` decides use.
 - `test/sourceproxy.test.js`: the proxy refuses a location whose binding is not a Worker adapter; responses carry `s-maxage=300`.
 - A manual script, `scripts/check-sources.mjs` (not run in CI): requests each adapter's URL for a few fixed locations with `Origin: https://rowhether.com` and prints status, CORS header and a parse result. Run before each phase ships, and when a provider announces changes.
 

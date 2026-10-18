@@ -106,7 +106,7 @@ Every notification sent to a user is a row in `notify_log`. Account, "Notificati
 | `night_before` | A pref's local time, default 8 PM at the location | Off until asked | push; email if chosen | normal | Until first light of the target day, at most 24 h | `nb-` plus 12 characters of the pref id | Ignored: the user chose the time | 4 |
 | `morning_change` | 75 minutes before first light, not before 4 AM local, when the outlook changed since the night-before | On with `night_before` | push | high | Until the end of the morning period | Same as `night_before`, so it replaces one that was never delivered | Ignored | 4 |
 | `morning_of` | A pref's local time, default 5 AM | Off | push | high | 3 h | `mo-` plus 12 | Ignored | 4 |
-| `nws_alert` | A new or upgraded NWS alert overlapping a rowing window in the next 36 hours | Stay off level only | push | high for Stay off, normal for Caution | Until the alert ends, at most 24 h | `al-` plus 12 characters of a hash of the alert id | Held | 4 |
+| `nws_alert` | A new or upgraded NWS alert overlapping a rowing window in the next 36 hours | Stay off level only | push | high for Stay off, normal for Caution | Until the alert ends, at most 24 h | `al-` plus 12 characters of a hash of the alert id | Never held at the Stay off level; held at the Caution level | 4 |
 | `hazard` | A hazard posted within 10 km on the location's waterway, once its note is cleared or it has none | Off | push | low | 12 h | none | Held | 4 |
 | `go_window` | Evaluated at 7 AM and 5 PM location time | Off | push | normal | 12 h | `gw-` plus 12 | Held | 4 |
 | `water_status` | A club changes its water status (06) | On for members | push; also email when closed | high when closed, else normal | 6 h | `ws-` plus 12 of the club id | Held, except closed, and except a restriction that begins before the person's quiet hours end (06 21.3; 08 K21) | 5 |
@@ -135,7 +135,9 @@ Built from `periodsFor()` (via `buildModel(loc, data, S, now)`) for the target d
 | All three periods | "Putney tomorrow" | "Morning Go. Midday Caution: gusts to 22 mph. Afternoon Stay off: thunderstorms." |
 | With a practice (06, phase 6) | "Putney: Caution for your 5:30 AM practice" | "Gusts to 19 mph by 6 AM. Fog unlikely. Practice is still on." |
 | Forecast not available | "Putney: tomorrow's forecast is not available" | "We could not reach the forecast this evening. Open the app before you row." |
-| NWS alerts could not be checked | (normal title) | Normal body plus " NWS alerts could not be checked." |
+| NWS alerts, river flow or air quality could not be checked, and the checked factors give Caution or Stay off (5.3) | (normal title) | Normal body plus " NWS alerts could not be checked.", " River flow could not be checked." or " Air quality could not be checked." |
+| The same, and the checked factors give Go | "Putney: tomorrow morning, flow not checked" (or "alerts not checked", "air quality not checked", "some checks missing" for two or more) | "Everything else looks like Go. River flow could not be checked. Check again before you launch." |
+| A factor is not checked at this location (07 6.7) | (normal title) | Normal body plus " Not checked here: river flow, official alerts." |
 | No rowing window (polar night, 01 section 15.4) | "Putney: no daylight to row tomorrow" | "The sun does not rise above civil twilight tomorrow." |
 
 The "Next Go" phrase reuses what the hero says when the level is not Go (the next go period, CLAUDE.md).
@@ -270,7 +272,7 @@ It runs when a pref is created or edited and after each send. `go_window` uses 0
 - Stored in 03's `user_settings` under the key `notify`: `{ "quietFrom": "22:00", "quietTo": "06:00", "tz": "America/New_York", "emailFallback": "safety" }`. `tz` comes from the device (`Intl.DateTimeFormat().resolvedOptions().timeZone`) when the user saves, because quiet hours follow the person, not the location.
 - Kinds marked "Held" in 3.1 that fall inside quiet hours are sent at the end of quiet hours: the job is enqueued with `delaySeconds` up to the end (Queues allow up to 86,400 seconds, from docs, https://developers.cloudflare.com/queues/configuration/javascript-apis/). On delivery the job is re-checked: an NWS alert that has ended, a hazard that was cleared, or a water status that changed again is dropped (`skip_reason = 'stale'`).
 - Timed kinds the user scheduled (`night_before`, `morning_change`, `morning_of`) ignore quiet hours: the user picked the time.
-- `overdue` and `water_status` closed ignore quiet hours.
+- `overdue`, `water_status` closed and `nws_alert` at the Stay off level ignore quiet hours. They are safety notices, and civil dawn comes before 5 AM in the summer, so a warning issued at 5:10 AM must reach a rower who launches at 6. Only Caution level alerts are held.
 
 ### 4.5 Caps
 
@@ -340,8 +342,11 @@ export async function tick(env, now = Date.now()) {
   if (new Date(now).getUTCMinutes() % 5 === 2) runs.push(runAlerts(env, now)); // NWS, every 5 minutes
   const results = await Promise.allSettled(runs);
   // Failures are logged with the step name; one step failing never stops the others.
+  // Then the heartbeat (below), written even when a step failed.
 }
 ```
+
+Heartbeat. When a tick ends it writes one row to `source_cache`, key `tick:heartbeat`, expiring in 7 days: `{ "at": 1792230000000, "overdue": "ok", "due": "ok", "alerts": "skipped", "overdueFailures": 0, "emailsStuck": 0 }`. `overdueFailures` counts the runs in a row where `runOverdue` threw and returns to 0 on a success. `emailsStuck` counts overdue emails that have failed twice and are still not accepted (5.7). The tick is unhealthy when the heartbeat is more than 5 minutes old (the cron stopped, or the Worker cannot reach D1), `overdueFailures` has reached 3 (a bad deploy, a renamed column, a bug), or `emailsStuck` is above 0. `GET /api/health` reads the row and answers 200 `{ "ok": true }` or 503 `{ "ok": false }`, with no detail and `Cache-Control: public, max-age=30`. The outside uptime monitor in the Decision in 13 polls it every minute and pushes to the owner's phone, so a stopped tick is noticed in minutes, not in the next day's digest. The app asks the same route when the Start a row sheet opens, and every 5 minutes while the outing banner is on screen. A 503 shows "Late alerts are delayed right now. Tell someone your plan." on the sheet and the banner (04 5.2, 5.6). A failed request (no signal) shows nothing extra, because the offline line already covers it.
 
 `runDue()`:
 
@@ -385,8 +390,11 @@ When data fails:
 | --- | --- |
 | `wx` | The pref is retried 5 minutes later (`next_at += 5 min`), up to 6 times. After 30 minutes the "forecast not available" message (3.3) is sent. |
 | `alerts` | Built without alerts; the body adds "NWS alerts could not be checked." |
-| `river`, `flow` | Built without flow rules, as the app does when the gauge fails. Nothing added to the copy. |
-| `aq` | Built without AQI rules. Nothing added. |
+| `river`, `flow` | The last good reading is used while it is within the binding's `maxAgeH` (24 h from phase 1), as the app does. Each good fetch writes it to `source_cache` with its time (key `lastgood:flow:<binding id>`, expires after 48 h), because the server has no browser cache to fall back on. With no usable reading, the model is built without flow rules and the body adds "River flow could not be checked." |
+| `aq` | Built without AQI rules; the body adds "Air quality could not be checked." |
+| A factor with no binding here (07 6.7) | The body adds the hero's line, "Not checked here: river flow, official alerts." Nothing else changes. |
+
+A failed slot can only hide a reason that would raise the level. So Caution and Stay off keep their titles and gain the sentence. A Go does not keep its title: it becomes "Putney: tomorrow morning, flow not checked" with "Everything else looks like Go. River flow could not be checked. Check again before you launch." (3.3). The same holds for the overnight update, the morning message and the Go window alert.
 
 NWS alerts, `runAlerts()`:
 
@@ -505,7 +513,7 @@ Dead subscriptions, in the daily run:
 - `last_ok_at` and `last_seen_at` both older than 60 days: deleted.
 - Rows for users who deleted their account are already gone (`ON DELETE CASCADE`).
 
-Email failures: a hard bounce marks the address in `notify_log.email_status = 'bounced'`; for emergency contacts the rower is told (04 section 6.4). A message counts as sent only when the provider accepted it (`email_status = 'sent'`); a refusal or a throttle sets `'failed'` with the provider's error.
+Email failures: a hard bounce marks the address in `notify_log.email_status = 'bounced'`; for emergency contacts it also sets `emergency_contacts.bounced_at` and the rower is told at once, as when a contact opts out (04 sections 6.1 and 6.4). A message counts as sent only when the provider accepted it (`email_status = 'sent'`); a refusal or a throttle sets `'failed'` with the provider's error.
 
 Overdue email is a lane of its own. `runOverdue` sends stage 3 and 4 emails itself, awaiting `sendEmail()` for each contact (6 at a time) before the tick enqueues anything else, so they never wait behind alerts, digests or sign-in codes. A `failed` overdue row is retried by the next ticks, up to 5 times a minute apart, and the rower is told after the first failure ("We could not email Jordan. Call someone now.", 04 section 6.5). To keep room for overdue mail, alert, digest and `system` email stops for the rest of the UTC day once the day's accepted sends reach 70% of `EMAIL_DAILY_LIMIT` (08 6.3); overdue mail and sign-in codes ignore the cap. If one overdue email has failed twice, the owner is alerted at once (5.8), not only in the daily digest.
 
@@ -521,6 +529,7 @@ The dead letter queue is checked by the daily run; any message there is logged a
 | Push service outage | Retries | As 5.7; email fallback for overdue. |
 | VAPID secret lost | Every send 403 | Owner alert. Recovery: new keys; every device must re-subscribe (7.3), which needs a tap on Safari. |
 | Open-Meteo key quota reached | `wx` fails | The "forecast not available" message after 30 minutes; owner alert. |
+| The tick throws on every run, or the cron stops firing | Float plans do nothing and nobody knows | The heartbeat (5.2): `GET /api/health` answers 503 when it is over 5 minutes old or `runOverdue` has failed 3 times in a row. The outside monitor alerts the owner within minutes, and the Start a row sheet and the outing banner say "Late alerts are delayed right now. Tell someone your plan." Test: a tick whose `runOverdue` throws three times flips `/api/health` to 503. |
 | The email provider refuses, throttles or is down | Contacts are not told, or told late | Overdue mail is sent from the tick ahead of the queue, with a share of the day's quota kept for it, and the rower hears "We could not email Jordan. Call someone now." (5.7). Two failures for one email alert the owner at once, on a channel other than email (Decision in 13). Test: a stub provider that throws gives the rower the failure line and the owner an alert. |
 
 ## 6. Web Push on Workers
@@ -883,6 +892,8 @@ Same origin, JSON, errors `{ "error": "code", "message": "Human sentence." }`. S
 { "env": "production", "reports": true, "push": { "key": "BPcU9...87 characters" } }
 ```
 
+`GET /api/health` (no session, phase 3): 200 `{ "ok": true }` or 503 `{ "ok": false }` from the tick heartbeat (5.2). It is cached 30 seconds and carries no detail, so it is safe to poll from an outside monitor and from the app.
+
 `POST /api/push/subscriptions` (session)
 
 ```json
@@ -984,18 +995,20 @@ Unit tests (Vitest, `test/`), with `fetch`, the queue and D1 stubbed in the styl
 
 - `nextAt()` for `night_before` at 20:00 in America/New_York before and after 8 PM, across 2026-11-01 (fall back) and 2026-03-08 (spring forward, including 02:30 which does not exist); in Australia/Sydney across 2026-04-05; in Asia/Kolkata (+5:30); `days` masks (weekday mornings fire Sunday to Thursday evenings).
 - Overnight check time: 75 minutes before first light, clamped to 4:00 AM and to the morning period start; a polar-day location (01 section 15.4).
-- Quiet hours: held kinds wait until 06:00 in the user's zone; timed kinds and overdue are not held; a quiet span across midnight; `tz` different from the location's.
+- Quiet hours: held kinds wait until 06:00 in the user's zone; timed kinds and overdue are not held; a Stay off level NWS alert issued at 5:10 AM is sent at once and a Caution level one waits until 6:00; a quiet span across midnight; `tz` different from the location's.
 - Caps: the 9th non-safety push in 24 hours becomes in-app only.
 
 `test/notify-copy.test.js`:
 
 - Every builder with fixture periods: Go, Caution with fog and lights, Stay off with the next Go, all three periods, forecast not available, alerts not checked, no daylight.
+- Each failed slot (`alerts`, `river`, `flow`, `aq`) adds its sentence; a Go with a failed flow slot is not titled Go; a location with no flow binding or no alerts feed adds "Not checked here: ..."; Putney with every source adds nothing.
 - Rules on every output: title at most 50 characters, body at most 240, no em dash or en dash characters, no word "call" (except "call 911" in 04's contact emails), starts with the location's short name, times formatted in the location's zone.
 - Change detection: level up, level down, fog appears, fog clears, same level with a storm reason, unchanged (skip).
 
 `test/notify-engine.test.js`:
 
 - Overdue email: a provider stub that throws for one contact marks that row `failed`, the next tick retries it, the rower gets the failure line, and a second failure alerts the owner; overdue sends run ahead of queued alerts; alert email stops at 70% of `EMAIL_DAILY_LIMIT` and overdue email does not.
+- Last good flow: after a failed gauge fetch the previous reading is used while it is within `maxAgeH`, and not when it is older.
 - A tick with three due prefs at two locations fetches each location's data once and builds one model per settings group (spy on `buildModel`).
 - Dedupe: the same tick run twice inserts and enqueues once; an overlapping tick sees `ON CONFLICT` and enqueues nothing.
 - `next_at` advances in the same batch as the log insert.
@@ -1003,6 +1016,7 @@ Unit tests (Vitest, `test/`), with `fetch`, the queue and D1 stubbed in the styl
 - NWS: a state response with an alert whose UGC includes the location's zone matches; a polygon alert containing the dock matches; one outside does not; an `Update` with the same level does not notify again; an upgrade does; an alert overlapping no rowing window in 36 hours is skipped; a 304 with the stored ETag parses nothing.
 - Hazard fan-out respects `radiusKm` and excludes the poster.
 - Overdue steps from 04 run through the same tick with a fake clock (shared fixtures with `test/outings.test.js`).
+- Heartbeat: a tick writes `tick:heartbeat` with the step results even when one step threw; `GET /api/health` answers 200 after a good tick, 503 when the clock is 6 minutes past the last heartbeat, and 503 after `runOverdue` throws on 3 ticks in a row; one good run clears it.
 
 `test/notify-deliver.test.js`:
 
@@ -1042,13 +1056,13 @@ Decision: push and alert rules need a signed-in account. Recommended: settings, 
 
 Decision: no SMS at launch. Alternative: Twilio SMS to emergency contacts for overdue messages only.
 
-Decision: give overdue mail a second route, and give the owner an alert that does not depend on email. Recommended: Resend on its free tier, used only for overdue email when Cloudflare Email Service refuses it, and an outside uptime monitor that pushes to the owner's phone when the tick or an overdue send fails twice. Alternative: Twilio SMS for overdue only, which needs US registration and per-message fees. Alternative: neither, relying on the rower's failure line and the owner's daily digest.
+Decision: give overdue mail a second route, and give the owner an alert that does not depend on email. Recommended: Resend on its free tier, used only for overdue email when Cloudflare Email Service refuses it, and an outside uptime monitor that polls `GET /api/health` every minute (5.2) and pushes to the owner's phone when the tick stops or an overdue send fails twice. Alternative: Twilio SMS for overdue only, which needs US registration and per-message fees. Alternative: neither, relying on the rower's failure line and the owner's daily digest.
 
 Decision: set a separate VAPID key pair as Preview secrets so push works on dev. Alternative: no push on dev.
 
 Decision: NWS alerts notify at the Stay off level by default, with "All NWS alerts" as an option. Alternative: every alert by default.
 
-Decision: timed alerts the user scheduled ignore quiet hours; unscheduled ones are held, except overdue and water closed. Alternative: quiet hours hold everything except overdue.
+Decision: timed alerts the user scheduled ignore quiet hours; unscheduled ones are held, except overdue, water closed and Stay off level NWS alerts. Alternative: quiet hours hold everything except overdue.
 
 Decision: record `opened_at` when a notification is tapped, for the owner's stats only. Alternative: record nothing beyond sent.
 
