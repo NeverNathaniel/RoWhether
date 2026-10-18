@@ -31,7 +31,7 @@ Plan:
 
 Phase 0 build (no visible change for Putney; see `01-locations.md` section 8 and `09-roadmap.md`):
 
-6. [ ] Golden outputs captured before any refactor: `scripts/golden.mjs`, `test/golden/`, before screenshots.
+6. [x] Golden outputs captured before any refactor: `scripts/golden.mjs`, `test/golden/`, before screenshots.
 7. [ ] Refactor steps, each its own commit with `npm test` and `npm run build` passing. Progress in `docs/full-app/phase-0-progress.md`.
 8. [ ] `test/golden.test.js` proves deep equality with the captured outputs.
 9. [ ] Opus review of the Phase 0 diff, then fixes.
@@ -52,6 +52,7 @@ More than one agent may work on this branch.
 
 Newest first. One line per step: date and time UTC, who, what.
 
+- 2026-10-18 15:45 UTC, session 01PLGfvc: step 6 done. P0.2 in `743e8cd`: 48 before screenshots (Chromium build 1194 in this container, 15 MB), all matching at 0 pixel difference on four reruns; smoke checks; timing baseline about 100 ms median, noisy on this host. P0.3 in `5bbb6e8`: `scripts/budget.mjs` and `budget.json` (JS 39,004 of 40,500 B gzip), and CI runs the budget, the Worker dry run and the browser smoke tests; CI is green on `93adcdb`. P0.4 to P0.13 run now as one workflow, a Sonnet builder and an independent gate per step; each step pushes on its own and logs in `phase-0-progress.md`.
 - 2026-10-18 15:45 UTC, session 015Sq3rx: the plan is finished (steps 1 to 5). Resolved the four disagreements the overview agent found: `engines.node` `>=22.13` in 03, the Resend row in 08 6.5, the missing owner items in 08 17.2, and 06 23.2 item 8 on the production database; 09's disagreements section now records them. No phase 0 spec changed. Phase 0 stays with 01PLGfvc (P0.1 and P0.2 landed, P0.3 next). 015Sq3rx's next step: when P0.3 lands, the Opus review of phase 0 so far as `docs/full-app/reviews/phase-0.md`, findings only.
 - 2026-10-18 15:36 UTC, overview agent (015Sq3rx): `README.md` and `09-roadmap.md` landed. README holds the summary, what people get, the reading guide, the architecture in brief, 88 owner decisions ordered by the phase that needs them, costs, the work outside the code and the Phase 0 line. The roadmap has the phase table, then for each phase 0 to 7 and Later the goal, what ships, dependencies, migrations, owner tasks, exit criteria and risks, with the blockers from both reviews and how each was resolved. The plan is finished apart from the owner decisions listed in README.md. Disagreements found are listed at the end of 09 (03 says `engines.node` `>=22`, 08 says `>=22.13`; 05 recommends Resend as a second route for overdue email while 08 6.5 lists it only as a replacement for Email Service; 08 17.2 leaves out the lawyer list, the Photon search box, the outside monitor and the second email route; 06 23.2 item 8 predates the phase 2 production database), and 01 to 08 write no phase 7 exit criteria. Phase 0 stays with 01PLGfvc.
 - 2026-10-18 15:23 UTC, fix agent (015Sq3rx): fix pass closed. Every finding in `reviews/consistency.md` (55) and `reviews/people-safety.md` (34) carries an Applied, Skipped or Owner line: 87 applied, 0 skipped, 2 owner (C41, map tiles from OpenFreeMap, and P32, a parent's permission for 13 to 17 year olds). Steps 3 and 4 are ticked. Next: `README.md` and `09-roadmap.md` (step 5).
