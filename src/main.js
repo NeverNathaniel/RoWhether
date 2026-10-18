@@ -50,7 +50,7 @@ async function refresh() {
   app.errors = errors;
   Object.assign(app.data, data);
   if (!errors.wx) { app.updated = Date.now(); app.fromCache = false; }
-  saveCache(app.data, app.updated);
+  saveCache(app.loc.slug, app.data, app.updated);
   render();
   loadReports();
   btn.disabled = false;
@@ -126,7 +126,7 @@ initRoutes();
 loadInfo().then(loadReports);
 
 // ---------- Start ----------
-const cached = loadCache();
+const cached = loadCache(app.loc.slug);
 if (cached) {
   app.data = cached.data;
   app.updated = cached.updated;

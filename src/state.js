@@ -1,8 +1,11 @@
 // Mutable app state shared by the render and event code.
-import { loadSettings } from './storage.js';
+import { loadOverrides } from './storage.js';
+import { PUTNEY_RECORD, PUTNEY_WATERWAY } from './putney.js';
+import { resolveLocation, effectiveSettings } from './location.js';
 
 export const app = {
-  settings: loadSettings(),
+  loc: null,       // the resolved location, with the viewer's heading
+  settings: null,  // the limits in force: the location's, then the viewer's
   data: {},        // last good response per source
   errors: {},      // sources that failed on the latest refresh
   updated: null,   // time of the last good forecast
@@ -16,5 +19,14 @@ export const app = {
   info: null,      // GET /api/info: { env, reports }, or null on a static host
   reports: null    // GET /api/reports: { hours, reports }
 };
+
+// Builds app.loc and app.settings from the viewer's overrides. Until P0.9 the
+// render code still reads S.heading, so the settings carry it too; P0.10
+// removes it.
+export function applyOverrides(o) {
+  app.loc = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: o });
+  app.settings = { ...effectiveSettings(app.loc, { overrides: o }), heading: app.loc.course.heading };
+}
+applyOverrides(loadOverrides(PUTNEY_RECORD.slug));
 
 export const $ = id => document.getElementById(id);

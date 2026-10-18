@@ -67,7 +67,9 @@ test.describe('timing', () => {
         await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
         await context.setOffline(true);
         await page.reload();
-        await page.waitForFunction(() => performance.getEntriesByName('hero').length > 0);
+        // Short, so a saved copy that is not found (saved and read under
+        // different keys) fails here and says so, and does not read as a hang.
+        await page.waitForFunction(() => performance.getEntriesByName('hero').length > 0, null, { timeout: 15000 });
         (i < 0 ? warm : heroAt).push(await page.evaluate(() => performance.getEntriesByName('hero')[0].startTime));
         // Served by the worker, drawn from the saved copy and not from a fetch.
         expect(await page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);

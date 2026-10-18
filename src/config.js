@@ -22,12 +22,27 @@ export const GLOBAL_DEFAULTS = {
   aqiCaution: 151, aqiOff: 201
 };
 
-export const SET_KEY = 'putney-rowing-settings-v1';
-export const PLAN_KEY = 'putney-rowing-plan-v1';
-export const CACHE_KEY = 'putney-rowing-cache-v1';
-// v2 counts dismissals. The v1 key held a 30-day snooze and is ignored.
-export const INSTALL_KEY = 'putney-rowing-install-v2';
-export const NUDGE_KEY = 'putney-rowing-nudge-v1';
+// localStorage keys (08 8.2): rowhether-<name>-v<n>, with :<slug> on entries
+// that belong to one location.
+export const KEYS = {
+  settings: 'rowhether-settings-v2',
+  cache: slug => 'rowhether-cache-v2:' + slug,
+  plan: 'rowhether-plan-v1',
+  install: 'rowhether-install-v1',
+  nudge: 'rowhether-nudge-v1',
+  migrated: 'rowhether-migrated-v1',
+  last: 'rowhether-last-v1'
+};
+// The keys the app used before locations (08 8.3). migrateStorage() copies them
+// to KEYS and leaves them in place. The install key was v2 then: it counts
+// dismissals, and the v1 key held a 30-day snooze that is ignored.
+export const OLD_KEYS = {
+  settings: 'putney-rowing-settings-v1',
+  cache: 'putney-rowing-cache-v1',
+  plan: 'putney-rowing-plan-v1',
+  install: 'putney-rowing-install-v2',
+  nudge: 'putney-rowing-nudge-v1'
+};
 // Install bar: Not now hides it until the next visit. After this many
 // dismissals it also offers Don't show again. Coming back to the tab after
 // INSTALL_VISIT_GAP_MS away counts as a new visit.
