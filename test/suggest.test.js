@@ -181,7 +181,7 @@ describe('verifyTurnstile', () => {
     expect(String(init.body)).toBe('secret=secret&response=tok&remoteip=1.2.3.4');
     const g = answer({ success: true, action: 'suggest' });
     vi.stubGlobal('fetch', g);
-    try { await verifyTurnstile(ENV, 'tok', ''); } finally { vi.unstubAllGlobals(); }
+    try { await verifyTurnstile(ENV, 'tok'); } finally { vi.unstubAllGlobals(); }
     expect(String(g.mock.calls[0][1].body)).toBe('secret=secret&response=tok&remoteip=');
   });
   it('checks the action a caller names, and suggest when none is named', async () => {
