@@ -4,7 +4,7 @@ Reviewed `docs/full-app/01` to `08` and the code they describe, on `dev-full-app
 
 Status: in progress
 
-Count: 8 blockers, 13 major, 18 minor.
+Count: 8 blockers, 16 major, 24 minor.
 
 Severity: blocker means it must be fixed before the phase it affects is built; major means wrong, contradictory or unsafe; minor means wording or a small gap. Every finding was checked against the files named. Quotes are exact. Line numbers are for the commit above.
 
@@ -296,7 +296,7 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 #### C38. Two sets of percentiles for the same Putney flow history
 
 - Severity: minor.
-- Where: 01 6.1 (line 437), 6.2 (line 476) and 14.9 (line 1424); 02 Summary 8 (line 34), discovery sample (line 545) and step 3 (line 625).
+- Where: 01 6.1 (line 443), 6.2 (line 476) and 14.9 (line 1424); 02 Summary 8 (line 34), discovery sample (line 545) and step 3 (line 625).
 - Problem: For 3,939 days of North Walpole daily means, 01 gives "p90 21,900, p95 28,100" and writes them into Putney's waterway file; 02 gives "90th percentile 21,820, 95th percentile 28,010", "by linear interpolation between closest ranks". Only one method produced each pair, and the file phase 0 commits carries 01's. The suggested lines are the same either way after rounding down.
 - Fix: State the method once (02 step 3) and use its values in 01 6.1, 6.2 and 14.9, or note that 01's are nearest-rank values.
 
@@ -306,3 +306,84 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Where: 01 14.9 (line 1429); 02 "Default flow thresholds" step 7 (line 629); 02 Worker endpoints (line 743).
 - Problem: 01: "Cached for 30 days per adapter and ref (08 picks Cache API or KV)"; 08 6.6 picked D1 `source_cache`. 02: "Refresh yearly: the Cron Trigger on January 15 recomputes `stats`"; 08 6.4 has only `* * * * *` and `17 9 * * *`. 02's `PUT /api/locations/:slug/sources` body still uses the rejected binding shape (`"slot": "river"`, `"adapter": "usgs-latest"`, `"params": { "flow": ... }`), while 08 K2 and K3 store 01's `role`, provider `adapter` (`usgs-ogc`) and `ref`.
 - Fix: 01: "cached in D1 `source_cache` for 30 days (08 6.6)". 02 step 7: "the daily run on January 15". 02's body example in 01's binding fields (4.4).
+
+### Major (continued)
+
+#### C40. Server-side alert matching needs zone codes that no binding carries, and reads the wrong state for Putney
+
+- Severity: major (phase 4).
+- Where: 05 5.3 `runAlerts()` steps 1 to 3 (lines 393 to 395); 01 6.1 (lines 444 to 446) and 6.3 (line 550); 02 discovery response (line 540).
+- Problem: 05 fetches `alerts/active?area=<state>` for the state in the location's `region` ("`US-VT` becomes `VT`") and matches an alert "when the alert's `geocode.UGC` list contains one of the location's zone codes (forecast zone and county, kept in the alerts binding's `params.ugc` by 02's discovery, for example `["VTZ015", "VTC025"]`), or when the alert has a `geometry` polygon that contains the dock point". No binding has `params.ugc`: Putney's alerts binding is `"ref": "point:42.9607,-72.5219"` with no params (01 6.3), its phase 1 plan is `zones:VTZ015,NHZ011` in `ref` (01 6.1), and 02's discovery returns `"zones": []` under `alerts`. 01 6.1 also records that the dock point resolves to New Hampshire zone NHZ011, so the app shows Cheshire County NH alerts while the engine, reading only `?area=VT`, never sees them. 05 notes that only 15 of 553 alerts carried a polygon, so the fallback rarely matches. Notifications and the app would disagree about the same location.
+- Fix: Define the zone list once in 01 4.4 (for example `params.ugc` on every `nws-alerts` binding, filled by discovery and by curation, Putney `["VTZ015", "VTC025", "NHZ011", "NHC005"]`), and have `runAlerts()` request every state those codes name, not the `region`'s state.
+
+## The plan against CLAUDE.md's hard constraints
+
+### Major
+
+#### C41. Map tiles, styles, glyphs and sprites from a third-party host need an owner decision that 08 does not list
+
+- Severity: major (phase 3).
+- Where: 02 "Map tiles" Decisions (lines 652, 654, 811); 07 10.4 (line 1187) and 11.8 (line 1276); 08 2.2 (line 102) and 17.2 (line 2914).
+- Problem: CLAUDE.md: "No runtime loads from third-party CDNs. SunCalc 1.9.0 and the Archivo variable font ... are npm dependencies bundled into the build ... One exception: the Cloudflare Turnstile script". The map loads its style, sprites and font glyphs from `tiles.openfreemap.org` at runtime ("Labels use the style's own Noto Sans glyphs from `tiles.openfreemap.org/fonts/`"). 02 and 07 decide to treat these as data, and 08 2.2 adopts that, but this reads the hard constraint in a new way, and font files from a third-party host are close to what the rule names. 08 17.2's owner list covers only "Preview secrets, the Turnstile sentence, the storage keys, the code map".
+- Fix: Add the map host to 08 17.2 as an owner decision, with the CLAUDE.md sentence to approve (for example: "Map tiles, styles and label glyphs load from OpenFreeMap only when a map is opened; they are data, never part of the app shell"), or self-host the style, sprites and glyphs in `public/` and fetch only tiles.
+
+### Minor
+
+#### C42. Precaching curated location files changes the "app shell only" rule without saying so
+
+- Severity: minor (phase 1).
+- Where: 08 8.4 (lines 2133 and 2138); 07 9.6 (line 1097); 01 7.3 (line 644).
+- Problem: CLAUDE.md: "The service worker precaches the app shell only." 08 8.4's first rule is "Precache the shell only", and its sixth row precaches "`locations/index.json` and every `locations/<slug>.json` ... while the list has 50 or fewer". These are data files, though static. The change is reasonable (they ship with the build, and API responses stay out), but no document lists it among the CLAUDE.md edits the owner approves.
+- Fix: Add to 08 17.2's CLAUDE.md list: "The service worker precaches the app shell and the curated location files; it never caches API responses."
+
+## Phase order
+
+### Major
+
+#### C43. The open counter ships in phase 1, but the privacy page that discloses it ships in phase 2
+
+- Severity: major (phase 1).
+- Where: 08 10.9 (line 2346) and 17.2 (line 2910); 07 14.3; 07 4.1 (line 208); 08 8.4 (line 2136).
+- Problem: 08 10.9: "Adopt 07's Tier 1 counter in phase 1 ... The privacy page says so in one sentence." 07 4.1 and 08 8.4 put `/privacy`, `/terms` and `/about` in phase 2. In phase 1 the counter runs with no page to state it, although 08 17.2 asks the owner to confirm "the aggregate open counter and its privacy sentence" before phase 1.
+- Fix: Ship `/privacy` (or at least the about page with the counter sentence) in phase 1, or start the counter in phase 2 with the page.
+
+### Minor
+
+#### C44. 05's `system` notifications start in phase 2, before `notify_log` exists
+
+- Severity: minor.
+- Where: 05 3.1 (line 115); 08 5.1 (`0008_notify.sql`, phase 3).
+- Problem: "| `system` | Account mail (03), moderation digest (04), engine problems (to the owner) | Always | email | ... | 2 |". Every kind is a `notify_log` row, and `notify_log` arrives in phase 3. Account mail in phase 2 goes out through `sendEmail()` with no log table to write.
+- Fix: 05 3.1: `system` from phase 3; phase 2 account mail is sent by `worker/email.js` without a `notify_log` row (03 14.2's audit rows cover it).
+
+#### C45. 04's migration table still puts the outing club and boat columns in phases 5 and 6
+
+- Severity: minor.
+- Where: 04 9 (lines 1227, 1236, 1237); 08 K58.
+- Problem: The intro line says 08 "creates `outings.club_id` and `boat_id` in phase 3 (K58)", but rows 6 and 7 still read "`reports.club_id`, `hazards.club_id`, `outings.club_id` | 5" and "`outings.boat_id` | 6".
+- Fix: Row 6: `reports.club_id`, `hazards.club_id` only. Row 7: drop it, or say "used from phase 6".
+
+## Stale statements in topic documents
+
+### Minor
+
+#### C46. 06's code map predates 08's choices for keys, `/api/info` and admin routing
+
+- Severity: minor.
+- Where: 06 22.4 (lines 2785 and 2795) and 22.5 (lines 2805 and 2816); 08 3.2 (line 153), 3.5 (lines 233 and 239), 8.1, 6.3.
+- Problem: 06 adds "storage keys `CLUB_KEY` (`rowhether-club-v1`), `BOARD_KEY`, `INCIDENT_DRAFT_KEY`" as constants; 08 8.1 keeps every key in one `KEYS` object from phase 0. 06 has "`src/reports.js` | 5 | `loadInfo()` reads `clubs`"; 08 3.2 moves `loadInfo` to `src/info.js` in phase 1. 06 has "`worker/admin.js` (03) | 5 | Routes `/api/admin/clubs/*` to `worker/clubs/verify.js`"; 08 3.5 sends `/api/admin/clubs/` straight to `routeClubs()`, and `worker/admin.js` is 07's phase 1 metrics file. 06's `info()` line says "beside today's `reports: !!env.DB`", which 08 6.3 replaces with the `REPORTS_ENABLED` rule from phase 2.
+- Fix: Bring 06 22.4 and 22.5 in line: `KEYS.club`, `KEYS.board`, `KEYS.incidentDraft`; `src/info.js`; `/api/admin/clubs/*` in `worker/clubs/index.js`; 08 6.3's `reports` rule.
+
+#### C47. 07 and 05 repeat facts 08 has since settled
+
+- Severity: minor.
+- Where: 07 9.2 (line 1060); 05 5.6 (line 460); 08 K27 and 6.1 (line 1620).
+- Problem: 07: "01 8.6 keeps 5 locations." 01 8.6 now keeps 10 (K27). 05: "Whether the `previews` block in `wrangler.jsonc` accepts `queues` ... is unverified; if not, the Preview build skips enqueueing". 08 6.1 verified that it does ("The `previews` block accepts `vars`, `secrets` ..., `queues` ...", read from wrangler 4.149.0's schema).
+- Fix: 07 9.2: drop the sentence. 05 5.6: "The `previews` block accepts `queues` (08 6.1); whether Preview deployments run consumers is unverified."
+
+#### C48. 08 9.2 misses two whole-hour assumptions that 01 names
+
+- Severity: minor (phase 1, half-hour zones).
+- Where: 08 9.2 (lines 2170 to 2180); 01 15.3 (line 1458); `src/render/now.js` 29; `src/render/detail/river.js` 73 and 78.
+- Problem: 08 9.2 is the list "fixed in phase 0", and names `clockMin`, `h0` in `buildModel`, `PLAN_STEP`, `parseFlowDays` and `sunFor`. 01 15.3 also names "`nowPrecip`'s same expression" (`const h0 = Math.floor(m.now / HOUR) * HOUR;` in `now.js` line 29), and the River chart's hour ticks use `Math.ceil(t0 / HOUR) * HOUR` (`river.js` 73, 78). In a +5:30 zone the precipitation window and the ticks fall on half hours.
+- Fix: Add both to 08 9.2, fixed with the hour that contains `now` and local hour starts.
