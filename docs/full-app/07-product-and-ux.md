@@ -140,7 +140,7 @@ Avery sculls a 1x at Putney before work, alone, three mornings a week.
 6. Back on the dock, Avery taps "I'm back", adds 12 km, and saves. The row joins the row log (Account, Row log, 8.5).
 7. Avery taps Report conditions, "Light chop", Send. One tap and Send, as today.
 
-Branch: no signal at the dock. The banner appears at once with "Not sent yet. No signal. Your contacts will not be told if you are late until this sends." in caution color (04 5.6).
+Branch: no signal at the dock. The banner appears at once with "Not sent yet. It sends when RoWhether is open and has signal. Until then, nobody will be told if you are late." in caution color (04 5.6). Avery can also set the plan at home with a later start time, so the dock's signal does not matter.
 
 ### 3.5 Coach
 
@@ -1253,7 +1253,8 @@ One line above the verdict for club rules (06 6.6 `#clubLine`) or a limit set (8
 - On the water: `background: var(--surface)`, a 4 px left bar in `--river`, text "On the water since 6:42 AM. Back by 8:00 AM.", buttons "I'm back" (primary) and "Add time".
 - Past the back-by time: the bar and text switch to the caution color: "Back by 8:00 AM. You are 12 min past it. We email Jordan at 8:30 AM."
 - After contacts were emailed: the Stay off color and hatch on the bar: "Jordan was emailed at 8:30 AM. Tap I'm back to send the all clear."
-- Not sent yet (04 5.6): an extra line in caution color, "Not sent yet. No signal. Your contacts will not be told if you are late until this sends."
+- Not sent yet (04 5.6): an extra line in caution color, "Not sent yet. It sends when RoWhether is open and has signal. Until then, nobody will be told if you are late." After a queued "I'm back": "Not sent yet. Open RoWhether when you have signal, or Jordan will be emailed at 8:30 AM."
+- Planned (04 5.6): "Planned for 6:40 AM. Back by 8:00 AM. We email Jordan at 8:30 AM if you are not back." with "Cancel" and "Edit".
 - For a club row: a quiet "Board" link at the end.
 
 ### 11.5 Notes above the hero

@@ -932,7 +932,7 @@ Decision: Warn and record when a row starts against club rules or a closed water
 
 ### 8.4 Board views
 
-`/club/<slug>#board`. The client polls `GET /api/clubs/:slug/board` every 30 seconds while the page is visible, and on return to the tab.
+`/club/<slug>#board`. The client polls `GET /api/clubs/:slug/board` every 30 seconds while the page is visible, and on return to the tab. A row planned ahead (04 5.6) shows on the board only from its `out_at`.
 
 Order on the screen:
 
@@ -2093,9 +2093,9 @@ JSON under `/api/`, same origin only, signed in through 03's `__Host-rw_session`
 | `GET /api/clubs/:slug` | Anyone (shaped by role) | Public or members' view, with `can` and `me` |
 | `PATCH /api/clubs/:slug` | Admin | Profile, links, settings, `statusPublic`, `rulesPublic` |
 | `POST /api/clubs/:slug/locations`, `DELETE /api/clubs/:slug/locations/:location` | Admin | Link or unlink a location; one primary |
-| `POST /api/clubs/:slug/verify` | Admin | Start a method: `{ "method": "meta" | "dns" | "email" | "manual", "email", "evidence" }` |
+| `POST /api/clubs/:slug/verify` | Admin | Start a method: `{ "method": "meta" \| "dns" \| "email" \| "manual", "email", "evidence" }` |
 | `POST /api/clubs/:slug/verify/check` | Admin | Run the check; `{ "code" }` for email |
-| `POST /api/mod/clubs/:slug/review` | Site moderator | `{ "decision": "approve" | "reject", "reason" }` |
+| `POST /api/mod/clubs/:slug/review` | Site moderator | `{ "decision": "approve" \| "reject", "reason" }` |
 | `POST /api/mod/clubs/:slug/suspend`, `.../restore` | Site moderator | With a reason |
 | `POST /api/clubs/:slug/delete`, `POST /api/clubs/:slug/delete/cancel` | Admin | `{ "confirm": "Putney RC" }` |
 | `GET /api/clubs/:slug/export`, `GET /api/clubs/:slug/export.csv?table=` | Admin (incidents: 16.2) | Export |
@@ -2107,11 +2107,11 @@ JSON under `/api/`, same origin only, signed in through 03's `__Host-rw_session`
 | `PATCH /api/clubs/:slug/me` | Member | `rowAs`, `rulesOn` (adults), `sharePhone` (guardians), `displayName` |
 | `POST /api/clubs/:slug/leave` | Member | Leave |
 | `POST /api/clubs/:slug/requests` | Signed-in adult | Ask to join: `{ "reason", "note" }` |
-| `GET /api/clubs/:slug/requests`, `POST /api/clubs/:slug/requests/:id` | Admin | List; `{ "decision": "approve" | "decline", "kind", "groups" }` |
+| `GET /api/clubs/:slug/requests`, `POST /api/clubs/:slug/requests/:id` | Admin | List; `{ "decision": "approve" \| "decline", "kind", "groups" }` |
 | `GET /api/clubs/:slug/invites`, `POST /api/clubs/:slug/invites`, `DELETE /api/clubs/:slug/invites/:id` | Coach (limited), admin | Invites |
 | `GET /api/invites/:token` | Anyone | Preview: club name, inviter's first name, preset in words |
 | `POST /api/invites/:token/accept`, `POST /api/invites/code` | Signed in | Accept a link; accept a code `{ "code": "K7QF-M2XR" }` |
-| `POST /api/me/juniors/:membershipId/approve` | Linked guardian | `{ "decision": "approve" | "decline" }` |
+| `POST /api/me/juniors/:membershipId/approve` | Linked guardian | `{ "decision": "approve" \| "decline" }` |
 | `GET`, `POST /api/clubs/:slug/groups`; `PATCH`, `DELETE /api/clubs/:slug/groups/:id` | Coach, admin | Groups |
 | `GET /api/clubs/:slug/rules` | Members; public summary when `rulesPublic` | Rules and revision |
 | `PUT /api/clubs/:slug/rules` | Safety, admin | Replace the rule set: `{ "baseRevision", "rules": [...] }` |
@@ -2121,7 +2121,7 @@ JSON under `/api/`, same origin only, signed in through 03's `__Host-rw_session`
 | `GET /api/clubs/:slug/board` | Members, kiosk (shaped) | Board |
 | `POST /api/outings` | 04, plus club fields (8.2) | Start a row, own or for a crew |
 | `POST /api/clubs/:slug/board/:outingId/ack` | Coach, safety, admin | "On it" |
-| `POST /api/clubs/:slug/board/:outingId/resolve` | Coach, safety, admin | `{ "outcome": "back" | "safe_elsewhere" | "cancelled" | "incident", "inAt", "note" }` |
+| `POST /api/clubs/:slug/board/:outingId/resolve` | Coach, safety, admin | `{ "outcome": "back" \| "safe_elsewhere" \| "cancelled" \| "incident", "inAt", "note" }` |
 | `POST /api/clubs/:slug/devices`, `DELETE /api/clubs/:slug/devices/:id` | Admin | Add a screen (returns the pair code); remove |
 | `POST /api/kiosk/pair` | Anyone with a code | `{ "code": "482913" }`, sets the kiosk cookie |
 | `GET /api/kiosk/roster` | Kiosk | Adult first names and initials, with membership ids |
@@ -2141,12 +2141,12 @@ JSON under `/api/`, same origin only, signed in through 03's `__Host-rw_session`
 | `GET`, `POST /api/clubs/:slug/damage`; `PATCH /api/clubs/:slug/damage/:id` | See 5.3 | Damage reports |
 | `GET /api/clubs/:slug/bookings?from=&to=&boat=&mine=1` | Members | Bookings |
 | `POST /api/clubs/:slug/bookings` | Members (juniors if allowed) | Book |
-| `PATCH /api/clubs/:slug/bookings/:id` | Member (cancel own); equipment, admin | `{ "action": "approve" | "decline" | "cancel", "note" }` |
+| `PATCH /api/clubs/:slug/bookings/:id` | Member (cancel own); equipment, admin | `{ "action": "approve" \| "decline" \| "cancel", "note" }` |
 | `GET /api/clubs/:slug/availability?start=&end=&class=` | Members | Boats free in a window |
 | `GET /api/clubs/:slug/practices?from=&to=` | Members (filtered), public practices for everyone | Schedule |
 | `POST /api/clubs/:slug/practices` | Coach, admin | One practice, or a series with `repeat` |
-| `PATCH`, `DELETE /api/clubs/:slug/practices/:id?scope=one|following` | Coach, admin | Edit or delete |
-| `POST /api/clubs/:slug/practices/:id/cancel`, `/land`, `/decide` | Coach, admin | `{ "reason" }`, `{ "note" }`, `{ "choice": "water" | "land" | "cancel" }` |
+| `PATCH`, `DELETE /api/clubs/:slug/practices/:id?scope=one\|following` | Coach, admin | Edit or delete |
+| `POST /api/clubs/:slug/practices/:id/cancel`, `/land`, `/decide` | Coach, admin | `{ "reason" }`, `{ "note" }`, `{ "choice": "water" \| "land" \| "cancel" }` |
 | `PUT /api/clubs/:slug/practices/:id/rsvp` | Member, junior, guardian | `{ "rsvp", "reason", "note", "for": "<junior membership id>" }` |
 | `GET`, `PUT /api/clubs/:slug/practices/:id/attendance` | Coach, safety (read), admin | `{ "marks": [{ "membershipId", "attended" }] }` |
 | `GET`, `POST /api/clubs/:slug/practices/:id/lineups`; `PATCH`, `DELETE /api/clubs/:slug/lineups/:id` | Coach, admin (drafts); members see published | Lineups |

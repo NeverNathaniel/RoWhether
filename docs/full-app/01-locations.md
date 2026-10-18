@@ -233,7 +233,7 @@ One flow binding covers the latest value, the 48 h series and the daily means, b
 | `mode` | `mode` | text | 4.2. Default `primary`. |
 | `priority` | `priority` | integer | 0 first. |
 | `adapter` | `adapter` | text | Adapter id from 02. |
-| `ref` | `ref` | text | Adapter's site id: `USGS-01154500`, `KEEN`, `WLPN3`, `point:42.9607,-72.5219`. Up to 120 chars. |
+| `ref` | `ref` | text | Adapter's site id: `USGS-01154500`, `KEEN`, `WLPN3`, `point:42.9607,-72.5219`. Up to 120 chars. For `nws-alerts` it is `point:<lat>,<lon>` in phase 0 and `zones:<code>,<code>` from phase 1: every forecast zone and county code that counts for the location, for example `zones:VTZ015,VTC025,NHZ011,NHC005`. Discovery fills the list (02 step 4) and curation edits it. The app's alerts request and 05's `runAlerts()` both read this one list. |
 | `params` | `params` | JSON | Adapter options, for example `{ "parameterCode": "00060" }`. |
 | `unit` | `unit` | text | Native unit: `cfs`, `m3s`, `ft`, `m`, `degC`, `degF`, `kn`, `ms`. |
 | `tz` | `tz` | text | The source's own zone, for daily values (15.2). |
@@ -443,7 +443,7 @@ Live checks, 2026-10-17:
 - Daily mean flow, 2016-01-01 to 2026-10-15, 3,939 days: median 6,910 cfs, p65 10,100, p88 20,300, p90 21,900, p95 28,100. 20,000 cfs is exceeded on 12.4% of days, 28,000 on 5.0%, 10,000 on 35.3% (verified live 2026-10-17 from the USGS `daily` collection). The Settings note's "roughly the top 10%" for 20,000 is close; the measured share is 12%.
 - NWS point: `https://api.weather.gov/points/42.9607,-72.5219` returns office GYX (Gray, ME), grid 3,13, forecast zone NHZ011, county NHC005, zone America/New_York (verified live 2026-10-17). The dock coordinate sits on the New Hampshire side of the state line, which follows the Vermont bank. A point 0.0006° west (42.9607, -72.5225) returns ALY grid 111,84, zone VTZ015 "Eastern Windham" (verified live 2026-10-17). CLAUDE.md says ALY, grid 111,85, zone VTZ015. The app never uses the grid; it does use the point for alerts, so today it gets Cheshire County NH alerts from Gray, not Windham County VT alerts from Albany. The footer credits "National Weather Service, Albany".
 
-Decision: In phase 0 keep the alerts binding as `point:42.9607,-72.5219`, so nothing changes. In phase 1 switch Putney to `zones:VTZ015,NHZ011`, which returns alerts for both banks (the multi-zone query returned 200, verified live 2026-10-17), and fix the footer and CLAUDE.md.
+Decision: In phase 0 keep the alerts binding as `point:42.9607,-72.5219`, so nothing changes. In phase 1 switch Putney to `zones:VTZ015,VTC025,NHZ011,NHC005`, the forecast zone and county on each bank, which returns alerts for both banks (a multi-zone query with a county code returned 200, verified live 2026-10-18), and fix the footer and CLAUDE.md.
 - Alternative: keep the point forever and change only the footer to credit NWS Gray.
 - Alternative: move the dock point 60 m west onto the Vermont shore so the point resolves to ALY and VTZ015.
 
@@ -1610,7 +1610,7 @@ No flow reasons, no River tab, no debris warning, no wind-against-current multip
 
 Decisions (recommendation first, alternatives after):
 
-Decision: Alerts for Putney stay on the dock point in phase 0, then bind zones VTZ015 and NHZ011 in phase 1, and fix the footer and CLAUDE.md (the point resolves to GYX and NHZ011, not ALY and VTZ015).
+Decision: Alerts for Putney stay on the dock point in phase 0, then bind zones VTZ015, VTC025, NHZ011 and NHC005 in phase 1, and fix the footer and CLAUDE.md (the point resolves to GYX and NHZ011, not ALY and VTZ015).
 - Alternative: keep the point forever and credit NWS Gray.
 - Alternative: move the dock point about 60 m west onto the Vermont shore.
 

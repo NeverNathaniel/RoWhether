@@ -464,7 +464,7 @@ Admin: `GET /api/mod/reports.csv`, `GET /api/mod/reports/agreement` (3.7).
 | `src/reportlogic.js` (new) | `REPORT_FIELDS`, `REPORT_HOURS`, `LONG_HOURS`, `fieldsFor(loc, model)`, `cleanReport(body, loc)` (shared), `summarize(reports, now, loc, model)`, `reportText(r)` (moved from `src/reports.js`), `forecastNote(summary, model)`, `fcSnapshot(m, t)`, `geoWord(pos, loc)` (3.4). Pure, no DOM. |
 | `src/reports.js` | `loadReports()` calls `/api/locations/${app.loc.slug}/reports`. `renderReports()` renders `summarize()` output. `buildReportForm(loc)` replaces the static fieldsets. `initReports()` adds Turnstile (lazy, shared loader) and the outbox. |
 | `src/turnstile.js` (new) | The lazy Turnstile loader now in `src/suggest.js`, shared by the suggestion and report dialogs. |
-| `src/outbox.js` (new) | A small queue in `localStorage` key `rowhether-outbox-v1`: `[{ id, url, method, body, createdAt, tries }]`, at most 20 items, each dropped after 24 hours. Flushed in order on `online`, on `visibilitychange` to visible, on startup, and every 30 s while visible and non-empty. Used by reports (a signed-out report gets its Turnstile token when it flushes, 8.3), outings (5.6) and hazard votes. Every access in try/catch. |
+| `src/outbox.js` (new) | A small queue in `localStorage` key `rowhether-outbox-v1`: `[{ id, url, method, body, createdAt, tries }]`, at most 20 items, each dropped after 24 hours. Flushed in order on `online`, on `visibilitychange` to visible, on startup, and every 30 s while visible and non-empty. Every trigger needs the page open: the plan does not use Background Sync, which Safari lacks (unverified here), and says so in the copy (5.6). Used by reports (a signed-out report gets its Turnstile token when it flushes, 8.3), outings (5.6) and hazard votes. Every access in try/catch. |
 | `worker/reports.js` | `CHOICES` replaced by `REPORT_FIELDS`. `listReports(env, loc, viewer, now)`, `addReport(request, env, loc, now, deps)`, `deleteReport()`, the legacy aliases, CSV and agreement handlers. |
 | `worker/turnstile.js` | `verifyTurnstile(env, token, ip, action = 'suggest')`: the action becomes a parameter. |
 | `worker/index.js` | Routes under `/api/locations/:slug/reports`, the aliases, admin routes. `info()` adds `turnstileKey`. |
@@ -687,6 +687,8 @@ One boat on the water, from the moment the rower starts it to the moment they ar
 
 "Overdue" is not a state. It is `status = 'out'` and `now > due_at`, with the escalation stage in `stage` (6.2).
 
+A row can be planned ahead (5.2, 5.6): `status = 'out'` with `out_at` in the future, up to 12 hours. Every list of boats on the water, the public count (5.5), 06's board and the kiosk, counts a row only from `out_at`.
+
 Outings need a signed-in account: they hold contacts, a row log and a status link. One active outing per user at a time (a coach running several boats uses the club board, 06). A row a club starts for someone, from the board or at a boathouse kiosk, has `user_id` NULL and no float plan; the member's own account is linked as crew only (5.5, 06 8.5), so a wrong name never emails their contacts or blocks their own Start a row.
 
 ### 5.2 Start a row
@@ -705,7 +707,8 @@ The sheet "Start a row", fields in order:
 | Direction | Chips from the location's course: Upstream, Downstream, Both ways on a river; Along the course, Open water on a lake | Both ways | Optional |
 | Route note | Text, 120 chars | Empty | Private: you, your contacts if overdue, your club. Not screened. |
 | Launch escort | Switch "A launch is with us" | Off | |
-| Back by | Time picker in the location's time zone, 5-minute steps | Now plus 90 minutes, rounded up to 5 minutes | 10 minutes to 12 hours after the start |
+| Start time | Chips "Now" and "Later"; Later opens a time picker in the location's zone, 5-minute steps | Now | Later lets a rower set the float plan at home, up to 12 hours ahead, so the dock's signal does not decide whether anyone is told (5.6). The plan is armed at once. |
+| Back by | Time picker in the location's time zone, 5-minute steps | The start time plus 90 minutes, rounded up to 5 minutes | 10 minutes to 12 hours after the start |
 | Tell my contacts if I am not back | Switch | On when at least one contact can be reached (6.1); hidden with "Add emergency contacts" link when none exist; off and disabled when none can be reached | 6 |
 | Show this row to my guardians | Switch, juniors with an active guardian link only | Off | A shared row shows on the guardian's page until 24 hours after it ends (03 11.5). `outings.share_guardians`. |
 | Count me in "boats on the water" | Switch | On | 5.5 |
@@ -720,9 +723,9 @@ Button: "Start". Then the banner appears. The sheet remembers boat type, boat, s
 
 - "I'm back": one tap. A sheet follows, optional, "How was it?" with distance (km or mi by units) and a private note (500 chars), then "Save". Closing the sheet keeps the outing as finished.
 - "Add time": +15 min, +30 min, +1 hr, or a time. Resets the escalation (6.2). If contacts were already emailed, they get "Alex added time. Now back by 9:00 AM." The new time must be within 12 hours of the start: 400 `invalid` "Back by must be within 12 hours of when you started."
-- Edit while out: boat, crew, direction, route note, back by.
+- Edit while out or planned: boat, crew, direction, route note, back by, and the start time of a planned row.
 - Edit after: times (start not after end, both within 24 hours of the original), distance, note, boat, crew.
-- "Cancel this row" (while out, in a menu): "Did not go out" sets `cancelled`. If contacts were emailed, they get the all clear.
+- "Cancel this row" (while out or planned, in a menu): "Did not go out" sets `cancelled`. If contacts were emailed, they get the all clear. A planned row that is not cancelled is treated as a row that started: the escalation runs from the back-by time.
 - Delete from the row log: removes the outing and its crew rows. Not allowed while `out`.
 
 ### 5.4 Conditions snapshot
@@ -738,7 +741,7 @@ At start the client sends `snap`, from `app.model` (`m.cur`) for the active loca
 
 ### 5.5 Public count and club detail
 
-Public: `onWater` in the reports response (3.9) counts outings with `status = 'out'`, `public_count = 1`, `location_id` this location and `out_at` in the last 12 hours. It never carries names, boats or times.
+Public: `onWater` in the reports response (3.9) counts outings with `status = 'out'`, `public_count = 1`, `location_id` this location and `out_at` between 12 hours ago and now. It never carries names, boats or times.
 
 Decision: show the count only at 2 or more ("2 boats on the water"). Recommended: "1 boat on the water" at dawn tells a stranger that one person is alone on the water. Alternative: show any count above 0.
 
@@ -753,10 +756,12 @@ Club detail is 06's. What 06 can rely on from this table:
 
 Docks often have one bar or none. Every outing action goes through `src/outbox.js` (3.10):
 
-- Start a row offline: the banner appears at once with a warning line in caution color: "Not sent yet. No signal. Your contacts will not be told if you are late until this sends." The outbox retries as in 3.10.
+- Start a row offline: the banner appears at once with a warning line in caution color: "Not sent yet. It sends when RoWhether is open and has signal. Until then, nobody will be told if you are late." The outbox retries as in 3.10, and only while the page is open, which is why the line says so. A sculler who starts offline and locks the phone is not covered until the app is opened again.
+- Queued "I'm back" with a float plan: the banner stays and says, in caution color, "Not sent yet. Open RoWhether when you have signal, or Jordan will be emailed at 8:30 AM." It names the contacts and the time from the outing, and goes away when the request is accepted.
+- Plan from home: a row started with a later start time (5.2) goes to the server before the rower leaves, with `planned: true`. The server accepts `outAt` up to 12 hours ahead only then; the other time bounds below hold. The float plan is armed at once. Until `out_at` the banner says "Planned for 6:40 AM. Back by 8:00 AM. We email Jordan at 8:30 AM if you are not back." with "Cancel" and "Edit"; after it, the banner is the usual one. A rower who does not go out cancels it.
 - Each queued request carries `clientId` (UUID) and client times. The server accepts a repeated `clientId` for the same user as the same outing (`UNIQUE (user_id, client_id)`), so retries never duplicate.
 - Queued start then queued "I'm back": sent in order. The outing is created and finished in one flush; no reminders go out.
-- Client times are trusted within bounds: `outAt` within 6 hours before the server's now and 5 minutes after; `inAt` between `outAt` and now plus 5 minutes. Outside the bounds the server uses its own time and records `clock_skew = 1`.
+- Client times are trusted within bounds: `outAt` within 6 hours before the server's now and 5 minutes after (up to 12 hours after for a planned row); `inAt` between `outAt` and now plus 5 minutes. Outside the bounds the server uses its own time and records `clock_skew = 1`.
 - A late "I'm back" after contacts were emailed: accepted with the client's `inAt`; contacts get the all clear with both times ("Alex finished at 8:41 AM. The message reached us at 9:02 AM.").
 - The status link is only created once the start reaches the server; before that, the sheet says "Your status link will be ready when this sends."
 
@@ -876,7 +881,7 @@ CREATE INDEX outing_contacts_outing ON outing_contacts (outing_id);
 }
 ```
 
-Errors: 401 `sign_in` "Sign in to start a row.", 409 `already_out` "You started a row at 6:42 AM. Finish it first.", 400 `invalid` with `"field"`, 400 `no_contacts` "Add an emergency contact first, or turn off Tell my contacts.", 429 `rate_limited`.
+Errors: 401 `sign_in` "Sign in to start a row.", 409 `already_out` "You started a row at 6:42 AM. Finish it first.", 400 `invalid` with `"field"`, 400 `no_contacts` "Add an emergency contact first, or turn off Tell my contacts.", 429 `rate_limited`. The body may carry `"planned": true`, which allows `outAt` up to 12 hours ahead (5.6); without it an `outAt` more than 5 minutes ahead is replaced by the server's time and `clock_skew` is set.
 
 | Endpoint | Body | Returns |
 | --- | --- | --- |
@@ -1011,7 +1016,7 @@ Decision: let a contact end the escalation from their own status link. Recommend
 
 - False alarm (forgot to tap I'm back): the next app open shows "You are still on the water since 6:42 AM. Back now?" with "I'm back" (asks the time: "Now" or a time) and "Still out". Contacts who were emailed get the all clear.
 - Dead phone: the rower can finish from any signed-in device (a friend's phone signed into their account, the club computer). A contact can mark safe (6.3). A club safety role can finish it from the board (06, phase 5).
-- No signal at the dock: 5.6. The sheet's warning is the key line: until the start reaches the server, nobody will be told.
+- No signal at the dock: 5.6. The sheet's warning is the key line: until the start reaches the server, nobody will be told, and it only sends while the app is open. A queued "I'm back" has its own warning, so a rower driving home knows contacts may still be emailed. Setting the plan at home (a later start time) avoids the dock's signal altogether.
 - No signal on the water at the planned time: reminders queue at the push service for their TTL (05) and arrive when the phone reconnects; the escalation goes on regardless.
 - Time zones: all times are ms. Pickers and copy use the location's zone and `tzLabel`, with the zone named in every email ("8:00 AM Eastern"). A rower whose phone is set to another zone sees the location's time with the zone named: "Back by 8:00 AM (Eastern)".
 - Daylight saving change during an outing: ms arithmetic is unaffected; copy prints local times on each side correctly through `m.fmt` (01).
@@ -1365,7 +1370,8 @@ Browser checks (Playwright, as in CLAUDE.md):
 
 - Report dialog at a river, a lake and a tidal fixture location: the right rows show; More stays as left; one-tap water and Send works.
 - Signed out with the Turnstile testing key: the widget runs and the report sends.
-- `context.setOffline(true)`: report and Start a row queue, the warning line shows; back online they send in order and the banner updates.
+- `context.setOffline(true)`: report and Start a row queue, the warning line shows with the words "when RoWhether is open and has signal"; back online they send in order and the banner updates. Then start a row online, go offline and tap I'm back: the banner shows "Not sent yet. Open RoWhether when you have signal, or Jordan will be emailed at 8:30 AM." until it sends.
+- Start a row with a later start time while online: the banner says "Planned for ..." and the float plan is armed; `outAt` in the future is accepted only with `planned: true`.
 - Start a row, Add time, I'm back at 360 px and 1280 px; the banner shows on every tab of the location.
 - `/o/<token>` with stubbed status for `out`, `overdue`, `in` and `safe`; the safe flow.
 - Hazard list with stubbed data, Still there and Gone.

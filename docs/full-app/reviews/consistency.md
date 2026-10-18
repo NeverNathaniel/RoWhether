@@ -236,12 +236,16 @@ Applied: 04 section 3.5 step 1 now checks `REPORTS_ENABLED` as well as `env.DB` 
 - Problem: 03 6.3: "Extend the CLAUDE.md Turnstile exception to "when the suggestion form or the sign-in email field is first used"". 03 12.4, the privacy notice's cookie list: "Turnstile: ... it runs only on the sign-in and suggestion forms." 08 10.8 lists four actions: `suggest`, `auth` (sign in, `POST /api/me/email`, `POST /api/me/guardians/invite`), `report` (signed-out reports) and `safe` (the status link). The CLAUDE.md sentence 03 proposes would still be broken by 04's report dialog and status link, and the privacy notice would misstate where the script runs. 08's own replacement sentence ("suggestions, sign in, a report sent while signed out, and the status link's safe button") leaves out the email change and guardian invite forms from its own table.
 - Fix: Replace 03 6.3's Decision and 03 21's line with 08 10.8's sentence, add "changing your email and inviting a guardian" to that sentence, and make 03 12.4 say "it runs only on the forms that need it: suggestions, sign in, email change, guardian invites, signed-out reports and the status link".
 
+Applied: 03 section 6.3 Decision, 12.4 cookie list and 21 now use one sentence and name every form that runs Turnstile (suggestions, sign in, email change, guardian invites, signed-out reports, the status link). 08 section 10.8 adds "changing your email, inviting a guardian" to its CLAUDE.md sentence so it matches its own table.
+
 #### C25. 02 chooses Photon for the add flow's search, but 08's CSP never allows it
 
 - Severity: major (phase 3).
 - Where: 02 "Place search, reverse geocoding and time zones" Decision (line 642) and the open questions (line 805); 08 10.11 (lines 2362 and 2369); 07 5.6 (line 563).
 - Problem: 02: "Decision: in the add flow's search box, use Photon for boathouse names", at `https://photon.komoot.io/api/`, from the browser. 08's `connect-src` lists Open-Meteo, NWS, USGS, NOAA and the geocoding host; "Phase 3 adds `https://tiles.openfreemap.org`". Photon is not an adapter, so `test/csp.test.js` (which checks adapter `hosts`) would not catch the gap, and the request would be blocked. 07's add flow step 1 has no search box at all ("The map ... with a fixed crosshair"), so the three documents disagree on whether the search exists.
 - Fix: Decide in 07 5.6 whether step 1 has a search box. If it does, add `https://photon.komoot.io` to 08 10.11's phase 3 line and to the CSP test's extra hosts; if not, drop 02's Photon decision.
+
+Applied: 07 section 5.6 step 1 now has the search box (Photon for boathouse names, Open-Meteo geocoding for towns), following 02's recommended decision, which stays open for the owner in 02. 08 section 10.11 adds `https://photon.komoot.io` to the phase 3 `connect-src` line and says `test/csp.test.js` also checks the non-adapter hosts. Declining Photon drops the box and the host.
 
 #### C26. Two staleness rules for the same flow reading in phase 1
 
@@ -250,6 +254,8 @@ Applied: 04 section 3.5 step 1 now checks `REPORTS_ENABLED` as well as `env.DB` 
 - Problem: 02: `usgs-latest` and `usgs-recent` have `staleMs` 12 h; "Past `staleMs` the slot reads as missing and the hero names it: "River flow data is more than 12 hours old."", and phase 1 ships "staleness per slot". 01: flow `maxAgeH` is 24 h from phase 1; "Over `maxAgeH` (24 h from phase 1): not used ... Fact note: "Last reading 2 days ago, not used for Go, Caution or Stay off."" 07 6.7 repeats 01's 24 h. K9 says only "behavior ships in phase 1 with 01's `maxAgeH`", without retiring `staleMs`. A reading 13 hours old is missing under 02 and used under 01, with different copy.
 - Fix: One rule. Recommended: 01's `maxAgeH` governs whether a value is used, and `staleMs` only decides when the hero names a source as stale, set no shorter than `maxAgeH` (24 h for the USGS slots), with 07 6.7's copy.
 
+Applied: 02 adapter catalog and `staleMs` paragraph, the `Adapter` typedef comment and the `buildModel` test line. One rule: 01's `maxAgeH` decides whether a flow or water temperature value is used, and `staleMs` only decides when the hero names the source as stale, with 07 6.7's copy. The river and flow slots now carry `staleMs` 24 h and the water temperature slots 72 h (3 days for `om-marine`). 08 K9 records it.
+
 #### C27. 08 and 04 disagree on whether the legacy report route needs Turnstile
 
 - Severity: major (phase 3).
@@ -257,12 +263,16 @@ Applied: 04 section 3.5 step 1 now checks `REPORTS_ENABLED` as well as `env.DB` 
 - Problem: 08: "POST `/api/reports` | none (Turnstile from 3) | `REPORT_LIMIT` | today; alias until 4". 04: "old clients have no Turnstile, so the alias accepts signed-out reports without it but at weight 0.5 and under a tighter limit (10 a day per `ip_hash`)". The alias exists so that "a home screen app that has not updated yet still works"; built from 08 it refuses every such report.
 - Fix: 08 7.3's auth cell for the alias becomes "none (weight 0.5, D1 10 a day, 04 3.9)".
 
+Applied: 08 section 7.3, the `POST /api/reports` row. The auth cell now says no Turnstile, weight 0.5 and D1 10 a day per `ip_hash`, as 04 3.9 has it, so an old home screen app still works.
+
 #### C33. Cloudflare Access lets only the owner reach routes that moderators need
 
 - Severity: major (phase 3).
 - Where: 03 3.7 (lines 213 and 217) and 12.4 (line 895); 07 5.14 (line 673); 08 7.3 (lines 1923, 1941, 1973).
 - Problem: 03: "add a self-hosted Access application for `rowhether.com/admin*` and `rowhether.com/api/admin/*` ... Policy: allow the owner's email only", and "keep Cloudflare Access in front of `/admin*` and `/api/admin/*` after phase 2 as a second lock". 07: `/admin` from phase 2 "also needs site role `moderator` or `admin`". 08 puts moderator routes under that prefix: `GET /api/admin/queue` (mod), `POST /api/admin/clubs/:slug/review` (mod), `GET /api/admin/reports.csv` (owner or mod), and defines **mod** as a site role in a passkey session, without Access. Access answers before the Worker runs, so no moderator except the owner can open the queue.
 - Fix: Either move the moderator routes and the moderator part of `/admin` out from under Access (for example `/api/mod/*`, which 08 already uses for user name resets and suspensions, and a `/mod` page), or make the Access policy include every moderator and say who keeps it in step with `site_role`.
+
+Applied: moderator routes move out from under Cloudflare Access. 08 section 3.5 and 7.3 (`/api/mod/reports.csv`, `/api/mod/reports/agreement`, `/api/mod/queue`, the queue decision and `/api/mod/clubs/:slug/review`, `/suspend`, `/restore`; the auth words say what Access covers), 04 sections 3.7, 3.9, 8.7 and the route list, 06 section 19 and the code map, 07 sections 4.1, 4.2, 5.14 and the page names (`/mod` page for Queue and Locations, `/admin` for Users, Notifications, Metrics and Audit, same `admin` chunk), 03 sections 3.7 and 16.8. `mod` joins the reserved slugs in 01 section 2.2 and 08 4.4 `0003`. Owner tools, users, audit, tick and stats stay under `/api/admin/*` and Access.
 
 #### C34. Synced `waterOverride` values are strings today, which 03 and 08 would refuse
 
@@ -280,12 +290,16 @@ Applied: 08 section 8.3 step 2 and 14.2 P0.7, and 01 section 8.6 step 2. `waterO
 - Problem: 03: "If 04 wants proof someone is at the dock, the browser computes it and sends only a flag (`"atDock": true` when within 500 m of the location's dock point), not coordinates", and "Rounding before the request keeps precise coordinates out of request logs." 04: the dialog "sends `geo: { lat, lon, acc }`" with `enableHighAccuracy: true`, and "The Worker computes the distance ... and stores only one word", with a 1,500 m radius. The privacy notice (03 13.3) would promise what 04 does not do, and the two radii differ.
 - Fix: Pick one. Recommended: 03's rule, since the browser has the dock point from the location record: compute `near`, `far` or `unknown` in the browser with 04's 1,500 m and accuracy rules, send only the word, and correct 03's 500 m.
 
+Applied: 03 rule adopted. 04 section 3.4 now has the browser compute `near`, `far` or `unknown` with `geoWord(pos, loc)` and send only the word (the 1,500 m and accuracy rules stay as 04 had them); the Worker only validates it. 04 3.5 step 11, the request example, the hazard vote body, the tests and the code map row follow. 03 12.2 drops the 500 m `atDock` flag and points at 04 3.4.
+
 #### C40. Server-side alert matching needs zone codes that no binding carries, and reads the wrong state for Putney
 
 - Severity: major (phase 4).
 - Where: 05 5.3 `runAlerts()` steps 1 to 3 (lines 393 to 395); 01 6.1 (lines 444 to 446) and 6.3 (line 550); 02 discovery response (line 540).
 - Problem: 05 fetches `alerts/active?area=<state>` for the state in the location's `region` ("`US-VT` becomes `VT`") and matches an alert "when the alert's `geocode.UGC` list contains one of the location's zone codes (forecast zone and county, kept in the alerts binding's `params.ugc` by 02's discovery, for example `["VTZ015", "VTC025"]`), or when the alert has a `geometry` polygon that contains the dock point". No binding has `params.ugc`: Putney's alerts binding is `"ref": "point:42.9607,-72.5219"` with no params (01 6.3), its phase 1 plan is `zones:VTZ015,NHZ011` in `ref` (01 6.1), and 02's discovery returns `"zones": []` under `alerts`. 01 6.1 also records that the dock point resolves to New Hampshire zone NHZ011, so the app shows Cheshire County NH alerts while the engine, reading only `?area=VT`, never sees them. 05 notes that only 15 of 553 alerts carried a polygon, so the fallback rarely matches. Notifications and the app would disagree about the same location.
 - Fix: Define the zone list once in 01 4.4 (for example `params.ugc` on every `nws-alerts` binding, filled by discovery and by curation, Putney `["VTZ015", "VTC025", "NHZ011", "NHC005"]`), and have `runAlerts()` request every state those codes name, not the `region`'s state.
+
+Applied: one zone list, in the alerts binding's `ref` (`zones:<code>,<code>`, which phase 1 already planned for Putney), not a new `params.ugc` that no binding carries. 01 section 4.4 defines it, and Putney's phase 1 value becomes `zones:VTZ015,VTC025,NHZ011,NHC005` (01 6.1 and 15; a county code in `?zone=` returned 200 on 2026-10-18). 05 section 5.3 `runAlerts()` takes its states from those codes (VT and NH for Putney) and matches the same codes, so the app and the engine see the same alerts. 02 discovery step 4 and its sample fill the list. A binding still on `point:` gets its own `?point=` request.
 
 #### C49. 05 merges club rules and personal limits in the opposite order to 06
 
@@ -295,6 +309,8 @@ Applied: 08 section 8.3 step 2 and 14.2 P0.7, and 01 section 8.6 step 2. `waterO
 - Fix: 05 5.2 step 4: "`S` from 06's `clubSettings()` when club rules apply, else 01's `effectiveSettings()`", so the Worker and the app call the same function.
 
 ### Minor
+
+Applied: 05 section 5.2 `runDue()` step 4 now takes `S` from 06's `clubSettings()` when club rules apply (a stricter personal value wins over the club value, 06 6.5), else from 01's `effectiveSettings()`, the same two functions the app calls.
 
 #### C28. `LOCATION_LIMIT` is keyed by connection in 01 and by user in 08
 
@@ -497,6 +513,8 @@ A script compared the unescaped `|` count of every table row with its header row
 - Where: 06 19.1 (lines 2089, 2091, 2103, 2107, 2117) and 19.2 (lines 2137, 2141, 2142).
 - Problem: In a table row, `|` ends a cell even inside a code span. For example line 2141, "`PATCH`, `DELETE /api/clubs/:slug/practices/:id?scope=one|following` | Coach, admin | Edit or delete", renders the path as "...?scope=one", the Who column as "following`" and the Purpose column as "Coach, admin", and drops "Edit or delete". The other rows split JSON bodies such as `{ "method": "meta" | "dns" | "email" | "manual", ... }` across columns, so the Purpose text is cut. Checked with a script that counts unescaped pipes against each table's header; only 06 has such rows.
 - Fix: Escape each pipe inside those code spans as `\|`, or write the alternatives in words ("`method`: `meta`, `dns`, `email` or `manual`"), as 08 7.3 does with "`?scope=one` or `?scope=following`".
+
+Applied: 06 sections 19.1 and 19.2. The inner pipes of the eight rows are escaped as `\|` (the `"approve" \| "reject"` alternatives and `scope=one\|following`). A script now finds no row in 01 to 08 whose unescaped pipe count differs from its header.
 
 
 ## Style
