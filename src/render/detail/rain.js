@@ -104,7 +104,7 @@ export function render(m, want) {
     <div class="panel">
       ${strip}
       <h3 class="dhead">${label}, first light to sunset</h3>
-      <p class="dnote">${sum ? precipNote(sum, today ? m.now : hs[0].t) : ''}${conf ? ` ${confidenceText(conf, 'rain')}` : ''}</p>
+      <p class="dnote">${sum ? precipNote(sum, today ? m.now : hs[0].t) : ''}${conf ? ` ${confidenceText(conf, 'rain', m.u)}` : ''}</p>
       ${chartBox(c.svg(`Chance and amount of precipitation by hour for ${label}`), { keys })}
       ${table}
     </div>

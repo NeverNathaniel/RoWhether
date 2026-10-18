@@ -104,7 +104,7 @@ export function render(m, want) {
     // A day the forecast models disagree on gets a note, so a go there is
     // read as less certain.
     const conf = confidence(d.runs.flatMap(r => r.hs));
-    const shaky = conf && conf.level === 'low' ? `<span class="wi"><i data-lvl="n" aria-hidden="true"></i>${esc(confidenceText(conf))}</span>` : '';
+    const shaky = conf && conf.level === 'low' ? `<span class="wi"><i data-lvl="n" aria-hidden="true"></i>${esc(confidenceText(conf, null, m.u))}</span>` : '';
 
     const hit = fr.filter(x => x.runs.length), clear = fr.filter(x => !x.runs.length).map(x => x.f);
     const frows = hit.map(({ f, runs }) => {

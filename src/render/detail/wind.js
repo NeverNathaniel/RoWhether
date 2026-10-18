@@ -111,7 +111,7 @@ export function render(m, want) {
     <div class="panel">
       ${strip}
       <h3 class="dhead">${dayLabel(hs[0].t + 12 * HOUR)}, first light to sunset</h3>
-      <p class="dnote">Strongest ${r0(peak.wind)} mph around ${hm(peak.t)}, gusts to ${r0(Math.max(...hs.map(h => h.gust || 0)))}.${conf ? ` ${confidenceText(conf, 'wind')}` : ''}</p>
+      <p class="dnote">Strongest ${r0(peak.wind)} mph around ${hm(peak.t)}, gusts to ${r0(Math.max(...hs.map(h => h.gust || 0)))}.${conf ? ` ${confidenceText(conf, 'wind', m.u)}` : ''}</p>
       ${chartBox(c.svg(`Wind and gusts by hour for ${dayLabel(hs[0].t + 12 * HOUR)}`), { keys: keys + waterKeys })}
       ${table}
     </div>

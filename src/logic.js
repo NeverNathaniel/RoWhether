@@ -2,7 +2,8 @@
 // Nothing here touches the DOM or storage, so it can be unit tested.
 import SunCalc from 'suncalc';
 import { HOUR, MIN, LIGHT_KEYS, FOG, PERIODS, WATER, AQI, CONFIDENCE } from './config.js';
-import { zoneFormat, hm, r0, fmtInt, cToF } from './format.js';
+import { zoneFormat, hm, r0, cToF } from './format.js';
+import { unitFormat } from './units.js';
 
 // ---------- Sun ----------
 export function sunFor(m, key) {
@@ -205,7 +206,7 @@ export function fogRisk(m, h) {
     if (wt != null) {
       const diff = wt - h.temp, rh = relHumidity(h.temp, h.dew);
       const st = FOG.steam;
-      const why = `Water ${r0(wt)}°F under ${r0(h.temp)}°F air.`;
+      const why = `Water ${m.u.temp(wt)} under ${m.u.temp(h.temp)} air.`;
       if (diff >= st.likely.diff && h.wind <= st.likely.wind && rh >= st.likely.rh) hits.push({ risk: 2, type: 'steam', why });
       else if (diff >= st.possible.diff && h.wind <= st.possible.wind && rh >= st.possible.rh) hits.push({ risk: 1, type: 'steam', why });
     }
@@ -266,36 +267,36 @@ export function assess(m, h, lightT) {
 
   const w = r0(h.wind), g = r0(h.gust);
   if (w != null) {
-    if (w >= S.windOff) add(2, 'wind', `Wind ${w} mph`);
-    else if (w >= S.windCaution) add(1, 'wind', `Wind ${w} mph`);
+    if (w >= S.windOff) add(2, 'wind', `Wind ${m.u.speed(h.wind)}`);
+    else if (w >= S.windCaution) add(1, 'wind', `Wind ${m.u.speed(h.wind)}`);
   }
   if (g != null) {
-    if (g >= S.gustOff) add(2, 'gust', `Gusts to ${g} mph`);
-    else if (g >= S.gustCaution) add(1, 'gust', `Gusts to ${g} mph`);
+    if (g >= S.gustOff) add(2, 'gust', `Gusts to ${m.u.speed(h.gust)}`);
+    else if (g >= S.gustCaution) add(1, 'gust', `Gusts to ${m.u.speed(h.gust)}`);
   }
 
   const vm = h.vis != null ? h.vis / 1609.34 : null;
-  if (vm != null && vm < 0.25) add(2, 'fog', 'Fog, visibility under a quarter mile');
-  else if (vm != null && vm < 1) add(1, 'fog', `Visibility ${vm.toFixed(1)} mi`);
+  if (vm != null && vm < 0.25) add(2, 'fog', `Fog, visibility under ${m.u.visOff}`);
+  else if (vm != null && vm < 1) add(1, 'fog', `Visibility ${m.u.vis(h.vis)}`);
   else {
     const fr = fogRisk(m, h);
     if (fr.risk === 2) add(1, 'fog', fr.text);
   }
 
-  if (h.temp != null && h.temp < 32) add(2, 'freeze', `Below freezing at ${r0(h.temp)}°F, ice on docks and oarlocks`);
+  if (h.temp != null && h.temp < 32) add(2, 'freeze', `Below freezing at ${m.u.temp(h.temp)}, ice on docks and oarlocks`);
   const wt = waterTemp(m);
   if (wt != null && h.temp != null) {
     const sum = Math.round(h.temp + wt);
-    if (sum < S.coldCombined) add(1, 'cold', `Cold water, air plus water ${sum}°F`);
+    if (sum < S.coldCombined) add(1, 'cold', `Cold water, air plus water ${m.u.tempSum(h.temp + wt)}`);
   }
   const f = flowNow(m);
   if (f != null) {
-    if (f >= S.flowOff) add(2, 'flow', `High water at ${fmtInt(f)} cfs`);
-    else if (f >= S.flowCaution) add(1, 'flow', `Elevated flow at ${fmtInt(f)} cfs`);
+    if (f >= S.flowOff) add(2, 'flow', `High water at ${m.u.flow(f, m.loc.flow?.unit)}`);
+    else if (f >= S.flowCaution) add(1, 'flow', `Elevated flow at ${m.u.flow(f, m.loc.flow?.unit)}`);
   }
   if (h.aqi != null) {
     const q = Math.round(h.aqi), on = v => v !== '' && v != null && !isNaN(v);
-    const text = `Air quality AQI ${q}, ${aqiWord(q).toLowerCase()}`;
+    const text = `Air quality ${m.u.aqi(h.aqi)}, ${aqiWord(q).toLowerCase()}`;
     if (on(S.aqiOff) && q >= S.aqiOff) add(2, 'aqi', text);
     else if (on(S.aqiCaution) && q >= S.aqiCaution) add(1, 'aqi', text);
   }
@@ -309,13 +310,13 @@ export const lvlExcept = (a, keys) => a.reasons.filter(x => !keys.includes(x.key
 
 // ---------- Model ----------
 // Build everything the UI needs from a location, raw data and settings.
-// Returns null if there is no usable forecast. units and club are read by later
-// steps.
+// Returns null if there is no usable forecast. units is { system, wind }; club
+// is read by a later step.
 export function buildModel(loc, data, S, now = Date.now(), { units, club } = {}) {
   const d = data.wx;
   if (!d || !d.hourly || !d.daily) return null;
   const m = {
-    loc, fmt: zoneFormat(loc.tz), S, data, now, sunCache: {},
+    loc, fmt: zoneFormat(loc.tz), u: unitFormat(units), S, data, now, sunCache: {},
     alerts: (data.alerts || []).filter(a => a.end > now),
     hours: [], days: [], h72: [], cur: null
   };
@@ -552,14 +553,15 @@ export function confidence(hs) {
 }
 
 // "Low confidence: models differ by about 9 mph on wind." only limits it to
-// 'wind' or 'rain', and the level then follows that one alone.
-export function confidenceText(c, only = null) {
+// 'wind' or 'rain', and the level then follows that one alone. It has no model,
+// so the units come as an argument.
+export function confidenceText(c, only = null, u = unitFormat()) {
   if (!c) return '';
   const C = CONFIDENCE, wind = only === 'rain' ? 0 : c.wind, rain = only === 'wind' ? 0 : c.rain;
   const level = wind > C.low.wind || rain > C.low.rain ? 'low' : wind > C.medium.wind || rain > C.medium.rain ? 'medium' : 'high';
   const lead = { high: 'High confidence', medium: 'Medium confidence', low: 'Low confidence' }[level];
   const parts = [];
-  if (wind > C.medium.wind) parts.push(`models differ by about ${Math.round(wind)} mph on wind`);
+  if (wind > C.medium.wind) parts.push(`models differ by about ${u.speed(wind)} on wind`);
   if (rain > C.medium.rain) parts.push('models split on rain');
   return parts.length ? `${lead}: ${parts.join(', and ')}.` : `${lead}: the ${c.n} models agree.`;
 }
