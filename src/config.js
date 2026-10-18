@@ -86,38 +86,6 @@ export const WATER = {
   short: ['Flat', 'Light', 'Chop', 'Rough']
 };
 
-export const GAUGE_FLOW = 'USGS-01154500';
-export const GAUGE_TEMP = 'USGS-01161280';
-// NWS river forecast point at the same North Walpole gauge (NERFC).
-export const NWS_GAUGE = 'WLPN3';
-
-export const SRC = {
-  wx: () => 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
-    latitude: LOC.lat, longitude: LOC.lon,
-    current: 'temperature_2m,apparent_temperature,dew_point_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,visibility',
-    hourly: 'temperature_2m,apparent_temperature,dew_point_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,visibility,cape,cloud_cover,uv_index',
-    daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max',
-    wind_speed_unit: 'mph', temperature_unit: 'fahrenheit', precipitation_unit: 'inch',
-    timezone: LOC.tz, timeformat: 'unixtime', forecast_days: '7'
-  }).toString(),
-  alerts: () => `https://api.weather.gov/alerts/active?point=${LOC.lat},${LOC.lon}`,
-  obs: () => 'https://api.weather.gov/stations/KEEN/observations/latest',
-  river: () => `https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items?monitoring_location_id=${GAUGE_FLOW},${GAUGE_TEMP}&parameter_code=00060,00010&f=json`,
-  flow: () => `https://api.waterdata.usgs.gov/ogcapi/v0/collections/continuous/items?monitoring_location_id=${GAUGE_FLOW}&parameter_code=00060&time=P2D&limit=1000&properties=time,value&f=json`,
-  flowDays: () => `https://api.waterdata.usgs.gov/ogcapi/v0/collections/daily/items?monitoring_location_id=${GAUGE_FLOW}&parameter_code=00060&statistic_id=00003&time=P30D&limit=100&properties=time,value&f=json`,
-  flowFcst: () => `https://api.water.noaa.gov/nwps/v1/gauges/${NWS_GAUGE}/stageflow/forecast`,
-  aq: () => 'https://air-quality-api.open-meteo.com/v1/air-quality?' + new URLSearchParams({
-    latitude: LOC.lat, longitude: LOC.lon, hourly: 'us_aqi,pm2_5',
-    timezone: LOC.tz, timeformat: 'unixtime', forecast_days: '5'
-  }).toString(),
-  models: () => 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
-    latitude: LOC.lat, longitude: LOC.lon, hourly: 'wind_speed_10m,precipitation',
-    models: MODELS.map(x => x.id).join(','),
-    wind_speed_unit: 'mph', precipitation_unit: 'inch',
-    timezone: LOC.tz, timeformat: 'unixtime', forecast_days: '7'
-  }).toString()
-};
-
 // Forecast models compared for confidence. The main forecast is Open-Meteo's
 // best match, mostly HRRR and GFS here.
 export const MODELS = [
@@ -133,8 +101,6 @@ export const CONFIDENCE = { medium: { wind: 4, rain: 0.25 }, low: { wind: 8, rai
 
 // US AQI categories, for words only. The call uses the settings.
 export const AQI = [[50, 'Good'], [100, 'Moderate'], [150, 'Unhealthy for sensitive groups'], [200, 'Unhealthy'], [300, 'Very unhealthy'], [Infinity, 'Hazardous']];
-
-export const SOURCE_NAMES = { wx: 'the forecast', alerts: 'NWS alerts', obs: 'Keene observations', river: 'USGS river gauges', flow: 'USGS flow history', flowDays: 'USGS daily flow', flowFcst: 'the NWS river forecast', aq: 'the air quality forecast', models: 'the model comparison' };
 
 // Groups of assess() reasons, one row each in the Overview detail view.
 export const FACTORS = [

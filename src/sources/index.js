@@ -5,8 +5,7 @@ import { alerts, obs } from './nws.js';
 import { latest, recent, daily } from './usgs.js';
 import { riverForecast } from './nwps.js';
 
-// The keys of SRC in config.js, in its order: the order requests are made,
-// errors are listed and failures are named.
+// The order requests are made, errors are listed and failures are named.
 export const SLOT_ORDER = ['wx', 'alerts', 'obs', 'river', 'flow', 'flowDays', 'flowFcst', 'aq', 'models'];
 
 // A stored row names a provider (01 4.4). Each provider has one fetcher per

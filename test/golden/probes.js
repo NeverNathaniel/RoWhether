@@ -20,10 +20,14 @@ import * as F from '../../src/format.js';
 import * as L from '../../src/logic.js';
 import { VIEWS } from '../../src/render/detail/index.js';
 import { parseRoute } from '../../src/route.js';
+import { PUTNEY } from '../../src/putney.js';
+import { bindingsFor, labelFor } from '../../src/sources/index.js';
 import { SCENARIOS } from '../fixtures/golden.js';
 import { CUSTOM, BLANK, TIGHT, buildModel, dataFrom } from './capture.js';
 
 const HOUR = 3600e3, MIN = 60e3;
+// Putney's sources, for the parsers and the tables that moved out of config.js.
+const BINDINGS = bindingsFor(PUTNEY);
 
 // ---------- helpers ----------
 const range = (a, b, step) => Array.from({ length: Math.round((b - a) / step) + 1 }, (_, i) => +(a + i * step).toFixed(6));
@@ -289,12 +293,14 @@ function parserProbe() {
     parseObs({ properties: { timestamp: 'nope', temperature: { value: 0 } } })
   ];
   const r = (id, code, value, time = '2026-04-14T15:45:00+00:00') => f({ monitoring_location_id: id, parameter_code: code, value, time });
+  // The river parser reads the gauge ids from its binding.
+  const rb = BINDINGS.find(b => b.slot === 'river');
   out.river = [
-    parseRiver({}), parseRiver({ features: [] }),
-    parseRiver({ features: [r('USGS-01154500', '00060', '12000'), r('USGS-01161280', '00010', '8.5')] }),
-    parseRiver({ features: [r('USGS-01154500', '00060', 'Ice'), r('USGS-01161280', '00010', null), r('USGS-01154500', '00010', '9'), r('USGS-01161280', '00060', '999')] }),
-    parseRiver({ features: [r('USGS-01154500', '00060', '1'), r('USGS-01154500', '00060', '2')] }),
-    parseRiver({ features: [r('USGS-01154500', '00060', '0')] })
+    parseRiver({}, rb), parseRiver({ features: [] }, rb),
+    parseRiver({ features: [r('USGS-01154500', '00060', '12000'), r('USGS-01161280', '00010', '8.5')] }, rb),
+    parseRiver({ features: [r('USGS-01154500', '00060', 'Ice'), r('USGS-01161280', '00010', null), r('USGS-01154500', '00010', '9'), r('USGS-01161280', '00060', '999')] }, rb),
+    parseRiver({ features: [r('USGS-01154500', '00060', '1'), r('USGS-01154500', '00060', '2')] }, rb),
+    parseRiver({ features: [r('USGS-01154500', '00060', '0')] }, rb)
   ];
   const pt = (time, value) => f({ time, value });
   out.flow = [
@@ -358,10 +364,17 @@ function nullProbe() {
 // Words and numbers that live in config.js. Most are only seen when some hour
 // triggers them (the hero's "then a storm risk" has a phrase for each reason),
 // so they are recorded whole. The tab order and the routes are here too.
+// Putney's gauges and source names used to live in config.js. P0.8 moved them
+// to the location's bindings, where they are read from now.
 function configProbe() {
   const names = ['SITE_URL', 'LOC', 'DEFAULTS', 'PERIODS', 'FOG', 'WATER', 'GAUGE_FLOW', 'GAUGE_TEMP', 'NWS_GAUGE', 'MODELS', 'CONFIDENCE', 'AQI', 'SOURCE_NAMES', 'FACTORS', 'THEN', 'WORD', 'WORD_PLAIN', 'LIGHT_KEYS', 'REFRESH_MS', 'HOUR', 'MIN', 'MAX_TEXT'];
+  const slot = s => BINDINGS.find(b => b.slot === s);
+  const moved = {
+    GAUGE_FLOW: slot('river').params.flow, GAUGE_TEMP: slot('river').params.temp, NWS_GAUGE: slot('flowFcst').params.lid,
+    SOURCE_NAMES: Object.fromEntries(BINDINGS.map(b => [b.slot, labelFor(b.slot, b)]))
+  };
   return {
-    config: Object.fromEntries(names.map(k => [k, C[k] === undefined ? '(missing)' : C[k]])),
+    config: Object.fromEntries(names.map(k => [k, k in moved ? moved[k] : C[k] === undefined ? '(missing)' : C[k]])),
     views: VIEWS.map(v => [v.key, v.name]),
     routes: Object.fromEntries(['', '#', '#now', '#wind', '#wind/2026-10-14', '#/wind', '#/wind/2026-10-14', '#wind/bad', '#wind/2026-10-14/extra', '#nope', '#week/2026-1-1', '#air/2026-12-31', '#WIND', 'wind', '#fog/', '#river/2026-02-30'].map(h => [h, parseRoute(h)])),
     noRoute: [parseRoute(undefined), parseRoute(null)]

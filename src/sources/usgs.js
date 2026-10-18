@@ -5,10 +5,7 @@ const HOST = 'https://api.waterdata.usgs.gov';
 // Discharge in cfs and water temperature in °C.
 const Q = '00060', TEMP = '00010';
 
-// Putney's gauges, for a caller with no binding yet (until P0.8).
-const PUTNEY_GAUGES = { params: { flow: 'USGS-01154500', temp: 'USGS-01161280' } };
-
-export function parseRiver(d, b = PUTNEY_GAUGES) {
+export function parseRiver(d, b) {
   const { flow, temp } = b.params;
   const out = {};
   for (const f of d.features || []) {

@@ -149,6 +149,61 @@ test.describe('smoke', () => {
     expect(seen.aborted.length).toBeGreaterThanOrEqual(9);
   });
 
+  // A source that fails on a refresh keeps its last good copy, on screen and in
+  // storage (review Z3). A fetchAll that wrote every slot, the failed ones as
+  // undefined, would send the page to No data on the first failed refresh and
+  // save the emptied copy. Playwright runs the last route registered first, so
+  // the aborts go in after routeAll.
+  test.describe('a refresh that fails', () => {
+    const CACHE = 'rowhether-cache-v2:putney-landing';
+    const NOTE = 'Could not reach USGS river gauges. Showing the last data received where available.';
+
+    // Load with the fixtures, then reload with `abort` added. The reload draws
+    // from the saved copy and then refreshes, so the page after it is the
+    // outcome of a failed refresh.
+    async function failedRefresh(page, abort) {
+      await routeAll(page, scenario, clock);
+      await page.goto('/');
+      await ready(page);
+      const before = {
+        verdict: await page.locator('#verdict').textContent(),
+        why: await page.locator('#why').textContent(),
+        facts: await page.locator('#facts').textContent(),
+        cache: await page.evaluate(k => JSON.parse(localStorage.getItem(k)), CACHE)
+      };
+      expect(before.cache.data.wx, 'the first load saved a forecast').toBeTruthy();
+      expect(before.cache.data.river, 'the first load saved the river reading').toBeTruthy();
+      expect(before.facts).toContain('cfs');
+      await abort(page);
+      await page.reload();
+      await ready(page);
+      return before;
+    }
+
+    // The page and the saved copy read as they did before the refresh.
+    async function expectKept(page, before) {
+      await expect(page.locator('#verdict')).toHaveText(before.verdict);
+      await expect(page.locator('#why')).toHaveText(before.why);
+      expect(await page.locator('#facts').textContent()).toBe(before.facts);
+      expect(await page.evaluate(k => JSON.parse(localStorage.getItem(k)), CACHE)).toEqual(before.cache);
+    }
+
+    test('every source aborted: the last data stays on screen and in storage', async ({ page }) => {
+      const before = await failedRefresh(page, p => routeAll(p, scenario, clock, { abort: true }));
+      await expect(page.locator('#verdict')).not.toHaveText('No data.');
+      await expect(page.locator('#updated')).toHaveText(/^Saved data from/);
+      await expect(page.locator('#statusNote')).toBeVisible();
+      await expectKept(page, before);
+    });
+
+    test('one source aborted: it is named, and its last data stays', async ({ page }) => {
+      const before = await failedRefresh(page, p => p.route(/latest-continuous/, r => r.abort('failed')));
+      await expect(page.locator('#statusNote')).toHaveText(NOTE);
+      await expect(page.locator('#updated')).toHaveText(/^Updated/);
+      await expectKept(page, before);
+    });
+  });
+
   // What an old build left in storage (08 8.3), read by this one with every
   // upstream request aborted, so the first hero can only come from the saved copy
   // (review Z7). A cache the app wrote itself stands in for the old one.

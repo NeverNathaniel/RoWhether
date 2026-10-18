@@ -9,8 +9,10 @@
 // this file reaches a value (a new import path, bindingsFor(PUTNEY) for SRC),
 // never what it produces.
 import { createHash } from 'node:crypto';
-import { DEFAULTS, SRC, SOURCE_NAMES, FACTORS, MIN } from '../../src/config.js';
-import { parseAlerts, parseObs, parseRiver, parseFlow, parseFlowDays, parseFlowForecast, parseAQ, parseModels, alertLevel } from '../../src/data.js';
+import { DEFAULTS, FACTORS, MIN } from '../../src/config.js';
+import { alertLevel } from '../../src/data.js';
+import { PUTNEY } from '../../src/putney.js';
+import { bindingsFor, labelFor } from '../../src/sources/index.js';
 import * as L from '../../src/logic.js';
 import { renderHeader, renderNoData, renderHero, renderAlerts } from '../../src/render/hero.js';
 import { renderNow } from '../../src/render/now.js';
@@ -65,11 +67,11 @@ export const ALL_CASES = [...CASES, ...VARIANT_CASES];
 // The one place the capture builds a model, so a change to buildModel's
 // arguments is made here and nowhere else.
 export const buildModel = (data, S, now) => L.buildModel(data, S, now);
-// What fetchAll would hold: the forecast as is, the rest parsed.
-export const dataFrom = raw => ({
-  wx: raw.wx, alerts: parseAlerts(raw.alerts), obs: parseObs(raw.obs), river: parseRiver(raw.river), flow: parseFlow(raw.flow),
-  flowDays: parseFlowDays(raw.flowDays), flowFcst: parseFlowForecast(raw.flowFcst), aq: parseAQ(raw.aq), models: parseModels(raw.models)
-});
+// Putney's sources, as the page gets them (08 P0.8). The parsers run the way
+// fetchAll runs them, each through its own binding (review Z5).
+const BINDINGS = bindingsFor(PUTNEY);
+// What fetchAll would hold: every slot's response through its binding's parse.
+export const dataFrom = raw => Object.fromEntries(BINDINGS.map(b => [b.slot, b.parse(raw[b.slot], b)]));
 
 const sha = s => createHash('sha256').update(s).digest('hex');
 const pick = (o, keys) => Object.fromEntries(keys.map(k => [k, o[k] ?? null]));
@@ -233,7 +235,7 @@ export function capture(scenario, clock, settings, { width = 390, sink = null, r
     }
 
     // ----- sources and parsers -----
-    if (!lean) out.sources = Object.keys(SRC).map(k => [k, SRC[k](), SOURCE_NAMES[k]]);
+    if (!lean) out.sources = BINDINGS.map(b => [b.slot, b.url, labelFor(b.slot, b)]);
     out.parsers = { alerts: data.alerts, obs: data.obs, river: data.river, flow: data.flow, flowDays: data.flowDays, flowFcst: data.flowFcst, aq: data.aq, models: data.models };
 
     // ----- detail views -----
@@ -276,13 +278,13 @@ export function capture(scenario, clock, settings, { width = 390, sink = null, r
 
     // ----- failures -----
     const snap = (tag, errors, fn) => { const d = installFakeDom({ width }); app.errors = errors; fn(); return elements(d, `status/${tag}`); };
-    const all = Object.fromEntries(Object.keys(SRC).map(k => [k, true]));
+    const all = Object.fromEntries(BINDINGS.map(b => [b.slot, true]));
     out.status = {
       noDataAll: snap('noDataAll', all, renderNoData),
       noDataForecast: snap('noDataForecast', { wx: true }, renderNoData),
       noDataQuiet: snap('noDataQuiet', {}, renderNoData),
       partial: snap('partial', { alerts: true, river: true }, renderHero),
-      // Every source named in the note, in the order of SRC.
+      // Every source named in the note, in slot order.
       partialAll: snap('partialAll', all, renderHero),
       header: {}
     };

@@ -1,8 +1,9 @@
 // Header timestamp, the hero verdict, and NWS alerts.
-import { SRC, SOURCE_NAMES, THEN, WORD, LIGHT_KEYS, WATER } from '../config.js';
+import { THEN, WORD, LIGHT_KEYS, WATER } from '../config.js';
 import { app, $ } from '../state.js';
 import { esc, hm, r0, card, whenText, dayKey, lowerFirst } from '../format.js';
 import { waterTemp, sunFor, lvlExcept } from '../logic.js';
+import { bindingsFor, labelFor } from '../sources/index.js';
 import { dayLabel, periodTime, periodSummary } from './days.js';
 
 export function renderHeader() {
@@ -16,7 +17,7 @@ export function renderNoData() {
   $('shareBtn').hidden = true;
   $('hero').dataset.lvl = '';
   $('verdict').textContent = 'No data.';
-  const allBlocked = Object.keys(SRC).every(k => app.errors[k]);
+  const allBlocked = bindingsFor(app.loc).every(b => app.errors[b.slot]);
   $('why').textContent = allBlocked
     ? 'Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.'
     : 'The forecast did not load. Check the connection, then tap Refresh.';
@@ -93,8 +94,9 @@ function renderStatus() {
   const failed = Object.keys(app.errors).filter(k => app.errors[k]);
   const note = $('statusNote');
   if (failed.length) {
+    const bs = bindingsFor(app.loc);
     note.hidden = false;
-    note.textContent = `Could not reach ${failed.map(k => SOURCE_NAMES[k]).join(', ')}. Showing the last data received where available.`;
+    note.textContent = `Could not reach ${failed.map(k => labelFor(k, bs.find(b => b.slot === k))).join(', ')}. Showing the last data received where available.`;
   } else note.hidden = true;
 }
 

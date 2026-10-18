@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
 import { resolveLocation } from '../src/location.js';
-import { SRC, SOURCE_NAMES, MODELS } from '../src/config.js';
+import { MODELS } from '../src/config.js';
 import { cToF } from '../src/format.js';
 import { SLOT_ORDER, ADAPTERS, bindingsFor, labelFor } from '../src/sources/index.js';
 import * as nws from '../src/sources/nws.js';
@@ -15,7 +15,7 @@ import { VARIANTS } from './fixtures/variants.js';
 
 // The parsers as src/data.js had them before P0.6, copied. They are the
 // reference the adapters' parsers must equal. The gauge ids are written out
-// where the old code read GAUGE_FLOW and GAUGE_TEMP, which P0.8 removes.
+// where the old code read GAUGE_FLOW and GAUGE_TEMP, which P0.8 removed.
 function alertLevel(ev) {
   return /Tornado|Thunderstorm|Flash Flood|Flood Warning|High Wind|Wind Advisory|Extreme Wind|Dense Fog|Winter Storm Warning|Ice Storm|Blizzard/i.test(ev) ? 2 : 1;
 }
@@ -115,25 +115,21 @@ const clone = o => JSON.parse(JSON.stringify(o));
 const rec = edit => { const r = clone(PUTNEY_RECORD); edit(r); return r; };
 const locOf = (edit, waterway = null) => resolveLocation(rec(edit), { waterway });
 const by = (bs, slot) => bs.find(b => b.slot === slot);
+// The nine slots, URLs and failure names that P0.1 recorded from SRC and
+// SOURCE_NAMES, which P0.8 removed. The golden files keep them.
+const GOLDEN_SOURCES = JSON.parse(readFileSync(new URL('./golden/june-calm-1200-default.json', import.meta.url), 'utf8')).sources;
 
 describe('bindingsFor(PUTNEY)', () => {
   const bs = bindingsFor(PUTNEY);
 
-  it('lists the nine slots in the key order of SRC', () => {
-    expect(SLOT_ORDER).toEqual(Object.keys(SRC));
-    expect(bs.map(b => b.slot)).toEqual(Object.keys(SRC));
+  it('lists the nine slots in the order requests are made', () => {
+    expect(SLOT_ORDER).toEqual(['wx', 'alerts', 'obs', 'river', 'flow', 'flowDays', 'flowFcst', 'aq', 'models']);
+    expect(bs.map(b => b.slot)).toEqual(SLOT_ORDER);
   });
 
-  it('builds exactly the URLs and failure names that SRC and SOURCE_NAMES give', () => {
-    expect(bs.map(b => [b.slot, b.url, labelFor(b.slot, b)])).toEqual(Object.keys(SRC).map(k => [k, SRC[k](), SOURCE_NAMES[k]]));
-  });
-
-  // The golden files record the nine URLs and names from P0.1. Unlike SRC,
-  // they stay after P0.8.
   it('builds what the golden files recorded in P0.1', () => {
-    const golden = JSON.parse(readFileSync(new URL('./golden/june-calm-1200-default.json', import.meta.url), 'utf8'));
-    expect(golden.sources).toHaveLength(9);
-    expect(bs.map(b => [b.slot, b.url, labelFor(b.slot, b)])).toEqual(golden.sources);
+    expect(GOLDEN_SOURCES).toHaveLength(9);
+    expect(bs.map(b => [b.slot, b.url, labelFor(b.slot, b)])).toEqual(GOLDEN_SOURCES);
   });
 
   it('writes the river request with the flow gauge, then the temperature gauge', () => {
@@ -229,8 +225,8 @@ describe('a location with other sources', () => {
 
 describe('labelFor', () => {
   it("names a slot's own source without a binding", () => {
-    const others = SLOT_ORDER.filter(s => s !== 'obs');
-    expect(others.map(s => labelFor(s))).toEqual(others.map(s => SOURCE_NAMES[s]));
+    const others = GOLDEN_SOURCES.filter(s => s[0] !== 'obs');
+    expect(others.map(s => labelFor(s[0]))).toEqual(others.map(s => s[2]));
     expect(labelFor('obs')).toBe('Weather station observations');
   });
 
@@ -388,12 +384,11 @@ describe('the parsers', () => {
     for (const v of [null, undefined, {}, q(null, 'wmoUnit:km_h-1'), q(10, 'wmoUnit:km_h-1'), q(10, 'wmoUnit:m_s-1'), q(10), q(0, 'wmoUnit:km_h-1'), q('10', 'wmoUnit:km_h-1')]) expect(nws.speedToMph(v)).toEqual(speedToMph(v));
   });
 
-  it("read the gauges from the binding, with Putney's as the default", () => {
+  it('read the gauges from the binding', () => {
     const at = (id, code, value) => f({ monitoring_location_id: id, parameter_code: code, value, time: '2026-04-14T15:00:00+00:00' });
     const d = { features: [at('USGS-1', '00060', '5'), at('USGS-2', '00010', '4'), at('USGS-01154500', '00060', '9'), at('USGS-01161280', '00010', '8')] };
     const t = Date.parse('2026-04-14T15:00:00+00:00');
     expect(usgs.parseRiver(d, { params: { flow: 'USGS-1', temp: 'USGS-2' } })).toEqual({ flow: { v: 5, t }, waterC: { v: 4, t } });
-    expect(usgs.parseRiver(d)).toEqual({ flow: { v: 9, t }, waterC: { v: 8, t } });
     // Through a binding made from a location's rows, on a response that holds both sets of ids.
     const waterway = clone(PUTNEY_WATERWAY);
     waterway.sources[0].ref = 'USGS-1';

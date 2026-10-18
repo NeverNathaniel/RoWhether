@@ -46,7 +46,7 @@ async function refresh() {
   const btn = $('refreshBtn');
   btn.disabled = true;
   $('updated').textContent = 'Refreshing';
-  const { data, errors } = await fetchAll();
+  const { data, errors } = await fetchAll(app.loc);
   app.errors = errors;
   Object.assign(app.data, data);
   if (!errors.wx) { app.updated = Date.now(); app.fromCache = false; }

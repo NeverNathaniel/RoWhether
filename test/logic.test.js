@@ -3,6 +3,8 @@ import { DEFAULTS, HOUR, MIN } from '../src/config.js';
 import { dayKey, localHour, lowerFirst } from '../src/format.js';
 import { precipKind, rateWord, precipSummary, buildModel, sunOn, uvWord, rowingHours, callRuns, factorRuns, worstReasons, aqiWord, confidence, confidenceText, planSessions, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
 import { parseAlerts, parseObs, parseRiver, parseFlow, parseFlowDays, parseFlowForecast, parseAQ, parseModels, alertLevel } from '../src/data.js';
+import { PUTNEY } from '../src/putney.js';
+import { bindingsFor } from '../src/sources/index.js';
 
 // Midnight Eastern (EDT, UTC-4) on Mon 15 June 2026.
 const T0 = Date.UTC(2026, 5, 15, 4);
@@ -192,11 +194,12 @@ describe('parsers', () => {
     expect(o.gust).toBeCloseTo(11.18, 2);
   });
   it('picks flow and water temperature from the USGS latest values', () => {
+    const river = bindingsFor(PUTNEY).find(b => b.slot === 'river');
     const r = parseRiver({ features: [
       { properties: { monitoring_location_id: 'USGS-01154500', parameter_code: '00060', value: '7000', time: '2026-06-15T12:00:00Z' } },
       { properties: { monitoring_location_id: 'USGS-01161280', parameter_code: '00010', value: '18.5', time: '2026-06-15T12:00:00Z' } },
       { properties: { monitoring_location_id: 'USGS-01161280', parameter_code: '00060', value: 'x', time: '2026-06-15T12:00:00Z' } }
-    ] });
+    ] }, river);
     expect(r.flow.v).toBe(7000);
     expect(r.waterC.v).toBe(18.5);
   });

@@ -8,8 +8,8 @@ import { SCENARIOS } from '../fixtures/golden.js';
 
 export { SCENARIOS };
 
-// Which response each upstream request gets, by host and path. SRC.wx and
-// SRC.models share one path (the forecast endpoint) and differ only in the
+// Which response each upstream request gets, by host and path. The wx and
+// models requests share one path (the forecast endpoint) and differ only in the
 // models parameter, so that one is told apart by the query.
 const UPSTREAM = {
   'api.open-meteo.com': {
