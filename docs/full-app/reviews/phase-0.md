@@ -4,7 +4,7 @@ Reviewed the Phase 0 checks (P0.1 golden outputs, P0.2 screenshots and the smoke
 
 Status: in progress
 
-Count so far: 3 blockers, 7 major, 0 minor.
+Count so far: 3 blockers, 7 major, 6 minor.
 
 Severity: blocker means a likely regression in P0.4 to P0.14 would pass every check; major means a real gap or a weakness in the net; minor means small.
 
@@ -109,3 +109,72 @@ expect(await page.locator(`details[data-id="${id}"] .forecast`).evaluate(e => e.
 - Where: P0.9. `src/logic.js` line 5 (imports `dayKey`, `localHour` and `hm` from `src/format.js`) and its uses at lines 27, 186, 215, 220, 231, 338, 364, 385, 386, 428 and 567; 14.2 P0.9 (`m.fmt`).
 - Problem: Reasoning only. P0.4 made the module formatters live bindings, and P0.9 makes the logic use `m.fmt = zoneFormat(loc.tz)` and calls `setZone(app.loc.tz)`. At Putney all of these are New York, so a logic line that keeps the module's `dayKey` or `localHour` gives the same output in every golden case. The bug would show in phase 1, for the first location in another zone, as day keys, periods or fog hours that are off. P0.9's planned Kolkata test covers `h0` and the plan steps, not the other eleven uses. P0.4 itself is well covered: `test/format.test.js` proves that the swap reaches an importer, and no module copies a formatter at load (a search for a formatter name used as a value outside `src/format.js` finds none at `21c835f`).
 - Fix: At P0.9, add a test that calls `setZone('Pacific/Auckland')`, captures `june-calm-1200-default` and one fog variant, and requires `model`, `plans` and `runs` to equal their files (only render code and `fogLift`, which has no model, may follow the module zone), with `setZone('America/New_York')` in a `finally`. Add the reverse to the planned Kolkata test: with the module zone left on New York, a Kolkata location's day keys, period starts and fog hours follow Kolkata.
+
+## Minor
+
+#### Z11. The tests follow the machine's time zone
+
+- Severity: minor.
+- Where: P0.9 (`setZone(app.loc.tz)` in `src/state.js`), and every step run on a laptop. `package.json` (`"test": "vitest run"`), `vite.config.js` `test`, `playwright.config.js` `use`.
+- Problem: An unknown or missing zone falls back to the machine's: `new Intl.DateTimeFormat('en-US', { timeZone: undefined })` uses the host zone. Nothing pins the zone the tests run in. CI runs on UTC and catches such a fallback. A laptop in Vermont, where the owner runs the WebKit projects, does not. The browser takes the machine's zone too.
+- Evidence (at `21c835f`): `setZone(undefined)` at the bottom of `src/format.js`, which is what a misspelled `setZone(app.loc.timezone)` does. `TZ=America/New_York npx vitest run` passes 262 of 262; `TZ=UTC` fails 108 of the 139 golden tests. The Z1 parity prototype without a pinned zone passed on a New York host and failed on a UTC host. With `test.use({ timezoneId: 'Pacific/Auckland', locale: 'de-DE' })` it failed on both, and HEAD without the change passed with that pin, so the pin costs correct code nothing.
+- Fix: Run the unit and golden tests in a fixed zone that is neither New York nor UTC (`"test": "TZ=Pacific/Auckland vitest run"`), with a test that asserts `Intl.DateTimeFormat().resolvedOptions().timeZone` is that zone, so the pin cannot drop silently. In the parity, smoke and settings specs, `test.use({ timezoneId: 'Pacific/Auckland', locale: 'de-DE' })`. Leave the `@visual` spec as it is, so the baseline keeps the environment it was made in. At P0.9, `zoneFormat` can throw when `tz` is missing, which makes the mistake loud on every machine.
+
+#### Z12. Dock reports and the Dev label never run in a browser test
+
+- Severity: minor.
+- Where: P0.9 (`render()` and the model's inputs). `src/reports.js` `renderReports`, `src/render/index.js` line 20, `test/browser/fixtures.js` (every `/api/*` path answers 404).
+- Problem: `render()` calls `renderReports()`, which reads `app.model.hours` and an hour's water state to write "The forecast said ...". The capture does not call it, and every browser spec answers `/api/info` with 404, so this code never runs in a test. P0.9 changes `render()` and the model. CLAUDE.md's browser checklist asks for it by hand.
+- Evidence (at `21c835f`): a prototype with `/api/info` stubbed as `{ env: 'dev', reports: true }` and `/api/reports` as one report 20 minutes old (`water: 'chop', fog: 'patchy'`) passed: `#envBadge` reads "Dev" and the summary reads "At the dock: Chop, patchy fog, 20 min ago (11:40 AM). The forecast said light chop." No mutation was run.
+- Fix: Add that check to `smoke.spec.js` before P0.9, with the sentence as a literal.
+
+#### Z13. The share sheet and the suggestion context are not tested
+
+- Severity: minor.
+- Where: P0.7, P0.9 and P0.10. `src/share.js` `initShare` (the `navigator.share` title "Putney Landing rowing forecast" and the URL), `src/suggest.js` line 36 (`settings: app.settings`).
+- Problem: The golden `share` key covers `shareText()`, not the click handler, whose title P0.10 builds from `loc.name` and whose URL depends on `app.info`. The suggestion form sends `app.settings` as context: P0.7 changes its keys and makes `waterOverride` a number, and P0.10 removes `heading`, which P0.9 must add back (`worker/suggest.js` lists `heading` among the setting keys). No test imports `src/suggest.js`, and the browser specs hide the form.
+- Evidence: reasoning only; a search of `test/` finds no import of `src/suggest.js` or `initShare`.
+- Fix: A smoke check that stubs `navigator.share` in an init script, clicks `#shareBtn`, and requires `{ title: 'Putney Landing rowing forecast', text: <the share text in june-calm-1200-default.json>, url: 'https://rowhether.com/' }`. At P0.9, move the context into an exported `suggestContext()` and unit test that its `settings` has `heading` 15 and every threshold key.
+
+#### Z14. Sections kept open through a refresh are not checked
+
+- Severity: minor.
+- Where: P0.9 (`render()`). `src/render/detail/index.js` lines 24 to 35, `src/main.js` (the `toggle` handler and `fillPeriod`), `test/helpers/fakedom.js` (`querySelectorAll` returns `[]`).
+- Problem: A section the viewer opened (`details[data-keep]`) and an open Day by day row stay open through the 10 minute refresh. The fake page returns nothing from `querySelectorAll`, so the capture cannot see this, and no browser spec presses Refresh.
+- Evidence (at `21c835f`): mutation K removes `body.dataset.view = r.name;` from `renderDetail()`: 262 and 10 pass. A prototype that opens the first Hour by hour section in `#wind`, clicks `#refreshBtn`, waits, and then does the same with the first Day by day row passed on HEAD and failed on K.
+- Fix: Add it to `smoke.spec.js` before P0.9.
+
+#### Z15. The screenshots are portable today, but the fallback is not written down
+
+- Severity: minor.
+- Where: P0.14. `test/browser/__screenshots__/`, `test/browser/screens.spec.js`, 08 14.2 P0.14 item 3.
+- Problem: 14.2 compares the `@visual` set "on the machine that made the screenshots". Sessions on this branch move between containers. If P0.14 runs on an image whose pixels differ, nothing says what to do, and `--update-snapshots` at HEAD would destroy the before set. The set is also narrower than the golden files: home, one opened row and four tabs. Storms, Temperature, Rain, Light and Air have no shot (Light changed in P0.4, Temperature changes in P0.10), and the Hour by hour sections are closed in every shot.
+- Evidence: this container did not make them. `npx playwright test --grep @visual` at `93adcdb` passed 48 of 48 here, in 45.7 s (Chromium 1194, Playwright 1.56.1, Node 22.22.0). The same image gives the same pixels, so the screenshots are good evidence today.
+- Fix: Write into 14.2 P0.14: first run the `@visual` spec at the P0.2 commit on the machine at hand; if it fails there, make a fresh before set on that machine from `93adcdb`, the last commit before P0.4, in a worktree, compare HEAD with it, and record both runs. Never update snapshots at HEAD. Z1's parity check covers the text of the five tabs without a shot and of the closed sections, in CI, so no more screenshots are needed.
+
+#### Z16. The parsers see only synthetic responses
+
+- Severity: minor.
+- Where: P0.6. `test/fixtures/golden.js`; `test/fixtures/sources/`, which 14.2 P0.6 names ("if present") and which does not exist.
+- Problem: Every parser test and golden case reads responses the fixtures build. They follow the real shapes closely, and the parser probes cover odd input, so this is insurance. P0.6 moves every parser body, and real responses are free to record now.
+- Evidence (at `21c835f`): every upstream host answered from this container (HTTP 200), and today's parsers read the six non-Open-Meteo responses: flow 4,490 cfs and water 13.3°C from `latest-continuous`, 187 points in 48 hours, 30 daily means, 12 forecast points in kcfs (the first 4,180 cfs), and a Keene report with wind 3.4 mph and no gust; no alert was active. The probes catch the fallbacks a move could drop: `ends` without `expires` (2 tests fail), `onset` without `effective` (2), no m/s branch in `speedToMph` (13), kcfs always (2), `headline` left null (2). The one survivor, `p.secondary >= 0` changed to `p.secondary > -999`, behaves the same on real data, which marks a missing value as -999.
+- Fix: Before P0.6, record the nine responses for Putney from the exact `SRC` URLs into `test/fixtures/sources/`, plus one NWS alert from any zone that has an active one, and run the P0.6 parity test on them.
+
+## Checked and well covered
+
+Not findings. The builder does not need to redo these.
+
+- Golden determinism across machines: `npx vitest run` passed 248 of 248 at `93adcdb` and 262 of 262 at `21c835f` in this container, which did not write the files.
+- Golden sensitivity in the logic and render code: the progress file's 12 named mutations and 1,134 of 1,364 literal mutants killed. Added here: five parser fallback mutations, each caught by the probes (Z16).
+- The request URLs as `SRC` builds them, their parameter order, and the source labels: the `sources` key of the 19 main files and `status.partialAll` hold them as literals, so P0.6 and P0.8 can move them freely as long as the page requests the same thing (Z4).
+- Digests: canonical JSON with sorted keys, as strict as `toEqual`; any change in a digested key fails, and `node scripts/golden.mjs dump` shows it in full.
+- The no data screen and "Every data source was blocked": `status.noDataAll` in the golden files and the last smoke check.
+- The offline first render from the service worker and the saved copy: `timing.spec.js` in CI. A cache saved and read under different keys fails it (slowly, Z7).
+- The screenshots on another container: 48 of 48 (Z15).
+- P0.4: `test/format.test.js` checks every formatter against copies of the old ones, the swap reaching an importer, the cache, and the import line of `src/format.js`; no module copies a formatter at load; the probes read formatters through `import * as F`. The golden files, the 48 screenshots and the CI browser checks all pass at `21c835f`.
+- Chart readouts: each one is a `data-text` attribute in the view HTML, which the golden files hash; the handler in `src/main.js` only copies it.
+- The width at 360 px and the project width on every tab, the pinned tab bar and a clean console: the smoke spec, each shown to fail in the progress file.
+- The bundle budget: fails when over, and treats a missing file as an error.
+- P0.9's smaller changes: `h0` (variants `june-before-forecast`, `june-hour-edges` and `june-current-90min`), plan steps with seconds (the `plans` key), the River chart ticks (`views`) and `nowPrecip` (`home`).
+- P0.13: `test/suggest.test.js` stubs Turnstile, Claude and GitHub.
+- P0.5: `test/location.test.js` compares the Putney thresholds with a copied `DEFAULTS` literal.
