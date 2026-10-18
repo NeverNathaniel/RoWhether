@@ -505,7 +505,9 @@ Dead subscriptions, in the daily run:
 - `last_ok_at` and `last_seen_at` both older than 60 days: deleted.
 - Rows for users who deleted their account are already gone (`ON DELETE CASCADE`).
 
-Email failures: a hard bounce marks the address in `notify_log.email_status = 'bounced'`; for emergency contacts the rower is told (04 section 6.4).
+Email failures: a hard bounce marks the address in `notify_log.email_status = 'bounced'`; for emergency contacts the rower is told (04 section 6.4). A message counts as sent only when the provider accepted it (`email_status = 'sent'`); a refusal or a throttle sets `'failed'` with the provider's error.
+
+Overdue email is a lane of its own. `runOverdue` sends stage 3 and 4 emails itself, awaiting `sendEmail()` for each contact (6 at a time) before the tick enqueues anything else, so they never wait behind alerts, digests or sign-in codes. A `failed` overdue row is retried by the next ticks, up to 5 times a minute apart, and the rower is told after the first failure ("We could not email Jordan. Call someone now.", 04 section 6.5). To keep room for overdue mail, alert, digest and `system` email stops for the rest of the UTC day once the day's accepted sends reach 70% of `EMAIL_DAILY_LIMIT` (08 6.3); overdue mail and sign-in codes ignore the cap. If one overdue email has failed twice, the owner is alerted at once (5.8), not only in the daily digest.
 
 The dead letter queue is checked by the daily run; any message there is logged and counted in the owner's digest.
 
@@ -519,6 +521,7 @@ The dead letter queue is checked by the daily run; any message there is logged a
 | Push service outage | Retries | As 5.7; email fallback for overdue. |
 | VAPID secret lost | Every send 403 | Owner alert. Recovery: new keys; every device must re-subscribe (7.3), which needs a tap on Safari. |
 | Open-Meteo key quota reached | `wx` fails | The "forecast not available" message after 30 minutes; owner alert. |
+| The email provider refuses, throttles or is down | Contacts are not told, or told late | Overdue mail is sent from the tick ahead of the queue, with a share of the day's quota kept for it, and the rower hears "We could not email Jordan. Call someone now." (5.7). Two failures for one email alert the owner at once, on a channel other than email (Decision in 13). Test: a stub provider that throws gives the rower the failure line and the owner an alert. |
 
 ## 6. Web Push on Workers
 
@@ -992,6 +995,7 @@ Unit tests (Vitest, `test/`), with `fetch`, the queue and D1 stubbed in the styl
 
 `test/notify-engine.test.js`:
 
+- Overdue email: a provider stub that throws for one contact marks that row `failed`, the next tick retries it, the rower gets the failure line, and a second failure alerts the owner; overdue sends run ahead of queued alerts; alert email stops at 70% of `EMAIL_DAILY_LIMIT` and overdue email does not.
 - A tick with three due prefs at two locations fetches each location's data once and builds one model per settings group (spy on `buildModel`).
 - Dedupe: the same tick run twice inserts and enqueues once; an overlapping tick sees `ON CONFLICT` and enqueues nothing.
 - `next_at` advances in the same batch as the log insert.
@@ -1037,6 +1041,8 @@ Decision: deliver through a Cloudflare Queue with a dead letter queue. Alternati
 Decision: push and alert rules need a signed-in account. Recommended: settings, several devices, email fallback and unsubscribe all hang off the account, and accounts arrive in phase 2. Alternative: device-only subscriptions without an account, with prefs stored on the subscription row (`push_subscriptions.user_id` nullable).
 
 Decision: no SMS at launch. Alternative: Twilio SMS to emergency contacts for overdue messages only.
+
+Decision: give overdue mail a second route, and give the owner an alert that does not depend on email. Recommended: Resend on its free tier, used only for overdue email when Cloudflare Email Service refuses it, and an outside uptime monitor that pushes to the owner's phone when the tick or an overdue send fails twice. Alternative: Twilio SMS for overdue only, which needs US registration and per-message fees. Alternative: neither, relying on the rower's failure line and the owner's daily digest.
 
 Decision: set a separate VAPID key pair as Preview secrets so push works on dev. Alternative: no push on dev.
 

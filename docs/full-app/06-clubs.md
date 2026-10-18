@@ -240,7 +240,7 @@ After creating, admins see a setup checklist at the top of the club page until e
 
 Statuses: `unverified` (new), `pending_review` (proof passed or evidence sent, waiting for a moderator), `verified`.
 
-What an unverified club cannot do: appear in `GET /api/clubs` or on location pages; show a public page (non-members get 404); post a public water status (`status_public` forced to 0); claim a location as steward (01 section 13.4); post official hazards (04 section 4); have more than 100 active members. Everything else works, so a real club can start before review finishes.
+What an unverified club cannot do: appear in `GET /api/clubs` or on location pages; show a public page (non-members get 404); post a public water status (`status_public` forced to 0); claim a location as steward (01 section 13.4); post official hazards (04 section 4); have more than 100 active members; enrol juniors, by invite or on the roster (a junior invite is refused with 403 `club_not_verified`, "This club must be verified before juniors can join."). Everything else works, so a real club can start before review finishes. If verification is revoked, junior invites and messages to juniors pause until it is back.
 
 Proof methods. The token is `rw-` plus 22 base64url characters from 16 random bytes, stored in `verify_token`, and the domain checked is the registrable domain of `website`:
 
@@ -264,7 +264,7 @@ Approve: `status = 'verified'`, `verified_at`, `verified_by`, audit `club.verify
 
 Two clubs may verify the same domain (a university hosting men's and women's crews); the reviewer sees "Another club verified this domain: Dartmouth Women's Rowing" and decides.
 
-Decision: Verified status needs a domain proof (website tag, DNS record or email at the domain) or written evidence, then a moderator's approval. Unverified clubs work fully for their members but stay private.
+Decision: Verified status needs a domain proof (website tag, DNS record or email at the domain) or written evidence, then a moderator's approval. Unverified clubs work for their adult members but stay private and cannot enrol juniors.
 - Alternative: owner approval only, with no automatic proof (more manual work, same protection).
 - Alternative: automatic verification by domain proof alone (fast, but a lookalike domain passes).
 - Alternative: no verification, only an "Unverified" label (impersonation risk on public pages and location claims).
@@ -348,11 +348,13 @@ Decision: Allow roster-only members, so a junior program can use lineups, attend
 
 | Kind | How it is shared | Default uses | Default expiry | Max expiry | Who can make it |
 | --- | --- | --- | --- | --- | --- |
-| `link` | `https://rowhether.com/club/join/<token>`, token 22 chars base64url from 16 random bytes | 50 | 14 days | 90 days | Admins; coaches for member, junior and guardian presets |
+| `link` | `https://rowhether.com/club/join/<token>`, token 22 chars base64url from 16 random bytes | 50 | 14 days | 90 days | Admins; coaches for member and junior presets (never a guardian preset) |
 | `code` | 8 characters shown as `K7QF-M2XR`, from the 31-letter alphabet without 0, O, 1, I and L; case and hyphens ignored on entry | 30 | 14 days | 90 days | Same |
-| `personal` | Emailed to one address with 03's `sendEmail()`, or shown as a one-time link | 1 | 7 days | 14 days | Same; the only kind that can grant a staff role, and then only admins |
+| `personal` | Emailed to one address with 03's `sendEmail()`, or shown as a one-time link | 1 | 7 days | 14 days | Admins and coaches for member and junior presets; the only kind that can grant a staff role (admins only) or carry a guardian preset (`guardianOf`; admins and safety officers only) |
 
-Each invite has a preset: kind (`adult`, `junior`, `guardian`), roles (personal staff invites only), groups, `forMembership` (link an account to a roster-only entry), `guardianOf` (a junior membership id), and `approve` (joining creates a `requested` membership instead of `active`).
+Each invite has a preset: kind (`adult`, `junior`, `guardian`), roles (personal staff invites only), groups, `forMembership` (link an account to a roster-only entry), `guardianOf` (a junior membership id; personal invites only), and `approve` (joining creates a `requested` membership instead of `active`).
+
+A guardian preset, and `guardianOf`, are allowed only on `personal` invites: single use, sent to one email address, valid 7 days, made by an admin or safety officer. The Worker refuses a link or code invite that carries either (400 `guardian_needs_personal`), and `invites` has a CHECK for it (08 4.4). A reusable link can never make someone a guardian of a named child.
 
 Tokens and codes are stored as they are (not hashed) so admins can share them again; they only admit someone to one club, they expire, and they can be revoked. Staff-role invites are single use and expire within 7 days.
 
@@ -385,8 +387,8 @@ Approve opens kind and groups. Decline is silent: the requester sees "Not approv
 
 03 settled the safeguarding outline (08 K48): rowers aged 13 to 17 may hold accounts without a guardian, with 03 11.3's junior defaults; children under 13 do not hold accounts; and joining a club as a junior needs a linked guardian (03 11.5) to approve, as below.
 
-- A junior with an account joins only by an invite with the `junior` preset. Their membership is `pending_guardian` until one linked guardian (03) approves in their own account: "Sam wants to join Putney Rowing Club as a junior. Approve?" Approval also makes the guardian a club guardian of Sam (kind `guardian` unless they already have a membership). If the guardian declines, the membership is `declined`.
-- A guardian joins by a guardian invite made for a specific junior (`guardianOf`), or automatically when their linked junior joins. A junior has at most 4 guardians in a club.
+- A junior with an account joins only by an invite with the `junior` preset, and only a verified club can make one (3.3). Their membership is `pending_guardian` until one linked guardian (03) approves in their own account: "Sam wants to join Putney Rowing Club as a junior. Approve?" The screen shows "Verified club" and the club's website. Approval also makes the guardian a club guardian of Sam (kind `guardian` unless they already have a membership). If the guardian declines, the membership is `declined`.
+- A guardian joins by a personal guardian invite made for a specific junior (`guardianOf`, 4.3), or when their linked junior joins (03 11.5). A junior has at most 4 guardians in a club. A new club guardian shows to staff as "Waiting for an admin to confirm" until an admin confirms them (`club_guardians.confirmed_at`). Until then they see nothing of the junior and do not count as another adult for 03's `audienceGuard()`. The club's admins and the junior's other guardians are told when a guardian is added and when one is confirmed.
 - Junior memberships always have club rules on (`rules_on = 1`, enforced by a CHECK).
 - At 18 (from 03's `junior_until`, checked by the daily run; for roster-only juniors, staff change the kind), the kind becomes `adult`, `club_guardians` rows for them are removed, and both sides are told: "Sam is now an adult member of Putney Rowing Club. Guardians no longer see Sam's club schedule."
 - Each September 1, staff get a reminder to check roster-only junior kinds.
@@ -955,7 +957,7 @@ What each role sees is shaped on the server (`boardRow(row, ctx)`):
 | Adult member, equipment manager | Adults by name; junior crews as "Junior crew of 9 with Lee M." | Back and Add time on boats they are in; Start a row |
 | Junior | Their own rows and their crewmates | Back on their own boat if self start is on |
 | Guardian | Their junior's rows, with the coach's name, no crewmates | None |
-| Kiosk | Adults as first name and last initial; junior crews unnamed | Start a row (self), Back for rows started at the kiosk or by the picked member |
+| Kiosk | Adults as first name and last initial; junior crews unnamed | Start a row (self), Back only for rows started at that kiosk |
 
 Empty: "No boats on the water. Start a row to put one here."
 
@@ -972,9 +974,9 @@ Pairing:
 3. `POST /api/kiosk/pair` checks the code (rate limited by `JOIN_CODE_LIMIT`, 5 tries a minute per IP; 22.6), clears it, and sets cookie `rw_kiosk`: a 32-byte random token, `HttpOnly; Secure; SameSite=Strict; Path=/api/; Max-Age=15552000` (180 days, renewed on use). Only its SHA-256 is stored.
 4. Admins see each screen with its last activity and a "Remove" button.
 
-What a kiosk can do: read the board (kiosk view), read adult member names (first name, last initial) for the picker, start a row for a picked adult, mark back rows it started or the picked member's. What it cannot do: see staff tools, incidents, clearances (other than "missing" warnings for the picked person), contacts, settings, junior names.
+What a kiosk can do: read the board (kiosk view), read adult member names (first name, last initial) for the picker, start a row for a picked adult, mark back only rows started at that kiosk (`device_id`); a row started on a phone is marked back from that phone or by staff. What it cannot do: see staff tools, incidents, clearances (other than "missing" warnings for the picked person), contacts, settings, junior names.
 
-Kiosk Start a row: "Who is rowing?" name picker (search, then most recent at this kiosk), then boat type, boat, crew (more names), launch switch, back by, then the against-rules sheet if needed. If the picked member has an account, `user_id` is that account: their phone gets 04's reminders, and their float plan default applies, with the line "Sam's contacts will be emailed if Sam is late." Otherwise `user_id` is NULL. Anyone at the boathouse can pick any adult name, as with a paper logbook; a member who finds a row they did not start can delete it from their log, and the board keeps an audit row with the device.
+Kiosk Start a row: "Who is rowing?" name picker (search, then most recent at this kiosk), then boat type, boat, crew (more names), launch switch, back by, then the against-rules sheet if needed, then a confirm step that shows the name, boat, start time and back-by time ("Sam R., 4x Hudson, on the water now, back by 8:30 AM. Start?"), so a wrong name is caught before it counts. A kiosk row always has `user_id` NULL and `float_plan` 0, even when the picked member has an account: a kiosk never arms anyone's float plan, never emails anyone's contacts and never uses a member's one active outing (04 5.1). A picked member with an account is linked as crew (04 5.5), and their phone gets a push at once, or an email when they have no push: "Putney Rowing Club started a row with you in it at 6:42 AM, back by 8:30 AM. Not you? Undo." Undo removes them from the crew and writes an audit row with the device. A member who wants their own contacts told starts their own row on their phone (04 5.2). Anyone at the boathouse can still pick any adult name, as with a paper logbook, but a wrong pick emails nobody and ends nobody's outing; if the row is overdue the club chain (8.6) tells the club's staff.
 
 Screen: large type (body at least 20 px), the location's Now hero at the top with the club status, the board below, refreshed every 30 seconds. It asks for a screen wake lock (`navigator.wakeLock.request('screen')`) where the browser supports it (support across browsers unverified) and shows "Keep this screen plugged in" otherwise.
 
@@ -1613,6 +1615,7 @@ CREATE TABLE IF NOT EXISTS invites (
   CHECK ((kind = 'code') = (code IS NOT NULL)),
   CHECK ((kind = 'code') = (token IS NULL)),
   CHECK (kind = 'personal' OR email IS NULL),
+  CHECK (kind = 'personal' OR (json_extract(preset, '$.guardianOf') IS NULL AND json_extract(preset, '$.kind') IS NOT 'guardian')),
   CHECK (uses <= max_uses),
   CHECK (expires_at > created_at AND expires_at <= created_at + 7776000000)
 );
@@ -1665,6 +1668,8 @@ CREATE TABLE IF NOT EXISTS club_guardians (
   guardian_id TEXT NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
   created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
   created_at INTEGER NOT NULL,
+  confirmed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  confirmed_at INTEGER,
   PRIMARY KEY (junior_id, guardian_id),
   CHECK (junior_id <> guardian_id)
 );
@@ -2018,6 +2023,7 @@ CREATE TABLE outings (
   distance_m INTEGER CHECK (distance_m IS NULL OR distance_m BETWEEN 0 AND 200000),
   notes TEXT CHECK (notes IS NULL OR length(notes) <= 500),
   clock_skew INTEGER NOT NULL DEFAULT 0 CHECK (clock_skew IN (0, 1)),
+  share_guardians INTEGER NOT NULL DEFAULT 0 CHECK (share_guardians IN (0, 1)), -- a junior shows this row to guardians (03 11.5)
   -- 06 columns, created in phase 3 and unused until phase 5 (no foreign keys to tables that do not exist yet)
   club_id TEXT,
   created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
@@ -2980,7 +2986,7 @@ Phase 5:
 - `test/club-context.test.js`: 19.3's response; `unchanged` for rules with statuses still present (21.6); a guardian who does not row gets no hero context; a member of two clubs gets both.
 - `test/club-board.test.js`: 8.4's sections and order; shaping per role; a staff start for a crew of roster-only members with no `user_id`; any number of crew outings with no `user_id` out at once while each account has at most one; a member on two boats that are out refused; `against` set from `ruleLvl` 2 or an excluded status; Back, Add time, On it and each Resolve outcome; 04's routes accept the club's staff.
 - `test/club-overdue.test.js`: 24.5 B.
-- `test/kiosk.test.js`: a 6-digit pairing code valid 10 minutes; `JOIN_CODE_LIMIT`; cookie attributes exactly as 8.5; only the SHA-256 stored; 5 screens; `KIOSK_LIMIT`; a revoked device refused; the roster as first name and last initial with no juniors.
+- `test/kiosk.test.js`: a 6-digit pairing code valid 10 minutes; `JOIN_CODE_LIMIT`; cookie attributes exactly as 8.5; only the SHA-256 stored; 5 screens; `KIOSK_LIMIT`; a revoked device refused; the roster as first name and last initial with no juniors; a kiosk row for a member with an account has `user_id` NULL and `float_plan` 0, the member gets the push or email with Undo, Undo removes them from the crew, and the member's own Start a row still works; the kiosk cannot mark back a row started on a phone.
 - `test/incidents.test.js`: a junior cannot file (403); conditions prefilled from the outing's `snap`; each staff read writes `incident.view`; the CSV in USRowing's order with names replaced by roles unless `names=1`; share publishes the summary and sends S10; S8 and S9 rows carry no narrative (the canary).
 - `test/club-notify.test.js`: 21.2's rules in order. Roster-only skipped; guardians added with `forJunior`; an `audienceGuard()` refusal returns 409 `needs_adult` and writes nothing; `discontinue` drops Jamie's row and keeps Morgan's; `mute_nonsafety` writes Jamie's row as `inapp`; the most protective guardian setting wins; junior quiet hours hold a 10:30 PM cancellation for Jamie until 6 AM while Morgan gets it at once; the actor left out; one row per person per event (Morgan with two juniors in one lineup). Caps: the ninth member push and the 21st staff duty push become in-app. The `off` list respected; a missing pref means on; 21.7's stale drops; 21.4's dedupe keys, with a repeated handler call inserting nothing new.
 - `test/club-export.test.js` and `test/club-retention.test.js`: 16.2 (no emails, incidents only for safety officers, 5 a day, the audit row) and 16.3 row by row with a fake clock.
@@ -3039,7 +3045,7 @@ Setup: Sam L. starts a 1x at 6:10 AM, back by 7:30 AM, with a grace of 15 minute
 11. Quiet hours (a row due at 3 AM), caps (a recipient already at 8 and at 20), `mute_nonsafety`, `discontinue` and the `off` list never stop stages 2 and 3.
 12. The club suspended at 7:40 AM, or set to delete, still escalates this outing (21.4).
 13. Two ticks in the same minute send each stage once. After a 40-minute outage, stage 1 goes out, then stage 2 one tick later, and neither twice.
-14. A kiosk row with no account (`user_id` NULL) escalates the same way.
+14. A kiosk row (`user_id` NULL, whether or not the picked member has an account) escalates the same way.
 15. A member's own row runs 04's personal chain and the club chain: the rower gets 04's messages, the safety officers get the club's, and neither repeats the other.
 16. The night of 2026-11-01: a row due at 1:40 AM EDT (05:40 UTC) reaches stage 1 at 1:55 AM EDT and stage 2 at 1:10 AM EST (06:10 UTC), at the right instants, with those local times printed.
 
@@ -3087,7 +3093,7 @@ Every "Decision:" line in this document, recommendation first, then the alternat
 
 From sections 3 to 11:
 
-Decision: Verified status needs a domain proof (website tag, DNS record or email at the domain) or written evidence, then a moderator's approval. Unverified clubs work fully for their members but stay private. (3.3)
+Decision: Verified status needs a domain proof (website tag, DNS record or email at the domain) or written evidence, then a moderator's approval. Unverified clubs work for their adult members but stay private and cannot enrol juniors. (3.3)
 - Alternative: owner approval only, with no automatic proof.
 - Alternative: automatic verification by domain proof alone.
 - Alternative: no verification, only an "Unverified" label.
@@ -3201,7 +3207,7 @@ Decision: 01 creates `locations` in phase 3 without `steward_club_id`, and phase
 - Escalation timing. The 15, 15 and 30 minute steps (8.6) and the 2-minute delivery target are first guesses. Junior programs may want shorter (04's open question). Ask the pilot club.
 - Afternoon practices. 12.2's 18-hour window gives a 3 PM practice no evening check. Ask pilot coaches whether a midday check for afternoon practices is wanted.
 - Warn, not block. Whether clubs accept it (8.3). Watch the `against` rate and S6 volume in the pilot.
-- The kiosk lets anyone at the boathouse pick any adult's name (8.5), as a paper logbook does. Confirm with the pilot club and 03's legal review.
+- The kiosk lets anyone at the boathouse pick any adult's name (8.5), as a paper logbook does. A wrong pick now emails nobody and ends nobody's outing, and the picked member gets an Undo. Confirm with the pilot club and 03's legal review.
 - Legal review (03 section 13.5): roster-only athletes under 13 (03 section 11.7), incident retention when minors are named (9.3), the guardian phone sharing default (5.2 rule 8).
 - A safety officer with no working device. M4 tells them and shows admins (21.4). Whether to also email a weekly reminder until a device is added is open.
 - Facts still unverified: British Rowing's incident reporting page (it returned 403 to this sandbox), national incident forms for Canada and Australia, default emergency numbers outside the US (8.7), RegattaCentral's role (2.3), Google Calendar's refresh interval and which clients read `X-PUBLISHED-TTL` (14.2), and all of Putney Landing's emergency info, to collect on site.

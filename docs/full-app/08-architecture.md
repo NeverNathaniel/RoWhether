@@ -339,6 +339,10 @@ That is 47 tables after phase 6, plus `locations_fts` (verified live 2026-10-18:
 | `notify_log` | CHECK becomes `user_id IS NOT NULL OR kind = 'system'`; rows for emergency contacts carry the rower's `user_id` and the `contact_id` | With 05's CHECK, deleting an emergency contact set `contact_id` to NULL on a row whose `user_id` was NULL, which fails the CHECK and blocks the delete. Rows for contacts belong to the rower's history and go with the rower's account (03 12.9). The in-app list filters `contact_id IS NULL`. |
 | `clubs` | New `verify_email`, `verify_code_hash`, `verify_code_expires_at`, `verify_attempts` | 06 3.3's email-at-the-domain method needs a 6-digit code stored as an HMAC, 5 tries and 30 minutes; 06 named no columns. |
 | `memberships` | New `share_phone` | 06 5.2 rule 8 and `PATCH /api/clubs/:slug/me` `sharePhone`. |
+| `club_guardians` | New `confirmed_by`, `confirmed_at` | A guardian added by an invite or a link is confirmed by a club admin before they see a junior's club life or count as another adult (06 4.5; people and safety review P18). |
+| `invites` | CHECK that a guardian preset or `guardianOf` is only on a `personal` invite | A reusable link or code could otherwise make anyone a guardian of a named child (06 4.3, P18). |
+| `guardian_links` | `ended_reason` gains `junior`; new `end_reason`, `end_note` | A junior can end a link and say why (03 11.5, P17). |
+| `outings` | New `share_guardians` | A junior shows one row to guardians on purpose (03 11.5, 04 5.2, P17). |
 | `club_devices` | `location_id` SET NULL | A paired screen outlives a removed location link. |
 | `practices` | `check_at` and the indexes from 06 21.7 | 06 asked 08 to fold them into 18.2. |
 
@@ -851,6 +855,7 @@ CREATE TABLE IF NOT EXISTS outings (
   distance_m INTEGER CHECK (distance_m IS NULL OR distance_m BETWEEN 0 AND 200000),
   notes TEXT CHECK (notes IS NULL OR length(notes) <= 500),
   clock_skew INTEGER NOT NULL DEFAULT 0 CHECK (clock_skew IN (0, 1)),
+  share_guardians INTEGER NOT NULL DEFAULT 0 CHECK (share_guardians IN (0, 1)), -- a junior shows this row to guardians (03 11.5)
   -- 06 columns: no foreign keys to club tables, which arrive in phase 5 and 6
   club_id TEXT,
   created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
@@ -1109,6 +1114,7 @@ CREATE TABLE IF NOT EXISTS invites (
   CHECK ((kind = 'code') = (code IS NOT NULL)),
   CHECK ((kind = 'code') = (token IS NULL)),
   CHECK (kind = 'personal' OR email IS NULL),
+  CHECK (kind = 'personal' OR (json_extract(preset, '$.guardianOf') IS NULL AND json_extract(preset, '$.kind') IS NOT 'guardian')),
   CHECK (uses <= max_uses),
   CHECK (expires_at > created_at AND expires_at <= created_at + 7776000000)
 );
@@ -1162,6 +1168,8 @@ CREATE TABLE IF NOT EXISTS club_guardians (
   guardian_id TEXT NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
   created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
   created_at INTEGER NOT NULL,
+  confirmed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  confirmed_at INTEGER,
   PRIMARY KEY (junior_id, guardian_id),
   CHECK (junior_id <> guardian_id)
 );
@@ -1298,7 +1306,9 @@ CREATE TABLE IF NOT EXISTS guardian_links (
   initiated_by TEXT NOT NULL CHECK (initiated_by IN ('junior', 'guardian', 'club')),
   club_id TEXT REFERENCES clubs(id) ON DELETE SET NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'ended')),
-  ended_reason TEXT CHECK (ended_reason IS NULL OR ended_reason IN ('guardian', 'admin', 'adult', 'deleted', 'expired')),
+  ended_reason TEXT CHECK (ended_reason IS NULL OR ended_reason IN ('guardian', 'junior', 'admin', 'adult', 'deleted', 'expired')),
+  end_reason TEXT CHECK (end_reason IS NULL OR end_reason IN ('not_my_guardian', 'not_comfortable', 'other')), -- given by a junior who ends the link
+  end_note TEXT CHECK (end_note IS NULL OR length(end_note) <= 300),
   mute_nonsafety INTEGER NOT NULL DEFAULT 0 CHECK (mute_nonsafety IN (0, 1)),
   discontinue INTEGER NOT NULL DEFAULT 0 CHECK (discontinue IN (0, 1)), -- 11.4 rule 9
   created_at INTEGER NOT NULL,
@@ -1654,6 +1664,7 @@ Flags are strings `"1"` (on) and `"0"` (off), compared with `=== '1'`, so an uns
 | `AUTH_HOSTS` | `rowhether.com` | the `dev` Preview host (to fill in; the subdomain is unverified) | 2 | passkey RP ID, cookie host | 03 5.7 |
 | `EMAIL_FROM` | `RoWhether <signin@rowhether.com>` | same | 2 | account mail | 03 14.3 |
 | `ALERTS_FROM` | `RoWhether <alerts@rowhether.com>` | same | 3 | notification mail | 05 2.2 |
+| `EMAIL_DAILY_LIMIT` | the account's daily email quota once Cloudflare shows it; `"0"` means unknown and sets no cap | `"0"` | 3 | alert, digest and `system` email stop at 70% of it, keeping the rest for overdue mail and codes | 05 5.7 |
 | `TERMS_VERSION` | `2026-11-01` (date of the published terms) | same | 2 | sign-up, the terms banner | 03 |
 | `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` | the owner's Zero Trust values | the Preview application's values | 1 | `worker/auth/access.js` | 03 3.7 |
 | `LOCATIONS_DB` | `"1"` from phase 3 | `"1"` from phase 3 | 3 | `/api/info` `locations` (01 14.10) | 08 |
@@ -2008,6 +2019,7 @@ Clubs (phase 5, owner 06 19.1). Every write here uses `CLUB_LIMIT` unless the ro
 | POST | `/api/me/guardians/accept` | recent | `AUTH_LIMIT`, D1 5 an hour | 5 (03 16.7) |
 | GET | `/api/me/guardians` | session | none | 5 (03 16.7) |
 | PATCH, DELETE | `/api/me/juniors/:linkId` | guardian, recent | `AUTH_LIMIT` | 5 (03 16.7) |
+| DELETE | `/api/me/guardians/:linkId` | session (junior), recent | `AUTH_LIMIT` | 5 (03 16.7) |
 | GET | `/api/me/juniors/:userId/activity?before=` | guardian | none | 5 (03 16.7) |
 
 Club operations (phase 6, owner 06 19.2):
