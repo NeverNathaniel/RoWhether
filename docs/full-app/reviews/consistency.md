@@ -4,7 +4,7 @@ Reviewed `docs/full-app/01` to `08` and the code they describe, on `dev-full-app
 
 Status: in progress
 
-Count: 8 blockers, 17 major, 28 minor.
+Count: 8 blockers, 17 major, 30 minor.
 
 Severity: blocker means it must be fixed before the phase it affects is built; major means wrong, contradictory or unsafe; minor means wording or a small gap. Every finding was checked against the files named. Quotes are exact. Line numbers are for the commit above.
 
@@ -155,8 +155,8 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 
 - Severity: minor.
 - Where: 08 3.4 (line 187), 13.1 (line 2471), 13.6 (line 2523), 14.2 P0.2 and P0.3.
-- Problem: 3.4 lists `playwright.config.js`, `test/browser/fixtures.js`, `screens.spec.js` and `timing.spec.js` for phase 0, but not `smoke.spec.js`, which P0.2 creates and 13.7 lists. 13.1 says "WebKit and Firefox on the owner's machine"; P0.2 configures WebKit twins only. 13.6: "Screenshots and the budget report are uploaded as artifacts"; P0.3's CI change has no upload step.
-- Fix: Add `smoke.spec.js` to 3.4, drop Firefox from 13.1 or add its projects, and add an `actions/upload-artifact` step to P0.3 or drop the sentence.
+- Problem: 3.4 lists `playwright.config.js`, `test/browser/fixtures.js`, `screens.spec.js` and `timing.spec.js` for phase 0, but not `smoke.spec.js`, which P0.2 creates and 13.7 lists; its unit test row (line 188) names `location`, `format`, `storage` and `sources` tests but not `test/units.test.js`, which P0.11 adds and 13.7 lists. 13.1 says "WebKit and Firefox on the owner's machine"; P0.2 configures WebKit twins only. 13.6: "Screenshots and the budget report are uploaded as artifacts"; P0.3's CI change has no upload step.
+- Fix: Add `smoke.spec.js` and `test/units.test.js` to 3.4, drop Firefox from 13.1 or add its projects, and add an `actions/upload-artifact` step to P0.3 or drop the sentence.
 
 #### C21. P0.4's comparison test has nothing to compare against after the change
 
@@ -166,6 +166,8 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Fix: Copy today's six formatter definitions into `test/format.test.js` as the reference.
 
 ## Contradictions between the documents and with 08
+
+Topic documents that still disagree with 08, and places where two topic documents disagree with each other. Table and column differences that 08 4.3 already records (and that each topic document points to) are not repeated here.
 
 ### Major
 
@@ -211,6 +213,41 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Problem: 08: "POST `/api/reports` | none (Turnstile from 3) | `REPORT_LIMIT` | today; alias until 4". 04: "old clients have no Turnstile, so the alias accepts signed-out reports without it but at weight 0.5 and under a tighter limit (10 a day per `ip_hash`)". The alias exists so that "a home screen app that has not updated yet still works"; built from 08 it refuses every such report.
 - Fix: 08 7.3's auth cell for the alias becomes "none (weight 0.5, D1 10 a day, 04 3.9)".
 
+#### C33. Cloudflare Access lets only the owner reach routes that moderators need
+
+- Severity: major (phase 3).
+- Where: 03 3.7 (lines 213 and 217) and 12.4 (line 895); 07 5.14 (line 673); 08 7.3 (lines 1923, 1941, 1973).
+- Problem: 03: "add a self-hosted Access application for `rowhether.com/admin*` and `rowhether.com/api/admin/*` ... Policy: allow the owner's email only", and "keep Cloudflare Access in front of `/admin*` and `/api/admin/*` after phase 2 as a second lock". 07: `/admin` from phase 2 "also needs site role `moderator` or `admin`". 08 puts moderator routes under that prefix: `GET /api/admin/queue` (mod), `POST /api/admin/clubs/:slug/review` (mod), `GET /api/admin/reports.csv` (owner or mod), and defines **mod** as a site role in a passkey session, without Access. Access answers before the Worker runs, so no moderator except the owner can open the queue.
+- Fix: Either move the moderator routes and the moderator part of `/admin` out from under Access (for example `/api/mod/*`, which 08 already uses for user name resets and suspensions, and a `/mod` page), or make the Access policy include every moderator and say who keeps it in step with `site_role`.
+
+#### C34. Synced `waterOverride` values are strings today, which 03 and 08 would refuse
+
+- Severity: major (phase 2).
+- Where: `src/settings.js` line 26; 03 9.2 (line 610); 08 7.5 (line 2060); 08 14.2 P0.7 (line 2667) and P0.1 (line 2582).
+- Problem: Today Settings stores the dock reading as typed text: `if (k === 'waterOverride') { next[k] = raw; continue; }`, so a saved value is `"55"`. P0.7 keeps "the values as today" and migrates them "unchanged". 03 9.2: a synced value "is JSON: a finite number, `""` ..., an object for `plan`, or null", and unknown or invalid values answer 400 `invalid`; 08 7.5 lists `waterOverride` as "number or `""`". The first push from a device that has a dock reading fails, and with 200 changes per request the whole outbox can stall. The golden cases also pass `waterOverride: 55` as a number, so they do not exercise the stored shape.
+- Fix: In P0.7, store `waterOverride` as a number (or `''`) on save and convert it in `migrateStorage()`, with a golden case that uses the string form today's users have; or have 03 9.2 accept a numeric string for this key and normalize it on the server.
+
+#### C35. 03 and 04 make opposite promises about raw coordinates in reports
+
+- Severity: major (phase 3, privacy).
+- Where: 03 12.2 (lines 875 and 876); 04 3.4 (lines 184 to 194).
+- Problem: 03: "If 04 wants proof someone is at the dock, the browser computes it and sends only a flag (`"atDock": true` when within 500 m of the location's dock point), not coordinates", and "Rounding before the request keeps precise coordinates out of request logs." 04: the dialog "sends `geo: { lat, lon, acc }`" with `enableHighAccuracy: true`, and "The Worker computes the distance ... and stores only one word", with a 1,500 m radius. The privacy notice (03 13.3) would promise what 04 does not do, and the two radii differ.
+- Fix: Pick one. Recommended: 03's rule, since the browser has the dock point from the location record: compute `near`, `far` or `unknown` in the browser with 04's 1,500 m and accuracy rules, send only the word, and correct 03's 500 m.
+
+#### C40. Server-side alert matching needs zone codes that no binding carries, and reads the wrong state for Putney
+
+- Severity: major (phase 4).
+- Where: 05 5.3 `runAlerts()` steps 1 to 3 (lines 393 to 395); 01 6.1 (lines 444 to 446) and 6.3 (line 550); 02 discovery response (line 540).
+- Problem: 05 fetches `alerts/active?area=<state>` for the state in the location's `region` ("`US-VT` becomes `VT`") and matches an alert "when the alert's `geocode.UGC` list contains one of the location's zone codes (forecast zone and county, kept in the alerts binding's `params.ugc` by 02's discovery, for example `["VTZ015", "VTC025"]`), or when the alert has a `geometry` polygon that contains the dock point". No binding has `params.ugc`: Putney's alerts binding is `"ref": "point:42.9607,-72.5219"` with no params (01 6.3), its phase 1 plan is `zones:VTZ015,NHZ011` in `ref` (01 6.1), and 02's discovery returns `"zones": []` under `alerts`. 01 6.1 also records that the dock point resolves to New Hampshire zone NHZ011, so the app shows Cheshire County NH alerts while the engine, reading only `?area=VT`, never sees them. 05 notes that only 15 of 553 alerts carried a polygon, so the fallback rarely matches. Notifications and the app would disagree about the same location.
+- Fix: Define the zone list once in 01 4.4 (for example `params.ugc` on every `nws-alerts` binding, filled by discovery and by curation, Putney `["VTZ015", "VTC025", "NHZ011", "NHC005"]`), and have `runAlerts()` request every state those codes name, not the `region`'s state.
+
+#### C49. 05 merges club rules and personal limits in the opposite order to 06
+
+- Severity: major (phase 5).
+- Where: 05 5.2 `runDue()` step 4 (line 351); 06 6.5 (lines 621 to 627).
+- Problem: 05: "the effective settings `S` for that location: the location's thresholds (01), then the user's synced overrides for that location (03's `user_settings`), then club rules when the user rows under a club rule set (06)". 06: "`S = { ...Base, ...Club }`" and then "For each key, `S[k] = stricter(k, S[k], personal[k])`. A personal value looser than `S` is ignored". In 05's order the club value replaces a member's stricter personal limit, so a night-before message can say Go while the app, with the same data, says Caution. 05 3.2 sets the rule that "a notification and the screen never disagree".
+- Fix: 05 5.2 step 4: "`S` from 06's `clubSettings()` when club rules apply, else 01's `effectiveSettings()`", so the Worker and the app call the same function.
+
 ### Minor
 
 #### C28. `LOCATION_LIMIT` is keyed by connection in 01 and by user in 08
@@ -241,44 +278,6 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Problem: 07: "Phase 0 reproduces today's Putney text exactly, from the Putney record's `copy.credits` (01)." 08: "Leave `index.html` alone: its title, manifest name, settings notes and credits change in phase 1 (07 15)." The text is the same either way (checked: `copy.credits` equals `index.html` line 90 with tags removed), so only the phase differs.
 - Fix: 07 6.6: "Phase 1 renders the credits from `copy.credits` ...; phase 0 leaves `index.html` as it is (08 14.3)."
 
-## Markdown that changes meaning
-
-### Major
-
-#### C32. Unescaped pipes break eight rows of 06's API tables
-
-- Severity: major.
-- Where: 06 19.1 (lines 2089, 2091, 2103, 2107, 2117) and 19.2 (lines 2137, 2141, 2142).
-- Problem: In a table row, `|` ends a cell even inside a code span. For example line 2141, "`PATCH`, `DELETE /api/clubs/:slug/practices/:id?scope=one|following` | Coach, admin | Edit or delete", renders the path as "...?scope=one", the Who column as "following`" and the Purpose column as "Coach, admin", and drops "Edit or delete". The other rows split JSON bodies such as `{ "method": "meta" | "dns" | "email" | "manual", ... }` across columns, so the Purpose text is cut. Checked with a script that counts unescaped pipes against each table's header; only 06 has such rows.
-- Fix: Escape each pipe inside those code spans as `\|`, or write the alternatives in words ("`method`: `meta`, `dns`, `email` or `manual`"), as 08 7.3 does with "`?scope=one` or `?scope=following`".
-
-## More contradictions between the documents
-
-### Major
-
-#### C33. Cloudflare Access lets only the owner reach routes that moderators need
-
-- Severity: major (phase 3).
-- Where: 03 3.7 (lines 213 and 217) and 12.4 (line 895); 07 5.14 (line 673); 08 7.3 (lines 1923, 1941, 1973).
-- Problem: 03: "add a self-hosted Access application for `rowhether.com/admin*` and `rowhether.com/api/admin/*` ... Policy: allow the owner's email only", and "keep Cloudflare Access in front of `/admin*` and `/api/admin/*` after phase 2 as a second lock". 07: `/admin` from phase 2 "also needs site role `moderator` or `admin`". 08 puts moderator routes under that prefix: `GET /api/admin/queue` (mod), `POST /api/admin/clubs/:slug/review` (mod), `GET /api/admin/reports.csv` (owner or mod), and defines **mod** as a site role in a passkey session, without Access. Access answers before the Worker runs, so no moderator except the owner can open the queue.
-- Fix: Either move the moderator routes and the moderator part of `/admin` out from under Access (for example `/api/mod/*`, which 08 already uses for user name resets and suspensions, and a `/mod` page), or make the Access policy include every moderator and say who keeps it in step with `site_role`.
-
-#### C34. Synced `waterOverride` values are strings today, which 03 and 08 would refuse
-
-- Severity: major (phase 2).
-- Where: `src/settings.js` line 26; 03 9.2 (line 610); 08 7.5 (line 2060); 08 14.2 P0.7 (line 2667) and P0.1 (line 2582).
-- Problem: Today Settings stores the dock reading as typed text: `if (k === 'waterOverride') { next[k] = raw; continue; }`, so a saved value is `"55"`. P0.7 keeps "the values as today" and migrates them "unchanged". 03 9.2: a synced value "is JSON: a finite number, `""` ..., an object for `plan`, or null", and unknown or invalid values answer 400 `invalid`; 08 7.5 lists `waterOverride` as "number or `""`". The first push from a device that has a dock reading fails, and with 200 changes per request the whole outbox can stall. The golden cases also pass `waterOverride: 55` as a number, so they do not exercise the stored shape.
-- Fix: In P0.7, store `waterOverride` as a number (or `''`) on save and convert it in `migrateStorage()`, with a golden case that uses the string form today's users have; or have 03 9.2 accept a numeric string for this key and normalize it on the server.
-
-#### C35. 03 and 04 make opposite promises about raw coordinates in reports
-
-- Severity: major (phase 3, privacy).
-- Where: 03 12.2 (lines 875 and 876); 04 3.4 (lines 184 to 194).
-- Problem: 03: "If 04 wants proof someone is at the dock, the browser computes it and sends only a flag (`"atDock": true` when within 500 m of the location's dock point), not coordinates", and "Rounding before the request keeps precise coordinates out of request logs." 04: the dialog "sends `geo: { lat, lon, acc }`" with `enableHighAccuracy: true`, and "The Worker computes the distance ... and stores only one word", with a 1,500 m radius. The privacy notice (03 13.3) would promise what 04 does not do, and the two radii differ.
-- Fix: Pick one. Recommended: 03's rule, since the browser has the dock point from the location record: compute `near`, `far` or `unknown` in the browser with 04's 1,500 m and accuracy rules, send only the word, and correct 03's 500 m.
-
-### Minor
-
 #### C36. 03 still recommends signed-out alerts, which 05 declined
 
 - Severity: minor.
@@ -307,16 +306,66 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Problem: 01: "Cached for 30 days per adapter and ref (08 picks Cache API or KV)"; 08 6.6 picked D1 `source_cache`. 02: "Refresh yearly: the Cron Trigger on January 15 recomputes `stats`"; 08 6.4 has only `* * * * *` and `17 9 * * *`. 02's `PUT /api/locations/:slug/sources` body still uses the rejected binding shape (`"slot": "river"`, `"adapter": "usgs-latest"`, `"params": { "flow": ... }`), while 08 K2 and K3 store 01's `role`, provider `adapter` (`usgs-ogc`) and `ref`.
 - Fix: 01: "cached in D1 `source_cache` for 30 days (08 6.6)". 02 step 7: "the daily run on January 15". 02's body example in 01's binding fields (4.4).
 
-### Major (continued)
+#### C46. 06's code map predates 08's choices for keys, `/api/info` and admin routing
 
-#### C40. Server-side alert matching needs zone codes that no binding carries, and reads the wrong state for Putney
+- Severity: minor.
+- Where: 06 22.4 (lines 2785 and 2795) and 22.5 (lines 2805 and 2816); 08 3.2 (line 153), 3.5 (lines 233 and 239), 8.1, 6.3.
+- Problem: 06 adds "storage keys `CLUB_KEY` (`rowhether-club-v1`), `BOARD_KEY`, `INCIDENT_DRAFT_KEY`" as constants; 08 8.1 keeps every key in one `KEYS` object from phase 0. 06 has "`src/reports.js` | 5 | `loadInfo()` reads `clubs`"; 08 3.2 moves `loadInfo` to `src/info.js` in phase 1. 06 has "`worker/admin.js` (03) | 5 | Routes `/api/admin/clubs/*` to `worker/clubs/verify.js`"; 08 3.5 sends `/api/admin/clubs/` straight to `routeClubs()`, and `worker/admin.js` is 07's phase 1 metrics file. 06's `info()` line says "beside today's `reports: !!env.DB`", which 08 6.3 replaces with the `REPORTS_ENABLED` rule from phase 2.
+- Fix: Bring 06 22.4 and 22.5 in line: `KEYS.club`, `KEYS.board`, `KEYS.incidentDraft`; `src/info.js`; `/api/admin/clubs/*` in `worker/clubs/index.js`; 08 6.3's `reports` rule.
 
-- Severity: major (phase 4).
-- Where: 05 5.3 `runAlerts()` steps 1 to 3 (lines 393 to 395); 01 6.1 (lines 444 to 446) and 6.3 (line 550); 02 discovery response (line 540).
-- Problem: 05 fetches `alerts/active?area=<state>` for the state in the location's `region` ("`US-VT` becomes `VT`") and matches an alert "when the alert's `geocode.UGC` list contains one of the location's zone codes (forecast zone and county, kept in the alerts binding's `params.ugc` by 02's discovery, for example `["VTZ015", "VTC025"]`), or when the alert has a `geometry` polygon that contains the dock point". No binding has `params.ugc`: Putney's alerts binding is `"ref": "point:42.9607,-72.5219"` with no params (01 6.3), its phase 1 plan is `zones:VTZ015,NHZ011` in `ref` (01 6.1), and 02's discovery returns `"zones": []` under `alerts`. 01 6.1 also records that the dock point resolves to New Hampshire zone NHZ011, so the app shows Cheshire County NH alerts while the engine, reading only `?area=VT`, never sees them. 05 notes that only 15 of 553 alerts carried a polygon, so the fallback rarely matches. Notifications and the app would disagree about the same location.
-- Fix: Define the zone list once in 01 4.4 (for example `params.ugc` on every `nws-alerts` binding, filled by discovery and by curation, Putney `["VTZ015", "VTC025", "NHZ011", "NHC005"]`), and have `runAlerts()` request every state those codes name, not the `region`'s state.
+#### C47. 07 and 05 repeat facts 08 has since settled
+
+- Severity: minor.
+- Where: 07 9.2 (line 1060); 05 5.6 (line 460); 08 K27 and 6.1 (line 1620).
+- Problem: 07: "01 8.6 keeps 5 locations." 01 8.6 now keeps 10 (K27). 05: "Whether the `previews` block in `wrangler.jsonc` accepts `queues` ... is unverified; if not, the Preview build skips enqueueing". 08 6.1 verified that it does ("The `previews` block accepts `vars`, `secrets` ..., `queues` ...", read from wrangler 4.149.0's schema).
+- Fix: 07 9.2: drop the sentence. 05 5.6: "The `previews` block accepts `queues` (08 6.1); whether Preview deployments run consumers is unverified."
+
+#### C50. 08's list of CLAUDE.md changes for the owner leaves out several the topic documents ask for
+
+- Severity: minor.
+- Where: 08 17.2 (line 2914); 03 18 (line 1632); 06 22.6 (line 2828); 07 16 (line 1530).
+- Problem: 08 asks the owner to "Approve the CLAUDE.md changes: Preview secrets, the Turnstile sentence, the storage keys, the code map | phase 0 (code map), phase 2 (the rest)". The topic documents also ask for: the navigation sentence and the app name (07, both phase 1), the "Saved" header label and test list additions (07), the Worker routes list and "the no private messages rule" (03), and "the rule that club features are broadcast only" (06). The app name and the navigation sentence are phase 1 changes, not phase 2. C41 and C42 add two more.
+- Fix: One list in 08 17.2 with every requested CLAUDE.md change and its phase.
+
+#### C52. `unitFormat` has two different signatures
+
+- Severity: minor (phase 0, then phase 2).
+- Where: 07 7.7 (line 924); 08 14.2 P0.11 (lines 2711 and 2712).
+- Problem: 07: `export function unitFormat({ system = 'us', wind = 'auto' } = {})`, returning `speed`, `speedUnit`, `temp`, `tempDiff`, `tempSum`, `precip`, `rate`, `vis`, `dist`, `flow`, `stage` and the `to*` converters. 08: "`unitFormat(system = 'us')`: `speed(v)` ..., `temp(v)` ..., `dist(m)` ..., `precip(v)`, `flow(v, unit)`, `aqi(v)`", and "`m.u = unitFormat(units || 'us')`". Phase 0 builds one shape and phase 2 needs the other, so every call changes twice.
+- Fix: P0.11 uses 07's object argument and names (`unitFormat({ system: 'us' })`), implementing only the US branch.
+
+#### C53. 03's written retention policy leaves out two audit kinds
+
+- Severity: minor.
+- Where: 03 12.1 (lines 855, 856 and 869); 08 10.7 (lines 2317 and 2318).
+- Problem: 03: "This table, with the retention column, is the written retention policy. The privacy notice publishes it." Its audit rows are `security` (1 year) and `admin`, `moderation` (3 years). 08 10.7 adds `club` (2 years) and `safeguarding` (7 years, legal review to confirm), which hold personal data about members and juniors.
+- Fix: Add both rows to 03 12.1 with 08's periods.
+
+
+## Claims about the current code
+
+Checked against the files at the commit above. Phase 0 claims are in the first section (C2, C3, C13, C14, C15); these are the others.
+
+### Minor
+
+#### C48. 08 9.2 misses two whole-hour assumptions that 01 names
+
+- Severity: minor (phase 1, half-hour zones).
+- Where: 08 9.2 (lines 2170 to 2180); 01 15.3 (line 1458); `src/render/now.js` 29; `src/render/detail/river.js` 73 and 78.
+- Problem: 08 9.2 is the list "fixed in phase 0", and names `clockMin`, `h0` in `buildModel`, `PLAN_STEP`, `parseFlowDays` and `sunFor`. 01 15.3 also names "`nowPrecip`'s same expression" (`const h0 = Math.floor(m.now / HOUR) * HOUR;` in `now.js` line 29), and the River chart's hour ticks use `Math.ceil(t0 / HOUR) * HOUR` (`river.js` 73, 78). In a +5:30 zone the precipitation window and the ticks fall on half hours.
+- Fix: Add both to 08 9.2, fixed with the hour that contains `now` and local hour starts.
+
+#### C55. 06 points at the wrong line for the stay off hatch
+
+- Severity: minor.
+- Where: 06 22.4 (line 2798); `src/styles/app.css` lines 352, 378, 381 and 382.
+- Problem: "with the status colors and the stay off hatch already there (`app.css` line 378)". Line 378 is `.wbar > i{...}`. The hatch is `.seg.b2` at lines 381 and 382 ("Stay off carries a fine hatch so it never relies on red alone.") and `.lk-b2` at line 352.
+- Fix: "(`.seg.b2` and `.lk-b2` in `app.css`)", without a line number, since phase 0 to 4 will move lines.
+
 
 ## The plan against CLAUDE.md's hard constraints
+
+No plan puts a key in the browser, caches an API response in the service worker, or reads `localStorage` outside try/catch (08 8.1 makes the last a rule). Turnstile beyond the suggestion form is covered by C24. The two items below change a hard constraint without an owner decision on record.
 
 ### Major
 
@@ -335,6 +384,28 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Where: 08 8.4 (lines 2133 and 2138); 07 9.6 (line 1097); 01 7.3 (line 644).
 - Problem: CLAUDE.md: "The service worker precaches the app shell only." 08 8.4's first rule is "Precache the shell only", and its sixth row precaches "`locations/index.json` and every `locations/<slug>.json` ... while the list has 50 or fewer". These are data files, though static. The change is reasonable (they ship with the build, and API responses stay out), but no document lists it among the CLAUDE.md edits the owner approves.
 - Fix: Add to 08 17.2's CLAUDE.md list: "The service worker precaches the app shell and the curated location files; it never caches API responses."
+
+
+## Cross references
+
+Every numbered reference of the form "0N section" in 01 to 08 was checked by script against the target document's headings: all resolve (02 has no numbered sections and was checked by hand). References that resolve but now say something else are C39, C47, C51 and the one below.
+
+### Minor
+
+#### C51. 07 cites 01 text that 08's edits have since changed
+
+- Severity: minor.
+- Where: 07 4.2 (line 227) and 7.4 (line 900); 08 K24 and K26.
+- Problem: 07 4.2: "01 7.2 plans per-location shells as `<slug>/index.html`, which would send `/putney-landing` to `/putney-landing/`. Emit them as `dist/<slug>.html` instead (section 16)." 01 7.2 now says `<slug>.html` (K24). 07 7.4: "01's table 11.2 says "shown as 38°C"; that is a conversion slip to fix (section 16)." 01 11.2 now says 20°C (K26). A reader following the reference finds the opposite of what 07 describes.
+- Fix: Reword both as settled: "Shells are `dist/<slug>.html` (01 7.2, 08 K24)" and "01 11.2 shows the cold line as 20°C (08 K26)".
+
+#### C54. Open questions and notes that 08 has answered still read as open
+
+- Severity: minor.
+- Where: 06 25.2 (lines 3213 to 3221); 01 5 notes (line 411); 08 4.5 and 16.
+- Problem: 06 25.2 still lists "Cross-document items for 08 to settle", starting with "One spelling of the club overdue dedupe key: 8.6's `overdue-club:<outing id>:<club_stage>` or 21.4's `odc:...`", although 08 K16 chose `odc:` and 08 16 records the whole list as "Settled as K12, K15, K16, K17, K19, K21, K22, K23". 01 5: "Unverified: whether `wrangler d1 export` handles FTS5 virtual tables; check before relying on exports for backups (08)." 08 4.5 answered it: a full export refuses FTS5 tables, `--table` works, backups use Time Travel.
+- Fix: Replace both with one line each pointing at the 08 answer.
+
 
 ## Phase order
 
@@ -363,68 +434,21 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Problem: The intro line says 08 "creates `outings.club_id` and `boat_id` in phase 3 (K58)", but rows 6 and 7 still read "`reports.club_id`, `hazards.club_id`, `outings.club_id` | 5" and "`outings.boat_id` | 6".
 - Fix: Row 6: `reports.club_id`, `hazards.club_id` only. Row 7: drop it, or say "used from phase 6".
 
-## Stale statements in topic documents
 
-### Minor
+## Markdown that changes meaning
 
-#### C46. 06's code map predates 08's choices for keys, `/api/info` and admin routing
-
-- Severity: minor.
-- Where: 06 22.4 (lines 2785 and 2795) and 22.5 (lines 2805 and 2816); 08 3.2 (line 153), 3.5 (lines 233 and 239), 8.1, 6.3.
-- Problem: 06 adds "storage keys `CLUB_KEY` (`rowhether-club-v1`), `BOARD_KEY`, `INCIDENT_DRAFT_KEY`" as constants; 08 8.1 keeps every key in one `KEYS` object from phase 0. 06 has "`src/reports.js` | 5 | `loadInfo()` reads `clubs`"; 08 3.2 moves `loadInfo` to `src/info.js` in phase 1. 06 has "`worker/admin.js` (03) | 5 | Routes `/api/admin/clubs/*` to `worker/clubs/verify.js`"; 08 3.5 sends `/api/admin/clubs/` straight to `routeClubs()`, and `worker/admin.js` is 07's phase 1 metrics file. 06's `info()` line says "beside today's `reports: !!env.DB`", which 08 6.3 replaces with the `REPORTS_ENABLED` rule from phase 2.
-- Fix: Bring 06 22.4 and 22.5 in line: `KEYS.club`, `KEYS.board`, `KEYS.incidentDraft`; `src/info.js`; `/api/admin/clubs/*` in `worker/clubs/index.js`; 08 6.3's `reports` rule.
-
-#### C47. 07 and 05 repeat facts 08 has since settled
-
-- Severity: minor.
-- Where: 07 9.2 (line 1060); 05 5.6 (line 460); 08 K27 and 6.1 (line 1620).
-- Problem: 07: "01 8.6 keeps 5 locations." 01 8.6 now keeps 10 (K27). 05: "Whether the `previews` block in `wrangler.jsonc` accepts `queues` ... is unverified; if not, the Preview build skips enqueueing". 08 6.1 verified that it does ("The `previews` block accepts `vars`, `secrets` ..., `queues` ...", read from wrangler 4.149.0's schema).
-- Fix: 07 9.2: drop the sentence. 05 5.6: "The `previews` block accepts `queues` (08 6.1); whether Preview deployments run consumers is unverified."
-
-#### C48. 08 9.2 misses two whole-hour assumptions that 01 names
-
-- Severity: minor (phase 1, half-hour zones).
-- Where: 08 9.2 (lines 2170 to 2180); 01 15.3 (line 1458); `src/render/now.js` 29; `src/render/detail/river.js` 73 and 78.
-- Problem: 08 9.2 is the list "fixed in phase 0", and names `clockMin`, `h0` in `buildModel`, `PLAN_STEP`, `parseFlowDays` and `sunFor`. 01 15.3 also names "`nowPrecip`'s same expression" (`const h0 = Math.floor(m.now / HOUR) * HOUR;` in `now.js` line 29), and the River chart's hour ticks use `Math.ceil(t0 / HOUR) * HOUR` (`river.js` 73, 78). In a +5:30 zone the precipitation window and the ticks fall on half hours.
-- Fix: Add both to 08 9.2, fixed with the hour that contains `now` and local hour starts.
-
-## Further contradictions
+A script compared the unescaped `|` count of every table row with its header row in 01 to 08. Only 06 has broken rows.
 
 ### Major
 
-#### C49. 05 merges club rules and personal limits in the opposite order to 06
+#### C32. Unescaped pipes break eight rows of 06's API tables
 
-- Severity: major (phase 5).
-- Where: 05 5.2 `runDue()` step 4 (line 351); 06 6.5 (lines 621 to 627).
-- Problem: 05: "the effective settings `S` for that location: the location's thresholds (01), then the user's synced overrides for that location (03's `user_settings`), then club rules when the user rows under a club rule set (06)". 06: "`S = { ...Base, ...Club }`" and then "For each key, `S[k] = stricter(k, S[k], personal[k])`. A personal value looser than `S` is ignored". In 05's order the club value replaces a member's stricter personal limit, so a night-before message can say Go while the app, with the same data, says Caution. 05 3.2 sets the rule that "a notification and the screen never disagree".
-- Fix: 05 5.2 step 4: "`S` from 06's `clubSettings()` when club rules apply, else 01's `effectiveSettings()`", so the Worker and the app call the same function.
+- Severity: major.
+- Where: 06 19.1 (lines 2089, 2091, 2103, 2107, 2117) and 19.2 (lines 2137, 2141, 2142).
+- Problem: In a table row, `|` ends a cell even inside a code span. For example line 2141, "`PATCH`, `DELETE /api/clubs/:slug/practices/:id?scope=one|following` | Coach, admin | Edit or delete", renders the path as "...?scope=one", the Who column as "following`" and the Purpose column as "Coach, admin", and drops "Edit or delete". The other rows split JSON bodies such as `{ "method": "meta" | "dns" | "email" | "manual", ... }` across columns, so the Purpose text is cut. Checked with a script that counts unescaped pipes against each table's header; only 06 has such rows.
+- Fix: Escape each pipe inside those code spans as `\|`, or write the alternatives in words ("`method`: `meta`, `dns`, `email` or `manual`"), as 08 7.3 does with "`?scope=one` or `?scope=following`".
 
-### Minor
 
-#### C50. 08's list of CLAUDE.md changes for the owner leaves out several the topic documents ask for
+## Style
 
-- Severity: minor.
-- Where: 08 17.2 (line 2914); 03 18 (line 1632); 06 22.6 (line 2828); 07 16 (line 1530).
-- Problem: 08 asks the owner to "Approve the CLAUDE.md changes: Preview secrets, the Turnstile sentence, the storage keys, the code map | phase 0 (code map), phase 2 (the rest)". The topic documents also ask for: the navigation sentence and the app name (07, both phase 1), the "Saved" header label and test list additions (07), the Worker routes list and "the no private messages rule" (03), and "the rule that club features are broadcast only" (06). The app name and the navigation sentence are phase 1 changes, not phase 2. C41 and C42 add two more.
-- Fix: One list in 08 17.2 with every requested CLAUDE.md change and its phase.
-
-#### C51. 07 cites 01 text that 08's edits have since changed
-
-- Severity: minor.
-- Where: 07 4.2 (line 227) and 7.4 (line 900); 08 K24 and K26.
-- Problem: 07 4.2: "01 7.2 plans per-location shells as `<slug>/index.html`, which would send `/putney-landing` to `/putney-landing/`. Emit them as `dist/<slug>.html` instead (section 16)." 01 7.2 now says `<slug>.html` (K24). 07 7.4: "01's table 11.2 says "shown as 38°C"; that is a conversion slip to fix (section 16)." 01 11.2 now says 20°C (K26). A reader following the reference finds the opposite of what 07 describes.
-- Fix: Reword both as settled: "Shells are `dist/<slug>.html` (01 7.2, 08 K24)" and "01 11.2 shows the cold line as 20°C (08 K26)".
-
-#### C52. `unitFormat` has two different signatures
-
-- Severity: minor (phase 0, then phase 2).
-- Where: 07 7.7 (line 924); 08 14.2 P0.11 (lines 2711 and 2712).
-- Problem: 07: `export function unitFormat({ system = 'us', wind = 'auto' } = {})`, returning `speed`, `speedUnit`, `temp`, `tempDiff`, `tempSum`, `precip`, `rate`, `vis`, `dist`, `flow`, `stage` and the `to*` converters. 08: "`unitFormat(system = 'us')`: `speed(v)` ..., `temp(v)` ..., `dist(m)` ..., `precip(v)`, `flow(v, unit)`, `aqi(v)`", and "`m.u = unitFormat(units || 'us')`". Phase 0 builds one shape and phase 2 needs the other, so every call changes twice.
-- Fix: P0.11 uses 07's object argument and names (`unitFormat({ system: 'us' })`), implementing only the US branch.
-
-#### C53. 03's written retention policy leaves out two audit kinds
-
-- Severity: minor.
-- Where: 03 12.1 (lines 855, 856 and 869); 08 10.7 (lines 2317 and 2318).
-- Problem: 03: "This table, with the retention column, is the written retention policy. The privacy notice publishes it." Its audit rows are `security` (1 year) and `admin`, `moderation` (3 years). 08 10.7 adds `club` (2 years) and `safeguarding` (7 years, legal review to confirm), which hold personal data about members and juniors.
-- Fix: Add both rows to 03 12.1 with 08's periods.
+Checked in 01 to 08 and in this file: no em or en dashes (the grep in the task prints nothing), no emoji characters (a scan of every code point in the emoji and symbol blocks), no all-caps labels in quoted UI copy, and no UI copy that calls the verdict a "call". The word appears only in rules that forbid it (05 3.2, 06 1, 07 2), in code terms, in "call 911", and in 05 3.4's quotation of CLAUDE.md's Later list. No findings.
