@@ -8,9 +8,11 @@
 // sign of a table cell or an axis, the scale of a chart and the limit drawn on
 // it. They are values, not unit text, and their conversion is phase 2's (07 7.3).
 import { describe, it, expect, vi } from 'vitest';
-import { CASES, capture } from './golden/capture.js';
+import { CASES, VARIANT_CASES, capture } from './golden/capture.js';
 import { resolveLocation } from '../src/location.js';
 import { PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
+import { precipNote } from '../src/render/precip.js';
+import { periodSummary } from '../src/render/days.js';
 
 // Every formatter and word of unitFormat, with a mark in place of the US text.
 vi.mock('../src/units.js', async importOriginal => {
@@ -38,24 +40,25 @@ const PLAIN = resolveLocation({
 }, { waterway: { ...PUTNEY_WATERWAY, sources: PUTNEY_WATERWAY.sources.map(noNote) } });
 
 // One string per piece of output the capture draws: the home screen, every view, every full forecast, the share text.
-function drawn(c, over = {}) {
+function drawn(c) {
   const strings = new Map();
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(c.clock);
   try {
     const out = capture(c.scenario, c.clock, c.settings, {
-      loc: PLAIN, width: c.width, lean: true, sink: (name, text) => strings.set(name, text),
-      raw: raw => {
+      ...c.options, loc: PLAIN, width: c.width, lean: true, sink: (name, text) => strings.set(name, text),
+      raw: (raw, clock) => {
+        c.options?.raw?.(raw, clock);
         for (const f of raw.alerts.features) for (const k of ['headline', 'description', 'instruction']) f.properties[k] = f.properties[k]?.replace(/ ?mph/g, '');
-      },
-      ...over
+      }
     });
     return { out, strings };
   } finally { vi.useRealTimers(); }
 }
 
-// The nine scenario clocks at the default settings, and the wide layout.
-const CASE_NAMES = CASES.filter(c => /-default$|-wide$/.test(c.name));
+// The nine scenario clocks at the default settings, the wide layout, and the case with no air quality
+// reading for the current hour (the Air view then names the next one).
+const CASE_NAMES = [...CASES.filter(c => /-default$|-wide$/.test(c.name)), ...VARIANT_CASES.filter(c => c.name === 'v-june-aq-gaps')];
 
 describe('the render code writes its units through m.u', () => {
   const all = new Map();
@@ -80,5 +83,21 @@ describe('the render code writes its units through m.u', () => {
     for (const mark of ['S', 'SR', 'T', 'TR', 'TS', 'TD', 'P', 'R', 'V', 'D', 'F', 'Q', 'FU', 'SU', 'TU', 'RU', 'VU', 'VO', 'VC']) {
       expect(seen.has(mark), `${mark} reached no view`).toBe(true);
     }
+  });
+});
+
+// Two helpers have no model to read m.u from, so they take the units. A units
+// object of their own, not the marks above, shows they read that one and no other.
+describe('a helper with no model writes through the units it is given', () => {
+  const given = { precip: v => `GP(${v})`, speedRange: (a, b) => `GSR(${a},${b})`, tempRange: (a, b) => `GTR(${a},${b})` };
+
+  it('precipNote writes the amount', () => {
+    const sum = { peak: 60, fromT: 0, toT: 7200e3, kind: 'rain', total: 0.2 };
+    expect(precipNote(sum, 0, given)).toContain('Rain, about GP(0.2).');
+  });
+
+  it('periodSummary writes the wind and the temperature ranges', () => {
+    const p = { wmin: 6, wmax: 11, dir: 270, gmax: 17, tmin: 40, tmax: 55, pop: 20 };
+    expect(periodSummary(p, given)).toBe('Wind GSR(6,11) W, gusts 17. GTR(40,55). Rain 20%.');
   });
 });
