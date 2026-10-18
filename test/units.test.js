@@ -126,6 +126,48 @@ describe('unitFormat, US', () => {
     expect(u.visOff).toBe('a quarter mile');
   });
 
+  // The words the render code wrote typed in (08 14.2 P0.12). Each is the text the
+  // views had, which the golden files hold.
+  it('names the unit of a temperature: the lane titles "Air and feels like, °F" and "Water minus air, °F"', () => {
+    expect(u.tempUnit).toBe('°F');
+  });
+
+  it('writes a range of speeds with the unit once: `rng(p.wmin, p.wmax, \' mph\')`', () => {
+    expect(u.speedRange(9.2, 13.7)).toBe('9 to 14 mph');
+    expect(u.speedRange(12.4, 11.6)).toBe('12 mph'); // both ends round to 12
+    expect(u.speedRange(0, 4)).toBe('0 to 4 mph');
+    // The rule of rng(): a missing end is a missing number, as p-format.json holds it.
+    expect(u.speedRange(1, null)).toBe('1 to null mph');
+    expect(u.speedRange(null, null)).toBe('null mph');
+  });
+
+  it('writes a range of temperatures with the unit once: `rng(p.tmin, p.tmax, \'°F\')`', () => {
+    expect(u.tempRange(38.4, 52.6)).toBe('38 to 53°F');
+    expect(u.tempRange(45.2, 44.8)).toBe('45°F');
+    expect(u.tempRange(-3.6, 2)).toBe('-4 to 2°F');
+    expect(u.tempRange(null, null)).toBe('null°F');
+  });
+
+  it('names the unit of the rain amount and of the model visibility, as the chart titles say it', () => {
+    expect(u.rateUnit).toBe('inches per hour'); // "Amount, inches per hour."
+    expect(u.visUnit).toBe('miles'); // "Visibility in the model, miles"
+  });
+
+  it('names the unit word of a gauge, cubic feet a second when none is named', () => {
+    expect(u.flowUnit('cfs')).toBe('cfs');
+    expect(u.flowUnit()).toBe('cfs'); // "Flow, cfs" for a place with no flow record
+    expect(u.flowUnit(undefined)).toBe('cfs');
+    expect(u.flowUnit('m3s')).toBe('m³/s');
+    expect(u.flowUnit('ft')).toBe('ft');
+    expect(u.flowUnit('m')).toBe('m');
+    expect(u.flowUnit('stones')).toBe('cfs'); // fmtFlow() falls back to cfs the same way
+    expect(u.flowUnit('constructor')).toBe('cfs');
+  });
+
+  it('names the fog caution line in words: "visibility under 1 mile"', () => {
+    expect(u.visCaution).toBe('1 mile');
+  });
+
   it('takes a typed value as it is: the internal units are the US ones', () => {
     // A float is kept whole (07 7.4), and a unit never moves it.
     for (const f of ['toMph', 'toF', 'toFDiff', 'toFSum', 'toIn']) {
@@ -146,10 +188,10 @@ describe('unitFormat, US', () => {
     }
   });
 
-  it('has the names 07 7.7 prints, and no others but the words the reasons use', () => {
+  it('has the names 07 7.7 prints, and no others but the words the reasons and the views use', () => {
     expect(Object.keys(u).sort()).toEqual([
-      'aqi', 'dist', 'flow', 'precip', 'rate', 'speed', 'speedUnit', 'stage', 'system', 'temp', 'tempDiff', 'tempSum',
-      'toF', 'toFDiff', 'toFSum', 'toIn', 'toMph', 'vis', 'visOff', 'windUnit'
+      'aqi', 'dist', 'flow', 'flowUnit', 'precip', 'rate', 'rateUnit', 'speed', 'speedRange', 'speedUnit', 'stage', 'system', 'temp',
+      'tempDiff', 'tempRange', 'tempSum', 'tempUnit', 'toF', 'toFDiff', 'toFSum', 'toIn', 'toMph', 'vis', 'visCaution', 'visOff', 'visUnit', 'windUnit'
     ]);
   });
 

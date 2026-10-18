@@ -1,7 +1,7 @@
 // Fog: each morning's risk, then one morning hour by hour with the
 // ingredients the fog rules look at, each drawn with its fog zone.
 import { HOUR, FOG } from '../../config.js';
-import { hm, r0, visText, dayKey, localHour, dayWord } from '../../format.js';
+import { hm, r0, dayKey, localHour, dayWord } from '../../format.js';
 import { fogRisk, morningFog, fogLift, nextMorning, relHumidity, waterTemp, sunFor } from '../../logic.js';
 import { Chart, niceTicks, niceMax } from '../chart.js';
 import { dayLabel } from '../days.js';
@@ -49,13 +49,13 @@ export function render(m, want) {
 
   const spreads = hs.map(h => (h.temp != null && h.dew != null ? h.temp - h.dew : null));
   const sHi = niceMax(Math.min(20, Math.max(8, ...spreads.filter(v => v != null))), 2);
-  const A = c.lane(52, 0, sHi, 'Air minus dew point, °F');
+  const A = c.lane(52, 0, sHi, `Air minus dew point, ${m.u.tempUnit}`);
   c.zone(A, 0, V.likely.spread, 'cz2'); c.zone(A, V.likely.spread, V.possible.spread, 'cz1');
   c.grid(A, niceTicks(0, sHi, 2), v => `${v}°`);
   c.line(A, hs.map((h, i) => ({ t: mid(h), v: spreads[i] })), 'cline');
 
   const wHi = niceMax(Math.max(10, ...hs.map(h => h.wind || 0)), 2);
-  const B = c.lane(52, 0, wHi, 'Wind, mph');
+  const B = c.lane(52, 0, wHi, `Wind, ${m.u.speedUnit}`);
   c.zone(B, 0, V.likely.wind, 'cz2'); c.zone(B, V.likely.wind, V.possible.wind, 'cz1');
   c.grid(B, niceTicks(0, wHi, 2));
   c.line(B, hs.map(h => ({ t: mid(h), v: h.wind })), 'cline');
@@ -68,13 +68,13 @@ export function render(m, want) {
   if (wt != null) {
     const diffs = hs.map(h => (h.temp != null ? wt - h.temp : null)).filter(v => v != null);
     const dLo = Math.min(0, Math.floor(Math.min(...diffs) / 5) * 5), dHi = niceMax(Math.max(24, ...diffs), 2);
-    const D = c.lane(52, dLo, dHi, 'Water minus air, °F');
+    const D = c.lane(52, dLo, dHi, `Water minus air, ${m.u.tempUnit}`);
     c.zone(D, ST.likely.diff, dHi, 'cz2'); c.zone(D, ST.possible.diff, ST.likely.diff, 'cz1');
     c.grid(D, niceTicks(dLo, dHi, 2), v => `${v}°`);
     c.line(D, hs.map(h => ({ t: mid(h), v: h.temp != null ? wt - h.temp : null })), 'cline');
   }
 
-  const E = c.lane(40, 0, 10, 'Visibility in the model, miles');
+  const E = c.lane(40, 0, 10, `Visibility in the model, ${m.u.visUnit}`);
   c.zone(E, 0, 1, 'cz2');
   c.grid(E, [0, 5, 10], v => (v === 10 ? '10+' : String(v)));
   c.line(E, hs.map(h => ({ t: mid(h), v: mi(h) })), 'cline');
@@ -84,7 +84,7 @@ export function render(m, want) {
   c.axis(hourTicks(hs, tickEvery(W, hs.length) === 1 ? 1 : 2));
   hs.forEach((h, i) => {
     const f = risks[i], rh = h.temp != null && h.dew != null ? Math.round(relHumidity(h.temp, h.dew)) : null;
-    c.hit(h.t, h.t + HOUR, `${hm(h.t)}: ${f.risk ? f.text : 'Fog risk low'}. Air ${r0(h.temp)}°F, dew point ${r0(h.dew)}°F, humidity ${rh}%. Wind ${r0(h.wind)} mph. Cloud ${r0(h.nightCloud)}%. Visibility ${visText(h.vis)}.${f.risk ? ` ${f.why}` : ''}`);
+    c.hit(h.t, h.t + HOUR, `${hm(h.t)}: ${f.risk ? f.text : 'Fog risk low'}. Air ${m.u.temp(h.temp)}, dew point ${m.u.temp(h.dew)}, humidity ${rh}%. Wind ${m.u.speed(h.wind)}. Cloud ${r0(h.nightCloud)}%. Visibility ${m.u.dist(h.vis)}.${f.risk ? ` ${f.why}` : ''}`);
   });
 
   const keys = legend([
@@ -93,7 +93,7 @@ export function render(m, want) {
   ]);
 
   const table = hourTable('Hour by hour', ['Hour', 'Risk', 'Air', 'Dew pt', 'Wind', 'Cloud', 'Vis'], hs.map((h, i) => [
-    hm(h.t), RISK[risks[i].risk], `${r0(h.temp)}°`, `${r0(h.dew)}°`, `${r0(h.wind)}`, `${r0(h.nightCloud)}%`, visText(h.vis)
+    hm(h.t), RISK[risks[i].risk], `${r0(h.temp)}°`, `${r0(h.dew)}°`, `${r0(h.wind)}`, `${r0(h.nightCloud)}%`, m.u.dist(h.vis)
   ]));
 
   const morning = mf ? `${mf.text}, ${fogLift(mf)}. ${mf.why}` : 'Fog risk low from first light through the 10 AM hour.';
@@ -108,9 +108,9 @@ export function render(m, want) {
     <div class="panel how">
       <h3>How this works</h3>
       <p>Each line is one thing the fog rules look at. When a line runs through its shaded zone, that part of the rule is met. Fog is likely only when every part is met at once.</p>
-      <p>Valley fog forms on clear, calm nights when the air cools to its dew point. Likely: air within ${V.likely.spread}°F of the dew point, wind ${V.likely.wind} mph or less, and cloud cover ${V.likely.cloud}% or less. Possible: within ${V.possible.spread}°F, ${V.possible.wind} mph, ${V.possible.cloud}%.</p>
-      <p>Steam fog rises off water much warmer than the air. Likely: water at least ${ST.likely.diff}°F warmer, wind ${ST.likely.wind} mph or less, humidity ${ST.likely.rh}% or more. Possible: ${ST.possible.diff}°F, ${ST.possible.wind} mph, ${ST.possible.rh}%. ${wt != null ? `Water is ${r0(wt)}°F.` : 'No water temperature is available, so steam fog is not checked.'}</p>
-      <p>The model can also show fog itself, as a fog weather code or visibility under 1 mile, at any hour.</p>
+      <p>Valley fog forms on clear, calm nights when the air cools to its dew point. Likely: air within ${m.u.tempDiff(V.likely.spread)} of the dew point, wind ${m.u.speed(V.likely.wind)} or less, and cloud cover ${V.likely.cloud}% or less. Possible: within ${m.u.tempDiff(V.possible.spread)}, ${m.u.speed(V.possible.wind)}, ${V.possible.cloud}%.</p>
+      <p>Steam fog rises off water much warmer than the air. Likely: water at least ${m.u.tempDiff(ST.likely.diff)} warmer, wind ${m.u.speed(ST.likely.wind)} or less, humidity ${ST.likely.rh}% or more. Possible: ${m.u.tempDiff(ST.possible.diff)}, ${m.u.speed(ST.possible.wind)}, ${ST.possible.rh}%. ${wt != null ? `Water is ${m.u.temp(wt)}.` : 'No water temperature is available, so steam fog is not checked.'}</p>
+      <p>The model can also show fog itself, as a fog weather code or visibility under ${m.u.visCaution}, at any hour.</p>
       <p>Likely fog is a caution. Possible fog is shown but does not change Go, Caution or Stay off. These thresholds are first guesses, to be tuned against what the dock sees.</p>
     </div>`;
   return { day, html };

@@ -26,10 +26,10 @@ export function summary(m) {
 
 const popLvl = (S, v) => (isSet(S.rainOff) && v >= S.rainOff ? 2 : isSet(S.rainCaution) && v >= S.rainCaution ? 1 : 0);
 
-function hourText(h) {
+function hourText(m, h) {
   const k = precipKind(h.code), st = factorLevel(h.a, STORM).why;
   const models = h.ens && h.ens.precip.length >= 2 ? ` ${h.ens.precip.filter(p => p >= 0.01).length} of ${h.ens.precip.length} models show rain.` : '';
-  return `${hm(h.t)}: ${r0(h.pop) ?? 0}% chance${k ? `, ${k}` : ''}${h.precip >= 0.01 ? `, about ${h.precip.toFixed(2)} in` : ''}.${st ? ` ${st.text}.` : ''}${models}`;
+  return `${hm(h.t)}: ${r0(h.pop) ?? 0}% chance${k ? `, ${k}` : ''}${h.precip >= 0.01 ? `, about ${m.u.precip(h.precip)}` : ''}.${st ? ` ${st.text}.` : ''}${models}`;
 }
 
 export function render(m, want) {
@@ -39,7 +39,7 @@ export function render(m, want) {
 
   const strip = weekStrip(days.map(d => {
     const p = Math.max(0, ...d.hs.map(h => r0(h.pop) || 0)), tot = d.hs.reduce((a, h) => a + (h.precip || 0), 0), l = worstOf(d.hs, KEYS);
-    return { key: d.key, t: d.t, value: `${p}%`, frac: p / 100, lvl: l, aria: `${dayLabel(d.t)}: up to ${p}% chance, about ${tot.toFixed(2)} in. ${WORD_PLAIN[l]}.` };
+    return { key: d.key, t: d.t, value: `${p}%`, frac: p / 100, lvl: l, aria: `${dayLabel(d.t)}: up to ${p}% chance, about ${m.u.precip(tot)}. ${WORD_PLAIN[l]}.` };
   }), day);
 
   const hs = days.find(d => d.key === day).hs, s = sunFor(m, day);
@@ -60,7 +60,7 @@ export function render(m, want) {
 
   const total = hs.reduce((a, h) => a + (h.precip || 0), 0);
   const hiAmt = niceMax(Math.max(0.1, ...hs.map(h => h.precip || 0)), 2);
-  const A = c.lane(56, 0, hiAmt, `Amount, inches per hour. ${total >= 0.01 ? `About ${total.toFixed(2)} in` : 'None expected'} by sunset.`);
+  const A = c.lane(56, 0, hiAmt, `Amount, ${m.u.rateUnit}. ${total >= 0.01 ? `About ${m.u.precip(total)}` : 'None expected'} by sunset.`);
   c.grid(A, niceTicks(0, hiAmt, 2));
   c.cols(A, hs.map(h => ({ t0: h.t, t1: h.t + HOUR, v: h.precip, cls: 'ccol' })));
 
@@ -85,7 +85,7 @@ export function render(m, want) {
   c.span(hs[0].t, s.sunrise, 'clight');
   if (today) { c.past(m.now); c.vline(m.now, 'cnow', 'Now'); }
   c.axis(hourTicks(hs, tickEvery(W, hs.length)));
-  for (const h of hs) c.hit(h.t, h.t + HOUR, hourText(h));
+  for (const h of hs) c.hit(h.t, h.t + HOUR, hourText(m, h));
 
   const keys = legend([
     ...(isSet(S.rainCaution) ? [{ kind: 'dash1', text: `Caution ${S.rainCaution}%` }] : []),
@@ -95,7 +95,7 @@ export function render(m, want) {
   ]);
 
   const table = hourTable('Hour by hour', ['Hour', 'Chance', 'Amount', 'Type'], hs.map(h => [
-    `${lvlDot(factorLevel(h.a, KEYS).lvl)}${hm(h.t)}`, `${r0(h.pop) ?? 0}%`, h.precip >= 0.01 ? `${h.precip.toFixed(2)} in` : '0', precipKind(h.code) || '--'
+    `${lvlDot(factorLevel(h.a, KEYS).lvl)}${hm(h.t)}`, `${r0(h.pop) ?? 0}%`, h.precip >= 0.01 ? m.u.precip(h.precip) : '0', precipKind(h.code) || '--'
   ]));
 
   const rc = isSet(S.rainCaution) ? `caution at ${S.rainCaution}%` : 'no caution level';
@@ -104,14 +104,14 @@ export function render(m, want) {
     <div class="panel">
       ${strip}
       <h3 class="dhead">${label}, first light to sunset</h3>
-      <p class="dnote">${sum ? precipNote(sum, today ? m.now : hs[0].t) : ''}${conf ? ` ${confidenceText(conf, 'rain', m.u)}` : ''}</p>
+      <p class="dnote">${sum ? precipNote(sum, today ? m.now : hs[0].t, m.u) : ''}${conf ? ` ${confidenceText(conf, 'rain', m.u)}` : ''}</p>
       ${chartBox(c.svg(`Chance and amount of precipitation by hour for ${label}`), { keys })}
       ${table}
     </div>
     <div class="panel how">
       <h3>How this works</h3>
       <p>The chance of rain in each hour is checked against your settings: ${rc}, ${ro}. Either can be left empty in Settings to turn it off.</p>
-      <p>Heavy rain, 0.15 in an hour or more, is a caution. So is snow. Freezing rain and thunderstorms are stay off. Thunderstorms are possible, a caution, when the air is unstable (CAPE of 1,000 or more) and the chance of rain is at least 30%.</p>
+      <p>Heavy rain, ${m.u.rate(0.15)} or more, is a caution. So is snow. Freezing rain and thunderstorms are stay off. Thunderstorms are possible, a caution, when the air is unstable (CAPE of 1,000 or more) and the chance of rain is at least 30%.</p>
       <p>Lightning: off the water at the first thunder, back on 30 minutes after the last.</p>
     </div>`;
   return { day, html };

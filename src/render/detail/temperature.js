@@ -1,7 +1,7 @@
 // Temperature: each day's range, then one day hour by hour: air and feels
 // like against the freezing and cold-water lines, plus water temperature.
 import { HOUR, WORD_PLAIN } from '../../config.js';
-import { hm, r0, rng, dayKey } from '../../format.js';
+import { hm, r0, dayKey } from '../../format.js';
 import { worstOf, factorLevel, waterTemp, waterOverridden, sunFor } from '../../logic.js';
 import { Chart, niceTicks } from '../chart.js';
 import { sourceRow } from '../../location.js';
@@ -15,11 +15,11 @@ export const key = 'temperature';
 export const name = 'Temperature';
 
 export function summary(m) {
-  const wt = waterTemp(m), water = wt != null ? `, ${r0(wt)}°F water` : '';
-  if (m.daytime) return { text: `${r0(m.cur.temp)}°F air now${water}.`, lvl: factorLevel(m.cur.a, KEYS).lvl };
+  const wt = waterTemp(m), water = wt != null ? `, ${m.u.temp(wt)} water` : '';
+  if (m.daytime) return { text: `${m.u.temp(m.cur.temp)} air now${water}.`, lvl: factorLevel(m.cur.a, KEYS).lvl };
   const p = m.next;
   if (!p) return { text: '', lvl: null };
-  return { text: `${dayLabel(p.start)} ${p.name.toLowerCase()}: ${rng(p.tmin, p.tmax, '°F')} air${water}.`, lvl: worstOf(p.hs, KEYS) };
+  return { text: `${dayLabel(p.start)} ${p.name.toLowerCase()}: ${m.u.tempRange(p.tmin, p.tmax)} air${water}.`, lvl: worstOf(p.hs, KEYS) };
 }
 
 export function render(m, want) {
@@ -35,7 +35,7 @@ export function render(m, want) {
   const strip = weekStrip(days.map(d => {
     const lo = Math.min(...temps(d)), hi = Math.max(...temps(d)), l = worstOf(d.hs, KEYS);
     return { key: d.key, t: d.t, value: `${r0(hi)}° ${r0(lo)}°`, lo: (lo - wLo) / ((wHi - wLo) || 1), frac: (hi - wLo) / ((wHi - wLo) || 1), lvl: l,
-      aria: `${dayLabel(d.t)}: ${r0(lo)} to ${r0(hi)}°F from first light to sunset. ${WORD_PLAIN[l]}.` };
+      aria: `${dayLabel(d.t)}: ${r0(lo)} to ${m.u.temp(hi)} from first light to sunset. ${WORD_PLAIN[l]}.` };
   }), day);
 
   const hs = days.find(d => d.key === day).hs, s = sunFor(m, day);
@@ -49,7 +49,7 @@ export function render(m, want) {
   lo = Math.min(lo, ticks[0]); hi = Math.max(hi, ticks[ticks.length - 1]);
 
   const c = new Chart({ t0: hs[0].t, t1: hs[hs.length - 1].t + HOUR, W });
-  const L = c.lane(140, lo, hi, 'Air and feels like, °F');
+  const L = c.lane(140, lo, hi, `Air and feels like, ${m.u.tempUnit}`);
   c.hline(L, 32, 'cthr2', '32°');
   if (coldAir != null) c.hline(L, coldAir, 'cthr1', `${r0(coldAir)}°`);
   c.grid(L, ticks, v => `${v}°`);
@@ -63,23 +63,23 @@ export function render(m, want) {
   if (day === dayKey(m.now)) { c.past(m.now); c.vline(m.now, 'cnow', 'Now'); }
   c.axis(hourTicks(hs, tickEvery(W, hs.length)));
   for (const h of hs) {
-    const sum = wt != null && h.temp != null ? ` Air plus water ${Math.round(h.temp + wt)}°F.` : '';
-    c.hit(h.t, h.t + HOUR, `${hm(h.t)}: ${r0(h.temp)}°F, feels like ${r0(h.feels)}°F. Dew point ${r0(h.dew)}°F.${sum}`);
+    const sum = wt != null && h.temp != null ? ` Air plus water ${m.u.tempSum(h.temp + wt)}.` : '';
+    c.hit(h.t, h.t + HOUR, `${hm(h.t)}: ${m.u.temp(h.temp)}, feels like ${m.u.temp(h.feels)}. Dew point ${m.u.temp(h.dew)}.${sum}`);
   }
 
   const keys = legend([
     { kind: 'line', text: 'Air' },
     { kind: 'line2', text: 'Feels like' },
-    ...(coldAir != null && coldAir >= lo && coldAir <= hi ? [{ kind: 'dash1', text: `Cold-water line, ${r0(coldAir)}°F` }] : []),
+    ...(coldAir != null && coldAir >= lo && coldAir <= hi ? [{ kind: 'dash1', text: `Cold-water line, ${m.u.temp(coldAir)}` }] : []),
     ...(lo <= 32 ? [{ kind: 'dash2', text: 'Freezing' }] : [])
   ]);
 
   const f = [];
   if (wt != null) {
-    f.push(fact('Water', `${r0(wt)}°F`, waterOverridden(S) ? 'Your reading, set in Settings.' :
+    f.push(fact('Water', m.u.temp(wt), waterOverridden(S) ? 'Your reading, set in Settings.' :
       readNote(sourceRow(m.loc, 'water_temp'), m.data.river.waterC.t)));
     const coldest = Math.round(bot.temp + wt);
-    f.push(fact('Air plus water', `${coldest}°F`,
+    f.push(fact('Air plus water', m.u.tempSum(bot.temp + wt),
       coldest < S.coldCombined ? `At the coldest hour, under your ${S.coldCombined} line. Dress for immersion and row with a launch.` : `At the coldest hour, above your ${S.coldCombined} line.`,
       worstOf(hs, ['cold'])));
   } else {
@@ -95,14 +95,14 @@ export function render(m, want) {
     <div class="panel">
       ${strip}
       <h3 class="dhead">${label}, first light to sunset</h3>
-      <p class="dnote">${rng(bot.temp, top.temp, '°F')}, warmest around ${hm(top.t)}.</p>
+      <p class="dnote">${m.u.tempRange(bot.temp, top.temp)}, warmest around ${hm(top.t)}.</p>
       ${chartBox(c.svg(`Air temperature and feels like by hour for ${label}`), { keys })}
       <dl class="facts">${f.join('')}</dl>
       ${table}
     </div>
     <div class="panel how">
       <h3>How this works</h3>
-      <p>Air below 32°F is stay off, for ice on docks and oarlocks. Air plus water under ${S.coldCombined}°F is a caution: a capsize in cold water is the risk.${coldAir != null ? ` With the water at ${r0(wt)}°F, that is air under ${r0(coldAir)}°F, the cold-water line on the chart.` : ''}</p>
+      <p>Air below ${m.u.temp(32)} is stay off, for ice on docks and oarlocks. Air plus water under ${m.u.tempSum(S.coldCombined)} is a caution: a capsize in cold water is the risk.${coldAir != null ? ` With the water at ${m.u.temp(wt)}, that is air under ${m.u.temp(coldAir)}, the cold-water line on the chart.` : ''}</p>
       <p>River temperature changes slowly, so the latest reading is used for every hour. A dock reading can be set in Settings.</p>
     </div>`;
   return { day, html };

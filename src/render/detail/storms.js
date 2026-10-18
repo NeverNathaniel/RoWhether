@@ -22,9 +22,9 @@ export function summary(m) {
   return { text: `${why.why.text} ${next.t <= m.now ? 'now' : `from ${whenText(next.t, true)}`}.${alerts}`, lvl: why.lvl };
 }
 
-function hourText(h) {
+function hourText(m, h) {
   const st = factorLevel(h.a, KEYS).why;
-  return `${hm(h.t)}: ${st ? st.text : 'No thunderstorm risk'}. Instability ${r0(h.cape) ?? 0} J/kg, rain chance ${r0(h.pop) ?? 0}%, gusts ${r0(h.gust)} mph.`;
+  return `${hm(h.t)}: ${st ? st.text : 'No thunderstorm risk'}. Instability ${r0(h.cape) ?? 0} J/kg, rain chance ${r0(h.pop) ?? 0}%, gusts ${m.u.speed(h.gust)}.`;
 }
 
 // NWS alerts as bars over the next 3 days, with their full text.
@@ -75,7 +75,7 @@ export function render(m, want) {
   c.cols(P, hs.map(h => ({ t0: h.t, t1: h.t + HOUR, v: h.pop, cls: 'ccol' })));
 
   const gHi = niceMax(Math.max(S.gustOff + 2, ...hs.map(h => h.gust || 0)), 3);
-  const G = c.lane(60, 0, gHi, 'Gusts, mph');
+  const G = c.lane(60, 0, gHi, `Gusts, ${m.u.speedUnit}`);
   c.hline(G, S.gustCaution, 'cthr1');
   c.hline(G, S.gustOff, 'cthr2');
   c.grid(G, niceTicks(0, gHi, 2));
@@ -84,7 +84,7 @@ export function render(m, want) {
   c.span(hs[0].t, s.sunrise, 'clight');
   if (day === dayKey(m.now)) { c.past(m.now); c.vline(m.now, 'cnow', 'Now'); }
   c.axis(hourTicks(hs, tickEvery(W, hs.length)));
-  for (const h of hs) c.hit(h.t, h.t + HOUR, hourText(h));
+  for (const h of hs) c.hit(h.t, h.t + HOUR, hourText(m, h));
 
   const keys = legend([
     { kind: 'cs1', text: 'Thunderstorms possible' }, { kind: 'cs2', text: 'Thunderstorms' },

@@ -1,7 +1,7 @@
 // "On the water now": compass and current facts.
 import { HOUR, WATER } from '../config.js';
 import { app, $ } from '../state.js';
-import { r0, card, fmtFlow, visText, hm, dayKey, dayWord } from '../format.js';
+import { r0, card, hm, dayKey, dayWord } from '../format.js';
 import { precipKind, rateWord, fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, aqiWord } from '../logic.js';
 import { sourceRow } from '../location.js';
 import { fact, compassSVG, sparkline, readNote } from './parts.js';
@@ -55,39 +55,39 @@ export function renderNow() {
 
   const f = [];
   const windLvl = Math.max(lvlOf('wind'), lvlOf('gust'));
-  f.push(fact('Wind', `${r0(cur.wind)} mph, gusts ${r0(cur.gust)}`, `From ${card(cur.dir)}. ${windVsCourse(m, cur.dir, cur.wind)}`, windLvl, '#wind'));
+  f.push(fact('Wind', `${m.u.speed(cur.wind)}, gusts ${r0(cur.gust)}`, `From ${card(cur.dir)}. ${windVsCourse(m, cur.dir, cur.wind)}`, windLvl, '#wind'));
 
   if (cur.water) {
     const debris = debrisLikely(m) ? ' River rising fast. Watch for floating debris.' : '';
     f.push(fact('Water state', WATER.names[cur.water.lvl], waterWhy(cur.water) + debris, 0, '#wind'));
   }
 
-  f.push(fact('Air', `${r0(cur.temp)}°F`, `Feels like ${r0(cur.feels)}°F. Dew point ${r0(cur.dew)}°F.`, lvlOf('freeze'), '#temperature'));
+  f.push(fact('Air', m.u.temp(cur.temp), `Feels like ${m.u.temp(cur.feels)}. Dew point ${m.u.temp(cur.dew)}.`, lvlOf('freeze'), '#temperature'));
 
   const wt = waterTemp(m);
   if (wt != null) {
     const src = waterOverridden(S) ? 'Your reading, set in Settings.' :
       readNote(sourceRow(m.loc, 'water_temp'), m.data.river.waterC.t);
-    f.push(fact('Water', `${r0(wt)}°F`, src, 0, '#temperature'));
+    f.push(fact('Water', m.u.temp(wt), src, 0, '#temperature'));
     const sum = Math.round(cur.temp + wt);
-    f.push(fact('Air plus water', `${sum}°F`,
+    f.push(fact('Air plus water', m.u.tempSum(cur.temp + wt),
       sum < S.coldCombined ? `Under ${S.coldCombined}. Dress for immersion and row with a launch.` : `Above the ${S.coldCombined} cold-water line.`,
       lvlOf('cold'), '#temperature'));
   } else {
     f.push(fact('Water', '--', 'Gauge unavailable. Add a dock reading in Settings.'));
   }
 
-  f.push(fact('Visibility', visText(cur.vis), visibilityNote(m), lvlOf('fog'), '#fog'));
+  f.push(fact('Visibility', m.u.dist(cur.vis), visibilityNote(m), lvlOf('fog'), '#fog'));
 
   if (cur.aqi != null) {
-    f.push(fact('Air quality', `AQI ${r0(cur.aqi)}`,
+    f.push(fact('Air quality', m.u.aqi(cur.aqi),
       `${aqiWord(cur.aqi)}.${cur.pm25 != null ? ` Fine particles ${r0(cur.pm25)} µg/m³.` : ''} A forecast, not a measurement.`, lvlOf('aqi'), '#air'));
   }
 
   const fl = flowNow(m);
   if (fl != null) {
     const tr = flowTrend(m.data.flow);
-    f.push(fact('River flow', `${fmtFlow(fl, m.loc.flow?.unit)} ${sparkline(m.data.flow)}`,
+    f.push(fact('River flow', `${m.u.flow(fl, m.loc.flow?.unit)} ${sparkline(m.data.flow)}`,
       `${tr ? tr + '. ' : ''}${readNote(sourceRow(m.loc, 'flow'), m.data.river.flow.t)}`,
       lvlOf('flow'), '#river'));
   } else {
@@ -105,10 +105,10 @@ export function renderNow() {
   const o = m.data.obs, obsRow = sourceRow(m.loc, 'obs');
   if (o && o.t) {
     const parts = [];
-    if (o.wind != null) parts.push(`${r0(o.wind)} mph${o.dir != null && o.wind >= 1 ? ' ' + card(o.dir) : ''}`);
-    if (o.tempF != null) parts.push(`${r0(o.tempF)}°F`);
+    if (o.wind != null) parts.push(`${m.u.speed(o.wind)}${o.dir != null && o.wind >= 1 ? ' ' + card(o.dir) : ''}`);
+    if (o.tempF != null) parts.push(m.u.temp(o.tempF));
     f.push(fact(`Measured at ${obsRow?.label || 'the station'}`, parts.join(', ') || '--',
-      `${o.text ? o.text + '. ' : ''}${o.gust != null ? `Gusts ${r0(o.gust)} mph. ` : ''}${readNote(obsRow, o.t)}`));
+      `${o.text ? o.text + '. ' : ''}${o.gust != null ? `Gusts ${m.u.speed(o.gust)}. ` : ''}${readNote(obsRow, o.t)}`));
   }
   $('facts').innerHTML = f.join('');
   $('nowPrecip').innerHTML = nowPrecip(m);

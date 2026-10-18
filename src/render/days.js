@@ -2,7 +2,7 @@
 // Each row opens to the full forecast for that period.
 import { WORD_PLAIN, WATER } from '../config.js';
 import { app, $ } from '../state.js';
-import { esc, hm, r0, card, rng, dayWord, fDayLong, lowerFirst } from '../format.js';
+import { esc, hm, r0, card, dayWord, fDayLong, lowerFirst } from '../format.js';
 import { fogLift } from '../logic.js';
 import { forecastPanel } from './forecast.js';
 
@@ -23,10 +23,10 @@ export function periodCall(p) {
 }
 
 // The key numbers on one line: wind, temperature, rain, and when fog lifts.
-export function periodSummary(p) {
+export function periodSummary(p, u) {
   const parts = [
-    `Wind ${rng(p.wmin, p.wmax, ' mph')} ${card(p.dir)}, gusts ${r0(p.gmax)}.`,
-    `${rng(p.tmin, p.tmax, '°F')}.`,
+    `Wind ${u.speedRange(p.wmin, p.wmax)} ${card(p.dir)}, gusts ${r0(p.gmax)}.`,
+    `${u.tempRange(p.tmin, p.tmax)}.`,
     `Rain ${r0(p.pop)}%.`
   ];
   if (p.fog && p.fog.until) parts.push(p.why && p.why.key === 'fog' ? `Fog ${fogLift(p.fog)}.` : `${p.fog.text}, ${fogLift(p.fog)}.`);
@@ -53,7 +53,7 @@ export function renderDays() {
             <span class="chip" data-lvl="${p.lvl}"><i aria-hidden="true"></i>${esc(periodCall(p))}</span>
             ${p.water ? `<span class="chip water" data-w="${p.water.max}">${WATER.names[p.water.max]}</span>` : ''}
           </span>
-          <span class="psum">${esc(periodSummary(p))}</span>
+          <span class="psum">${esc(periodSummary(p, m.u))}</span>
           <span class="more" aria-hidden="true"><span class="show">Full forecast</span><span class="hide">Hide forecast</span></span>
         </summary>
         ${open ? forecastPanel(m, p) : ''}

@@ -2,7 +2,7 @@
 // to sunset with what stands in the way in words. A day opens to a bar for
 // each factor that matters that day.
 import { HOUR, FACTORS, LIGHT_KEYS, WORD_PLAIN, WATER } from '../../config.js';
-import { esc, hm, r0, rng, localMinutes, dayKey, weekday, lowerFirst } from '../../format.js';
+import { esc, hm, r0, localMinutes, dayKey, weekday, lowerFirst } from '../../format.js';
 import { lvlExcept, sunFor, callRuns, factorRuns, confidence, confidenceText, planSessions } from '../../logic.js';
 import { loadPlan } from '../../storage.js';
 import { dayLabel, periodTime } from '../days.js';
@@ -77,7 +77,7 @@ export function render(m, want) {
   const planHtml = sessions.length
     ? `<ol class="windows">${sessions.map((p, i) => {
       const s = sunFor(m, p.key);
-      const bits = [`${WATER.names[p.water]}`, `wind ${rng(p.wmin, p.wmax, ' mph')}`, `gusts ${r0(p.gmax)}`];
+      const bits = [`${WATER.names[p.water]}`, `wind ${m.u.speedRange(p.wmin, p.wmax)}`, `gusts ${r0(p.gmax)}`];
       if (p.pop >= 30) bits.push(`rain chance ${r0(p.pop)}%`);
       const lights = p.start < s.sunrise ? ` Lights until ${hm(s.sunrise)}.` : '';
       return `<li><i aria-hidden="true"></i><span><strong>${esc(dayLabel(p.start))}</strong> ${esc(timeRange(p.start, p.end, m.now))}${i === 0 ? ' <span class="tag">Calmest</span>' : ''}<span class="wdur"> ${esc(cap(bits.join(', ')))}.${lights}</span></span></li>`;
