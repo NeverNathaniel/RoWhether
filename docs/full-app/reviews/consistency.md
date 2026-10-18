@@ -95,6 +95,8 @@ Applied: 08 section 14.2 P0.2 and section 11.3, and 07 sections 10.2 and 15 (the
 - Problem: `routeAll` "answers every request to `api.open-meteo.com`, ... from `test/fixtures/golden.js`, matching on the path". `SRC.wx` and `SRC.models` both request `https://api.open-meteo.com/v1/forecast?...`; only the query differs (`models=gfs_seamless,...`). Matching on the path serves one file for both, so the before screenshots lose the model comparison (the Wind view's model range lane, the Week view's low confidence line) and the baseline hides it. The same row says "everything else aborts", which as written includes the preview server's own origin (`localhost:4173`); 13.5 says it "routes every upstream host to fixtures".
 - Fix: Match on path plus the `models` parameter. Write "every other external host aborts".
 
+Applied: 08 section 14.2 P0.2. `routeAll` matches `api.open-meteo.com/v1/forecast` on the `models` parameter too, and only other external hosts abort; the preview origin passes through.
+
 #### C10. `migrateStorage()` is not idempotent after a failed step
 
 - Severity: major.
@@ -102,12 +104,16 @@ Applied: 08 section 14.2 P0.2 and section 11.3, and 07 sections 10.2 and 15 (the
 - Problem: 8.3: "a failed step leaves the old key for the next start and does not set the marker; the function is idempotent and safe to call from every loader". If step 3 or 4 fails (a quota error on the cache copy, for example), the marker stays unset and every loader call reruns step 2, which writes `rowhether-settings-v2` again from the old key. A setting saved after the first run is overwritten on the next loader call, and `src/install.js` calls `loadInstall()` on every `update()`.
 - Fix: Each step writes its target only when the target key is absent. Add to `test/storage.test.js`: step 3 throws once, a setting is saved, the next run keeps it.
 
+Applied: 08 section 8.3 and 14.2 P0.7. Each migration step writes its target only when the target is absent, the marker waits for every step, and `test/storage.test.js` gains the failed step 3 case.
+
 #### C11. `effectiveSettings` returns different things in 01 and P0.5, and `waterOverride` has no default
 
 - Severity: major.
 - Where: 08 14.2 P0.5 (lines 2644 to 2646); 01 11.5 (line 1115) and 8.1 row 2 (line 712).
 - Problem: 01 11.5: "Output: `S` for `buildModel`, plus `S._from = { windCaution: 'location' ... }` for the Settings dialog." P0.5: it "returns the threshold keys and `waterOverride`", and its test needs `{ ...effectiveSettings(PUTNEY), heading: PUTNEY.course.heading }` to deep-equal today's `DEFAULTS`. `_from` breaks that equality, and would travel in `app.settings` to `src/suggest.js` (line 36). Neither `GLOBAL_DEFAULTS` ("today's `DEFAULTS` values for the threshold keys") nor the record's `thresholds` holds `waterOverride`, so it comes out `undefined`, not today's `''`. 01 8.1 row 2 also limits `GLOBAL_DEFAULTS` to "(wind, gust, rain, cold, AQI)", while P0.5 includes flow.
 - Fix: In phase 0, `effectiveSettings` returns plain values with `waterOverride: ''` as its default; `_from` arrives with the phase 1 dialog. Say once whether `GLOBAL_DEFAULTS` holds the flow keys (01 11.2 says flow defaults are percentiles or blank, so it should not).
+
+Applied: 08 section 14.2 P0.5, 01 section 11.5 and 8.1 row 2. Phase 0 `effectiveSettings` returns plain values; `_from` waits for the phase 1 dialog and stays out of `app.settings`. `GLOBAL_DEFAULTS` holds wind, gust, rain, cold, AQI and `waterOverride: ''`, and no flow keys.
 
 ### Minor
 
@@ -118,12 +124,16 @@ Applied: 08 section 14.2 P0.2 and section 11.3, and 07 sections 10.2 and 15 (the
 - Problem: "an `innerText` getter (the `innerHTML` with tags stripped and entities decoded, enough for `shareText()`)". `#why` holds `lead<span class="cond">...</span>` and `.why .cond{display:block}`, so a browser's `innerText` has a line break there, which `shareText()` turns into a space. The fake gives "...mph.Wind 12 mph...", so the golden `share` records text the app never produces. If the fake keeps `textContent` and `innerHTML` as separate fields, the `textContent` paths (hero.js 41, `renderNoData()`) leave a stale `innerHTML`.
 - Fix: The fake turns a closing tag of a `.cond` span into a newline, and setting `textContent` sets `innerHTML` to the escaped text.
 
+Applied: 08 section 14.2 P0.1, the fake DOM row. P0.1 was already built this way (see the deviation notes in `phase-0-progress.md`); the spec now says what was built.
+
 #### C13. P0.4 miscounts the formatters and calls two function exports `const`
 
 - Severity: minor.
 - Where: 08 14.2 P0.4 (lines 2632 and 2635); `src/format.js` 4 to 9, 25, 31.
 - Problem: "`src/format.js` today builds seven `Intl.DateTimeFormat` objects". There are six (lines 4 to 9). "Change the module's exports of those names from `const` to `let`": `dayWord` and `whenText` are `export function` declarations (lines 25 and 31).
 - Fix: "six"; "turn those exports into `export let` bindings".
+
+Applied: 08 section 14.2 P0.4. "six" formatters, and the exports become `export let` bindings, including the `dayWord` and `whenText` functions.
 
 #### C14. P0.9 undercounts the `sunOn` calls in `light.js`
 
@@ -132,12 +142,16 @@ Applied: 08 section 14.2 P0.2 and section 11.3, and 07 sections 10.2 and 15 (the
 - Problem: "callers: four in `src/render/detail/light.js`". There are five calls: one each on lines 27, 34 and 36, and two on line 69.
 - Fix: "five calls on four lines".
 
+Applied: 08 section 14.2 P0.9. Five calls on four lines of `light.js` (27, 34, 36 and 69).
+
 #### C15. P0.1 calls `debrisLikely` per hour
 
 - Severity: minor.
 - Where: 08 14.2 P0.1 (line 2589); `src/logic.js` 114.
 - Problem: "`waterWhy` and `debrisLikely` for each hour in `m.h72`". `debrisLikely(m)` takes only the model and returns one value.
 - Fix: "`waterWhy(h.water)` for each hour in `m.h72`, and `debrisLikely(m)` once".
+
+Applied: 08 section 14.2 P0.1, the `text` row: `waterWhy(h.water)` per hour and `debrisLikely(m)` once. P0.1 was already built this way.
 
 #### C16. P0.10's done-when grep matches a comment the step does not change
 
@@ -146,6 +160,8 @@ Applied: 08 section 14.2 P0.2 and section 11.3, and 07 sections 10.2 and 15 (the
 - Problem: "`grep -rn "Northfield\|Walpole\|..." src/` finds nothing outside `data/`-derived values". `river.js` line 1 is the comment "River: flow at North Walpole over the last 2 days and the NWS forecast for", which no step edits.
 - Fix: Reword the comment in P0.10, or say comments are excluded.
 
+Applied: 08 section 14.2 P0.10 done when. The grep excludes comment lines, so the file comment in `river.js` stays.
+
 #### C17. P0.12 makes `visText` a re-export of a per-model function
 
 - Severity: minor.
@@ -153,12 +169,16 @@ Applied: 08 section 14.2 P0.2 and section 11.3, and 07 sections 10.2 and 15 (the
 - Problem: "`visText` in `src/format.js` stays as a re-export of `m.u.dist` for any caller left". `src/format.js` has no model, and `m.u` exists only inside a model.
 - Fix: `src/units.js` `dist` calls `visText` from `src/format.js`, which stays as it is.
 
+Applied: 08 section 14.2 P0.12. `visText` stays as it is and `src/units.js` `dist` calls it.
+
 #### C18. P0.11 asks for units through `m.u` in a function with no model
 
 - Severity: minor.
 - Where: 08 14.2 P0.11 (line 2712); `src/logic.js` 545 and 551.
 - Problem: "Every reason and sentence in `src/logic.js` that writes a unit uses `m.u`". `confidenceText(c, only)` writes "models differ by about ${Math.round(wind)} mph on wind" and has no `m`.
 - Fix: Give `confidenceText` a `u` argument (default `unitFormat('us')`), and say which callers pass it.
+
+Applied: 08 section 14.2 P0.11. `confidenceText(c, only, u = unitFormat())` takes the units, and its three callers in `src/render/detail/` pass `m.u`.
 
 #### C19. 01 and 03 still describe the old install key
 
@@ -174,12 +194,16 @@ Applied: 08 section 14.2 P0.2 and section 11.3, and 07 sections 10.2 and 15 (the
 - Problem: 3.4 lists `playwright.config.js`, `test/browser/fixtures.js`, `screens.spec.js` and `timing.spec.js` for phase 0, but not `smoke.spec.js`, which P0.2 creates and 13.7 lists; its unit test row (line 188) names `location`, `format`, `storage` and `sources` tests but not `test/units.test.js`, which P0.11 adds and 13.7 lists. 13.1 says "WebKit and Firefox on the owner's machine"; P0.2 configures WebKit twins only. 13.6: "Screenshots and the budget report are uploaded as artifacts"; P0.3's CI change has no upload step.
 - Fix: Add `smoke.spec.js` and `test/units.test.js` to 3.4, drop Firefox from 13.1 or add its projects, and add an `actions/upload-artifact` step to P0.3 or drop the sentence.
 
+Applied: 08 section 3.4 (`smoke.spec.js` and `test/units.test.js` added), 13.1 (Firefox dropped), 13.6 and 14.2 P0.3. `budget.mjs` writes `dist/budget-report.json` and CI uploads it with `actions/upload-artifact@v4`; the screenshots sentence is dropped because CI makes none.
+
 #### C21. P0.4's comparison test has nothing to compare against after the change
 
 - Severity: minor.
 - Where: 08 14.2 P0.4 (line 2637).
 - Problem: "every function of `zoneFormat('America/New_York')` equals today's module output". Once P0.4 lands, the module's exports are `zoneFormat`'s own functions, so the test compares a function with itself.
 - Fix: Copy today's six formatter definitions into `test/format.test.js` as the reference.
+
+Applied: 08 section 14.2 P0.4. The test's reference is today's six formatter definitions and wrappers, copied from `src/format.js` into `test/format.test.js`.
 
 ## Contradictions between the documents and with 08
 
@@ -242,6 +266,8 @@ Topic documents that still disagree with 08, and places where two topic document
 - Where: `src/settings.js` line 26; 03 9.2 (line 610); 08 7.5 (line 2060); 08 14.2 P0.7 (line 2667) and P0.1 (line 2582).
 - Problem: Today Settings stores the dock reading as typed text: `if (k === 'waterOverride') { next[k] = raw; continue; }`, so a saved value is `"55"`. P0.7 keeps "the values as today" and migrates them "unchanged". 03 9.2: a synced value "is JSON: a finite number, `""` ..., an object for `plan`, or null", and unknown or invalid values answer 400 `invalid`; 08 7.5 lists `waterOverride` as "number or `""`". The first push from a device that has a dock reading fails, and with 200 changes per request the whole outbox can stall. The golden cases also pass `waterOverride: 55` as a number, so they do not exercise the stored shape.
 - Fix: In P0.7, store `waterOverride` as a number (or `''`) on save and convert it in `migrateStorage()`, with a golden case that uses the string form today's users have; or have 03 9.2 accept a numeric string for this key and normalize it on the server.
+
+Applied: 08 section 8.3 step 2 and 14.2 P0.7, and 01 section 8.6 step 2. `waterOverride` is saved as a number or `''` and `migrateStorage()` converts `"55"` to `55`; `test/storage.test.js` covers the string form. No new golden case: the golden JSON is never written after P0.1 (14.1).
 
 #### C35. 03 and 04 make opposite promises about raw coordinates in reports
 
@@ -350,6 +376,8 @@ Topic documents that still disagree with 08, and places where two topic document
 - Problem: 07: `export function unitFormat({ system = 'us', wind = 'auto' } = {})`, returning `speed`, `speedUnit`, `temp`, `tempDiff`, `tempSum`, `precip`, `rate`, `vis`, `dist`, `flow`, `stage` and the `to*` converters. 08: "`unitFormat(system = 'us')`: `speed(v)` ..., `temp(v)` ..., `dist(m)` ..., `precip(v)`, `flow(v, unit)`, `aqi(v)`", and "`m.u = unitFormat(units || 'us')`". Phase 0 builds one shape and phase 2 needs the other, so every call changes twice.
 - Fix: P0.11 uses 07's object argument and names (`unitFormat({ system: 'us' })`), implementing only the US branch.
 
+Applied: 08 section 14.2 P0.11. `unitFormat({ system = 'us', wind = 'auto' } = {})` with 07 7.7's names, US branch only, and `m.u = unitFormat(units)`. 07 7.7 stands as written.
+
 #### C53. 03's written retention policy leaves out two audit kinds
 
 - Severity: minor.
@@ -370,6 +398,8 @@ Checked against the files at the commit above. Phase 0 claims are in the first s
 - Where: 08 9.2 (lines 2170 to 2180); 01 15.3 (line 1458); `src/render/now.js` 29; `src/render/detail/river.js` 73 and 78.
 - Problem: 08 9.2 is the list "fixed in phase 0", and names `clockMin`, `h0` in `buildModel`, `PLAN_STEP`, `parseFlowDays` and `sunFor`. 01 15.3 also names "`nowPrecip`'s same expression" (`const h0 = Math.floor(m.now / HOUR) * HOUR;` in `now.js` line 29), and the River chart's hour ticks use `Math.ceil(t0 / HOUR) * HOUR` (`river.js` 73, 78). In a +5:30 zone the precipitation window and the ticks fall on half hours.
 - Fix: Add both to 08 9.2, fixed with the hour that contains `now` and local hour starts.
+
+Applied: 08 section 9.2 (two new rows) and 14.2 P0.9 (a bullet for `nowPrecip` and the River chart ticks).
 
 #### C55. 06 points at the wrong line for the stay off hatch
 

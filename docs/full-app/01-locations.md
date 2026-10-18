@@ -709,7 +709,7 @@ Phase 0 changes no visible behavior. Putney renders the same text, numbers and c
 | # | File and symbol | What it assumes | Change | Phase |
 | --- | --- | --- | --- | --- |
 | 1 | `src/config.js` `LOC` | One dock and zone | Removed. Read from `m.loc` (logic) or the active location (UI). | 0 |
-| 2 | `src/config.js` `DEFAULTS` | `heading: 15`, flow 20,000/28,000 cfs | Split: `GLOBAL_DEFAULTS` (wind, gust, rain, cold, AQI) stays; heading moves to `course`, flow limits to the record. | 0 |
+| 2 | `src/config.js` `DEFAULTS` | `heading: 15`, flow 20,000/28,000 cfs | Split: `GLOBAL_DEFAULTS` (wind, gust, rain, cold, AQI, and `waterOverride: ''`) stays; heading moves to `course`, flow limits to the record (blank when a record has none, 11.1). | 0 |
 | 3 | `src/config.js` `GAUGE_FLOW`, `GAUGE_TEMP`, `NWS_GAUGE` | Putney gauges | Bindings in the record. | 0 |
 | 4 | `src/config.js` `SRC` | URL builders closed over `LOC` and the gauge constants | `bindingsFor(loc)` returns the same keys (02 owns the adapters; 08 K3). | 0 |
 | 5 | `src/config.js` `SOURCE_NAMES` | "Keene observations", "USGS river gauges", "the NWS river forecast" | Built from binding labels: `${label} observations`. Same text for Putney. | 0 |
@@ -855,7 +855,7 @@ New keys (08-architecture.md lists the canonical set):
 Migration, `migrateStorage()` in `src/storage.js`, called at the top of `loadSettings()` and before anything else reads storage. Every step is in try/catch, as all storage access is today.
 
 1. If `rowhether-migrated-v1` exists, stop.
-2. Settings: read `putney-rowing-settings-v1`. If present, keep only keys whose value differs from Putney's record (`thresholds`, plus `heading` when not 15, plus `waterOverride` when not empty). Compare numbers as numbers and keep `''` (a level turned off) as a real override. Write `rowhether-settings-v2` as `{ "putney-landing": { "saved": Date.now(), "values": {...} } }`. `saved` keeps the Settings reminder hidden for people who saved before (`hasSavedSettings()` reads it).
+2. Settings: read `putney-rowing-settings-v1`. If present, keep only keys whose value differs from Putney's record (`thresholds`, plus `heading` when not 15, plus `waterOverride` when not empty, stored as a number; Settings keeps the typed text today, and 03 9.2 takes only numbers, 08 8.3). Compare numbers as numbers and keep `''` (a level turned off) as a real override. Write `rowhether-settings-v2` as `{ "putney-landing": { "saved": Date.now(), "values": {...} } }`. `saved` keeps the Settings reminder hidden for people who saved before (`hasSavedSettings()` reads it).
 3. Cache: copy `putney-rowing-cache-v1` to `rowhether-cache-v2:putney-landing` unchanged.
 4. Copy plan, install (`putney-rowing-install-v2`) and nudge values to their new keys.
 5. If any `putney-rowing-*` key existed, set `rowhether-last-v1` to `putney-landing`. This is what makes an installed app open on Putney with no picker.
@@ -1061,6 +1061,8 @@ The `VIEWS` registry in `src/render/detail/index.js` gains an optional `when(loc
 | `minLaunch` | the tide binding's unit | yes |
 | `levelLow`, `levelHigh` | the level binding's unit | yes |
 
+Bounds for a location that is not `verified` (phase 3): no limit may be looser than the global defaults (wind 10 and 15 mph, gusts 18 and 25 mph, cold line 100°F, rain chance 60 and 90%, AQI 151 and 201; looser means a higher wind, gust, rain or AQI number and a lower cold line), and no level may be blank, except `flowCaution` and `flowOff` at a location with no flow history (11.3). A stricter limit is fine. `validateLocation()` enforces it on create and on every edit (12.10, 13.1), so one creator cannot publish limits that show Go in 40 mph wind to every visitor. Only a moderator or a steward club admin can loosen a limit, through a reviewed revision (13.5). A verified location is not bound. Putney's record is verified.
+
 Weather values stay in US customary units internally (Open-Meteo is requested in mph, °F and inches, `SRC.wx` today). Display conversion is 07's. Flow, level and tide stay in the source's native unit so a threshold never drifts through rounding.
 
 Decision: Keep internal weather units as mph, °F and inches everywhere and convert only for display.
@@ -1112,7 +1114,7 @@ Decision: Use the monthly typical water temperature for the cold check when no l
 3. The club rule overlay, when active (11.7).
 4. The viewer's overrides for this location (`rowhether-settings-v2`, synced in phase 2 through 03's `user_settings`).
 
-Output: `S` for `buildModel`, plus `S._from = { windCaution: 'location' | 'club' | 'you', ... }` for the Settings dialog.
+Output: `S` for `buildModel`, plain values only (phase 0 returns nothing else). The phase 1 Settings dialog adds a map of where each value came from, `{ windCaution: 'location' | 'club' | 'you', ... }`, kept apart from `S` so it never reaches `app.settings` or the suggestion context (08 14.2 P0.5).
 
 Overrides are stored as differences only. When a location's defaults improve, everyone who never changed that value gets the new one. Reset in Settings clears this location's overrides.
 
@@ -1122,7 +1124,7 @@ Overrides are stored as differences only. When a location's defaults improve, ev
 - Each input's placeholder shows the location default: "Location default 10". A small line under a changed field: "Your setting. Location default 10."
 - The intro note: "Match these to your program, boat class and coach coverage. Saved in this browser for Putney Landing."
 - Reset defaults becomes "Use location defaults".
-- Validation as today (caution not above stay off, rain 0 to 100, AQI 0 to 500). New ranges: stream 0 to 10 kn, flow 0 to 10,000,000.
+- Validation as today (caution not above stay off, rain 0 to 100, AQI 0 to 500), plus the bounds in 11.1 for a location that is not verified (a field refuses a looser value with "Looser than the standard limit. A moderator can change this after checking the location."). New ranges: stream 0 to 10 kn, flow 0 to 10,000,000.
 
 ### 11.7 Club rule overlay (location side)
 
@@ -1212,7 +1214,7 @@ Shows the defaults from 11.2 and 11.3 with their reasons:
 
 > Flow: caution at 20,000 cfs (the top 12% of days since 2016), stay off at 28,000 (the top 5%).
 
-All editable. Note: "These are the starting limits for everyone at this location. Each rower can still set their own."
+All editable, within the bounds in 11.1 until the location is verified. Note: "These are the starting limits for everyone at this location. Each rower can still set their own."
 
 ### 12.8 Step 6: launch notes
 
@@ -1228,7 +1230,7 @@ In order, stopping at the first failure:
 
 1. Signed in, account age and email (403 `not_allowed`).
 2. Rate limits (429 `rate_limited`).
-3. JSON shape and every field rule via `validateLocation()` (400 `invalid` with `field`).
+3. JSON shape and every field rule via `validateLocation()` (400 `invalid` with `field`), including the limit bounds of 11.1 while the location is not `verified`.
 4. Slug free across `locations` and `location_aliases` (409 `slug_taken`).
 5. Dedupe within 100 m (409 `duplicate` with `nearby`); 100 to 300 m without a reason (409 `needs_reason`).
 6. Time zone valid; dock point inside the country's bounding box from reverse geocoding when available (400 `invalid`, field `lat`).
@@ -1243,7 +1245,7 @@ Site roles are 03's (`user`, `moderator`, `admin`). Steward club admins are 06's
 
 | Action | Creator | Signed-in user | Steward club admin (5) | Moderator | Admin |
 | --- | --- | --- | --- | --- | --- |
-| Edit a `published` location directly | yes | suggest | yes | yes | yes |
+| Edit a `published` location directly | yes, except limits, sources and course (suggest) | suggest | yes | yes | yes |
 | Edit a `verified` location directly | suggest | suggest | yes | yes | yes |
 | Approve or reject suggestions | `published` only | no | yes | yes | yes |
 | Change slug | no | no | no | yes | yes |
@@ -1256,6 +1258,8 @@ Site roles are 03's (`user`, `moderator`, `admin`). Steward club admins are 06's
 | Hard delete | own drafts | no | no | no | yes |
 
 "Signed-in user" for suggestions means an account at least 7 days old with a confirmed email (03). Limits: 30 suggestions or edits per user per day.
+
+After publishing, the creator edits name, notes and similar text directly. A change to limits, sources or the course is a suggestion that a steward club admin or a moderator approves, never the creator, so one account cannot move the verdict everyone sees.
 
 ### 13.2 Edits and suggestions
 
@@ -1634,6 +1638,9 @@ Decision: A heading set by a person before phase 0 stays as a personal per-locat
 
 Decision: Bank labels on the compass rotate with the river from phase 1 (a small visible change for Putney).
 - Alternative: keep fixed label positions for courses within 30° of north.
+
+Decision: Limits at a location that is not verified cannot be looser than the global defaults, and the creator cannot change limits, sources or the course after publishing except by suggestion (11.1, 13.1). When they differ from the defaults, the hero says so (07 6.7).
+- Alternative: any limits, with only the "Community added" badge as a sign.
 
 Decision: Community locations go live as `published` with a "Community added" note, with moderator review after the fact; reasons for near-duplicates go to the queue.
 - Alternative: every new location waits for moderator approval before anyone else can see it.

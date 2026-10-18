@@ -587,7 +587,7 @@ After Publish: the new page `/<slug>` with the note "Published. It shows as comm
 | Guardians | `#guardians` | Junior accounts only (03 11.5) | 5 |
 | Juniors | `#juniors` | Guardians only (03 11.5) | 5 |
 
-- For a junior, the first line of every tab is 03's signal: "Alex P. (guardian) can see your club messages, outings and attendance."
+- For a junior, the first line of every tab is 03's signal: "Alex P. (guardian) can see your club messages, club outings and attendance, and any row you share."
 - Times on this page use the home location's zone, named once at the top ("Times in Eastern"), as 03 17.4 says.
 
 ### 5.8 Club pages
@@ -785,6 +785,7 @@ Today: two paragraphs, the data credits for Putney and the starting points sente
 | Offline, showing cache | Header | "Saved 6:41 AM" (replaces "Saved data from 6:41 AM", which wraps at 360 px, 4.3) |
 | No river gauge, river | River tab hidden; Week, River row | "No river gauge here, so flow is not checked." |
 | No river gauge, lake | Week, River row | "This is a lake. Flow is not checked." |
+| Limits differ from the global defaults at a community-added location that is not verified (01 11.1) | Hero, one quiet line under the verdict | "Limits here were set by the person who added this location." Not shown for curated or verified locations, so Putney's screens do not change. |
 | Gauge reading too old (over 24 h, 01 15.7) | River flow fact note | "Last reading 2 days ago, not used for Go, Caution or Stay off." |
 | Gauge switched to the fallback (01 15.7) | River flow fact note | "Using the Wellesley gauge. Waltham has not reported since 3 AM." |
 | No official alerts feed (outside the US until phase 7) | Storms tab | "No official warnings feed for this country yet. Check your national weather service before you row." (02) |
@@ -1408,7 +1409,7 @@ Phase 5
 - Hero club line for a stubbed member at 360 px: at most two lines; "Change" opens Rowing as with focus on its heading.
 - Water status banner Closed: the band has the hatch; `role="status"` announces once.
 - Board at 360 px: rows wrap with no horizontal scroll; an overdue row is announced once; "More" opens the sheet; offline shows "Not updated since".
-- Junior view: "Your guardian can see this." on club messages and outings.
+- Junior view: "Your guardian can see this." on club messages, club outings and shared rows.
 
 Every phase
 

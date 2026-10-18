@@ -164,7 +164,7 @@ Decision: Cloudflare Email Service, on the Workers Paid plan from phase 2.
 - Alternative: Resend Free on Workers Free (a second processor and a secret; 100 a day cap is tight on a busy first weekend).
 - Alternative: Postmark (best known deliverability; $15 a month).
 
-Volume estimate (an estimate, not measured): 1,000 accounts, each needing about 1.5 codes a month (new devices, the iOS installed app, lapsed sessions) is about 1,500 codes, plus about 300 security notices. That is inside the 3,000 included. 05's email alerts count against the same quota.
+Volume estimate (an estimate, not measured): 1,000 accounts, each needing about 1.5 codes a month (new devices, the iOS installed app, lapsed sessions) is about 1,500 codes, plus about 300 security notices. That is inside the 3,000 included. 05's email alerts count against the same quota, so 05 caps alert email at 70% of `EMAIL_DAILY_LIMIT` and sends overdue mail ahead of it (05 5.7).
 
 Sending identity: `RoWhether <signin@rowhether.com>` for codes and account notices. No reply address on code emails. A `help@rowhether.com` inbox (Cloudflare Email Routing to the owner's mailbox; free per Cloudflare's product page, unverified) receives data requests and support.
 
@@ -767,7 +767,7 @@ These are requirements on 04, 05 and 06. They make RoWhether a platform where cl
 1. No private messages between users. No direct messages, no one-to-one chat, no comment threads that work as one. This holds for adults too, so there is no back door.
 2. Club messages are broadcasts to a group: the whole club or one of its groups (06's announcements, section 15 there, and practice, lineup and water status notes). No replies anywhere (06 5.2).
 3. Anything staff send that reaches a junior is visible to all of the club's staff and to that junior's guardians (06 5.2 rule 2). That meets MAAPP's "copy or include another Adult Participant, or all the Minor Athletes' parents/guardians" on two counts.
-4. Edge case: a club whose only staff member is the sender, writing to a junior with no linked guardian, meets neither count. 06's send endpoint calls `audienceGuard()` (in `worker/auth/minors.js`), which refuses with 409 `needs_adult`: "Add a second coach or a safety officer to the club before messaging juniors. Messages to juniors must reach another adult." Roster-only juniors count through their `club_guardians` rows (06 4.5).
+4. Edge case: a club whose only staff member is the sender, writing to a junior with no linked guardian, meets neither count. 06's send endpoint calls `audienceGuard()` (in `worker/auth/minors.js`), which refuses with 409 `needs_adult`: "Add a second coach or a safety officer to the club before messaging juniors. Messages to juniors must reach another adult." Roster-only juniors count through their `club_guardians` rows (06 4.5). `audienceGuard()` counts as another adult only a guardian whose `club_guardians.confirmed_at` is set (06 4.5), or a staff member of a verified club who is not the sender, has held the role for at least 7 days, and whose account is at least 30 days old; a second account made by the sender does not meet the rule.
 5. The composer says who will see it: "Juniors' guardians and the club's staff see this message."
 6. Juniors send no free text to adults in club features (06 5.2 rule 3).
 7. Messages are kept for the club's safeguarding record. A sender can remove a message from view; it shows "Removed by the sender", and the original stays visible to the club's safety officers and the guardians who received it, for 1 year (06 may set longer with legal advice).
@@ -775,7 +775,7 @@ These are requirements on 04, 05 and 06. They make RoWhether a platform where cl
 9. A guardian can turn off club notifications to their junior's devices, except overdue messages and a closed water status (`guardian_links.mute_nonsafety` here, 06 5.2 rule 5 there), and can ask that the club not message their junior directly (`guardian_links.discontinue`): club messages then reach the junior only through the guardian's copy. This is MAAPP's "request to discontinue" in product form.
 10. No adult sees a junior's email or contact details. Club staff see the junior's name, the "Junior" label and the guardians' display names. Emergency contacts are 04's and 06's, visible only to the club's safety officers during an overdue escalation.
 11. No following, friending or contact lists between users (MAAPP social media connections). The app has no social graph.
-12. A junior's outings and float plans are visible to their guardians and to their club's safety officers (04, 06).
+12. A junior's club outings are visible to the club's staff and, through the club, to their guardians. A junior's personal outings and float plans are seen by no one else unless the junior shares a row on purpose (11.5; 04 5.2).
 
 Where the rules live: `worker/auth/minors.js` exports `isJunior(user, now)`, `audienceGuard({ senderId, recipients, clubRoles, guardianLinks })` and `inQuietHours(tz, now)`. 06 calls them; tests in 20.
 
@@ -798,26 +798,26 @@ Starting a link, from either side:
 
 Codes: 8 characters from the Crockford base32 alphabet (no I, L, O or U), shown as two groups of 4, stored as an HMAC with `AUTH_PEPPER`, single use, 5 tries per account per hour.
 
-Accepting needs a recent sign-in. Both people get an email and an in-app note.
+Accepting needs a recent sign-in. Both people get an email and an in-app note. A guardian account must be at least 7 days old with a confirmed email (403 `not_allowed`). When one adult is linked to juniors in 3 or more different clubs, the Worker writes a `safeguarding` audit row and the owner digest flags it for a site admin to look at (08 10.7).
 
 What a guardian sees, read-only, on Account, "Juniors", then the junior's name:
 
 - Clubs and club roles.
 - Copies of every club message the junior receives (11.4).
-- Outings and float plans (04), attendance and lineups (06).
+- Club outings, attendance and lineups, seen through the club (06). A junior's personal outings and float plans are not shown. The junior can share one row with a guardian on purpose, from the Start a row sheet or the row's menu ("Show this row to my guardians"), and a shared row shows on the guardian's page until 24 hours after it ends (04 5.2).
 - Reports and hazards the junior posted.
 
 A guardian can: turn off non-safety club notifications to the junior (`mute_nonsafety`), ask the club not to message the junior directly (`discontinue`, 11.4 rule 9), and end their own link. A guardian cannot read the junior's settings, sessions or security activity, and cannot delete the junior's account (they can write to help@rowhether.com).
 
 The signal (Vermont Act 63, ICO parental controls standard): the junior always knows.
 
-- Account page, top: "Alex P. (guardian) can see your club messages, outings and attendance."
-- On each screen whose content guardians can see (club messages, outings), a quiet line: "Your guardian can see this."
+- Account page, top: "Alex P. (guardian) can see your club messages, club outings and attendance, and any row you share."
+- On each screen whose content guardians can see (club messages, club outings, shared rows), a quiet line: "Your guardian can see this."
 - An in-app note and email when a link starts or ends.
 
 Ending a link:
 
-- The guardian, or a site admin (for example a wrong person or a court order), can end it. The junior cannot, because MAAPP expects parents to be able to see. A club admin cannot end it but can flag it to site admins.
+- The junior, the guardian or a site admin (for example a wrong person or a court order) can end it. When a junior ends a link they give a reason (not my guardian, not comfortable, or other, with an optional note of up to 300 characters). The reason goes to site admins and, when the junior is in a club, to that club's safety officer; the guardian is told only that the link ended. Ending an account link does not end a parent's view of club communication: that comes through the club's own guardian record (`club_guardians`, 06 4.5), which a club admin confirms and the junior cannot end. A club admin cannot end a link but can flag it to site admins.
 - It ends automatically at `junior_until` (`ended_reason = 'adult'`). 30 days before, both get: "On May 1, Jamie's account becomes an adult account and your guardian link ends."
 - Account deletion on either side ends it (`deleted`).
 
@@ -1316,7 +1316,9 @@ CREATE TABLE IF NOT EXISTS guardian_links (
   initiated_by TEXT NOT NULL CHECK (initiated_by IN ('junior', 'guardian', 'club')),
   club_id TEXT REFERENCES clubs(id) ON DELETE SET NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'ended')),
-  ended_reason TEXT CHECK (ended_reason IS NULL OR ended_reason IN ('guardian', 'admin', 'adult', 'deleted', 'expired')),
+  ended_reason TEXT CHECK (ended_reason IS NULL OR ended_reason IN ('guardian', 'junior', 'admin', 'adult', 'deleted', 'expired')),
+  end_reason TEXT CHECK (end_reason IS NULL OR end_reason IN ('not_my_guardian', 'not_comfortable', 'other')), -- given by a junior who ends the link
+  end_note TEXT CHECK (end_note IS NULL OR length(end_note) <= 300),
   mute_nonsafety INTEGER NOT NULL DEFAULT 0 CHECK (mute_nonsafety IN (0, 1)),
   discontinue INTEGER NOT NULL DEFAULT 0 CHECK (discontinue IN (0, 1)), -- 11.4 rule 9
   created_at INTEGER NOT NULL,
@@ -1533,7 +1535,8 @@ Each later doc adds its section through a registry: `worker/auth/export.js` impo
 | `GET /api/me/guardians` | Either | | `{ "guardians": [{ "linkId", "name", "since" }], "juniors": [{ "linkId", "userId", "name", "juniorUntil", "muteNonSafety", "discontinue" }] }` |
 | `PATCH /api/me/juniors/:linkId` | Guardian | `{ "muteNonSafety"?, "discontinue"? }` | 200 |
 | `DELETE /api/me/juniors/:linkId` | Guardian | | 200 (ends the link) |
-| `GET /api/me/juniors/:userId/activity?before=` | Guardian | | Messages, outings, attendance, reports; composed from 04 and 06 |
+| `DELETE /api/me/guardians/:linkId` | Junior | `{ "reason", "note"? }`, `reason` being `not_my_guardian`, `not_comfortable` or `other` | 200 (ends the link, `ended_reason` `junior`; the guardian is told only that it ended) |
+| `GET /api/me/juniors/:userId/activity?before=` | Guardian | | Club messages, club outings, attendance, shared rows, reports; composed from 04 and 06 |
 
 Recent sign-in for accept, end and changes.
 
@@ -1727,7 +1730,7 @@ The existing `fakeDB()` in `test/reports.test.js` records SQL but runs none. Acc
 
 - `audienceGuard`: the only staff member of a club writing to a junior with no guardian is refused; a second staff member or a linked guardian (account or `club_guardians`) makes it pass; guardians are added to recipients; `discontinue` removes the junior from direct delivery but keeps the guardian copy; safety messages always pass.
 - `inQuietHours` at 9:59 PM, 10:00 PM, 5:59 AM and 6:00 AM in America/New_York, including a DST change night.
-- Guardian links end at `junior_until`; a junior cannot end a link; codes expire and allow 5 tries an hour.
+- Guardian links end at `junior_until`; a junior can end a link, the guardian is told only that it ended, and the reason reaches site admins and the club's safety officer; an account under 7 days old cannot accept as guardian; the activity route returns club outings and shared rows but no personal row that is not shared; codes expire and allow 5 tries an hour.
 
 `test/admin.test.js`
 
@@ -1773,6 +1776,7 @@ Decisions, recommendation first:
 - Decision: Hold juniors' public free text for moderator review. Alternatives: juniors post choice-only content publicly; juniors post like adults. (11.3)
 - Decision: Junior quiet hours 10 PM to 6 AM. Alternative: 9 PM to 7 AM. (11.3)
 - Decision: Guardian links in phase 5. Alternative: phase 3 with outings. (11.5)
+- Decision: A junior can end a guardian link, and guardians see club outings through the club and a junior's personal rows only when the junior shares them. Recommended: an adult a junior is talked into linking should not get lasting sight of where the junior rows, and parents keep club visibility through the club's confirmed guardian record. Alternatives: only guardians and admins can end a link (the earlier reading of MAAPP); guardians see all of a junior's outings. (11.5)
 - Decision: No live boat tracking in any phase. Alternative: opt-in tracking during an outing with a 24-hour retention and a visible signal. (12.2)
 - Decision: No analytics product and no tracking of people; 08 10.9 adopts an aggregate open counter, owner to confirm. Alternatives: Cloudflare Web Analytics (needs a second script exception); no counter at all. (12.3)
 - Decision: Keep `incidents` with names removed, retention set by 06 with legal advice. Alternative: delete with the person. (12.9)

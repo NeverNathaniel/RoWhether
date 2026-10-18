@@ -689,7 +689,7 @@ One boat on the water, from the moment the rower starts it to the moment they ar
 
 "Overdue" is not a state. It is `status = 'out'` and `now > due_at`, with the escalation stage in `stage` (6.2).
 
-Outings need a signed-in account: they hold contacts, a row log and a status link. One active outing per user at a time (a coach running several boats uses the club board, 06).
+Outings need a signed-in account: they hold contacts, a row log and a status link. One active outing per user at a time (a coach running several boats uses the club board, 06). A row a club starts for someone, from the board or at a boathouse kiosk, has `user_id` NULL and no float plan; the member's own account is linked as crew only (5.5, 06 8.5), so a wrong name never emails their contacts or blocks their own Start a row.
 
 ### 5.2 Start a row
 
@@ -709,6 +709,7 @@ The sheet "Start a row", fields in order:
 | Launch escort | Switch "A launch is with us" | Off | |
 | Back by | Time picker in the location's time zone, 5-minute steps | Now plus 90 minutes, rounded up to 5 minutes | 10 minutes to 12 hours after the start |
 | Tell my contacts if I am not back | Switch | On when contacts exist; hidden with "Add emergency contacts" link when none | 6 |
+| Show this row to my guardians | Switch, juniors with an active guardian link only | Off | A shared row shows on the guardian's page until 24 hours after it ends (03 11.5). `outings.share_guardians`. |
 | Count me in "boats on the water" | Switch | On | 5.5 |
 
 Footer line with a float plan: "If you are not back by 8:00 AM, we remind you. At 8:30 AM we email Jordan and Casey." Without one: "If you are not back by 8:00 AM, we remind you."
@@ -745,7 +746,7 @@ Club detail is 06's. What 06 can rely on from this table:
 
 - `outings.club_id` (added in phase 5): the club the outing belongs to, chosen in the sheet when the rower is a member of a club whose home location this is ("Rowing with Putney Rowing Club").
 - Club members with a club role that 06 names (coach, safety) see that club's outings at its locations: rower, boat, crew, direction, start, back by, stage.
-- `outing_crew.user_id` links (phase 5): club members can be picked as crew; they see the outing in their own row log after accepting ("Sam added you to a 2x at Putney Landing. Add it to your log?").
+- `outing_crew.user_id` links (phase 5): club members can be picked as crew; they see the outing in their own row log after accepting ("Sam added you to a 2x at Putney Landing. Add it to your log?"). When staff or a kiosk name a member, the member gets a push or an email at once with "Not you? Undo" (06 8.5), and Undo removes them from the crew.
 - Escalation to the club's safety contacts as an extra step (6.2), phase 5.
 
 ### 5.6 No signal at the dock
@@ -792,6 +793,7 @@ CREATE TABLE outings (
   distance_m INTEGER CHECK (distance_m IS NULL OR distance_m BETWEEN 0 AND 200000),
   notes TEXT CHECK (notes IS NULL OR length(notes) <= 500),
   clock_skew INTEGER NOT NULL DEFAULT 0 CHECK (clock_skew IN (0, 1)),
+  share_guardians INTEGER NOT NULL DEFAULT 0 CHECK (share_guardians IN (0, 1)), -- a junior shows this row to guardians (03 11.5)
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   CHECK (due_at >= out_at + 600000 AND due_at <= out_at + 43200000),
@@ -923,7 +925,7 @@ T is `due_at`. Defaults; `grace_min` and `contact_after_min` are set per outing 
 | 0 | Start | none | | `next_check_at = T` |
 | 1 | T | Rower | push (phase 4), email, and the in-app banner | "Time to head in?" |
 | 2 | T + `grace_min` (15) | Rower | push, email | "You are 15 minutes past your time." Says when contacts will be emailed. |
-| 3 | T + `contact_after_min` (30), float plans only | Contacts not opted out | email (SMS if chosen, 05) | The overdue email with the status link. The rower is told: "We emailed Jordan and Casey." |
+| 3 | T + `contact_after_min` (30), float plans only | Contacts not opted out | email (SMS if chosen, 05) | The overdue email with the status link. The rower is told only after the provider has accepted each email: "We emailed Jordan and Casey." For a contact whose email was refused, or not accepted within 2 minutes: "We could not email Jordan. Call someone now." |
 | 4 | Stage 3 + 30 min, float plans only | Contacts | email | "Still not back." |
 | 5 | Club outings, phase 5 | The club's staff (06) | 06's channels | Not a stage of this chain: 06 8.6 runs its own club chain on `club_stage` from `due_at + graceMin` (08 K17). |
 | 6 | T + 24 h | none | | `status = 'closed'`, link expires. Without a float plan this happens at T + 6 h after stage 2. |
@@ -936,6 +938,7 @@ Rules:
 - The engine is 05's: the every-minute cron selects `outings WHERE next_check_at <= now` (index `outings_next_check`), runs the step, writes `notify_log` (05) with 05's dedupe key `od:<outing id>:<stage>:<recipient>` (08 K16), advances `stage` and `next_check_at` in one `env.DB.batch()`. A step that already has a `notify_log` row is never sent twice, even if two cron runs overlap.
 - Worst-case lateness: one minute (cron period) plus delivery.
 - Quiet hours never hold overdue messages (05).
+- Overdue email is a lane of its own (05 5.7): the tick sends stages 3 and 4 itself, ahead of the queue that alerts use, and two failures for one email alert the owner at once (05 5.8).
 
 ### 6.3 The status link
 
@@ -1022,6 +1025,8 @@ Contact, stage 3 email:
 > Also told: Casey.
 >
 > RoWhether is not an emergency service. You get this because Alex listed you as an emergency contact. Stop these emails: [link]
+
+If any contact's email was refused, this message names the contact instead: "We could not email Jordan. Call someone now." It never says "We emailed" for an email the provider did not accept.
 
 Contact, stage 4 email: subject "Alex is still not back from rowing", same body with "It is now 9:00 AM Eastern, an hour past the planned time."
 
@@ -1319,6 +1324,8 @@ Migration (`test/migrations.test.js`, new, runs Miniflare's local D1 through `wr
 `test/screen.test.js` (new): `parseScreen()` for ok, review, reject, refusal becomes review, `max_tokens` throws, bad JSON throws.
 
 `test/outings.test.js` (new): create with valid times; `dueAt` under 10 minutes and over 12 hours refused; one active outing (second create 409); `clientId` idempotency; client time bounds and `clock_skew`; I'm back is idempotent; I'm back on `closed` reopens; Add time resets `stage` and `next_check_at`; cancel; delete refused while out; status token stored only as a hash; status link 410 after 24 hours; safe action requires Turnstile and stops the escalation; the timeline with a fake clock: stage 1 at T, stage 2 at T + 15, stage 3 at T + 30 only with a float plan, stage 4 at T + 60, close at T + 24 h, and close at T + 6 h after stage 2 without a float plan; each stage writes one `notify_log` key and a second run at the same minute writes nothing; contacts opted out are skipped; all clear goes only to contacts who were emailed; times across the New York DST change on 2026-11-01.
+
+`test/overdue-delivery.test.js` (new): a stub provider that throws for one contact: the rower's stage 3 message names that contact's failure and does not say "We emailed" for it; the step is retried on the next ticks; a second failure alerts the owner; the other contact is still emailed; the overdue send runs ahead of queued alerts.
 
 `test/contacts.test.js` (new): up to 3; E.164 phone check; notice email on add and on email change only; notice cap 5 a day; opted-out address refused for that user; stop link sets `opted_out_at`.
 
