@@ -443,10 +443,10 @@ These apply to every club feature. They implement the MAAPP electronic communica
 1. No private messages, comments or replies anywhere. Announcements (15) are the only staff-to-member channel and are broadcast to groups.
 2. Anything staff send that reaches a junior (announcements, practice notes, lineup notes, water status notes) is visible to all of the club's staff and to that junior's guardians. This meets "copy or include another Adult Participant, or all the Minor Athletes' parents/guardians."
 3. Juniors send no free text to adults: RSVPs are choices only (no note), damage reports are choices only (no description), juniors do not file incidents, and juniors join only by invite (no request note). This covers "all communication initiated by a Minor Athlete."
-4. Guardians see their junior's club life: memberships, groups, clearances, practices, RSVPs (and can answer them), attendance, published lineups, the junior's rows on the board, announcements that reached the junior, and that an incident involving the junior was recorded (type and date).
+4. Guardians see their junior's club life: memberships, groups, clearances, practices, RSVPs (and can answer them), attendance, published lineups, the junior's club rows as the board shows them to a guardian (8.4), announcements that reached the junior, and that an incident involving the junior was recorded (type and date).
 5. A guardian can turn off club notifications to their junior's devices, except overdue messages and a closed water status ("unless there is an emergency"). Staff are not told who turned them off.
 6. Junior names never appear on public pages. The kiosk shows first name and last initial. Non-staff adults see a junior crew as "Junior crew of 9" with the coach's name.
-7. Staff never see a junior's personal data outside the club: the personal row log, float plan contacts, other clubs, or location history (04 keeps these per user).
+7. Staff never see a junior's personal data outside the club: the personal row log, float plan contacts, other clubs, or location history (04 keeps these per user). Safety officers reach a junior's family through the club's guardian record (4.5), never through the rower's float plan contacts. 03 11.4 rule 12 is the one rule for who sees a junior's outings.
 8. No contact details of juniors are shown to anyone in club features. A guardian chooses at join whether safety officers and coaches see their phone number ("Share my phone with Putney Rowing Club staff for emergencies", on by default, changeable in Account).
 9. The MAAPP exceptions (close in age and others) are not modeled. The app has no one-to-one channel, so none is needed.
 
@@ -957,7 +957,7 @@ What each role sees is shaped on the server (`boardRow(row, ctx)`):
 | Admin, coach, safety officer | Everyone | Back, Add time, On it, Resolve, Edit, Cancel; Start a row for a crew |
 | Adult member, equipment manager | Adults by name; junior crews as "Junior crew of 9 with Lee M." | Back and Add time on boats they are in; Start a row |
 | Junior | Their own rows and their crewmates | Back on their own boat if self start is on |
-| Guardian | Their junior's rows, with the coach's name, no crewmates | None |
+| Guardian | Their junior's club rows, with the coach's name, no crewmates. A personal row shows only when the junior shared it (03 11.5). The same set as 03's guardian activity route | None |
 | Kiosk | Adults as first name and last initial; junior crews unnamed | Start a row (self), Back only for rows started at that kiosk |
 
 Empty: "No boats on the water. Start a row to put one here."
@@ -1035,7 +1035,7 @@ Emergency info belongs to the location, shared by every club and visitor there, 
 ```json
 {
   "v": 1,
-  "number": "911",
+  "dispatch": "+18025550100",
   "launchAddress": "Street address an ambulance can drive to",
   "launchNote": "Gravel ramp beside the docks. An ambulance can reach the top of the ramp.",
   "hospital": { "name": "Nearest emergency department", "address": "Its street address", "phone": "+1..." },
@@ -1050,18 +1050,22 @@ Emergency info belongs to the location, shared by every club and visitor there, 
 }
 ```
 
+`dispatch` is optional: the local dispatch line for a caller outside the area, in E.164 form, shown as "From outside the area: ..." next to the emergency number (04 6.3, 6.5). There is no `number` field. The number people are told to call comes from the table below, by the location's country.
+
 Lengths: `launchAddress` 200, `launchNote` 300, hospital fields 120 each, `aed` 200, `signal` 200, `vhf` 60, up to 10 landings with name 60, address 200, note 200. Putney's real values are to be collected on site; none are in this plan (the nearest hospital is probably in Brattleboro, unverified).
 
-Default `number` by country: US and CA 911, GB 999, IE and EU countries 112, AU 000, NZ 111 (unverified; check before phase 7).
+Emergency number by country, in `src/emergency.js` as data in the code, so no record and no user can change it: US and CA 911, GB 999, IE and EU countries 112, AU 000, NZ 111. Each row carries the official page it was taken from (a government or national emergency services page), and a person checks every row against its source before phase 3 ships; until then the table is unverified. Phase 3 needs only the countries where locations can exist, which is the United States until non-US sources arrive in phase 7 (01 12.10). A location in a country the table does not cover cannot be published (01 12.10, `validateLocation()`).
 
-Who edits: steward club safety officers and admins (01 section 13.4), and site moderators. Other signed-in users suggest changes through 01's suggestions (01 section 13.2). Each change is a location revision with a required summary.
+Phone numbers are checked as E.164 (`+` and 8 to 15 digits) before they are saved, and only a number that passes becomes a `tel:` link: `hospital.phone`, `dispatch` and every landing phone. Other free text (`aed`, `signal`, notes) is shown as text and never linked.
+
+Who edits: steward club safety officers and admins (01 section 13.4), and site moderators. Other signed-in users suggest changes through 01's suggestions (01 section 13.2). Each change is a location revision with a required summary. Until a location has a steward club (phases 3 and 4, and later for any location without one), every change to emergency info is a suggestion a moderator approves. The creator of a community location never edits it directly, so the person who adds a place cannot type the hospital's phone number everyone sees (01 13.1).
 
 Where it shows:
 
 - The location page "Safety" section (07 places it), for everyone.
 - The board's emergency strip, the kiosk, and stage 2 overdue emails.
 - The Start a row sheet, as a link "Emergency info".
-- 04's status link page: request to 04 to show the launch address next to the coordinates.
+- 04's status link page and the stage 3 and 4 emails (04 6.3, 6.5): the launch address, the country's emergency number and `dispatch`.
 - The incident form, to prefill the location.
 
 Offline: it is part of the location record, so it is cached with the location (01's static files in phase 1 and the app's location cache after).
@@ -1077,6 +1081,8 @@ Location Safety section copy:
 > Phone signal: weak on the dock, best at the top of the ramp.
 > Landing spots with road access: Railroad bridge, VT bank: (address)
 > Last checked Oct 17, 2026 by Putney Rowing Club.
+
+When `checkedAt` is empty, the last line reads "Not checked yet." in every place the block shows (Safety section, board strip, kiosk, status page).
 
 Decision: Emergency info lives on the location, public, edited by steward clubs and moderators.
 - Alternative: per club (every club at a shared dock keeps its own copy; copies drift apart).
@@ -1366,6 +1372,8 @@ Account, Calendar, "Add practices to your calendar":
 > [Copy link] [Open in Apple Calendar]
 >
 > Anyone with this link can see your practice times and seats. If you share it by mistake, stop it and make a new one.
+>
+> Your calendar app fetches this link from its own servers, so Google, Apple or Microsoft sees the practice times in it.
 
 - Token: 32 random bytes in base64url (43 characters). Only its SHA-256 is stored. Up to 5 per user, each for all clubs or one club, with a label. "Stop this link" revokes it.
 - Links: `https://rowhether.com/api/cal/<token>.ics` and the same with `webcal://` for "Open in Apple Calendar". Under `/api/`, so `run_worker_first` already routes it and the service worker never handles it (CLAUDE.md).
@@ -2789,7 +2797,7 @@ Loaded with dynamic `import()` on `/club/` routes or when a club sheet opens (20
 | `index.html` | 5 | `#clubStatus` above `#hero`; `#rowAs` above `#verdict` (from phase 2, 07; 08 K44); `#clubNotes` and `#clubAlt` under `#holds` (6.6); the public club line and "Clubs here" in `#home`; a `#club` container beside `#home` and `#detail`; one `<dialog id="clubSheet">` for club sheets. |
 | `src/main.js` | 5 | Starts `loadClubContext()` beside `refresh()`'s data fetch and on the 10-minute timer, never awaited before the first `render()`; sends `/club/` paths to `initClubPage()`; starts kiosk mode on `#kiosk`. |
 | `src/state.js` | 5 | `app.club` (the context for the active location) and `app.clubPick` (the club chosen per location). |
-| `src/config.js` | 5 | 6.9's `LIGHT_KEYS`, `THEN` and `FACTORS`; storage keys `CLUB_KEY` (`rowhether-club-v1`), `BOARD_KEY` (`rowhether-board-v1`), `INCIDENT_DRAFT_KEY` (`rowhether-incident-draft-v1`). |
+| `src/config.js` | 5 | 6.9's `LIGHT_KEYS`, `THEN` and `FACTORS`; `KEYS.club` (`rowhether-club-v1`), `KEYS.board` (`rowhether-board-v1`) and `KEYS.incidentDraft` (`rowhether-incident-draft-v1`) in 08 8.1's `KEYS` object. |
 | `src/storage.js` | 5 | `loadClubCache`, `saveClubCache`, `loadBoard`, `saveBoard`, `loadIncidentDraft`, `saveIncidentDraft`, each wrapped in try/catch. |
 | `src/logic.js` | 5 | 6.9: `buildModel(loc, data, S, now, { club })`, club reasons in `assess()`, the dock reading in `waterTemp()`, the daylight rule in `periodsFor()` and `m.daytime`. |
 | `src/render/hero.js` | 5 | `renderClubStatus`, `renderClubLine`, `renderClubNotes`, `renderClubAlt` (6.6) and the "as of" line (21.6). |
@@ -2799,17 +2807,17 @@ Loaded with dynamic `import()` on `/club/` routes or when a club sheet opens (20
 | `src/render/detail/common.js` | 5 | `limitText(S, key)`: "Club rule: 15 mph." for the How this works panels (6.5). |
 | `src/settings.js` | 5 | Club labels per field and the "Use club rules here" switch (6.5). |
 | `src/route.js` | 5 | `/club/new`, `/club/join/<token>` and `/club/<slug>` with its hash tabs (20), beside 01's location paths. |
-| `src/reports.js` | 5 | `loadInfo()` reads `clubs` from `/api/info` and hides every club entry point when it is false. |
+| `src/info.js` | 5 | `loadInfo()` (moved from `src/reports.js` in phase 1, 08 3.2) reads `clubs` from `/api/info` and hides every club entry point when it is false. |
 | `src/notify.js` (05) | 5 | The `refresh` message and club deep links (21.6). |
 | `src/account.js` (03) | 5, 6 | Your clubs, guardian approvals (M3), invite code entry; calendar links in phase 6. |
-| `src/styles/app.css` | 5 | The hero club lines and the status banner, with the status colors and the stay off hatch already there (`app.css` line 378). |
+| `src/styles/app.css` | 5 | The hero club lines and the status banner, with the status colors and the stay off hatch already there (`.seg.b2` and `.lk-b2` in `app.css`). |
 | `public/push-sw.js` (05) | 5 | The `refresh` post for `water_status` pushes (21.6). |
 
 ### 22.5 Worker, changed
 
 | File | Phase | Change |
 | --- | --- | --- |
-| `worker/index.js` | 5 | Hands 19's prefixes to `routeClubs()`; `info()` adds `clubs: !!env.DB && env.CLUBS_ENABLED === '1'`, beside today's `reports: !!env.DB`; 05's `scheduled()` calls `runClub()` and `dailyClub()`. |
+| `worker/index.js` | 5 | Hands 19's prefixes to `routeClubs()`; `info()` adds `clubs: !!env.DB && env.CLUBS_ENABLED === '1'`, beside `reports`, which is `!!env.DB && env.REPORTS_ENABLED === '1'` (08 6.3); 05's `scheduled()` calls `runClub()` and `dailyClub()`. |
 | `worker/outings.js` (04) | 5 | Calls `clubOutingFields()`; lets the club's staff use `in`, `cancel` and `PATCH` on the club's outings (19.1); sets `club_next_at` at the start. |
 | `worker/locations.js` (01) | 5 | `clubs` in `GET /api/locations/:slug` (3.5); `emergency` in `PATCH` through `cleanEmergency()`. |
 | `worker/notify/tick.js` (05) | 5 | Adds `runClub()` to the tick's runs. |
@@ -2820,7 +2828,7 @@ Loaded with dynamic `import()` on `/club/` routes or when a club sheet opens (20
 | `worker/auth/delete.js`, `worker/auth/export.js` (03) | 5, 6 | 06's tables in 03 section 12.9's cascade and the account export; succession (3.6) in the same batch as the deletion. |
 | `worker/auth/minors.js` (03) | 5 | Used, not changed: `audienceGuard()`, `isJunior()`, `inQuietHours()`. |
 | `worker/moderation.js` (04) | 5 | Flags with target `club`; club verification reviews join the queue. |
-| `worker/admin.js` (03) | 5 | Routes `/api/mod/clubs/*` to `worker/clubs/verify.js`. |
+| `worker/clubs/index.js` | 5 | `routeClubs()` also takes `/api/mod/clubs/*` (08 3.5) and sends it to `worker/clubs/verify.js`; `worker/admin.js` stays 07's metrics file. |
 | `worker/screen.js` (04) | 5 | Screens the club description, visitor info and public status notes (3.2, 7.4). |
 
 ### 22.6 Migrations and config
@@ -3217,11 +3225,4 @@ Decision: 01 creates `locations` in phase 3 without `steward_club_id`, and phase
 - D1. The one-statement booking insert, the partial indexes and the foreign key behavior in 22.6 were checked in local SQLite, not D1. Confirm on the dev database before each phase ships.
 - USRowing reporting. Nothing found suggests USRowing takes reports other than through its form (unverified). "Copy summary" (9.2) assumes copying by hand.
 - Moderation load. How many clubs ask for verification, and whether 3 days is a fair target (23.2).
-- Cross-document items for 08 to settle:
-  - One spelling of the club overdue dedupe key: 8.6's `overdue-club:<outing id>:<club_stage>` or 21.4's `odc:<outing id>:<stage>:<user id>`.
-  - 04 section 6.2's stage 5 ("at stage 3, for club outings") is now 06's club chain, which starts at `due_at + graceMin`.
-  - 05: the `club` kind and `subkind` (21.1); section 3.9 and 3.10 samples and 7.5's deep links (21.1); the quiet hours rule for `practice` and restricted `water_status` (21.3); the `refresh` post in `public/push-sw.js` (21.6); `clubContextFor()` in member models and status ids in `settingsHash()` (21.7).
-  - 18.2: `practices.check_at`, `practices_check`, `practices_rsvp` and `bookings_due` (21.7).
-  - 19.3: the club context always returns statuses (21.6).
-  - 01: `steward_club_id` moves to phase 5 (23.1).
-  - 03 and 06 both name a `CODE_LIMIT` binding (22.6).
+- Cross-document items for 08: settled by 08 (section 16, rows K12, K15, K16, K17, K19, K21, K22 and K23; the 21.6 and 21.7 engine additions stand as written here).

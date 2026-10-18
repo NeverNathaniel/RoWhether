@@ -82,7 +82,7 @@ JSON names (camelCase) are what the static files and the API use. D1 columns are
 | `waterTemp` | `water_temp` | JSON | no | Fallback when no live reading: `none` or `monthly` (12 values, °F). Max reading age (null in phase 0, 72 h from phase 1). | `{ "fallback": "none", "maxAgeH": null }` |
 | `tide` | `tide` | JSON | no | Tidal water only (section 9.4). | null |
 | `daylight` | `daylight` | JSON | no | High-latitude rowing window `{ dayWindow: [5, 22] }` (section 15.4). Null means 5 to 22. | null |
-| `emergency` | `emergency` | JSON | no | Emergency information for the Safety section (06 8.7), up to 6,000 chars. Column created in phase 3 (08 K13). | null |
+| `emergency` | `emergency` | JSON | no | Emergency information for the Safety section (06 8.7), up to 6,000 chars. Column created in phase 3 (08 K13). No stored number: the number comes from 06 8.7's checked country table, and phone fields must be E.164. Changes go through a moderator or a steward club (13.1). | null |
 | `copy` | `copy` | JSON | no | Curated text overrides for facts and the River view (section 6.3). Curated locations only. | see section 6 |
 | `launchNotes` | `launch_notes` | text | no | Plain text, up to 1,000 chars, no links. Parking, dock type, shallows, local rules. | null |
 | `status` | `status` | text | yes | `draft`, `published`, `verified`, `archived` (2.3). | `verified` |
@@ -244,12 +244,15 @@ One flow binding covers the latest value, the 48 h series and the daily means, b
 | `riverM` | `river_m` | integer | Along the water, signed: positive upstream. Null if unknown. |
 | `relation` | `relation` | text | `at` (within 1 km), `upstream`, `downstream`, `nearby` (not on the water: weather stations), `other_water` (a tributary or another lake; shown with a warning). |
 | `stats` | `stats` | JSON | Percentiles for flow or level (11.3). |
-| `status` | `status` | text | `active`, `offline`, `retired` (15.7). |
+| `status` | `status` | text | `active`; `suggested` (discovery proposed it, nobody has confirmed it); `offline` (no data for 3 days); `retired` (30 days); `rejected` (a curator declined it). 15.7, and 02's location_sources table. |
 | `lastOkAt`, `lastCheckedAt` | `last_ok_at`, `last_checked_at` | integer | Set by the health check (15.7). |
+| `origin` | `origin` | text | `curated`, `discovered` or `edited` (02). |
+| `failCount` | `fail_count` | integer | Consecutive failed health checks (15.7). |
+| `confirmedBy`, `confirmedAt` | `confirmed_by`, `confirmed_at` | text, integer | Who confirmed a discovered binding in /add or /mod, and when (02). |
 
 ## 5. D1 schema
 
-08-architecture.md 4.4 holds the canonical statements (`0003_locations.sql`), which change this proposal: no `steward_club_id` until `0010` in phase 5 (K12), an `emergency` column (K13), the reserved slug `index` (K25), and one merged `location_sources` (K2). These statements are the proposal for 08-architecture.md, which owns migration numbering. They follow `migrations/0001_reports.sql`: TEXT ids from `crypto.randomUUID()` (slugs for waterway ids), INTEGER ms times. `users` (03) and `clubs` (06) must exist first. D1 supports the JSON extension (used by `json_valid`) and FTS5 (from docs, https://developers.cloudflare.com/d1/sql-api/sql-statements/). Batches run as one transaction (from docs, https://developers.cloudflare.com/d1/worker-api/d1-database/). Limits that matter here: 100 bound parameters per query, 2 MB per row, 100 columns per table (from docs, https://developers.cloudflare.com/d1/platform/limits/).
+08-architecture.md 4.4 holds the canonical statements (`0003_locations.sql`), which change this proposal: no `steward_club_id` until `0010` in phase 5 (K12), an `emergency` column (K13), the reserved slug `index` (K25), and one merged `location_sources` (K2). These statements are the proposal for 08-architecture.md, which owns migration numbering. They follow `migrations/0001_reports.sql`: TEXT ids from `crypto.randomUUID()` (slugs for waterway ids), INTEGER ms times. `users` (03) must exist first; `clubs` arrive in phase 5 (08 K12). D1 supports the JSON extension (used by `json_valid`) and FTS5 (from docs, https://developers.cloudflare.com/d1/sql-api/sql-statements/). Batches run as one transaction (from docs, https://developers.cloudflare.com/d1/worker-api/d1-database/). Limits that matter here: 100 bound parameters per query, 2 MB per row, 100 columns per table (from docs, https://developers.cloudflare.com/d1/platform/limits/).
 
 ```sql
 -- Locations and waterways. Phase 3. Proposed file: migrations/00NN_locations.sql
@@ -408,7 +411,7 @@ END;
 Notes:
 
 - The reserved-word list is enforced twice: in the CHECK and in `validateSlug()` (`src/location.js`), so the client can say why before sending. The Worker also checks `location_aliases` for uniqueness, since SQLite cannot check across tables in a CHECK.
-- Why FTS5 for search: rows read are billed, and capped at 5 million a day on Workers Free (from docs, https://developers.cloudflare.com/d1/platform/pricing/). A `LIKE '%x%'` scan reads every location on every keystroke. FTS5 reads only matches. Unverified: whether `wrangler d1 export` handles FTS5 virtual tables; check before relying on exports for backups (08).
+- Why FTS5 for search: rows read are billed, and capped at 5 million a day on Workers Free (from docs, https://developers.cloudflare.com/d1/platform/pricing/). A `LIKE '%x%'` scan reads every location on every keystroke. FTS5 reads only matches. A full `wrangler d1 export` refuses FTS5 tables, so backups use D1 Time Travel (08 4.5).
 - `snapshot` holds the full record with sources after each applied change, about 3 to 6 KB. A location edited 200 times stays near 1 MB, inside the 2 MB row limit per row (each snapshot is its own row).
 
 ## 6. Putney Landing, the first record
@@ -440,7 +443,7 @@ Live checks, 2026-10-17:
 - USGS-01161280: "CONNECTICUT RIVER NEAR NORTHFIELD, MA", 42.683333, -72.471944, drainage area 6,730 sq mi. 31,110 m (19.3 mi) from the dock, bearing 172.5° (verified live 2026-10-17). The app's "about 19 mi downstream" is the straight-line distance.
 - KEEN: Keene, Dillant-Hopkins Airport, 42.9, -72.26667, zone America/New_York. 21,848 m (13.6 mi) from the dock, bearing 107.9° (verified live 2026-10-17). Matches "14 mi east".
 - WLPN3: "Connecticut River at North Walpole", USGS id 01154500, RFC NERFC, WFO GYX, in service. Flood categories by stage: action 26 ft, minor 28 ft, moderate 32 ft, major 35 ft (verified live 2026-10-17). These are far above rowing limits, so they are not used for thresholds.
-- Daily mean flow, 2016-01-01 to 2026-10-15, 3,939 days: median 6,910 cfs, p65 10,100, p88 20,300, p90 21,900, p95 28,100. 20,000 cfs is exceeded on 12.4% of days, 28,000 on 5.0%, 10,000 on 35.3% (verified live 2026-10-17 from the USGS `daily` collection). The Settings note's "roughly the top 10%" for 20,000 is close; the measured share is 12%.
+- Daily mean flow, 2016-01-01 to 2026-10-15, 3,939 days: median 6,910 cfs, p65 10,100, p88 20,300, p90 21,820, p95 28,010, by linear interpolation between closest ranks, the method in 02 step 3 (nearest rank gives 21,900 and 28,100). 20,000 cfs is exceeded on 12.4% of days, 28,000 on 5.0%, 10,000 on 35.3% (verified live 2026-10-17 from the USGS `daily` collection). The Settings note's "roughly the top 10%" for 20,000 is close; the measured share is 12%.
 - NWS point: `https://api.weather.gov/points/42.9607,-72.5219` returns office GYX (Gray, ME), grid 3,13, forecast zone NHZ011, county NHC005, zone America/New_York (verified live 2026-10-17). The dock coordinate sits on the New Hampshire side of the state line, which follows the Vermont bank. A point 0.0006° west (42.9607, -72.5225) returns ALY grid 111,84, zone VTZ015 "Eastern Windham" (verified live 2026-10-17). CLAUDE.md says ALY, grid 111,85, zone VTZ015. The app never uses the grid; it does use the point for alerts, so today it gets Cheshire County NH alerts from Gray, not Windham County VT alerts from Albany. The footer credits "National Weather Service, Albany".
 
 Decision: In phase 0 keep the alerts binding as `point:42.9607,-72.5219`, so nothing changes. In phase 1 switch Putney to `zones:VTZ015,VTC025,NHZ011,NHC005`, the forecast zone and county on each bank, which returns alerts for both banks (a multi-zone query with a county code returned 200, verified live 2026-10-18), and fix the footer and CLAUDE.md.
@@ -473,7 +476,7 @@ Decision: In phase 0 keep the alerts binding as `point:42.9607,-72.5219`, so not
       "siteLat": 43.126189, "siteLon": -72.436755,
       "distanceM": 19659, "riverM": 25750, "relation": "upstream",
       "stats": { "from": "2016-01-01", "to": "2026-10-15", "days": 3939,
-                 "p50": 6910, "p65": 10100, "p88": 20300, "p90": 21900, "p95": 28100 }
+                 "p50": 6910, "p65": 10100, "p88": 20300, "p90": 21820, "p95": 28010 }
     },
     {
       "role": "flow_forecast", "mode": "primary", "priority": 0,
@@ -713,7 +716,7 @@ Phase 0 changes no visible behavior. Putney renders the same text, numbers and c
 | 3 | `src/config.js` `GAUGE_FLOW`, `GAUGE_TEMP`, `NWS_GAUGE` | Putney gauges | Bindings in the record. | 0 |
 | 4 | `src/config.js` `SRC` | URL builders closed over `LOC` and the gauge constants | `bindingsFor(loc)` returns the same keys (02 owns the adapters; 08 K3). | 0 |
 | 5 | `src/config.js` `SOURCE_NAMES` | "Keene observations", "USGS river gauges", "the NWS river forecast" | Built from binding labels: `${label} observations`. Same text for Putney. | 0 |
-| 6 | `src/config.js` `SET_KEY`, `PLAN_KEY`, `CACHE_KEY`, `INSTALL_KEY`, `NUDGE_KEY` (`putney-rowing-*-v1`) | One location in storage | New keys and a one-time migration (8.6). | 0 |
+| 6 | `src/config.js` `SET_KEY`, `PLAN_KEY`, `CACHE_KEY`, `INSTALL_KEY`, `NUDGE_KEY` (`putney-rowing-*`, install at `-v2`) | One location in storage | New keys and a one-time migration (8.6). | 0 |
 | 7 | `src/config.js` `WATER.against` | Thresholds in cfs | `loc.flow.against`, in the flow binding's unit. | 0 |
 | 8 | `src/config.js` `MODELS` comment, "mostly HRRR and GFS here" | US models | Model list by region (02). Copy from the record's `copy.credits` or generated. | 1 |
 | 9 | `src/config.js` `AQI` | US AQI categories | Scale chosen by `loc.aqiScale` (02, 07). | 7 |
@@ -1102,7 +1105,7 @@ Decision: Keep water state information only on every water type, as on the river
 - Data: daily means for the last 10 years (USGS `daily` collection, `statistic_id=00003`). A single request with `limit=10000` returned all 3,939 days for 01154500 (verified live 2026-10-17). Other agencies by adapter (02).
 - Needs at least 1,095 days (3 years). Fewer: no default, flow limits start blank, and Settings says "Not enough history to suggest flow limits. Set your own."
 - `flowCaution` = p88, `flowOff` = p95, `against` = `[[p88, 1.4], [p65, 1.25]]`, each rounded down to two significant figures.
-- Putney check: p65 10,100, p88 20,300, p95 28,100 round down to 10,000, 20,000 and 28,000, exactly today's values (verified live 2026-10-17).
+- Putney check: p65 10,100, p88 20,300, p95 28,010 round down to 10,000, 20,000 and 28,000, exactly today's values (verified live 2026-10-17).
 - Stage gauges: the same rule on daily mean stage, rounded down to 0.1 ft or 0.05 m.
 - The Settings note is generated: "Since 2016 the median day is about 6,900 cfs. 20,000 is the top 12% of days, 28,000 the top 5%." Putney keeps its `copy.flowStats` text.
 
@@ -1151,7 +1154,7 @@ Decision: With club rules on, a member's own values can be stricter than the clu
 
 ### 12.1 Who
 
-Signed in (03) with a confirmed email and an account at least 24 hours old. Limits: 3 new locations per user per day, 10 per week, counted from `locations.created_by` and `created_at` (indexed). Plus a Workers rate limit binding `LOCATION_LIMIT`, 5 writes a minute per connection, like `REPORT_LIMIT` in `wrangler.jsonc`. Not signed in: "Sign in to add a location. It takes a minute."
+Signed in (03) with a confirmed email and an account at least 24 hours old. Limits: 3 new locations per user per day, 10 per week, counted from `locations.created_by` and `created_at` (indexed). Plus a Workers rate limit binding `LOCATION_LIMIT`, 5 writes a minute per user (08 6.2), declared in `wrangler.jsonc` like `REPORT_LIMIT`. Not signed in: "Sign in to add a location. It takes a minute." A junior account (`isJunior()`, 03 11.3) cannot add a location: the button reads "Suggest a location", and what the junior sends is saved as a `draft` with a pending `create` revision that a moderator reviews, never published by itself (403 `junior` on `POST /api/locations`). Launch notes from a junior are held for review too (04 4.5).
 
 ### 12.2 Flow overview
 
@@ -1159,7 +1162,7 @@ Signed in (03) with a confirmed email and an account at least 24 hours old. Limi
 
 ### 12.3 Step 1: where you launch
 
-- Map (component and tiles are 07's decision) centered on the device position if permitted, otherwise a search box (geocoder in 02 and 07).
+- Map (component and tiles are 07's decision) that starts from a search box (geocoder in 02 and 07) or from the region of the person's last location, never from the device's exact position, so the tile service does not see where the person stands before they choose. "Use my location" below is an explicit button; after a tap the map moves there. A line under the map says plainly: "The map service sees the area you look at."
 - "Put the pin on the dock or the spot you push off from."
 - "Use my location" button: refused if the reported accuracy is worse than 100 m ("Your phone reports a position within 140 m. Move the pin by hand.").
 - Coordinates shown to 5 decimals; editable as numbers for people who prefer typing.
@@ -1242,7 +1245,7 @@ In order, stopping at the first failure:
 3. JSON shape and every field rule via `validateLocation()` (400 `invalid` with `field`), including the limit bounds of 11.1 while the location is not `verified`.
 4. Slug free across `locations` and `location_aliases` (409 `slug_taken`).
 5. Dedupe within 100 m (409 `duplicate` with `nearby`); 100 to 300 m without a reason (409 `needs_reason`).
-6. Time zone valid; dock point inside the country's bounding box from reverse geocoding when available (400 `invalid`, field `lat`).
+6. Time zone valid; dock point inside the country's bounding box from reverse geocoding when available (400 `invalid`, field `lat`); the country is one 06 8.7's emergency number table covers (400 `invalid`, field `country`, "We do not have the emergency number for this country yet, so locations there cannot be added.").
 7. Each binding's adapter known and ref well formed (400 `invalid`, field `sources[2].ref`). Bindings are not fetched at create time; discovery already checked them.
 8. Insert in one D1 batch: the waterway if new, the location, its bindings, a `location_revisions` row (`kind: 'create'`, revision 1, snapshot).
 
@@ -1268,7 +1271,7 @@ Site roles are 03's (`user`, `moderator`, `admin`). Steward club admins are 06's
 
 "Signed-in user" for suggestions means an account at least 7 days old with a confirmed email (03). Limits: 30 suggestions or edits per user per day.
 
-After publishing, the creator edits name, notes and similar text directly. A change to limits, sources or the course is a suggestion that a steward club admin or a moderator approves, never the creator, so one account cannot move the verdict everyone sees.
+After publishing, the creator edits name, notes and similar text directly. Emergency info (06 8.7) is not text of that kind: a change to it, to limits, sources or the course is a suggestion that a steward club admin or a moderator approves, never the creator, so one account cannot move the verdict everyone sees.
 
 ### 13.2 Edits and suggestions
 
@@ -1283,7 +1286,7 @@ After publishing, the creator edits name, notes and similar text directly. A cha
 
 ### 13.3 History
 
-`GET /api/locations/:slug/revisions` lists applied, pending and rejected revisions, newest first. The page "History" (07) shows "Oct 17, 2026. Course heading 15° to 18°. By Sam R." with a View link to the snapshot. Moderators and stewards can restore an old snapshot; that creates a new `restore` revision, nothing is deleted.
+`GET /api/locations/:slug/revisions` lists applied, pending and rejected revisions, newest first. The page "History" (07) shows "Oct 17, 2026. Course heading 15° to 18°. By Sam R." with a View link to the snapshot. A junior's name is never shown: History and the creator line say "a rower" ("By a rower", "Community added by a rower", 03 11.3). Moderators and stewards can restore an old snapshot; that creates a new `restore` revision, nothing is deleted.
 
 ### 13.4 Claims (phase 5)
 
@@ -1435,12 +1438,12 @@ Errors: 400 `bad_near` "Use near=lat,lon with numbers.", 400 `bad_radius` "Radiu
 {
   "adapter": "usgs-ogc", "ref": "USGS-01154500", "measure": "discharge", "unit": "cfs",
   "from": "2016-01-01", "to": "2026-10-15", "days": 3939,
-  "p50": 6910, "p65": 10100, "p88": 20300, "p90": 21900, "p95": 28100,
+  "p50": 6910, "p65": 10100, "p88": 20300, "p90": 21820, "p95": 28010,
   "suggested": { "flowCaution": 20000, "flowOff": 28000, "against": [[20000, 1.4], [10000, 1.25]] }
 }
 ```
 
-Cached for 30 days per adapter and ref (08 picks Cache API or KV). 422 `too_short` "Not enough history to suggest flow limits." when under 1,095 days.
+Cached in D1 `source_cache` for 30 days per adapter and ref (08 6.6). 422 `too_short` "Not enough history to suggest flow limits." when under 1,095 days.
 
 ### 14.10 Phase 1 static equivalents
 
@@ -1590,6 +1593,7 @@ No flow reasons, no River tab, no debris warning, no wind-against-current multip
 - Permissions: the 13.1 matrix, one test per cell that differs from its neighbor.
 - Archive and restore; merge moves rows and writes aliases in one batch (a failing statement leaves everything unchanged).
 - Rate limits: the 4th create in a day gives 429.
+- Juniors: `POST /api/locations` by a junior gives 403 `junior` and the suggestion path makes a pending draft; History and the creator line show "a rower" for a junior's revision (one test on each path that calls `isJunior()`).
 - Stats: 3,939 days gives the suggested values; 1,000 days gives 422.
 
 ### 16.4 Build tests

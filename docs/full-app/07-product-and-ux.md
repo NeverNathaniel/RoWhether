@@ -190,7 +190,7 @@ Pat is Jamie's parent (phase 5).
 
 ### 4.1 Routes
 
-Paths name the place. The hash names the part of that place, as it does today for the tabs (`src/route.js`). Every path is served `index.html` by the Worker's single-page fallback (01 7.3) and by the service worker's `navigateFallback` (`vite.config.js`), except `/api/*`, the static pages and, on a first visit before the service worker runs, the per-location shells.
+Paths name the place. The hash names the part of that place, as it does today for the tabs (`src/route.js`). Every path is served `index.html` by the Worker's single-page fallback (01 7.3) and by the service worker's `navigateFallback` (`vite.config.js`), except `/api/*`, `/o/*` (rendered by the Worker), the static pages and, on a first visit before the service worker runs, the per-location shells.
 
 | Path and hash | What | Phase | Account | Loaded from |
 | --- | --- | --- | --- | --- |
@@ -201,22 +201,24 @@ Paths name the place. The hash names the part of that place, as it does today fo
 | `/at/<lat>,<lon>` | Quick look at a point (5.4, Decision) | 3 | No | main bundle |
 | `/add` with `#where`, `#name`, `#water`, `#course`, `#limits`, `#notes`, `#review` | Add a location, one step per hash (5.6) | 3 | Yes | `add` chunk |
 | `/account` with `#profile`, `#notifications`, `#rows`, `#contacts`, `#clubs`, `#guardians`, `#juniors` | Account (5.7) | 2 | Yes | `account` chunk |
+| `/account/revert#t=<token>` | Undo an email change from the link sent to the old address (03 4.7); the token stays in the fragment | 2 | No | `account` chunk |
 | `/club/new`, `/club/join/<token>` | Create a club, invite preview (06 20) | 5 | Yes, preview no | `club` chunk |
 | `/club/<slug>` with 06's hashes (`#today`, `#board`, `#kiosk`, `#schedule`, `#rules`, `#members`, `#safety`, `#settings`, phase 6 `#boats`, `#practice/<id>`) | Club pages (5.8) | 5 | Public page no | `club` chunk |
-| `/o/<token>` | An outing's status link for emergency contacts (04 6.3) | 3 | No | main bundle |
+| `/o/<token>` | An outing's status link for emergency contacts (04 6.3). A small page rendered by the Worker, not by the app, so it loads fast and works without JavaScript | 3 | No | Worker HTML |
 | `/admin` with `#users`, `#notify`, `#metrics`, `#audit` | Owner and admin tools, behind Cloudflare Access (5.14) | 1 (metrics), 2 and later | Owner, then site role `admin` | `admin` chunk |
 | `/mod` with `#queue`, `#locations` | Moderator tools, outside Access (5.14) | 3 | Site role `moderator` or `admin` | `admin` chunk |
-| `/privacy`, `/terms`, `/about` | Static pages (5.15) | 2 | No | static HTML |
+| `/privacy` | Static page (5.15): the open counter and browser storage in phase 1, the full notice in phase 2 | 1, 2 | No | static HTML |
+| `/terms`, `/about` | Static pages (5.15) | 2 | No | static HTML |
 
 `?open=<kind>:<id>` is read once at start by 05's `handleOpenParam()` and removed with `history.replaceState`. This document adds `?open=picker` for the "Pick a location" link in emails and the 90-day note.
 
-Reserved words: 01's list (01 2.2) already covers `add`, `admin`, `account`, `club`, `about`, `privacy` and `terms`, and gains `mod` for the moderator page. `at` must be added for quick looks (section 16). `o` cannot collide because slugs are at least 3 characters.
+Reserved words: 01's list (01 2.2) already covers `add`, `admin`, `account`, `club`, `about`, `privacy` and `terms`, and gains `mod` for the moderator page. `at` and `o` cannot collide because slugs are at least 3 characters (08 K25).
 
 ### 4.2 How routing works
 
 `src/route.js` grows from hash routes to path plus hash routes.
 
-- `parseRoute(loc)` takes `location` and returns `{ page, slug, tab, day, section }`. `page` is one of `home`, `location`, `point`, `add`, `account`, `club`, `status`, `admin` (for `/admin` and `/mod`), `notfound`. Today's `parseRoute(hash)` becomes the hash half and keeps its tests.
+- `parseRoute(loc)` takes `location` and returns `{ page, slug, tab, day, section }`. `page` is one of `home`, `location`, `point`, `add`, `account`, `revert`, `club`, `status`, `admin` (for `/admin` and `/mod`), `notfound`. Today's `parseRoute(hash)` becomes the hash half and keeps its tests.
 - Links between pages are ordinary `<a href>` elements with `data-nav`. A click handler on `document` calls `navigate(href)` for same-origin `data-nav` links: `history.pushState`, then `show()`. Modifier clicks and middle clicks fall through to the browser, so "open in new tab" works.
 - `popstate` and `hashchange` both call `show()`. Changing tabs stays a hash change (a history entry, as now). Picking a day stays `history.replaceState` (as `setDay()` does now).
 - Opening another location: `setZone(loc.tz)` (01 8.2), read `rowhether-loc-v1:<slug>` and `rowhether-cache-v2:<slug>`, render at once if both exist, then fetch the record and the data (01 7.4). The previous location's model is dropped. `app.openPeriods`, `app.detailDay` and `app.homeScroll` reset, because a picked day or open row belongs to a place.
@@ -225,7 +227,7 @@ Reserved words: 01's list (01 2.2) already covers `add`, `admin`, `account`, `cl
 
 Two hosting details that affect these URLs:
 
-- Workers static assets serve a file `foo.html` at `/foo`, and a folder index `foo/index.html` at `/foo/`, with a trailing slash, under the default `html_handling: "auto-trailing-slash"` (from docs, https://developers.cloudflare.com/workers/static-assets/routing/static-site-generation/). 01 7.2 plans per-location shells as `<slug>/index.html`, which would send `/putney-landing` to `/putney-landing/`. Emit them as `dist/<slug>.html` instead (section 16). Then `/putney-landing` is served directly, and on a plain static host the same file still works at `/putney-landing.html`.
+- Workers static assets serve a file `foo.html` at `/foo`, and a folder index `foo/index.html` at `/foo/`, with a trailing slash, under the default `html_handling: "auto-trailing-slash"` (from docs, https://developers.cloudflare.com/workers/static-assets/routing/static-site-generation/). Shells are `dist/<slug>.html` (01 7.2, 08 K24), because a folder index would send `/putney-landing` to `/putney-landing/`. Then `/putney-landing` is served directly, and on a plain static host the same file still works at `/putney-landing.html`.
 - The service worker answers every navigation with the precached `index.html` (`navigateFallback: 'index.html'`), so the per-location shells only reach first visits, crawlers and link previews. That is what they are for. The static pages must not be swallowed the same way: add `/^\/(privacy|terms|about)$/` to `navigateFallbackDenylist` and precache their files, then check offline in Playwright (13) that `/privacy` shows the privacy page and not the app (Workbox's matching of `/privacy` to a precached `privacy.html` is unverified).
 
 ### 4.3 The header
@@ -533,11 +535,11 @@ Opening line examples:
 
 - "1 hazard on this water. Keep to the right bank in your direction of travel."
 - "Launch notes, the traffic pattern and emergency details for Putney Landing."
-- Community record: "Community added by Sam R. Not yet checked by a club or moderator."
+- Community record: "Community added by Sam R. Not yet checked by a club or moderator." When a junior added it: "Community added by a rower. Not yet checked by a club or moderator." (03 11.3)
 
 Sections, each a panel, in this order:
 
-1. Safety (`#info/safety`). From 06 8.7 when `loc.emergency` exists: "In an emergency call 911." then launch address, nearest hospital, AED, phone signal, landing spots with road access, and "Last checked Oct 17, 2026 by Putney Rowing Club." Each phone number is a `tel:` link. Each address has "Open in maps" (a `geo:` link on Android, an Apple Maps link on iOS, unverified which works best in the installed app). Without emergency info: "In an emergency call 911. Emergency details for this launch have not been added yet." with "Suggest emergency details" (signed in, phase 5). The country's number comes from 06's default table.
+1. Safety (`#info/safety`). From 06 8.7 when `loc.emergency` exists: "In an emergency call 911." then launch address, nearest hospital, AED, phone signal, landing spots with road access, and "Last checked Oct 17, 2026 by Putney Rowing Club." Each phone number is a `tel:` link, made only from a number that passed the E.164 check (06 8.7). Each address has "Open in maps" (a `geo:` link on Android, an Apple Maps link on iOS, unverified which works best in the installed app). Without emergency info: "In an emergency call 911. Emergency details for this launch have not been added yet." with "Suggest emergency details" (signed in, phase 5). The country's number comes from 06's checked table (06 8.7), never from a field a person typed. Every emergency block ends with "Last checked Oct 17, 2026 by Putney Rowing Club." or, when no one has checked it, "Not checked yet."
 2. Hazards (`#info/hazards`). 04 4.6: "1 hazard on this water" heading, cards nearest first, "Show on map" (loads the map module only on tap), "Report a hazard" (signed in) or "Sign in to report a hazard". Empty: "No hazards reported on this water."
 3. Launch notes. 01's `launchNotes` as plain paragraphs. Empty: "No launch notes yet." with "Suggest launch notes" (signed in).
 4. Traffic pattern. 01 3.3's `text`, with "From Putney Rowing Club", "From the harbor authority" or "From the community". Empty: "Traffic pattern not recorded. Ask the club or the people at the dock."
@@ -686,6 +688,8 @@ Decision: Plain HTML pages built by Vite as extra entry points (`build.rolldownO
 - Alternative: routes inside the app (one more set of views in the bundle, and invisible to crawlers without JavaScript).
 - Alternative: hosted elsewhere, such as a GitHub page (a second place to keep in step).
 
+Phase 1 ships `privacy.html` alone, short: the open counter sentence (14.3) and what the app keeps in the browser. Phase 2 completes it from 03 13.3 and adds `terms.html` and `about.html`. The service worker denylist (9.6) names all three from the start.
+
 Each page: the header with "RoWhether" and a link "Back to the forecast", the text, and "Last changed Nov 1, 2026." The about page carries 02's full attribution table and the app version.
 
 ## 6. Copy
@@ -771,7 +775,7 @@ Decision: Name the app RoWhether everywhere from phase 1: `name: 'RoWhether'`, `
 
 Today: two paragraphs, the data credits for Putney and the starting points sentence, plus Install and Suggest buttons.
 
-- Data credits come from `attributionFor(loc)` (02, Attribution), using only the location's active bindings. Phase 0 reproduces today's Putney text exactly, from the Putney record's `copy.credits` (01). Phase 1 corrects the NWS office (01 Decision).
+- Data credits come from `attributionFor(loc)` (02, Attribution), using only the location's active bindings. Phase 1 renders the credits from the Putney record's `copy.credits` (01) and corrects the NWS office (01 Decision); phase 0 leaves `index.html` as it is (08 14.3).
 - A generic US river: "Forecast from Open-Meteo. Alerts and observations from the National Weather Service. River flow from USGS gauge 01104500 at Waltham. Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo."
 - A lake: the river sentence is left out. A location with no official alerts: the alerts sentence is left out (the gap is explained where it matters, 6.7).
 - The second paragraph stays: "Thresholds are starting points, not club rules. Lightning: off the water at the first thunder, back on 30 minutes after the last. Look at the water before you launch." For a member with club rules on, the first sentence becomes "Putney Rowing Club rules apply where marked."
@@ -902,7 +906,7 @@ Chart axes use `niceTicks()` on the converted values, so a km/h chart has ticks 
 
 - Settings fields show and accept the viewer's unit. On save, the value converts to the internal unit as a float, without rounding, and is stored that way. It shows again exactly as typed: 20 km/h saves as 12.42742 mph and displays as 20 km/h. Validation ranges convert too ("Caution at, km/h" accepts 2 to 97 when today's mph field accepts 1 to 60).
 - Flow, stage and tide limits stay in the binding's own unit in Settings, because a threshold must not drift through rounding (01 11.1). The field is labeled in that unit ("River flow at North Walpole, cfs") and shows the converted value under it for a metric viewer ("About 566 m³/s"). How this works says "Limits are set in cfs, the gauge's unit."
-- The cold line is a sum of two temperatures, so it converts with the offset counted twice: air plus water under 100°F is air plus water under 20°C, not 38°C. 01's table 11.2 says "shown as 38°C"; that is a conversion slip to fix (section 16). The How this works panel in metric: "Caution when air plus water is under 20°C. With 10°C air that means water under 10°C."
+- The cold line is a sum of two temperatures, so it converts with the offset counted twice: air plus water under 100°F is air plus water under 20°C, not 38°C. 01 11.2 shows the cold line as 20°C (08 K26). The How this works panel in metric: "Caution when air plus water is under 20°C. With 10°C air that means water under 10°C."
 - Report water temperature (04 3.1) is entered in the viewer's unit and stored in °C by 04, so it converts on the way in and out.
 
 ### 7.5 Time zones
@@ -1062,7 +1066,7 @@ So about 40,000 characters per location on a quiet day (verified live 2026-10-17
 
 ### 9.2 The cap and eviction
 
-01 8.6 keeps 5 locations. Compare needs every favorite's cache to work offline, so:
+Compare needs every favorite's cache to work offline, so:
 
 - Keep cached data and records for up to 10 locations: the current location, then favorites in their order, then the most recently opened.
 - A small index `rowhether-cache-index-v1` = `{ "<slug>": <last opened ms> }` lets the app pick what to drop without parsing the large entries.
@@ -1461,7 +1465,7 @@ The app already calls `GET /api/info` once at every start (`loadInfo()` in `src/
 - Reading: the Admin Metrics tab queries through the Analytics SQL Workers binding (`"analytics": { "binding": "ANALYTICS_SQL" }`, which needs Wrangler 4.145.0 or later; the repo pins 4.149.0) or with the SQL API and an Account Analytics Read token from the owner's machine (from docs, https://developers.cloudflare.com/analytics/sql-api/workers-binding/).
 - It gives: opens per location per day, new devices per day, the share of opens from the installed app. It cannot follow a person, a device or a session, and it cannot say who opened what.
 - A static host with no `/api` sends nothing, as today.
-- The privacy notice (03 13.3) says: "We count how many times the app is opened at each location each day, and whether it was opened from the home screen. The count has no address, device or account attached, and it is deleted after three months."
+- The privacy notice (03 13.3), and from phase 1 the short `/privacy` page (5.15), says: "We count how many times the app is opened at each location each day, and whether it was opened from the home screen. The count has no address, device or account attached, and it is deleted after three months."
 
 Decision: Count app opens per location per day with Workers Analytics Engine, from the existing `/api/info` call, with no identifiers. Recommended: it is the only way to see whether people use locations without an account, it adds no request and no script, and it fits 03's third alternative ("aggregate counters in the Worker").
 - Alternative: keep 03's Decision as written and use only Tier 0 (no view of signed-out use).
@@ -1504,7 +1508,8 @@ Admin, Metrics (phase 1 if the Decision is accepted, else phase 2 with Tier 0 on
 | 2 | `src/sets.js` (new) | Limit sets, the `#rowAs` line, Rowing as sheet (8.4). |
 | 2 | `src/settings.js` | Sets row, units and clock fieldset, sync line (5.13). |
 | 2 | `src/units.js`, `src/format.js`, `src/storage.js` | UK and metric systems, wind units, 24-hour clock (7); `pinUnits()` for existing users (7.2). |
-| 2 | `public/` or Vite inputs | `privacy.html`, `terms.html`, `about.html` (5.15). |
+| 1 | `public/` or Vite inputs | `privacy.html`, short (5.15, 14.3). |
+| 2 | `public/` or Vite inputs | The full `privacy.html`, `terms.html`, `about.html` (5.15). |
 | 3 | `src/render/detail/info.js` (new) | Info tab (5.5). |
 | 3 | `src/map.js` (new, lazy), `package.json` | MapLibre pinned exactly, `setWorkerUrl()` fix, styling (10.4, 11.8). |
 | 3 | `src/add/` (new, lazy) | Add a location (5.6). |
@@ -1518,7 +1523,6 @@ Admin, Metrics (phase 1 if the Decision is accepted, else phase 2 with Tier 0 on
 
 | To | Request | Why |
 | --- | --- | --- |
-| 01 | Add `at` to the reserved slugs (2.2). | Quick look route (5.4). |
 | 01 | Emit per-location shells as `dist/<slug>.html`, not `dist/<slug>/index.html` (7.2), and drop the `*/index.html` glob note (7.3). | `auto-trailing-slash` would redirect `/putney-landing` to `/putney-landing/` (4.2). |
 | 01 | Table 11.2: the cold line in Celsius is "air plus water under 20°C", not 38°C. | The sum of two temperatures converts with the offset twice (7.4). |
 | 01 | 8.6: keep up to 10 cached locations with favorites protected, and add `rowhether-cache-index-v1`. | Compare offline (9.2). |

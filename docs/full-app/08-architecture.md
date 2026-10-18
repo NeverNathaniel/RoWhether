@@ -197,7 +197,8 @@ New files and folders, by the phase in which they first appear. Owners are the d
 | `worker/http.js`, `worker/router.js`, `worker/crypto.js`, `worker/email.js` | 2 | 6, 7, 10 here | Shared Worker helpers; `sendEmail()` |
 | `worker/auth/session.js`, `guard.js`, `codes.js`, `passkeys.js`, `signup.js`, `settings.js`, `export.js`, `delete.js`, `audit.js` | 2 | 03 18 | Accounts |
 | `src/auth.js`, `src/account.js` (lazy), `src/sync.js`, `src/settings-keys.js`, `src/turnstile.js`, `src/compare.js` (picker chunk), `src/sets.js` | 2 | 03 18, 07 15 | Accounts in the app, compare, limit sets |
-| `privacy.html`, `terms.html`, `about.html` (Vite inputs) | 2 | 07 5.15 | Static pages |
+| `privacy.html` (Vite input) | 1 | 07 5.15 | The short privacy page: the open counter and what the app keeps in the browser |
+| `terms.html`, `about.html` (Vite inputs), the full `privacy.html` | 2 | 07 5.15, 03 13 | Static pages |
 | `migrations/0002_accounts.sql`, `test/helpers/d1.js`, `test/helpers/authenticator.js`, `test/migrations.test.js` | 2 | 4, 5, 13 here | Schema and its tests |
 | `migrations/0003` to `0008`, `scripts/locations/seed.mjs` | 3 | 5 here | Phase 3 schema and the seed |
 | `worker/locations.js`, `worker/flowstats.js`, `worker/sourcehealth.js` | 3 | 01 14, 02 | Location API, stats, health |
@@ -701,7 +702,7 @@ INSERT OR IGNORE INTO location_sources (id, location_id, waterway_id, role, mode
 VALUES ('6d0b0c5e-0000-4000-8000-000000000001', NULL, 'connecticut-river-vernon-pool', 'flow', 'primary', 0, 'usgs-ogc',
   'USGS-01154500', '{"parameterCode":"00060"}', 'cfs', 'America/New_York', 'North Walpole',
   'North Walpole gauge below Bellows Falls dam, about 16 river miles upstream.', 43.126189, -72.436755, 19659, 25750,
-  'upstream', '{"from":"2016-01-01","to":"2026-10-15","days":3939,"p50":6910,"p65":10100,"p88":20300,"p90":21900,"p95":28100}',
+  'upstream', '{"from":"2016-01-01","to":"2026-10-15","days":3939,"p50":6910,"p65":10100,"p88":20300,"p90":21820,"p95":28010}',
   'curated', 'active', 1792224000000, 1792224000000);
 ```
 
@@ -1804,6 +1805,7 @@ Phase 3 adds:
 ```jsonc
 // vars gain "LOCATIONS_DB": "1", "ALERTS_FROM": "RoWhether <alerts@rowhether.com>", "PUBLIC_ORIGIN": "https://rowhether.com";
 // REPORTS_ENABLED becomes "1" when phase 3 ships
+// assets.run_worker_first gains "/o/*": the status page is rendered by the Worker (7.4)
 "triggers": { "crons": ["* * * * *", "17 9 * * *"] },
 "queues": {
   "producers": [{ "binding": "NOTIFY_QUEUE", "queue": "rowhether-notify" }],
@@ -2071,15 +2073,15 @@ Club operations (phase 6, owner 06 19.2):
 
 ### 7.4 Pages the Worker serves
 
-Two links in email open a page from the Worker, not the app, and must work in any mail client's browser without JavaScript. The third is an app page:
+Three links in email open a page from the Worker, not the app, and must work in any mail client's browser without JavaScript:
 
 | Path | Shows | The button posts to | Owner |
 | --- | --- | --- | --- |
 | `GET /api/notify/unsubscribe?t=` | "Stop these emails?" with one button | `POST /api/notify/unsubscribe?t=` | 05 7.6 |
 | `GET /api/contacts/stop?t=` | "Stop emails about Alex's rows?" with one button | `POST /api/contacts/stop?t=` | 04 6.1 |
-| `/o/<token>` (an app route that reads `GET /api/outings/status/:token`) | The status link page | `POST /api/outings/status/:token/safe` | 04 6.3 |
+| `GET /o/<token>` | The status link page, with no app shell | `POST /api/outings/status/:token/safe` and `/worried`, then a redirect back | 04 6.3 |
 
-A `GET` never acts, because mail scanners follow links (conflict K36). The two Worker pages are small HTML strings in the Worker with `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and a CSP of `default-src 'none'; style-src 'unsafe-inline'; form-action 'self'`.
+A `GET` never acts, because mail scanners follow links (conflict K36). The three Worker pages are small HTML strings in the Worker with `Cache-Control: no-store`, `Referrer-Policy: no-referrer` and a CSP of `default-src 'none'; style-src 'unsafe-inline'; form-action 'self'`. The status page adds `script-src` and `frame-src` for Turnstile (`https://challenges.cloudflare.com`, from docs) and `connect-src 'self'` for its refresh; it works without them.
 
 ### 7.5 Synced settings keys
 
@@ -2166,7 +2168,7 @@ Rules: each step in its own try/catch; a failed step leaves the old key for the 
 | Precache the shell only | `globPatterns: ['**/*.{js,css,html,png,svg,woff2}']`, with `latin-ext` and `vietnamese` font files ignored (today, `vite.config.js`) | today |
 | Never handle `/api/*` | `navigateFallbackDenylist: [/^\/api\//]` today; the Workbox runtime has no `runtimeCaching` entries, so API calls go to the network untouched | today |
 | No runtime caching of data | Forecast, gauges, alerts, tiles and API answers are never cached by the service worker. The app's own `localStorage` copy is the offline data (CLAUDE.md) | today |
-| Static pages are real pages | `navigateFallbackDenylist` gains a pattern for `/privacy`, `/terms` and `/about` (07 9.6) | 2 |
+| Static pages are real pages | `navigateFallbackDenylist` gains a pattern for `/privacy`, `/terms` and `/about` (07 9.6) | 1 (`/privacy`), 2 |
 | Lazy chunks not in the shell | `globIgnores` gains `**/assets/map-*`, `**/assets/maplibre-gl-worker-*`, `**/assets/add-*`, `**/assets/admin-*`. The `picker`, `auth`, `account` and `club` chunks stay precached (07 10.3) | 1 to 5 |
 | Curated location files | `locations/index.json` and every `locations/<slug>.json` precached while the list has 50 or fewer; above that, only the index (07 9.6) | 1 |
 | Per-location shells not precached | `dist/<slug>.html` (07 4.2, conflict K24) are for first visits and link previews only; `globIgnores` lists each `<slug>.html`, built from `data/` by the locations plugin, because a pattern cannot tell them from `index.html` and the static pages | 1 |
@@ -2379,7 +2381,7 @@ Rules for the content:
 
 07 14.3 proposed an aggregate open counter in Analytics Engine; 03 12.3 said no analytics.
 
-Decision: Adopt 07's Tier 1 counter in phase 1. One data point per app start with the location slug, first or return, and standalone or browser, written by `GET /api/info`. No cookie, no identifier, no IP, no user agent, nothing that links two opens. The privacy page says so in one sentence. The owner confirms before phase 1 ships.
+Decision: Adopt 07's Tier 1 counter in phase 1. One data point per app start with the location slug, first or return, and standalone or browser, written by `GET /api/info`. No cookie, no identifier, no IP, no user agent, nothing that links two opens. Phase 1 ships a short `/privacy` page that says so in one sentence (07 5.15), so the counter never runs without its disclosure; phase 2 completes the notice (03 13.3). The owner confirms before phase 1 ships.
 - Alternative: Tier 0 only, counts from data that already exists (reports, accounts, notification logs), and no new collection (07 14.2).
 - Alternative: Cloudflare Web Analytics (a beacon script from Cloudflare's CDN, which the no-CDN constraint rules out).
 
@@ -2941,6 +2943,9 @@ Decision: Flags are the strings `"1"` and `"0"`, and `REPORTS_ENABLED` keeps rep
 Decision: Keep `safeguarding` audit rows 7 years, subject to legal review. (10.7)
 - Alternative: 3 years, as admin and moderation rows.
 
+Decision: Map tile, style, sprite and glyph requests to `tiles.openfreemap.org` count as data, not as a third-party CDN load, from phase 3, with the CLAUDE.md sentence in 17.2. (2.2, 10.11, 02 Map tiles)
+- Alternative: self-host the style, sprites and glyphs in `public/` and fetch only tiles.
+
 ### 17.2 Waiting on the owner
 
 | Item | Needed by | Section |
@@ -2950,6 +2955,7 @@ Decision: Keep `safeguarding` audit rows 7 years, subject to legal review. (10.7
 | Workers Paid plan | phase 2 | 12 |
 | Create the production D1 database `rowhether`; record the Time Travel bookmark before each production migration | phase 2 | 5.4 |
 | Approve the CLAUDE.md changes: Preview secrets, the Turnstile sentence, the storage keys, the code map | phase 0 (code map), phase 2 (the rest) | 6.5, 10.8, 14 |
+| Approve loading map tiles, style, sprites and label glyphs from `tiles.openfreemap.org` as data, with a CLAUDE.md sentence: "Map tiles, styles, sprites and label glyphs load from OpenFreeMap only when a map is opened. They are data, never part of the app shell." Or self-host the style, sprites and glyphs in `public/` and fetch only tiles | phase 3 | 2.2, 10.11, 02 Map tiles |
 | Open-Meteo API plan for server-side forecasts | phase 4 | 12 |
 | Turn `CLUBS_ENABLED` on in production | after phase 5 | 6.3 |
 | Legal review of retention, including 7 years for safeguarding rows | phase 5 | 10.7 |

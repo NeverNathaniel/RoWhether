@@ -570,6 +570,7 @@ Sample copy:
 - `note`: optional, 280 characters, plain text. Line breaks become spaces. URLs are refused ("Leave out links."). Control characters stripped.
 - Screened before it shows (8.6). The pin (kind and position) is public immediately. The note is public only after a screen verdict of `ok`. `review` holds the note for the moderation queue. `reject` refuses the post with the screen's message so the poster can edit.
 - Editing the note re-runs the screen. Only the poster and moderators can edit, and only the note, the expiry and (within 24 hours) the position.
+- A junior's note (a poster for whom `isJunior()` is true, 03 11.3) always goes to the moderation queue, whatever the screen's verdict, and shows only after a moderator approves it. The pin shows at once, without a name. The same holds for launch notes and any other public free text from a junior.
 
 ### 4.6 Display
 
@@ -748,7 +749,7 @@ Decision: show the count only at 2 or more ("2 boats on the water"). Recommended
 Club detail is 06's. What 06 can rely on from this table:
 
 - `outings.club_id` (added in phase 5): the club the outing belongs to, chosen in the sheet when the rower is a member of a club whose home location this is ("Rowing with Putney Rowing Club").
-- Club members with a club role that 06 names (coach, safety) see that club's outings at its locations: rower, boat, crew, direction, start, back by, stage.
+- Club members with a club role that 06 names (coach, safety) see that club's outings at its locations (rows with `club_id` set): rower, boat, crew, direction, start, back by, stage. Never a member's personal outing, float plan or emergency contacts, and for a junior only the club's rows (03 11.4 rule 12).
 - `outing_crew.user_id` links (phase 5): club members can be picked as crew; they see the outing in their own row log after accepting ("Sam added you to a 2x at Putney Landing. Add it to your log?"). When staff or a kiosk name a member, the member gets a push or an email at once with "Not you? Undo" (06 8.5), and Undo removes them from the crew.
 - Escalation to the club's safety contacts as an extra step (6.2), phase 5.
 
@@ -970,7 +971,7 @@ Rules:
 
 ### 6.3 The status link
 
-`/o/<token>`: a page for the contacts. One-letter path segments can never collide with location slugs (3 to 48 chars), so no reserved word is needed. The page is the SPA (01's `not_found_handling` serves `index.html`), which calls `GET /api/outings/status/:token`. There are two kinds of token, 16 bytes in base64url (22 characters) each, and only the SHA-256 of each is stored. The rower's token is random and stored as `share_hash`; it is the `statusUrl` the rower gets at the start, for showing a friend, and it can only view. Each contact has their own token, derived as `HMAC-SHA256(NOTIFY_LINK_KEY, "status:" + outing id + ":" + contact id)` cut to 16 bytes, with its hash in `outing_contacts.token_hash`, so a retried email carries the same link and a forwarded link names whose it was. Only a contact's token can mark safe or say "still worried"; the rower's token gets 403 `rower_link`. The rows in `outing_contacts` are made at the start (or when the float plan is switched on) for each reachable contact (6.1), with the contact's name as stored on the account. The link works from the start until 24 hours after the outing ends, then returns 410 `expired` "This link has expired." The page sends `<meta name="robots" content="noindex">` and `Referrer-Policy: no-referrer`.
+`/o/<token>`: a page for the contacts. One-letter path segments can never collide with location slugs (3 to 48 chars), so no reserved word is needed. The page is a small HTML page rendered by the Worker, with no app shell: a worried person on any phone and connection gets one light document, readable with JavaScript off (`/o/*` is in `run_worker_first`, 08 7.4). Its buttons are plain forms that post to the same routes and redirect back to the page. With JavaScript, it refreshes the status every 60 seconds from `GET /api/outings/status/:token`. There are two kinds of token, 16 bytes in base64url (22 characters) each, and only the SHA-256 of each is stored. The rower's token is random and stored as `share_hash`; it is the `statusUrl` the rower gets at the start, for showing a friend, and it can only view. Each contact has their own token, derived as `HMAC-SHA256(NOTIFY_LINK_KEY, "status:" + outing id + ":" + contact id)` cut to 16 bytes, with its hash in `outing_contacts.token_hash`, so a retried email carries the same link and a forwarded link names whose it was. Only a contact's token can mark safe or say "still worried"; the rower's token gets 403 `rower_link`. The rows in `outing_contacts` are made at the start (or when the float plan is switched on) for each reachable contact (6.1), with the contact's name as stored on the account. The link works from the start until 24 hours after the outing ends, then returns 410 `expired` "This link has expired." The page sends `<meta name="robots" content="noindex">` and `Referrer-Policy: no-referrer`.
 
 ```json
 {
@@ -996,9 +997,9 @@ Page copy, overdue:
 >
 > Boat: double (2x), "Hudson double", with Sam. Heading upstream: "To the railroad bridge and back." Conditions at the start: Caution, gusts to 19 mph.
 >
-> Launch point: 42.9607, -72.5219. [Open in maps]
+> Launch address: (the address in the location's emergency info, or the coordinates 42.9607, -72.5219 when none has been added). [Open in maps]
 >
-> Try Alex first: [+1 802 555 0123]. If you cannot reach Alex and think they may be in trouble, call 911 or the local emergency number, and give them the details on this page.
+> Try Alex first: [+1 802 555 0123]. If you cannot reach Alex and think they may be in trouble, call the emergency services for the launch, not for where you are. Emergency services at Putney Landing: 911 (United States). From outside the area: (the dispatch line, when the location has one). Give them the details on this page.
 >
 > RoWhether is not an emergency service and does not watch the water.
 >
@@ -1049,15 +1050,23 @@ Contact, stage 3 email:
 >
 > Alex planned to be back from rowing at Putney Landing, Putney, VT by 8:00 AM Eastern and has not said they are back. It is now 8:30 AM Eastern.
 >
-> See where and when Alex launched: https://rowhether.com/o/Qm3kZ8pL0aT4vX9yB2nR7w
+> Alex started at 6:40 AM Eastern in a double (2x), "Hudson double", with Sam, heading upstream: "To the railroad bridge and back." Conditions at the start: Caution, gusts to 19 mph.
 >
-> Try to reach Alex first. If you cannot and think they may be in trouble, call 911 or the local emergency number.
+> Launch address: (the address in the location's emergency info, or the coordinates 42.9607, -72.5219 when none has been added).
+>
+> Alex's phone: +1 802 555 0123 (only when Alex chose to share it).
+>
+> Try to reach Alex first. If you cannot and think they may be in trouble, call the emergency services for the launch, not for where you are. Emergency services at Putney Landing: 911 (United States). From outside the area: (the dispatch line, when the location has one).
+>
+> This page has the same details and a way to tell us you reached Alex: https://rowhether.com/o/Qm3kZ8pL0aT4vX9yB2nR7w
 >
 > Also told: Casey.
 >
 > RoWhether is not an emergency service. You get this because Alex listed you as an emergency contact. Stop these emails: [link]
 
 If any contact's email was refused, this message names the contact instead: "We could not email Jordan. Call someone now." It never says "We emailed" for an email the provider did not accept.
+
+The facts are in the email itself, as plain text, so a contact who cannot load the page still has what a caller needs: the launch name and address, boat and crew, direction and route note, the back-by time with its zone, the rower's phone when shared, and the emergency number for the launch's country with the location's dispatch line (06 8.7). The emergency number is looked up from the location's country in 06's checked table, never typed by a person.
 
 Contact, stage 4 email: subject "Alex is still not back from rowing", same body with "It is now 9:00 AM Eastern, an hour past the planned time."
 
@@ -1141,7 +1150,7 @@ Decision: extend the Turnstile exception in CLAUDE.md's hard constraints ("loads
 
 ### 8.4 Account age and standing
 
-From 03's `users`: `created_at` and a status (`active`, `suspended`). Suspended users cannot post reports, hazards, votes or flags (403 `not_allowed`), and their visible reports and hazard notes are hidden (`status = 'hidden'`, `note_status = 'hidden'`) by the moderator action that suspends them. Account age under 24 hours: report weight 1.0 and the hazard cap of 2 a day.
+From 03's `users`: `created_at` and a status (`active`, `suspended`). Suspended users cannot post reports, hazards, votes or flags (403 `not_allowed`), and their visible reports and hazard notes are hidden (`status = 'hidden'`, `note_status = 'hidden'`) by the moderator action that suspends them. Account age under 24 hours: report weight 1.0 and the hazard cap of 2 a day. Juniors (`isJunior()`, 03 11.3): public free text is held for a moderator (4.5), nothing shows their name (reports and hazards never do, 3.6), and they cannot add a location (01 12.1).
 
 ### 8.5 Flags
 
@@ -1343,7 +1352,7 @@ Unit tests (Vitest, `test/`), with the stand-in D1 pattern of `test/reports.test
 - Checks run in order: no DB 503; unknown location 404; rate limit 429; bad JSON 400; field error 400; `seenAt` 3 hours old 400; signed out without token 403 (Turnstile stub false); signed in skips Turnstile.
 - Daily cap: the 21st report from one `ip_hash` gets 429.
 - Replacement within 10 minutes updates the row and returns `replaced`; after 10 minutes inserts.
-- Geolocation: `geoWord()` (browser, `test/reportlogic.test.js`) gives `near` for 300 m with accuracy 20, `far` for 4 km, `unknown` for accuracy 2,000; the Worker refuses a `geo` that is not one of the three words (400 `invalid`); the inserted bind values contain no coordinates; nothing is logged from the body.
+- Geolocation: `geoWord()` (browser, `test/reportlogic.test.js`) gives `near` for 300 m with accuracy 20, `far` for 4 km, `unknown` for accuracy 2,000; the Worker refuses a `geo` that is not one of the three words (400 `invalid`); the inserted bind values contain no coordinates; nothing is logged from the body. In the browser, the report body and the hazard vote body built with `geo` set have no `lat`, `lon` or `acc` key, and nothing in `rowhether-outbox-v1` holds one.
 - Weight: anonymous 1.0, signed in 1.5, new account 1.0, `far` halves, late x0.8, clamp.
 - `ip_hash` changes with the UTC date.
 - `clientId` repeat returns the existing report with 200.
@@ -1352,7 +1361,7 @@ Unit tests (Vitest, `test/`), with the stand-in D1 pattern of `test/reports.test
 
 Migration (`test/migrations.test.js`, new, runs Miniflare's local D1 through `wrangler`'s test utilities or `npx wrangler d1 migrations apply --local` in CI): apply 0001, insert 5 rows, apply the locations migration and seed, apply the reports rebuild, assert 5 rows with ids `legacy-1` to `legacy-5`, Putney's `location_id`, `seen_at = created_at`, and that an insert with an unknown `location_id` fails.
 
-`test/hazards.test.js` (new): default expiry per kind; requested expiry capped at 90 days; confirm extends and caps; two clears after the last confirm clear it, one does not, a confirm resets; poster clear; official skip the cap; the duplicate prompt within 50 m; `too_far`; links refused; screen `ok` publishes the note, `review` holds it with the pin visible, `reject` returns 422 with the message, failure returns 502 and stores nothing (screen stubbed); account under 24 hours capped at 2; votes counted in the same batch.
+`test/hazards.test.js` (new): a junior's hazard note is held for review even when the screen says `ok`, while the pin shows at once; default expiry per kind; requested expiry capped at 90 days; confirm extends and caps; two clears after the last confirm clear it, one does not, a confirm resets; poster clear; official skip the cap; the duplicate prompt within 50 m; `too_far`; links refused; screen `ok` publishes the note, `review` holds it with the pin visible, `reject` returns 422 with the message, failure returns 502 and stores nothing (screen stubbed); account under 24 hours capped at 2; votes counted in the same batch.
 
 `test/screen.test.js` (new): `parseScreen()` for ok, review, reject, refusal becomes review, `max_tokens` throws, bad JSON throws.
 

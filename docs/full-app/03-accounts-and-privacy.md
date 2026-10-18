@@ -67,7 +67,7 @@ Facts are marked "verified live 2026-10-17" (checked today with a request, a pac
 | Reports with text or photos, hazards, hazard votes | 3 | No | Yes (04) |
 | Adding a location, suggesting or making edits | 3 | No | Yes; account 24 hours old to add, 7 days old to suggest (01, 12.1 and 13.1) |
 | Outings, float plans, personal row log | 3 | No | Yes (04) |
-| Location alerts on this device | 4 | 05 decides; recommended yes, device only | Email alerts, rules that follow you across devices (05) |
+| Location alerts | 4 | No (05 13) | Every alert: push, email and rules that follow you across devices (05) |
 | Public club page, club water status | 5 | Yes | Never |
 | Club membership, sign-out board, club rules, safety officers | 5 | No | Yes (06) |
 | Schedule, attendance, lineups, boats, booking | 6 | No | Yes (06) |
@@ -602,7 +602,7 @@ Decision: Favorites work signed out, kept in the browser; an account only syncs 
 | Units, home location | Profile columns (7) | Yes | |
 | Favorites | 8 | Yes | |
 | Forecast cache, location record cache, recent list, last location | Device | No | Device state, not preferences. |
-| Install snooze, nudge dismissal, passkey offer, age gate | Device | No | About this browser. |
+| Install bar choice, nudge dismissal, passkey offer, age gate | Device | No | About this browser. |
 | Add a location draft (`rowhether-add-draft-v1`, 01 12.2) | Device | No | 01 saves server drafts. |
 
 ### 9.2 Storage
@@ -744,7 +744,7 @@ Defaults while `now < junior_until`. A junior cannot change these; they lift aut
 | Name shown to members of their clubs | Yes | Yes |
 | Public free text (report notes, hazard text, launch notes) | Held for review by a moderator before it shows. Choice-only reports and hazards show at once, without a name. | 04's rules |
 | Photos (if 04 adds them) | Not allowed | Allowed, location data removed (12.2) |
-| Add a location | No; suggestions are held for review | 01's rules |
+| Add a location | No; "Suggest a location" saves a draft a moderator reviews (01 12.1) | 01's rules |
 | Club messages | Only group broadcasts that meet 11.4 | n/a |
 | Non-safety notifications from 10 PM to 6 AM in the club's time zone | Held until 6 AM | The person's choice (05) |
 | Safety notifications (water closed, overdue boat, Stay off level weather alert) | Always | Always |
@@ -773,9 +773,9 @@ These are requirements on 04, 05 and 06. They make RoWhether a platform where cl
 7. Messages are kept for the club's safeguarding record. A sender can remove a message from view; it shows "Removed by the sender", and the original stays visible to the club's safety officers and the guardians who received it, for 1 year (06 may set longer with legal advice).
 8. Junior quiet hours (11.3) for non-safety messages.
 9. A guardian can turn off club notifications to their junior's devices, except overdue messages and a closed water status (`guardian_links.mute_nonsafety` here, 06 5.2 rule 5 there), and can ask that the club not message their junior directly (`guardian_links.discontinue`): club messages then reach the junior only through the guardian's copy. This is MAAPP's "request to discontinue" in product form.
-10. No adult sees a junior's email or contact details. Club staff see the junior's name, the "Junior" label and the guardians' display names. Emergency contacts are 04's and 06's, visible only to the club's safety officers during an overdue escalation.
+10. No adult sees a junior's email or contact details. Club staff see the junior's name, the "Junior" label and the guardians' display names. Emergency contacts are 04's and no club staff member, safety officers included, ever sees them. During a club overdue escalation, staff reach a junior's family through the club's own guardian record (`club_guardians`, with the guardian's phone when the guardian chose to share it, 06 5.2 rule 8).
 11. No following, friending or contact lists between users (MAAPP social media connections). The app has no social graph.
-12. A junior's club outings are visible to the club's staff and, through the club, to their guardians. A junior's personal outings and float plans are seen by no one else unless the junior shares a row on purpose (11.5; 04 5.2).
+12. A junior's club outings are visible to the club's staff and, through the club, to their guardians. A junior's personal outings and float plans are seen by no one else unless the junior shares a row on purpose (11.5; 04 5.2). This is the one rule for who sees a junior's outings and contacts, and 04, 06 and 08 copy it: staff see club outings only, never personal outings or contacts; guardians see club outings through the club and shared rows; the guardian activity route and the board's guardian view return the same set of club outings, because both read `boardRow()` (06 8.4).
 
 Where the rules live: `worker/auth/minors.js` exports `isJunior(user, now)`, `audienceGuard({ senderId, recipients, clubRoles, guardianLinks })` and `inQuietHours(tz, now)`. 06 calls them; tests in 20.
 
@@ -912,9 +912,13 @@ Workers observability already gives request counts and errors for the API.
 | --- | --- | --- | --- |
 | Cloudflare | Processor: hosting, Workers, D1, Workers Logs, Turnstile, Email Service, Access | Everything stored server-side; request metadata | Cloudflare DPA and SCCs (unverified in this doc) |
 | Resend (only if chosen in 3.5) | Processor: email | Email addresses, email content | DPA with SCCs, US processing (verified live 2026-10-17) |
-| Anthropic | Processor: rewrites suggestion text (`worker/claude.js`); 04 may use it to triage free-text reports | Suggestion text, app context for bugs | API inputs and outputs deleted within 30 days by default, longer if flagged (privacy.claude.com, via search 2026-10-17) |
+| Anthropic | Processor: rewrites suggestion text (`worker/claude.js`) and screens public free text: hazard notes and launch notes (04 8.6), club descriptions (06 3.2) and public water status notes (06 7.4) | Suggestion text, app context for bugs, the text being screened with the location name | API inputs and outputs deleted within 30 days by default, longer if flagged (privacy.claude.com, via search 2026-10-17) |
 | GitHub | Recipient: suggestions become public issues | The rewritten and original text, app context for bugs | Users are told before sending (17.4 copy) |
 | Open-Meteo, NWS, USGS, NOAA, other agencies (02) | Independent services the browser calls | The viewer's IP; the location's coordinates | Listed in the privacy notice; no personal data sent on purpose |
+| Open-Meteo geocoding and Photon (komoot) (02) | Independent services the browser calls for place search | What the person types in a search box, and their IP | Named in the privacy notice. Search text can name a home town or a club |
+| OpenFreeMap (02, 07 10.4) | Independent service the browser calls for map tiles, on the picker map and `/add` only | The viewer's IP and the map area shown, which can reveal roughly where they are looking or standing | Named in the privacy notice. The add flow's map does not start at the device's exact position (01 12.3) |
+| Apple, Google, Mozilla and Microsoft push services (05 2.1) | Recipients: they carry each Web Push message | Each device's push endpoint, and the timing and size of every notification. The text is encrypted (RFC 8291) | Named in the privacy notice when notifications arrive (phase 4) |
+| Calendar services such as Google, Apple and Microsoft (06 14.1) | Recipients: they fetch the private calendar feed a person subscribes with | Practice times, places and the person's own seat, and for a guardian their junior's practice times | Named in the privacy notice (phase 6). The link says so |
 
 The suggestion dialog gets one line: "Your suggestion becomes a public GitHub issue. Do not include personal details."
 
@@ -1057,7 +1061,7 @@ Layered: a short summary at the top, then the detail.
 
 1. Summary: "No account needed for forecasts. If you make one, we keep your email, a display name and your settings. We do not sell data, show ads or track you. We count how often the app opens at each location, with nothing that identifies you."
 2. What we collect and why: 12.1 as a table.
-3. Where it is stored and who processes it: 12.5.
+3. Where it is stored and who processes it: 12.5, every row, with what each receives and why.
 4. How long we keep it: 12.1 retention column (this is the published retention policy).
 5. Who can see what, including club admins and guardians (11.5).
 6. Children and juniors: 11.2 and 11.3.
@@ -1730,7 +1734,7 @@ The existing `fakeDB()` in `test/reports.test.js` records SQL but runs none. Acc
 
 - `audienceGuard`: the only staff member of a club writing to a junior with no guardian is refused; a second staff member or a linked guardian (account or `club_guardians`) makes it pass; guardians are added to recipients; `discontinue` removes the junior from direct delivery but keeps the guardian copy; safety messages always pass.
 - `inQuietHours` at 9:59 PM, 10:00 PM, 5:59 AM and 6:00 AM in America/New_York, including a DST change night.
-- Guardian links end at `junior_until`; a junior can end a link, the guardian is told only that it ended, and the reason reaches site admins and the club's safety officer; an account under 7 days old cannot accept as guardian; the activity route returns club outings and shared rows but no personal row that is not shared; codes expire and allow 5 tries an hour.
+- Guardian links end at `junior_until`; a junior can end a link, the guardian is told only that it ended, and the reason reaches site admins and the club's safety officer; an account under 7 days old cannot accept as guardian; the activity route returns club outings and shared rows but no personal row that is not shared, and the same club outings as the board's guardian view; codes expire and allow 5 tries an hour.
 
 `test/admin.test.js`
 

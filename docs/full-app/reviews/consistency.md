@@ -187,6 +187,8 @@ Applied: 08 section 14.2 P0.11. `confidenceText(c, only, u = unitFormat())` take
 - Problem: 01: "`src/config.js` `SET_KEY`, `PLAN_KEY`, `CACHE_KEY`, `INSTALL_KEY`, `NUDGE_KEY` (`putney-rowing-*-v1`)". `INSTALL_KEY` is `'putney-rowing-install-v2'` (`src/config.js` 19). 03: "Install snooze, nudge dismissal, passkey offer, age gate". Since `2b7ef06` the install key holds a dismissal count and Don't show again, not a snooze.
 - Fix: 01: "(`putney-rowing-*`, install at `-v2`)". 03: "Install bar choice".
 
+Applied: 01 section 8.1 row 6 now reads "(`putney-rowing-*`, install at `-v2`)", and 03 section 9.1 reads "Install bar choice".
+
 #### C20. Phase 0 test and CI lists disagree inside 08
 
 - Severity: minor.
@@ -319,12 +321,16 @@ Applied: 05 section 5.2 `runDue()` step 4 now takes `S` from 06's `clubSettings(
 - Problem: 01: "a Workers rate limit binding `LOCATION_LIMIT`, 5 writes a minute per connection, like `REPORT_LIMIT`". 08: "`LOCATION_LIMIT` | 5 | user id". Every route that uses it requires a session (08 7.3).
 - Fix: 01 12.1: "5 writes a minute per user (08 6.2)".
 
+Applied: 01 section 12.1 now says `LOCATION_LIMIT` is 5 writes a minute per user (08 6.2).
+
 #### C29. 07 still asks for `at` to be reserved
 
 - Severity: minor.
 - Where: 07 4.1 (line 212) and 16 (line 1515); 08 K25.
 - Problem: 07: "`at` must be added for quick looks (section 16)" and "| 01 | Add `at` to the reserved slugs (2.2). |". K25 decided "`at` needs nothing, as slugs are 3 to 48 characters", and 07's own next sentence says the same of `o`.
 - Fix: 07 4.1: "`at` and `o` cannot collide because slugs are at least 3 characters (08 K25)"; drop the 16 row.
+
+Applied: 07 section 4.1 says `at` and `o` cannot collide because slugs are at least 3 characters (08 K25), and the section 16 row asking 01 to reserve `at` is removed.
 
 #### C30. 01's binding fields and schema intro predate 08's merge
 
@@ -333,12 +339,16 @@ Applied: 05 section 5.2 `runDue()` step 4 now takes `S` from 06's `clubSettings(
 - Problem: 01 4.4 lists binding `status` as "`active`, `offline`, `retired` (15.7)" and has no `origin`, `fail_count`, `confirmed_by` or `confirmed_at`; 08 4.3 gives "status list `active`, `suggested`, `offline`, `retired`, `rejected`" plus those columns (K2). 01 5's intro still says "`users` (03) and `clubs` (06) must exist first", in the same paragraph that says `steward_club_id` waits for `0010` because clubs come later (K12).
 - Fix: 01 4.4: add the four columns and the five statuses, with 02's meanings. 01 5: "`users` (03) must exist first; `clubs` arrive in phase 5 (08 K12)".
 
+Applied: 01 section 4.4 binding fields. `status` lists the five values with their meanings, and `origin`, `failCount`, `confirmedBy` and `confirmedAt` are added (02, 08 K2). Section 5 intro now says `users` must exist first and `clubs` arrive in phase 5 (08 K12).
+
 #### C31. 07 and 08 disagree on whether phase 0 renders the footer credits
 
 - Severity: minor.
 - Where: 07 6.6 (line 772); 08 14.2 P0.10 (line 2705) and 14.3.
 - Problem: 07: "Phase 0 reproduces today's Putney text exactly, from the Putney record's `copy.credits` (01)." 08: "Leave `index.html` alone: its title, manifest name, settings notes and credits change in phase 1 (07 15)." The text is the same either way (checked: `copy.credits` equals `index.html` line 90 with tags removed), so only the phase differs.
 - Fix: 07 6.6: "Phase 1 renders the credits from `copy.credits` ...; phase 0 leaves `index.html` as it is (08 14.3)."
+
+Applied: 07 section 6.6 now says phase 1 renders the credits from `copy.credits` and phase 0 leaves `index.html` as it is (08 14.3).
 
 #### C36. 03 still recommends signed-out alerts, which 05 declined
 
@@ -347,12 +357,16 @@ Applied: 05 section 5.2 `runDue()` step 4 now takes `S` from 06's `clubSettings(
 - Problem: 03: "Location alerts on this device | 4 | 05 decides; recommended yes, device only". 05: "Decision: push and alert rules need a signed-in account." 08 7.3 gives every push route a session.
 - Fix: 03 2: "No (05 13); account needed for every alert".
 
+Applied: 03 section 2 table row now reads "Location alerts | 4 | No (05 13) | Every alert: push, email and rules that follow you across devices (05)".
+
 #### C37. 07's route table has no `/account/revert`
 
 - Severity: minor.
 - Where: 03 4.7 (line 334) and 18 (line 1621); 07 4.1 (lines 195 to 208) and 4.2 (line 218).
 - Problem: 03's email-change undo link is `https://rowhether.com/account/revert#t=<token>`, and 03 18 adds "`/account/revert` page" to `src/route.js`. 07's routes list `/account` with hashes only, and `parseRoute(loc)` returns pages `home`, `location`, `point`, `add`, `account`, `club`, `status`, `admin`, `notfound`, with nothing for the revert page.
 - Fix: Add `/account/revert#t=<token>` to 07 4.1 (phase 2, no account needed, loaded with the `account` chunk) and a `revert` page to `parseRoute`.
+
+Applied: 07 section 4.1 adds the `/account/revert#t=<token>` row (phase 2, no account needed, `account` chunk) and section 4.2 adds a `revert` page to `parseRoute`.
 
 #### C38. Two sets of percentiles for the same Putney flow history
 
@@ -361,12 +375,16 @@ Applied: 05 section 5.2 `runDue()` step 4 now takes `S` from 06's `clubSettings(
 - Problem: For 3,939 days of North Walpole daily means, 01 gives "p90 21,900, p95 28,100" and writes them into Putney's waterway file; 02 gives "90th percentile 21,820, 95th percentile 28,010", "by linear interpolation between closest ranks". Only one method produced each pair, and the file phase 0 commits carries 01's. The suggested lines are the same either way after rounding down.
 - Fix: State the method once (02 step 3) and use its values in 01 6.1, 6.2 and 14.9, or note that 01's are nearest-rank values.
 
+Applied: checked against the USGS daily series (3,939 days, 2016-01-01 to 2026-10-15): linear interpolation gives p90 21,820 and p95 28,010, nearest rank gives 21,900 and 28,100; p50, p65 and p88 are the same either way. 01 sections 6.1 (narrative), 6.2 (Putney file), 11.3 and 14.9 and the `0003` seed in 08 section 5 now use 02 step 3's linear values, and 01 6.1 names the method. The rounded defaults do not change.
+
 #### C39. Stale references to decisions 08 has made
 
 - Severity: minor.
 - Where: 01 14.9 (line 1429); 02 "Default flow thresholds" step 7 (line 629); 02 Worker endpoints (line 743).
 - Problem: 01: "Cached for 30 days per adapter and ref (08 picks Cache API or KV)"; 08 6.6 picked D1 `source_cache`. 02: "Refresh yearly: the Cron Trigger on January 15 recomputes `stats`"; 08 6.4 has only `* * * * *` and `17 9 * * *`. 02's `PUT /api/locations/:slug/sources` body still uses the rejected binding shape (`"slot": "river"`, `"adapter": "usgs-latest"`, `"params": { "flow": ... }`), while 08 K2 and K3 store 01's `role`, provider `adapter` (`usgs-ogc`) and `ref`.
 - Fix: 01: "cached in D1 `source_cache` for 30 days (08 6.6)". 02 step 7: "the daily run on January 15". 02's body example in 01's binding fields (4.4).
+
+Applied: 01 section 14.9 now says the response is cached in D1 `source_cache` for 30 days (08 6.6). 02 "Default flow thresholds" step 7 says the daily run (`17 9 * * *`, 08 6.4) recomputes `stats` on January 15. 02 Worker endpoints: the `PUT /api/locations/:slug/sources` body uses 01 4.4's fields (`role`, `mode`, provider `adapter`, `ref`, `params`).
 
 #### C46. 06's code map predates 08's choices for keys, `/api/info` and admin routing
 
@@ -375,12 +393,16 @@ Applied: 05 section 5.2 `runDue()` step 4 now takes `S` from 06's `clubSettings(
 - Problem: 06 adds "storage keys `CLUB_KEY` (`rowhether-club-v1`), `BOARD_KEY`, `INCIDENT_DRAFT_KEY`" as constants; 08 8.1 keeps every key in one `KEYS` object from phase 0. 06 has "`src/reports.js` | 5 | `loadInfo()` reads `clubs`"; 08 3.2 moves `loadInfo` to `src/info.js` in phase 1. 06 has "`worker/admin.js` (03) | 5 | Routes `/api/admin/clubs/*` to `worker/clubs/verify.js`"; 08 3.5 sends `/api/admin/clubs/` straight to `routeClubs()`, and `worker/admin.js` is 07's phase 1 metrics file. 06's `info()` line says "beside today's `reports: !!env.DB`", which 08 6.3 replaces with the `REPORTS_ENABLED` rule from phase 2.
 - Fix: Bring 06 22.4 and 22.5 in line: `KEYS.club`, `KEYS.board`, `KEYS.incidentDraft`; `src/info.js`; `/api/admin/clubs/*` in `worker/clubs/index.js`; 08 6.3's `reports` rule.
 
+Applied: 06 sections 22.4 and 22.5. Storage keys are `KEYS.club`, `KEYS.board` and `KEYS.incidentDraft` in 08 8.1's `KEYS` object; `loadInfo()` is in `src/info.js`; the `/api/mod/clubs/*` routes go through `routeClubs()` in `worker/clubs/index.js` (08 3.5; `worker/admin.js` stays the metrics file); and `reports` in `info()` follows 08 6.3's `REPORTS_ENABLED` rule.
+
 #### C47. 07 and 05 repeat facts 08 has since settled
 
 - Severity: minor.
 - Where: 07 9.2 (line 1060); 05 5.6 (line 460); 08 K27 and 6.1 (line 1620).
 - Problem: 07: "01 8.6 keeps 5 locations." 01 8.6 now keeps 10 (K27). 05: "Whether the `previews` block in `wrangler.jsonc` accepts `queues` ... is unverified; if not, the Preview build skips enqueueing". 08 6.1 verified that it does ("The `previews` block accepts `vars`, `secrets` ..., `queues` ...", read from wrangler 4.149.0's schema).
 - Fix: 07 9.2: drop the sentence. 05 5.6: "The `previews` block accepts `queues` (08 6.1); whether Preview deployments run consumers is unverified."
+
+Applied: 07 section 9.2 drops the sentence "01 8.6 keeps 5 locations." (01 8.6 keeps 10, 08 K27). 05 section 5.6 says the `previews` block accepts `queues` (08 6.1) and leaves only consumer behavior on Previews unverified.
 
 #### C50. 08's list of CLAUDE.md changes for the owner leaves out several the topic documents ask for
 
@@ -428,6 +450,8 @@ Applied: 08 section 9.2 (two new rows) and 14.2 P0.9 (a bullet for `nowPrecip` a
 - Problem: "with the status colors and the stay off hatch already there (`app.css` line 378)". Line 378 is `.wbar > i{...}`. The hatch is `.seg.b2` at lines 381 and 382 ("Stay off carries a fine hatch so it never relies on red alone.") and `.lk-b2` at line 352.
 - Fix: "(`.seg.b2` and `.lk-b2` in `app.css`)", without a line number, since phase 0 to 4 will move lines.
 
+Applied: 06 section 22.4 now names the hatch as `.seg.b2` and `.lk-b2` in `app.css`, with no line number.
+
 
 ## The plan against CLAUDE.md's hard constraints
 
@@ -443,6 +467,8 @@ No plan puts a key in the browser, caches an API response in the service worker,
 - Fix: Add the map host to 08 17.2 as an owner decision, with the CLAUDE.md sentence to approve (for example: "Map tiles, styles and label glyphs load from OpenFreeMap only when a map is opened; they are data, never part of the app shell"), or self-host the style, sprites and glyphs in `public/` and fetch only tiles.
 
 ### Minor
+
+Owner: May the map load its tiles, style, sprites and glyphs from `tiles.openfreemap.org` at runtime as data, with a CLAUDE.md sentence saying so? Recommended: yes. Recorded in 08 section 17.2 (a new row, phase 3) and as a Decision in 02 Open questions and decisions, which now carries the sentence to approve. The alternative is to self-host the style, sprites and glyphs.
 
 #### C42. Precaching curated location files changes the "app shell only" rule without saying so
 
@@ -465,12 +491,16 @@ Every numbered reference of the form "0N section" in 01 to 08 was checked by scr
 - Problem: 07 4.2: "01 7.2 plans per-location shells as `<slug>/index.html`, which would send `/putney-landing` to `/putney-landing/`. Emit them as `dist/<slug>.html` instead (section 16)." 01 7.2 now says `<slug>.html` (K24). 07 7.4: "01's table 11.2 says "shown as 38°C"; that is a conversion slip to fix (section 16)." 01 11.2 now says 20°C (K26). A reader following the reference finds the opposite of what 07 describes.
 - Fix: Reword both as settled: "Shells are `dist/<slug>.html` (01 7.2, 08 K24)" and "01 11.2 shows the cold line as 20°C (08 K26)".
 
+Applied: 07 section 4.2 now says shells are `dist/<slug>.html` (01 7.2, 08 K24), and section 7.4 says 01 11.2 shows the cold line as 20°C (08 K26). The section 16 rows stay as the record of what was asked.
+
 #### C54. Open questions and notes that 08 has answered still read as open
 
 - Severity: minor.
 - Where: 06 25.2 (lines 3213 to 3221); 01 5 notes (line 411); 08 4.5 and 16.
 - Problem: 06 25.2 still lists "Cross-document items for 08 to settle", starting with "One spelling of the club overdue dedupe key: 8.6's `overdue-club:<outing id>:<club_stage>` or 21.4's `odc:...`", although 08 K16 chose `odc:` and 08 16 records the whole list as "Settled as K12, K15, K16, K17, K19, K21, K22, K23". 01 5: "Unverified: whether `wrangler d1 export` handles FTS5 virtual tables; check before relying on exports for backups (08)." 08 4.5 answered it: a full export refuses FTS5 tables, `--table` works, backups use Time Travel.
 - Fix: Replace both with one line each pointing at the 08 answer.
+
+Applied: 06 section 25.2 replaces its list of cross-document items with one line pointing at 08 section 16 (K12, K15, K16, K17, K19, K21, K22, K23). 01 section 5 notes now say a full `wrangler d1 export` refuses FTS5 tables and backups use Time Travel (08 4.5).
 
 
 ## Phase order
@@ -485,6 +515,8 @@ Every numbered reference of the form "0N section" in 01 to 08 was checked by scr
 - Fix: Ship `/privacy` (or at least the about page with the counter sentence) in phase 1, or start the counter in phase 2 with the page.
 
 ### Minor
+
+Applied: the short `/privacy` page ships in phase 1 with the counter. 07 sections 4.1 (route table split), 5.15, 14.3 and the code map; 08 section 3.2 file list, 8.4 (`/privacy` row phase 1) and 10.9. Phase 2 completes the notice from 03 13.3 and adds `/terms` and `/about`. The counter, its bindings and the Metrics tab stay in phase 1.
 
 #### C44. 05's `system` notifications start in phase 2, before `notify_log` exists
 

@@ -465,7 +465,7 @@ Configuration (`wrangler.jsonc`):
 }
 ```
 
-Previews need their own queue (`rowhether-notify-dev`) so dev jobs never reach production consumers. Whether the `previews` block in `wrangler.jsonc` accepts `queues` as it does `d1_databases` and `ratelimits` is unverified; if not, the Preview build skips enqueueing and `/api/admin/tick` delivers inline.
+Previews need their own queue (`rowhether-notify-dev`) so dev jobs never reach production consumers. The `previews` block accepts `queues` (08 6.1); whether Preview deployments run consumers is unverified, and if they do not, the Preview build skips enqueueing and `/api/admin/tick` delivers inline.
 
 Job message (at most 4 KB):
 
