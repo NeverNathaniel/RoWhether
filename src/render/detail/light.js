@@ -1,7 +1,7 @@
 // Light: when it gets light and dark, how the days are changing through the
 // season, and the UV index. Times come from SunCalc; UV from the forecast.
 import { HOUR } from '../../config.js';
-import { esc, hm, r0, dayKey, localHour, monthDay } from '../../format.js';
+import { esc, hm, r0, dayKey, localMinutes, monthDay } from '../../format.js';
 import { sunFor, sunOn, uvWord } from '../../logic.js';
 import { Chart } from '../chart.js';
 import { fact } from '../parts.js';
@@ -12,9 +12,6 @@ export const key = 'light';
 export const name = 'Light';
 
 const DAY = 24 * HOUR;
-// Minutes after local midnight. Eastern time is a whole number of hours from
-// UTC, so the minutes match.
-const clockMin = t => localHour(t) * 60 + new Date(t).getUTCMinutes();
 const span = ms => { const mm = Math.round(ms / 60e3); return `${Math.floor(mm / 60)} h ${mm % 60} min`; };
 const change = ms => {
   const sec = Math.round(Math.abs(ms) / 1000), word = ms < 0 ? 'less' : 'more';
@@ -34,7 +31,7 @@ function seasonChart(m, W) {
   const today = sunOn(m.now).noon, pts = [];
   for (let i = -90; i <= 90; i++) {
     const t = today + i * DAY, s = sunOn(t);
-    pts.push({ t, s, dawn: clockMin(s.dawn), rise: clockMin(s.sunrise), set: clockMin(s.sunset), dusk: clockMin(s.dusk) });
+    pts.push({ t, s, dawn: localMinutes(s.dawn), rise: localMinutes(s.sunrise), set: localMinutes(s.sunset), dusk: localMinutes(s.dusk) });
   }
   const c = new Chart({ t0: pts[0].t, t1: pts[pts.length - 1].t, W });
   const lo = 4 * 60, hi = 22 * 60;

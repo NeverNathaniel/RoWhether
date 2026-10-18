@@ -2,7 +2,7 @@
 // to sunset with what stands in the way in words. A day opens to a bar for
 // each factor that matters that day.
 import { HOUR, FACTORS, LIGHT_KEYS, WORD_PLAIN, WATER } from '../../config.js';
-import { esc, hm, r0, rng, localHour, dayKey, weekday, lowerFirst } from '../../format.js';
+import { esc, hm, r0, rng, localMinutes, dayKey, weekday, lowerFirst } from '../../format.js';
 import { lvlExcept, sunFor, callRuns, factorRuns, confidence, confidenceText, planSessions } from '../../logic.js';
 import { loadPlan } from '../../storage.js';
 import { dayLabel, periodTime } from '../days.js';
@@ -17,9 +17,6 @@ const TAB = { wind: 'wind', rain: 'rain', storm: 'storms', air: 'air', fog: 'fog
 
 const lowerDay = t => dayLabel(t).replace(/^(Today|Tomorrow)$/, s => s.toLowerCase());
 const shortDay = t => (dayKey(t) === dayKey(Date.now()) ? 'Today' : weekday(t));
-// Minutes after local midnight, to line the days up on one clock. Eastern
-// time is a whole number of hours from UTC, so the minutes match.
-const clockMin = t => localHour(t) * 60 + new Date(t).getUTCMinutes();
 const cap = s => s[0].toUpperCase() + s.slice(1);
 
 export function summary(m) {
@@ -58,9 +55,9 @@ export function render(m, want) {
   if (!days.length) return { day: null, html: head(name, 'No forecast yet.') };
 
   // One clock axis for every day, on whole hours.
-  const a0 = Math.floor(Math.min(...days.map(d => clockMin(d.s.dawn))) / 60) * 60;
-  const a1 = Math.ceil(Math.max(...days.map(d => clockMin(d.s.sunset))) / 60) * 60;
-  const pos = t => Math.max(0, Math.min(100, (clockMin(t) - a0) / (a1 - a0) * 100));
+  const a0 = Math.floor(Math.min(...days.map(d => localMinutes(d.s.dawn))) / 60) * 60;
+  const a1 = Math.ceil(Math.max(...days.map(d => localMinutes(d.s.sunset))) / 60) * 60;
+  const pos = t => Math.max(0, Math.min(100, (localMinutes(t) - a0) / (a1 - a0) * 100));
   const seg = (t0, t1, cls) => `<i class="${cls}" style="left:${pos(t0).toFixed(2)}%;width:${(pos(t1) - pos(t0)).toFixed(2)}%"></i>`;
   const ticks = [];
   for (let mm = Math.ceil(a0 / 180) * 180; mm <= a1; mm += 180) {
