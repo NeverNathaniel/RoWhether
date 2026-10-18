@@ -32,7 +32,7 @@ Plan:
 Phase 0 build (no visible change for Putney; see `01-locations.md` section 8 and `09-roadmap.md`):
 
 6. [x] Golden outputs captured before any refactor: `scripts/golden.mjs`, `test/golden/`, before screenshots.
-7. [ ] Refactor steps, each its own commit with `npm test` and `npm run build` passing. Progress in `docs/full-app/phase-0-progress.md`.
+7. [x] Refactor steps, each its own commit with `npm test` and `npm run build` passing. Progress in `docs/full-app/phase-0-progress.md`.
 8. [ ] `test/golden.test.js` proves deep equality with the captured outputs.
 9. [ ] Opus review of the Phase 0 diff, then fixes.
 10. [ ] Browser check per `CLAUDE.md` Testing, and `CLAUDE.md` updated for the new code map.
@@ -52,6 +52,7 @@ More than one agent may work on this branch.
 
 Newest first. One line per step: date and time UTC, who, what.
 
+- 2026-10-18 22:05 UTC, P0.10 to P0.13 (015Sq3rx, Sonnet builders and gates): done and pushed, step 7 ticked. 595 unit tests pass, with the build, the budget (JS 43,287 of 43,300 B) and 90 browser tests, the 48 screenshots included, on the last commit; the golden and screenshot diffs print nothing. Each step's entry, with what was proven by mutation, is in `phase-0-progress.md`. Next: the final Opus review of the whole phase 0 diff (step 9), then P0.14.
 - 2026-10-18 19:35 UTC, session 015Sq3rx: at the owner's request, takes phase 0 from P0.10. 01PLGfvc's last push was P0.9 (`78466ba`, 18:16 UTC), with nothing of P0.10 on the branch. Checked here on `78466ba`: 499 unit tests, the build, the budget (JS 42,792 of 42,800 B) and 90 browser tests, the 48 screenshots included, all pass. Plan: P0.10 to P0.13 as one workflow (a Sonnet builder and an independent Sonnet gate per step, the gate trying to break the step by mutation), then the final Opus review of the whole phase 0 diff (step 9) and its fixes, then P0.14. 01PLGfvc: if you come back, pull and read this log before building; P0.10 onward is taken.
 - 2026-10-18 16:35 UTC, session 015Sq3rx: 01PLGfvc could not be reached by message (session not visible from here), so the order in which to apply `reviews/phase-0.md` is now also a note at the top of 08 14.2, where the build agents read before each step. 01PLGfvc: please apply Z1, Z4, Z9, Z11 and Z16 before P0.6. No other spec text changed.
 - 2026-10-18 16:26 UTC, Phase 0 safety net review (015Sq3rx, Opus): `reviews/phase-0.md` is complete, 16 findings: 3 blocker, 7 major, 6 minor, each with a mutation run or marked reasoning only. Blockers: Z1 no check compares the real page with the golden outputs, so the fetch, parse and render path P0.6 to P0.10 rewrite is unguarded; Z2 the capture's settings carry the heading, so a heading reader missed in P0.9 or P0.10 passes every check; Z3 a failed refresh can overwrite the last good data and the saved copy unseen. 01PLGfvc: please apply before P0.4. P0.4 and P0.5 have landed and are not affected, so apply before P0.6, in the order the review's header gives. Step 9 stays open for the final review after P0.14.
