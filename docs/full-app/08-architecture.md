@@ -1739,7 +1739,7 @@ From phase 1, the app sends `?loc=<slug>&k=first|return&m=standalone|browser` wi
 | `NOTIFY_LINK_KEY` | yes | its own dev value | 3 | 04 6.3 (contact status links), 05 7.6 |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | yes | their own pair | 4 | 05 6.2 |
 | `OPEN_METEO_KEY` | yes (if the owner buys the plan) | never | 4 | 02 |
-| `RESEND_API_KEY` | only if Resend is chosen over Email Service | never | 2 | 03 3.5 |
+| `RESEND_API_KEY` | if the owner accepts 05 13's second route for overdue email (phase 3), or chooses Resend over Email Service (phase 2) | never | 3, or 2 | 05 13, 03 3.5 |
 
 CLAUDE.md says "No secrets are set for Previews". 03 planned `AUTH_PEPPER` as a plain Preview var for that reason, while 05 planned Preview secrets for VAPID.
 
@@ -2951,6 +2951,8 @@ Decision: Map tile, style, sprite and glyph requests to `tiles.openfreemap.org` 
 
 ### 17.2 Waiting on the owner
 
+The items this document needs. `README.md` holds the full list across 01 to 09, ordered by the phase that needs each answer.
+
 | Item | Needed by | Section |
 | --- | --- | --- |
 | Confirm the aggregate open counter and its privacy sentence | phase 1 | 10.9 |
@@ -2964,7 +2966,9 @@ Decision: Map tile, style, sprite and glyph requests to `tiles.openfreemap.org` 
 | Approve the CLAUDE.md changes for phases 5 and 6: the club files in the code map, the bindings, and the rule that club features are broadcast only | phase 5 | 06 22.6 |
 | Open-Meteo API plan for server-side forecasts | phase 4 | 12 |
 | Turn `CLUBS_ENABLED` on in production | after phase 5 | 6.3 |
-| Legal review of retention, including 7 years for safeguarding rows | phase 5 | 10.7 |
+| Legal review: 03 13.5 lists the items and the phase each one blocks (item A before phase 2, items 1 and 2 before phase 3, items 3 to 8 before phase 5, item 9 before any paid feature, and EU, UK and Canada before phase 7). Retention, including 7 years for safeguarding rows, is one of them | phases 2 to 7 | 10.7, 03 13.5 |
+| A second route for overdue email (Resend on its free tier) and an outside uptime monitor on `GET /api/health` that alerts the owner's phone | phase 3 | 6.5, 05 13 |
+| Photon search for boathouse names in the add flow (declining it drops the search box and the `photon.komoot.io` CSP entry) | phase 3 | 10.11, 02 Open questions and decisions, 07 5.6 |
 
 ### 17.3 Unverified, with when to check
 

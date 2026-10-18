@@ -127,7 +127,7 @@ Use `@simplewebauthn/server` and `@simplewebauthn/browser`, pinned exactly (CLAU
 | Conditional mediation (passkey autofill) is Baseline widely available since October 2023; the `webauthn` autocomplete token goes last in the list | from docs (MDN, `isConditionalMediationAvailable` and the `autocomplete` attribute) |
 | WebAuthn works inside an iOS home screen web app (standalone) | unverified; test on a device before phase 2 ships (20.4) |
 
-`package.json` says `"engines": { "node": ">=20.19" }`. The library's 14.x README targets Node 22 LTS and later; its `package.json` still says `>=20.0.0` (verified live 2026-10-17). CI runs Node 22 (`.github/workflows`). Raise the repo's `engines.node` to `>=22` in phase 2 so local tests match.
+`package.json` says `"engines": { "node": ">=20.19" }`. The library's 14.x README targets Node 22 LTS and later; its `package.json` still says `>=20.0.0` (verified live 2026-10-17). CI runs Node 22 (`.github/workflows`). Raise the repo's `engines.node` to `>=22.13` in phase 2 so local tests match (08 13.4: `node:sqlite` runs without a flag from 22.13).
 
 The browser library loads with a dynamic `import()` from the sign-in dialog code, so the main bundle that draws the Now screen does not grow.
 
@@ -1638,7 +1638,7 @@ Suggestion dialog addition (12.5): "Your suggestion becomes a public GitHub issu
 | 0 | `worker/turnstile.js` | `verifyTurnstile(env, token, ip, action)`; `worker/suggest.js` passes `'suggest'`. No visible change. |
 | 1 | Cloudflare Access | Application for `/admin*` and `/api/admin/*` (3.7). |
 | 1 | `worker/auth/access.js` (new) | `requireAccess(request, env)` validates `Cf-Access-Jwt-Assertion` with `jose`. |
-| 2 | `package.json` | Add `@simplewebauthn/server` 14.0.3, `@simplewebauthn/browser` 14.0.0, `jose` 6.2.12; `engines.node` to `>=22`. |
+| 2 | `package.json` | Add `@simplewebauthn/server` 14.0.3, `@simplewebauthn/browser` 14.0.0, `jose` 6.2.12; `engines.node` to `>=22.13` (08 13.4). |
 | 2 | `wrangler.jsonc` | Production `d1_databases` (`DB`); `send_email` binding `EMAIL`; `AUTH_LIMIT`, `CODE_LIMIT` in both the top level and `previews`; vars `AUTH_HOSTS`, `AUTH_ENABLED`, `EMAIL_FROM`, `TERMS_VERSION`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`; Previews `AUTH_PEPPER` with its own dev value (08 6.5). |
 | 2 | `migrations/00NN_accounts.sql` | 15, phase 2 tables. |
 | 2 | `worker/index.js` | Origin and content type checks for non-GET `/api/*` (5.6); routes `/api/auth/*`, `/api/me*`, `/api/admin/*`, `/api/mod/*`; `getSession` once per request; `info()` adds `accounts`. |

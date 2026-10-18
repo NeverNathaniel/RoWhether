@@ -388,11 +388,11 @@ Ideas the docs keep for later. Each needs its own plan before work starts.
 
 ## Where the topic documents and `08` disagree
 
-This file followed `08` and the review files in each case below.
+None of the disagreements found while writing this file is still open. They were resolved on 2026-10-18:
 
-- `03` section 18 says `engines.node` becomes `>=22`. `08` 13.4 says `>=22.13`.
-- `05` section 13 recommends Resend on its free tier as a second route for overdue email, from phase 3. `08` 6.5 lists `RESEND_API_KEY` only if Resend replaces Email Service, in phase 2.
-- `08` 17.2 lists only some of the owner's items. It leaves out the lawyer list in 03 13.5, the Photon search box, the outside uptime monitor and the second email route. `README.md` lists them from the owning documents.
-- `06` 23.2 item 8 says a production database must exist ("CLAUDE.md: production has none yet"). `08` 5.4 creates it in phase 2, so it exists by phase 5.
-- `08` 17.2 gives one legal review row, retention before phase 5. `03` 13.5 gives items for phases 2, 3, 5 and 7, and before any paid feature.
-- `01` to `07` do not write exit criteria for phase 7.
+- `engines.node`: `03` section 18 now says `>=22.13`, as `08` 13.4 does.
+- The second route for overdue email: `08` 6.5 now lists `RESEND_API_KEY` for `05` section 13's second route in phase 3, or for Resend replacing Email Service in phase 2.
+- `08` 17.2 now lists the lawyer items of `03` 13.5 by phase, the second email route with the outside uptime monitor, and the Photon search box, and points to `README.md` for the full list.
+- `06` 23.2 item 8 now says the production database, created in phase 2 (`08` 5.4), has the phase 5 migrations applied.
+
+Still open: `01` to `07` do not write exit criteria for phase 7. The phase 7 section above lists only the prerequisites the documents name.
