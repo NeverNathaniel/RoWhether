@@ -10,7 +10,7 @@ export function fact(label, val, note, lvl, href) {
   return `<div class="fact"${lvl ? ` data-lvl="${lvl}"` : ''}><dt>${dt}</dt><dd><div class="val">${val}</div>${note ? `<div class="note">${esc(note)}</div>` : ''}</dd></div>`;
 }
 
-// A source's note, then how old its reading is: "Keene airport, 14 mi east. 12 min ago."
+// A source's note, then how old its reading is: "The airfield, 3 mi north. 12 min ago."
 // A row with no note gives the age alone.
 export const readNote = (row, t) => `${row?.note ? row.note + ' ' : ''}${ago(t)}.`;
 

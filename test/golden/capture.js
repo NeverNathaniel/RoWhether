@@ -83,10 +83,6 @@ export const buildModel = (loc, data, S, now) => {
   if ('heading' in S) throw new Error('The settings must not carry a heading. Give the case a location resolved with it.');
   return L.buildModel(loc, data, S, now);
 };
-// Until P0.10 the render code reads S.heading, as app.settings still carries it
-// (src/state.js). The render phases get the model with the heading put back; the
-// logic is captured from the model without it.
-const forRender = m => ({ ...m, S: { ...m.S, heading: m.loc.course.heading } });
 // Putney's sources, as the page gets them (08 P0.8). The parsers run the way
 // fetchAll runs them, each through its own binding (review Z5).
 const BINDINGS = bindingsFor(PUTNEY);
@@ -264,25 +260,25 @@ export function capture(scenario, clock, settings, { loc = PUTNEY, width = 390, 
     out.parsers = { alerts: data.alerts, obs: data.obs, river: data.river, flow: data.flow, flowDays: data.flowDays, flowFcst: data.flowFcst, aq: data.aq, models: data.models };
 
     // ----- detail views -----
-    // From here on the render code draws. It gets the model with the heading put back (forRender).
-    const rm = forRender(m);
+    // From here on the render code draws, from the same model: the settings carry no
+    // heading, so a line that reads one draws "undefined" and the golden text fails.
     // chartWidth() reads #detail and matchMedia, so the views need the stand-in page.
     let dom = installFakeDom({ width });
-    const week = weekDays(rm).map(d => d.key);
+    const week = weekDays(m).map(d => d.key);
     // A lean case draws each view once, for the day it opens on.
     const days = lean ? [] : week;
     out.views = {};
     for (const v of VIEWS) {
-      const entry = { summary: v.summary(rm), days: {} };
+      const entry = { summary: v.summary(m), days: {} };
       for (const k of [null, ...extraDays, ...days]) {
-        const r = v.render(rm, k);
+        const r = v.render(m, k);
         entry.days[String(k)] = { day: r.day, ...big(`views/${v.key}/${k}.html`, r.html) };
       }
       if (v.key === 'week' && !lean) {
         // Plan a row remembers its choices; the other combinations draw differently.
         entry.plans = {};
         for (const plan of [{ minutes: 60, when: 'morning' }, { minutes: 120, when: 'afternoon' }]) {
-          const r = withPlan(plan, () => v.render(rm, null));
+          const r = withPlan(plan, () => v.render(m, null));
           entry.plans[`${plan.minutes}-${plan.when}`] = big(`views/week/plan-${plan.minutes}-${plan.when}.html`, r.html);
         }
       }
@@ -292,7 +288,7 @@ export function capture(scenario, clock, settings, { loc = PUTNEY, width = 390, 
     // ----- the home screen -----
     // Rows a viewer opened stay open through a refresh: the first few that are not over.
     const opened = new Set(m.days.flatMap(d => d.periods).filter(x => !x.past).slice(0, open).map(x => `${x.dayKey}-${x.key}`));
-    Object.assign(app, { model: rm, data, errors: {}, settings: S, updated: raw.fetched, fromCache: false, openPeriods: opened });
+    Object.assign(app, { loc, model: m, data, errors: {}, settings: S, updated: raw.fetched, fromCache: false, openPeriods: opened });
     dom = installFakeDom({ width });
     renderHeader(); renderHero(); renderAlerts(); renderNow(); renderDays();
     out.home = elements(dom, 'home');
@@ -300,7 +296,7 @@ export function capture(scenario, clock, settings, { loc = PUTNEY, width = 390, 
     // ----- full forecasts -----
     out.forecasts = {};
     for (const p of m.days.flatMap(d => d.periods).filter(x => !x.past)) {
-      out.forecasts[`${p.dayKey}-${p.key}`] = big(`forecasts/${p.dayKey}-${p.key}.html`, forecastPanel(rm, p));
+      out.forecasts[`${p.dayKey}-${p.key}`] = big(`forecasts/${p.dayKey}-${p.key}.html`, forecastPanel(m, p));
     }
 
     // ----- failures -----
@@ -338,7 +334,7 @@ export function capture(scenario, clock, settings, { loc = PUTNEY, width = 390, 
     const t1 = clock + 90 * MIN;
     if (!lean) out.later = at(t1, () => {
       const m1 = buildModel(loc, data, S, t1);
-      Object.assign(app, { model: forRender(m1), openPeriods: new Set() });
+      Object.assign(app, { model: m1, openPeriods: new Set() });
       const dom1 = installFakeDom({ width });
       renderHeader(); renderHero(); renderAlerts(); renderNow(); renderDays();
       return {

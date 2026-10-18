@@ -22,12 +22,11 @@ export const app = {
 };
 
 // Builds app.loc and app.settings from the viewer's overrides, and sets the zone
-// the screens show. The render code still reads S.heading until P0.10, so the
-// settings carry it too.
+// the screens show. The course heading is in app.loc.course, not in the settings.
 export function applyOverrides(o) {
   app.loc = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: o });
   setZone(app.loc.tz);
-  app.settings = { ...effectiveSettings(app.loc, { overrides: o }), heading: app.loc.course.heading };
+  app.settings = effectiveSettings(app.loc, { overrides: o });
 }
 applyOverrides(loadOverrides(PUTNEY_RECORD.slug));
 

@@ -68,7 +68,7 @@ function screen(loc, now = NOW) {
   const dom = installFakeDom({ width: 390 });
   const flow = Array.from({ length: 193 }, (_, i) => ({ t: now - 48 * HOUR + 7 * MIN + i * 15 * MIN, v: 5000 + i }));
   const river = { flow: { v: 6000, t: now }, waterC: { v: 20, t: now } };
-  // The settings carry no heading, as app.settings will not at the end of P0.10.
+  // The settings carry no heading, as app.settings does not: a reader of S.heading gets undefined.
   const S = effectiveSettings(loc);
   const obs = { t: now, tempF: 70, wind: 5, gust: 9, dir: 200, text: 'Clear' };
   const m = buildModel(loc, { wx: wx(across, 3, T0), river, flow, flowFcst: { issued: now, pts: [] }, obs }, S, now);

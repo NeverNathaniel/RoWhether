@@ -36,10 +36,13 @@ describe('the context the suggestion form sends', () => {
     }
   });
 
-  it("takes the viewer's own heading from the location", () => {
-    applyOverrides({ heading: 20 });
-    const { heading, ...limits } = app.settings;
-    expect(context(limits).settings.heading).toBe(20);
+  it("takes the viewer's own heading from the location, with the settings the app builds", () => {
+    applyOverrides({ heading: 20, windCaution: 8 });
+    // From P0.10 the settings the app builds have no heading, so it can only come from the location.
+    expect(app.settings).not.toHaveProperty('heading');
+    const c = context(app.settings);
+    expect(c.settings).toMatchObject({ heading: 20, windCaution: 8 });
+    expect(Object.keys(c.settings).sort()).toEqual([...KEYS].sort());
   });
 
   it('is kept whole by the Worker', () => {

@@ -41,8 +41,7 @@ function kolkata(now = NOW) {
   const flow = Array.from({ length: 193 }, (_, i) => ({ t: now - 48 * HOUR + 7 * MIN + i * 15 * MIN, v: 5000 + i }));
   const fcst = { issued: now, pts: Array.from({ length: 13 }, (_, i) => ({ t: now + i * 6 * HOUR, v: 5200 })) };
   const river = { flow: { v: 6000, t: now }, waterC: { v: 20, t: now } };
-  // The render code reads the heading from the settings until P0.10.
-  const S = { ...effectiveSettings(KOLKATA), heading: KOLKATA.course.heading };
+  const S = effectiveSettings(KOLKATA);
   const m = buildModel(KOLKATA, { wx: wx(undefined, 3, I0), river, flow, flowFcst: fcst }, S, now);
   Object.assign(app, { model: m, settings: S, data: m.data, errors: {} });
   return { dom, m, flow, fcst };

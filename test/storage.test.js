@@ -519,15 +519,18 @@ describe('storage that throws', () => {
 
 describe('the state the app starts from', () => {
   const fresh = async () => { vi.resetModules(); return import('../src/state.js'); };
-  const KEYS13 = ['aqiCaution', 'aqiOff', 'coldCombined', 'flowCaution', 'flowOff', 'gustCaution', 'gustOff', 'heading', 'rainCaution', 'rainOff', 'waterOverride', 'windCaution', 'windOff'];
+  // The limits: the 13 keys of a saved settings object, less the heading, which is in app.loc.course.
+  const KEYS12 = ['aqiCaution', 'aqiOff', 'coldCombined', 'flowCaution', 'flowOff', 'gustCaution', 'gustOff', 'rainCaution', 'rainOff', 'waterOverride', 'windCaution', 'windOff'];
+  const { heading: _h, ...LIMITS } = OLD_DEFAULTS;
 
   it('is Putney with its own limits when nothing is stored', async () => {
     use({});
     const { app } = await fresh();
     expect(app.loc.slug).toBe('putney-landing');
     expect(app.loc.course.heading).toBe(15);
-    expect(app.settings).toEqual(OLD_DEFAULTS);
-    expect(Object.keys(app.settings).sort()).toEqual(KEYS13);
+    expect(app.settings).toEqual(LIMITS);
+    expect(Object.keys(app.settings).sort()).toEqual(KEYS12);
+    expect(app.settings).not.toHaveProperty('heading');
   });
 
   it('applies what was saved: the heading to the course, the rest to the limits', async () => {
@@ -535,15 +538,17 @@ describe('the state the app starts from', () => {
     const { app } = await fresh();
     expect(app.loc.course.heading).toBe(20);
     expect(app.loc.course.segments[0].heading).toBe(20);
-    expect(app.settings).toEqual({ ...OLD_DEFAULTS, heading: 20, windCaution: 8, rainCaution: '', waterOverride: 55 });
-    expect(Object.keys(app.settings).sort()).toEqual(KEYS13);
+    expect(app.settings).toEqual({ ...LIMITS, windCaution: 8, rainCaution: '', waterOverride: 55 });
+    expect(Object.keys(app.settings).sort()).toEqual(KEYS12);
+    expect(app.settings).not.toHaveProperty('heading');
   });
 
   it('is the same for someone upgrading from the old keys', async () => {
     use(oldKeys());
     const { app } = await fresh();
-    expect(app.settings).toEqual({ ...OLD_SETTINGS, waterOverride: 55 });
-    expect(app.loc.course.heading).toBe(20);
+    const { heading, ...limits } = OLD_SETTINGS;
+    expect(app.settings).toEqual({ ...limits, waterOverride: 55 });
+    expect(app.loc.course.heading).toBe(heading);
   });
 
   it('applyOverrides rebuilds both, and an empty set goes back to the defaults', async () => {
@@ -551,9 +556,10 @@ describe('the state the app starts from', () => {
     const { app, applyOverrides } = await fresh();
     applyOverrides({ heading: 120, windOff: 14 });
     expect(app.loc.course.heading).toBe(120);
-    expect(app.settings).toEqual({ ...OLD_DEFAULTS, heading: 120, windOff: 14 });
+    expect(app.settings).toEqual({ ...LIMITS, windOff: 14 });
+    expect(app.settings).not.toHaveProperty('heading');
     applyOverrides({});
     expect(app.loc.course.heading).toBe(15);
-    expect(app.settings).toEqual(OLD_DEFAULTS);
+    expect(app.settings).toEqual(LIMITS);
   });
 });
