@@ -21,12 +21,16 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Problem: P0.9 says "`src/state.js` drops the temporary `heading` from `app.settings`", and its tests switch to "`DEFAULTS` becomes `effectiveSettings(PUTNEY)`", which has no `heading`. The render code reads the heading from the settings until P0.10: `now.js` 43 `const m = app.model, S = m.S`, then 49 `compassSVG(S.heading, cur.dir, cur.wind)` and 51 "`upstream heading ${S.heading}°`". After P0.9 the compass gets `rotate(undefined)` and the caption reads "upstream heading undefined°", so the golden files fail at P0.9 and the app shows the change until P0.10 lands. P0.10's list is also short: "Every render use of `S.heading` (`now.js` lines 49 and 51, `forecast.js` lines 85 and 86, `wind.js` lines 73 and 106)". `wind.js` 120 is missing: "The course heading is ${S.heading}°, set in Settings." After P0.10 the Wind view's How this works panel would still read "undefined°".
 - Fix: Move "drops the temporary `heading`" from P0.9 to the end of P0.10, or move the render heading changes into P0.9. Add `wind.js` line 120 to the P0.10 list.
 
+Applied: 08 section 14.2 P0.9 and P0.10. `src/state.js` dropping the temporary `heading` moved to the last change of P0.10, P0.7's pointer now says P0.10, and `wind.js` line 120 joined P0.10's list of render uses.
+
 #### C2. P0.9 removes `DEFAULTS` and changes `buildModel` without updating two callers
 
 - Severity: blocker.
 - Where: 08 14.2 P0.7 (line 2667) and P0.9 (lines 2685, 2690); `src/settings.js` 4, 13, 20, 24; `src/render/index.js` 12.
 - Problem: P0.9: "Remove `LOC` and `DEFAULTS` from `src/config.js`". `src/settings.js` imports `DEFAULTS` (line 4) and walks `Object.keys(DEFAULTS)` to fill and read the form (13, 24). P0.7 rewrites `fill()` and Reset but keeps the save path "compute the values as today", which is the `Object.keys(DEFAULTS)` loop. Vite 8.3.1 refuses to build when a named import is missing (checked with a two-file scratch build: "Missing export"), so `npm run build` fails at P0.9. P0.9 also changes the signature to `buildModel(loc, data, S, now = Date.now(), { units, club } = {})` but names no app caller; `src/render/index.js` 12 is `app.model = buildModel(app.data, app.settings);`. 01 8.3 names it ("`render()` calls `buildModel(app.loc, app.data, app.settings)`"), 08 does not. The golden and unit tests call `buildModel` directly, so they pass while the app breaks.
 - Fix: In P0.7, make `src/settings.js` walk its own field list (the keys of `effectiveSettings(PUTNEY)` plus `heading`) and stop importing `DEFAULTS`. In P0.9, list `src/render/index.js`: `buildModel(app.loc, app.data, app.settings)`.
+
+Applied: 08 section 14.2 P0.7 and P0.9. P0.7 makes `src/settings.js` walk its own field list (the keys of `effectiveSettings(PUTNEY)` plus `heading`), removes `loadSettings` and `saveSettings` (the other `DEFAULTS` importer in `src/storage.js`), and P0.9 names `src/render/index.js` (`buildModel(app.loc, app.data, app.settings)`) and `test/golden/capture.js`, a third `DEFAULTS` importer the review did not list.
 
 #### C3. P0.7 changes the cache functions but not their caller in `src/main.js`
 
@@ -35,12 +39,16 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Problem: P0.7 gives `loadCache(slug)` and `saveCache(slug, data, updated)`, and names `src/config.js`, `src/storage.js`, `src/state.js` and `src/settings.js`, not `src/main.js`. `main.js` 53 is `saveCache(app.data, app.updated);` and 129 is `const cached = loadCache();`. Left as they are, the app reads `rowhether-cache-v2:undefined` and writes under a key built from the data object. The migrated cache is never read, so an installed app opened offline shows no forecast: a visible change. No golden or unit test covers `main.js`; only P0.14 item 7 would notice, at the end.
 - Fix: Add `src/main.js` to P0.7: `loadCache(app.loc.slug)` and `saveCache(app.loc.slug, app.data, app.updated)`. Add a smoke spec check in P0.7: seed the five old keys, load offline, the hero shows the cached forecast.
 
+Applied: 08 section 14.2 P0.7. Added `src/main.js` (`loadCache(app.loc.slug)`, `saveCache(app.loc.slug, ...)`) and a second `smoke.spec.js` check in Done when: seed the five old keys, load with every upstream aborted, the hero shows the cached forecast.
+
 #### C4. P0.5 calls `resolveLocation` with a different second argument than its own signature
 
 - Severity: blocker.
 - Where: 08 14.2 P0.5 (lines 2644, 2645) and P0.7 (line 2666).
 - Problem: P0.5 defines "`resolveLocation(record, { waterway, overrides })`", then "`PUTNEY = resolveLocation(PUTNEY_RECORD, PUTNEY_WATERWAY)`". P0.7 uses the object form: "`resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: o })`". Built to the signature, P0.5's `PUTNEY` has no waterway, so its flow and flow forecast bindings are missing, and P0.6's parity test ("`bindingsFor(PUTNEY)` must produce exactly today's nine URLs") fails.
 - Fix: `PUTNEY = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY })`.
+
+Applied: 08 section 14.2 P0.5. `PUTNEY = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY })`.
 
 #### C5. The plan step formula in 9.2 keeps seconds, so P0.9 changes Plan a row
 
@@ -49,12 +57,16 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Problem: 9.2 replaces today's `Math.floor(t0 / PLAN_STEP) * PLAN_STEP + PLAN_STEP` with "`t0 - (localMinutes(t0) % 30) * MIN + 30 * MIN`". A run's start is `Math.max(r.hs[0].t, s.dawn, past ? -Infinity : m.now)` (logic.js 492): SunCalc's dawn and the live clock carry seconds and milliseconds, and the formula only removes whole minutes. Checked at the dock for 2026-06-15: dawn is 08:36:34.252Z; today's next step is 09:00:00.000Z, the formula gives 09:00:34.252Z. Every later step is 34 seconds late, a session that ends at sunset today can fail `t0 + L <= r.end`, and the golden `plans` differ.
 - Fix: `t0 - (localMinutes(t0) % 30) * MIN - (t0 % MIN) + 30 * MIN` (every zone offset in use is a whole number of minutes). Add a test that Putney's steps equal today's for a dawn start.
 
+Applied: 08 section 9.2 (the `PLAN_STEP` row) and 14.2 P0.9. The formula subtracts `t0 % MIN`; P0.9 gains a step test with a dawn of 08:36:34.252Z.
+
 #### C6. `setZone(PUTNEY.tz)` in `src/format.js` makes an import cycle that fails at load
 
 - Severity: blocker.
 - Where: 08 14.2 P0.9 (line 2690); 01 8.2 (lines 757 and 763) and 8.3 (line 804).
 - Problem: P0.9: "`src/format.js` calls `setZone(PUTNEY.tz)`". That makes `format.js` import `putney.js`, which imports `location.js`. 01 8.3 puts `fmt // zoneFormat(tz)` on the resolved location, so `location.js` imports `format.js`, and 01 8.2 caches formatters ("Formatters for one IANA zone, cached per zone"). In that cycle `putney.js` runs before `format.js`'s body, and `resolveLocation` calls `zoneFormat` while the cache is uninitialized. Reproduced with three small modules in Node 22.22.0: "ReferenceError: Cannot access 'cache' before initialization". 01 8.2 also plans it differently: "`setZone('America/New_York'); // phase 0 default, replaced by the location before the first render`".
 - Fix: Keep `src/format.js` free of imports other than `src/config.js`, with `setZone('America/New_York')` as its default. `src/state.js` calls `setZone(app.loc.tz)` after resolving the location. Say in 3.3 that `location.js` may import `format.js`, never the reverse.
+
+Applied: 08 section 14.2 P0.4 and P0.9, and section 3.1. `src/format.js` keeps `setZone('America/New_York')` and drops its `LOC` import; `src/state.js` calls `setZone(app.loc.tz)` after resolving the location; 3.1 says `location.js` may import `format.js`, never the reverse.
 
 #### C7. CI runs the WebKit projects, which CI does not install
 
@@ -63,12 +75,16 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Problem: P0.2's config has "projects `chromium-390-light` ... and `chromium-1280-dark` ..., plus `webkit-*` twins for the owner's Mac". P0.3 and 13.6 run "`npx playwright install --with-deps chromium`; `npx playwright test --grep-invert @visual`". `playwright test` runs every project in the config, so the WebKit projects fail on a missing browser and P0.3's "Done when: CI passes on the pull request" cannot hold. 13.5 says the WebKit projects "run on the owner's Mac", but no command limits them. `timing.spec.js` uses CDP `Emulation.setCPUThrottlingRate`, which only Chromium has. P0.14 item 3, "`npx playwright test --grep @visual` passes on the machine that made the screenshots", runs the WebKit projects in the container too, which has only `chromium-1194` and `chromium_headless_shell-1194` under `/opt/pw-browsers` (checked).
 - Fix: Name the projects in every command (`--project=chromium-390-light --project=chromium-1280-dark`), or add the WebKit projects only when an environment variable is set. Skip `timing.spec.js` when `browserName !== 'chromium'`.
 
+Applied: 08 section 14.2 P0.2 and section 13.5. The WebKit projects are added only when `WEBKIT=1` is set, so CI and P0.14 run the two Chromium projects; `timing.spec.js` is Chromium only.
+
 #### C8. The timing baseline cannot be taken: no pinned clock, and the mark sits after an early return
 
 - Severity: blocker.
 - Where: 08 14.2 P0.2 (lines 2611 to 2613); 11.3 (line 2411); `src/render/hero.js` 65; `src/logic.js` 346 to 348; `src/render/index.js` 15.
 - Problem: `timing.spec.js` is "first load online with fixtures; ... reload, read `performance.getEntriesByName('hero')[0].startTime`", with no clock. The fixtures are fixed days in 2026 (`june-calm` starts 2026-06-15). With the real clock every fixture hour is in the past, `m.h72` is empty, `buildModel` returns null, and `render()` calls `renderNoData()`, never `renderHero()`. Even with a pinned clock, "`performance.mark('hero')` as the last line of `renderHero()`" is skipped outside daylight by `if (!m.daytime) { renderNextPeriod(m); return; }` (hero.js 65). Either way the entry list is empty and the spec throws. `smoke.spec.js` has the same gap: without a clock its checks run against the No data screen, which is too short to test the pinned tab bar.
 - Fix: Pin `Date` in `timing.spec.js` and `smoke.spec.js` to a scenario's midday with `page.clock.setFixedTime`, which leaves timers and `performance.now()` real, so the measurement is not distorted. Put the mark where both paths of `renderHero()` reach it.
+
+Applied: 08 section 14.2 P0.2 and section 11.3, and 07 sections 10.2 and 15 (the two lines that repeat it). Both specs pin `Date` with `page.clock.setFixedTime` to `june-calm` midday, and the mark moves to `render()` after `renderHero()` in `src/render/index.js`, which both paths reach.
 
 ### Major
 

@@ -126,7 +126,7 @@ The Worker never proxies a keyless CORS source that the browser can call, and ne
 
 ### 3.1 Rules
 
-- `src/` is the browser app. Files that the Worker also imports are pure and listed in 3.3.
+- `src/` is the browser app. Files that the Worker also imports are pure and listed in 3.3. `src/location.js` may import `src/format.js`; `src/format.js` imports only `src/config.js`, never the reverse.
 - `worker/` is Worker code only. It may import pure `src/` modules; the app never imports `worker/`.
 - `data/` holds curated location and waterway records (JSON). The build validates them (phase 1); a script turns them into a seed migration (phase 3).
 - `migrations/` holds D1 schema files, numbered and never edited after they reach any database (5.4).
@@ -2175,7 +2175,7 @@ Read 2026-10-18 from the files named. Each is fixed in phase 0 (14) with no chan
 | --- | --- | --- |
 | `clockMin` in `src/render/detail/week.js` and `light.js` | `localHour(t) * 60 + new Date(t).getUTCMinutes()` | `localMinutes(t)` from the zone formatter |
 | `h0 = Math.floor(now / HOUR) * HOUR` in `buildModel` | Forecast hours start on UTC whole hours | `h0` = the `t` of the hour that contains `now` (`t <= now < t + HOUR`) |
-| `PLAN_STEP` in `planSessions` | `Math.floor(t0 / PLAN_STEP) * PLAN_STEP` steps on UTC half hours | Step on local half hours, `t0 - (localMinutes(t0) % 30) * MIN + 30 * MIN` |
+| `PLAN_STEP` in `planSessions` | `Math.floor(t0 / PLAN_STEP) * PLAN_STEP` steps on UTC half hours | Step on local half hours, `t0 - (localMinutes(t0) % 30) * MIN - (t0 % MIN) + 30 * MIN` (the last term drops seconds and milliseconds, which a SunCalc dawn and the live clock carry; every zone offset in use is a whole number of minutes) |
 | `parseFlowDays` | `T16:00:00Z` is noon Eastern | Local noon in the gauge location's zone, phase 1 (conflict K11); phase 0 keeps `T16:00:00Z` for Putney |
 | `sunFor`, `sunOn` | `LOC.lat`, `LOC.lon` | The location's point |
 
@@ -2408,7 +2408,7 @@ Gzip bytes for the Now screen's critical path, checked by `scripts/budget.mjs` a
 
 ### 11.3 Time to first render
 
-- Measured in Playwright with Chromium, CPU throttled 4 times (`Emulation.setCPUThrottlingRate` over CDP), the network offline after a first load, from navigation start to `performance.mark('hero')` at the end of `renderHero()` (07 10.2). The median of 5 runs is the number.
+- Measured in Playwright with Chromium, CPU throttled 4 times (`Emulation.setCPUThrottlingRate` over CDP), the network offline after a first load, from navigation start to `performance.mark('hero')` set in `render()` after `renderHero()` (P0.2; 07 10.2), with `Date` pinned by `page.clock.setFixedTime` to a scenario's midday so the model has hours. The median of 5 runs is the number.
 - Phase 0 step P0.2 records the baseline in `docs/full-app/phase-0-progress.md`. Every later phase stays within 20% of it.
 - Nothing is fetched before the first render (8.5).
 
@@ -2501,7 +2501,7 @@ test: { environment: 'node', exclude: ['**/node_modules/**', 'test/browser/**'] 
 ### 13.5 Browser tests
 
 - `playwright.config.js` (phase 0) starts `npm run build && npx vite preview --port 4173`, blocks service workers (`serviceWorkers: 'block'`) except in the offline test, and routes every upstream host to fixtures in `test/browser/fixtures.js`, so runs are repeatable.
-- Projects: `chromium-390-light`, `chromium-1280-dark` in CI. `webkit-*` projects exist in the config and run on the owner's Mac; the container has no WebKit (verified live 2026-10-18: only Chromium 1194 is installed under `/opt/pw-browsers`).
+- Projects: `chromium-390-light`, `chromium-1280-dark`. The `webkit-390-light` and `webkit-1280-dark` projects are added only when `WEBKIT=1` is set, for a manual run on the owner's Mac; CI does not set it, and `timing.spec.js` skips itself outside Chromium because CDP CPU throttling is Chromium only. The container has no WebKit (verified live 2026-10-18: only Chromium 1194 is installed under `/opt/pw-browsers`).
 - Screenshots are compared with `toHaveScreenshot` against committed images in `test/browser/__screenshots__/`, with `maxDiffPixelRatio: 0` for phase 0 (no visible change) and a small ratio after. Pixels differ between machines, so the `@visual` specs run where the baseline was made until a CI run shows they match there too (17.3).
 - Each phase adds its checklist from CLAUDE.md Testing and the owning document as specs.
 
@@ -2605,12 +2605,12 @@ Done when: 19 JSON files are committed; `npm test` passes with them; deleting on
 | File | Content |
 | --- | --- |
 | `package.json` | devDependency `@playwright/test` `1.56.1` (exact; it matches the Chromium build in the container, verified live 2026-10-18); scripts `"test:browser": "playwright test"` |
-| `playwright.config.js` | `webServer`: `npm run build && npx vite preview --port 4173 --strictPort`; `use.baseURL`; projects `chromium-390-light` (viewport 390 by 844, `colorScheme: 'light'`) and `chromium-1280-dark` (1280 by 800, `'dark'`), plus `webkit-*` twins for the owner's Mac; `snapshotPathTemplate: 'test/browser/__screenshots__/{arg}-{projectName}{ext}'` |
+| `playwright.config.js` | `webServer`: `npm run build && npx vite preview --port 4173 --strictPort`; `use.baseURL`; projects `chromium-390-light` (viewport 390 by 844, `colorScheme: 'light'`) and `chromium-1280-dark` (1280 by 800, `'dark'`), plus `webkit-390-light` and `webkit-1280-dark`, added only when `WEBKIT=1` is set, for a manual run on the owner's Mac (CI and P0.14 never set it, so `npx playwright test` runs the two Chromium projects; the container has no WebKit); `snapshotPathTemplate: 'test/browser/__screenshots__/{arg}-{projectName}{ext}'` |
 | `test/browser/fixtures.js` | `routeAll(page, scenario)`: answers every request to `api.open-meteo.com`, `air-quality-api.open-meteo.com`, `api.weather.gov`, `api.waterdata.usgs.gov` and `api.water.noaa.gov` from `test/fixtures/golden.js`, matching on the path; `/api/info` and `/api/suggest` answer 404 (a static host); everything else aborts |
 | `test/browser/screens.spec.js` (tag `@visual`) | `page.clock.install({ time })` at 12:00 and 21:00 Eastern on the `june-calm` and `october-fog` days; for each: home after `#hero` has text, a Day by day row opened (wait for `.forecast`), and `#week`, `#wind`, `#river`, `#fog`; `toHaveScreenshot` with `fullPage: true`, `animations: 'disabled'`, `maxDiffPixelRatio: 0` |
-| `test/browser/smoke.spec.js` | The functional checks that do not compare pixels: the console is clean, no horizontal scroll at 390, the tab bar stays pinned when scrolled, the blocked-sources message when every upstream aborts |
-| `test/browser/timing.spec.js` | Service workers allowed; first load online with fixtures; wait for `navigator.serviceWorker.ready`; then CDP `Emulation.setCPUThrottlingRate` `{ rate: 4 }`, `context.setOffline(true)`, reload, read `performance.getEntriesByName('hero')[0].startTime`; 5 runs; print the median |
-| `src/render/hero.js` | `performance.mark('hero')` as the last line of `renderHero()` (07 10.2). Not visible; the golden test still passes because Node has `performance` |
+| `test/browser/smoke.spec.js` | The functional checks that do not compare pixels, with `Date` pinned by `page.clock.setFixedTime` to 12:00 Eastern on the `june-calm` day (without a fixed time every fixture hour is in the past and the page shows the No data screen, too short to test the tab bar): the console is clean, no horizontal scroll at 390, the tab bar stays pinned when scrolled, the blocked-sources message when every upstream aborts |
+| `test/browser/timing.spec.js` | Chromium only. `Date` pinned by `page.clock.setFixedTime` to 12:00 Eastern on the `june-calm` day (timers and `performance.now()` stay real; with the real clock every fixture hour is past, `buildModel` returns null and no hero is drawn); service workers allowed; first load online with fixtures; wait for `navigator.serviceWorker.ready`; then CDP `Emulation.setCPUThrottlingRate` `{ rate: 4 }`, `context.setOffline(true)`, reload, read `performance.getEntriesByName('hero')[0].startTime`; 5 runs; print the median |
+| `src/render/index.js` | `performance.mark('hero')` on the line after `renderHero()` in `render()`, so both paths reach it: outside daylight `renderHero()` returns early to `renderNextPeriod()` (`src/render/hero.js` line 65), and a mark inside it would be skipped (07 10.2). Not visible; the golden test still passes because Node has `performance` |
 | `vite.config.js` | `test.exclude: ['**/node_modules/**', 'test/browser/**']` (13.3) |
 | `test/browser/__screenshots__/*.png` | Committed |
 | `docs/full-app/phase-0-progress.md` | Created: the timing median, the machine and browser build, and the first log lines |
@@ -2632,7 +2632,7 @@ Done when: CI passes on the pull request with the new steps.
 `src/format.js` today builds seven `Intl.DateTimeFormat` objects with `timeZone: LOC.tz` at module load.
 
 - Add `zoneFormat(tz, { clock = '12' } = {})` returning `{ tz, dayKey, weekday, monthDay, localHour, localMinutes, hm, hShort, fDayLong, dayWord, whenText }` for that zone. `localMinutes(t)` is minutes after local midnight, from `formatToParts` with `hourCycle: 'h23'`. Only `'12'` is implemented in phase 0 (07 7.6).
-- Change the module's exports of those names from `const` to `let`, and add `setZone(tz)`, which assigns them from `zoneFormat(tz)`. Call `setZone(LOC.tz)` at the bottom of the module. ES module live bindings mean every importer sees the swap; no call site changes.
+- Change the module's exports of those names from `const` to `let`, and add `setZone(tz)`, which assigns them from `zoneFormat(tz)`. Call `setZone('America/New_York')` at the bottom of the module, the default 01 8.2 shows, and drop the module's `LOC` import: `src/format.js` imports only `HOUR` and `MIN` from `src/config.js`, so `src/location.js` can import it without a cycle (`putney.js` calls `zoneFormat` while it resolves Putney). ES module live bindings mean every importer sees the swap; no call site changes.
 - Replace both `clockMin` functions (`src/render/detail/week.js` line 22 and `light.js`) with `localMinutes` from `src/format.js`.
 - `test/format.test.js`: for 24 instants across 2026 (including 2026-03-08 and 2026-11-01), every function of `zoneFormat('America/New_York')` equals today's module output; `localMinutes` is 30 at 00:30 in `Asia/Kolkata` and 45 at 00:45 in `Asia/Kathmandu`; after `setZone('Asia/Kolkata')` an imported `hm` formats in Kolkata, and `setZone('America/New_York')` restores it.
 
@@ -2642,7 +2642,7 @@ Done when: golden passes unchanged.
 
 - Add `data/waterways/connecticut-river-vernon-pool.json` and `data/locations/putney-landing.json` exactly as 01 6.2 and 6.3 print them (Putney's id `19fe7acb-de20-48c9-b25d-20d5e99d113a`, heading 15, banks VT left and NH right, `water.cross` 0.4, `flow.against` `[[20000, 1.4], [10000, 1.25]]`, thresholds equal to today's `DEFAULTS` without `heading` and `waterOverride`, and the three location bindings and two waterway bindings).
 - Add `src/location.js` with `validateLocation`, `validateWaterway`, `validateSlug`, `RESERVED_SLUGS`, `resolveSources(loc, waterway)`, `resolveLocation(record, { waterway, overrides })` (01 8.3; applies a personal `heading` override to a `kind: "heading"` course, 01 8.6) and `effectiveSettings(loc, { overrides })` (01 11.5), which returns the threshold keys and `waterOverride`: the location's thresholds over `GLOBAL_DEFAULTS`, then the overrides. `heading` is not in it; it lives in `loc.course` (01 8.3).
-- In `src/config.js` add `GLOBAL_DEFAULTS` (today's `DEFAULTS` values for the threshold keys). Add `src/putney.js`, which imports the two JSON files (Vite and Vitest import JSON natively) and exports `PUTNEY_RECORD`, `PUTNEY_WATERWAY` and `PUTNEY = resolveLocation(PUTNEY_RECORD, PUTNEY_WATERWAY)`. `src/config.js` never imports `src/putney.js` or `src/location.js`, so there is no import cycle. `DEFAULTS` stays as it is until P0.9.
+- In `src/config.js` add `GLOBAL_DEFAULTS` (today's `DEFAULTS` values for the threshold keys). Add `src/putney.js`, which imports the two JSON files (Vite and Vitest import JSON natively) and exports `PUTNEY_RECORD`, `PUTNEY_WATERWAY` and `PUTNEY = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY })`. `src/config.js` never imports `src/putney.js` or `src/location.js`, so there is no import cycle. `DEFAULTS` stays as it is until P0.9.
 - `test/location.test.js`: both files validate; `resolveLocation` gives lat 42.9607, lon -72.5219, zone `America/New_York`, heading 15; `{ ...effectiveSettings(PUTNEY), heading: PUTNEY.course.heading }` deep-equals today's `DEFAULTS` literal (copied into the test); a heading override of 20 changes the course and nothing else; `index` and two-letter slugs are refused.
 
 Done when: golden passes unchanged (nothing reads `PUTNEY` yet).
@@ -2662,12 +2662,13 @@ Done when: parity and golden pass.
 #### P0.7 Storage keys and migration
 
 - `src/config.js`: `KEYS = { settings: 'rowhether-settings-v2', cache: slug => 'rowhether-cache-v2:' + slug, plan: 'rowhether-plan-v1', install: 'rowhether-install-v1', nudge: 'rowhether-nudge-v1', migrated: 'rowhether-migrated-v1', last: 'rowhether-last-v1' }` and `OLD_KEYS` with today's five names. Remove `SET_KEY`, `PLAN_KEY`, `CACHE_KEY`, `INSTALL_KEY`, `NUDGE_KEY`.
-- `src/storage.js`: `migrateStorage()` as 8.3, called at the top of every loader (idempotent); `loadOverrides(slug)`, `saveOverrides(slug, values)` (writes `{ saved: Date.now(), values }` for that slug); `hasSavedSettings(slug)` reads `saved`; `loadCache(slug)`, `saveCache(slug, data, updated)`; plan, install and nudge on the new keys with unchanged shapes. Every access stays in try/catch.
-- `src/state.js`: `const o = loadOverrides('putney-landing')`, `app.loc = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: o })`, `app.settings = effectiveSettings(app.loc, { overrides: o })`. Until P0.9 the code still reads `S.heading`, so in this step `app.settings` also carries `heading: app.loc.course.heading`; P0.9 removes it.
-- `src/settings.js`: `fill()` from `app.settings`, with the heading field from `app.loc.course.heading`; on save, compute the values as today (same rounding and clamping), then store only the keys whose value differs from Putney's defaults (`effectiveSettings(PUTNEY)` and heading 15; numbers compared as numbers, `''` kept as a real override), and rebuild `app.loc` and `app.settings`. Reset fills from Putney's defaults.
+- `src/storage.js`: `migrateStorage()` as 8.3, called at the top of every loader (idempotent); `loadOverrides(slug)`, `saveOverrides(slug, values)` (writes `{ saved: Date.now(), values }` for that slug); `hasSavedSettings(slug)` reads `saved`; `loadCache(slug)`, `saveCache(slug, data, updated)`; plan, install and nudge on the new keys with unchanged shapes. `loadSettings` and `saveSettings` go, and with the `src/settings.js` change below nothing under `src/` but `src/config.js` itself mentions `DEFAULTS` after this step. Every access stays in try/catch.
+- `src/state.js`: `const o = loadOverrides('putney-landing')`, `app.loc = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: o })`, `app.settings = effectiveSettings(app.loc, { overrides: o })`. Until P0.9 the code still reads `S.heading`, so in this step `app.settings` also carries `heading: app.loc.course.heading`; P0.10 removes it, after the render code has moved off it.
+- `src/main.js`: `loadCache(app.loc.slug)` (line 129) and `saveCache(app.loc.slug, app.data, app.updated)` (line 53). No golden or unit test reaches `main.js`, so the smoke spec below checks it.
+- `src/settings.js`: stops importing `DEFAULTS` (P0.9 removes it) and walks its own field list, the keys of `effectiveSettings(PUTNEY)` plus `heading`. `fill()` from `app.settings`, with the heading field from `app.loc.course.heading`; on save, compute the values as today (same rounding and clamping), then store only the keys whose value differs from Putney's defaults (`effectiveSettings(PUTNEY)` and heading 15; numbers compared as numbers, `''` kept as a real override), and rebuild `app.loc` and `app.settings`. Reset fills from Putney's defaults.
 - `test/storage.test.js` with a `Map`-backed `localStorage` stub and a throwing stub: a full set of old keys migrates (settings to overrides only, cache unchanged, plan, install `{ dismissed, never }` and nudge unchanged, `rowhether-last-v1` set, marker set); a second run changes nothing; `putney-rowing-install-v1` is not read; old keys remain; with a throwing stub every loader returns its default; saving unchanged settings stores `{ saved, values: {} }` and still hides the reminder.
 
-Done when: golden passes (the golden cases build settings directly), storage tests pass, and the settings dialog round trip is checked in the browser (`smoke.spec.js` gains: change wind caution to 8, reload, the field shows 8).
+Done when: golden passes (the golden cases build settings directly), storage tests pass, and the settings dialog round trip is checked in the browser (`smoke.spec.js` gains two checks: change wind caution to 8, reload, the field shows 8; and seed the five old keys, load with every upstream request aborted, the hero shows the cached forecast).
 
 #### P0.8 Data layer from bindings
 
@@ -2686,17 +2687,17 @@ Done when: golden and parity pass.
 - `sunFor(m, key)` uses `m.loc.lat` and `m.loc.lon`; `sunOn(loc, t)` replaces `sunOn(t)` (callers: four in `src/render/detail/light.js`, and `test/logic.test.js`).
 - `windVsCourse` and `chopWind` use `m.loc.course.heading` (today `m.S.heading`, `src/logic.js` lines 65 and 89); the crosswind sentence uses `m.loc.banks` ("Crosswind off the New Hampshire bank." from `right.name` and `word`); "along the straight" uses `course.reachWord`; the literal `10000` becomes the lowest step of `m.loc.flow.against`.
 - `chopWind` uses `m.loc.water.cross` and `m.loc.flow.against` instead of `WATER.cross` and `WATER.against`; remove those two fields from `WATER`.
-- `h0` becomes the start of the forecast hour that contains `now` (9.2). `planSessions` steps on local half hours with `m.fmt.localMinutes` (9.2).
-- Remove `LOC` and `DEFAULTS` from `src/config.js`; `src/format.js` calls `setZone(PUTNEY.tz)`.
-- `test/logic.test.js`: every `buildModel(data, S, NOON)` becomes `buildModel(PUTNEY, data, S, NOON)` and `DEFAULTS` becomes `effectiveSettings(PUTNEY)`; tests that set `heading` pass a location resolved with that override instead. New tests: a synthetic `Asia/Kolkata` location (half-hour `h0`, plan steps at :00 and :30 local) and a location with other bank names.
-- `src/state.js` drops the temporary `heading` from `app.settings`. `src/suggest.js` sends `settings: { ...app.settings, heading: app.loc.course.heading }` as its context, so the issues it files keep the heading line (`worker/suggest.js` lists `heading` among its setting keys).
+- `h0` becomes the start of the forecast hour that contains `now` (9.2). `planSessions` steps on local half hours with `m.fmt.localMinutes`, dropping seconds and milliseconds (9.2).
+- Remove `LOC` and `DEFAULTS` from `src/config.js`. `src/state.js` calls `setZone(app.loc.tz)` right after it resolves the location; `src/format.js` keeps its default and never imports `src/putney.js`.
+- `test/logic.test.js`: every `buildModel(data, S, NOON)` becomes `buildModel(PUTNEY, data, S, NOON)` and `DEFAULTS` becomes `effectiveSettings(PUTNEY)`; tests that set `heading` pass a location resolved with that override instead. New tests: a synthetic `Asia/Kolkata` location (half-hour `h0`, plan steps at :00 and :30 local), a location with other bank names, and a step test with seconds: from a dawn of 08:36:34.252Z at the dock the next step is 09:00:00.000Z, as today. `test/golden/capture.js`, the other importer of `DEFAULTS`, takes its settings from `effectiveSettings(PUTNEY)` and builds the model with `PUTNEY` resolved with the custom case's heading of 20 (reviewed as test code, 14.1).
+- `src/render/index.js` calls `buildModel(app.loc, app.data, app.settings)` (today `buildModel(app.data, app.settings)`, line 12). `src/suggest.js` sends `settings: { ...app.settings, heading: app.loc.course.heading }` as its context, so the issues it files keep the heading line (`worker/suggest.js` lists `heading` among its setting keys).
 - Scope: this step changes inputs and signatures only. The new behavior in 01 8.4 (polar fallbacks, `maxAgeH`, tide and level reasons, water modes, the monthly water temperature, per-segment courses) is phase 1.
 
 Done when: golden and every existing test pass.
 
 #### P0.10 Rendering from the location
 
-- `compassSVG(heading, banks, ...)` in `src/render/parts.js` writes `banks.left.short` and `banks.right.short` (today the literals `VT` and `NH`, lines 23 and 24); callers pass `m.loc.course.heading` and `m.loc.banks`. Every render use of `S.heading` (`now.js` lines 49 and 51, `forecast.js` lines 85 and 86, `wind.js` lines 73 and 106) becomes `m.loc.course.heading`.
+- `compassSVG(heading, banks, ...)` in `src/render/parts.js` writes `banks.left.short` and `banks.right.short` (today the literals `VT` and `NH`, lines 23 and 24); callers pass `m.loc.course.heading` and `m.loc.banks`. Every render use of `S.heading` (`now.js` lines 49 and 51, `forecast.js` lines 85 and 86, `wind.js` lines 73, 106 and 120) becomes `m.loc.course.heading`. Then, as the last change in this step, `src/state.js` drops the temporary `heading` from `app.settings`; before this step the render code reads it there.
 - `src/render/detail/wind.js` table cell "Cross, NH" and "Cross, VT" from `banks.*.short`.
 - `src/render/now.js` and `temperature.js`: the gauge and station notes from the bindings' `note` ("Nearest main-stem gauge, near Northfield, MA, about 19 mi downstream.", "North Walpole gauge below Bellows Falls dam, about 16 river miles upstream.", "Keene airport, 14 mi east. A check on the model."), "Measured at Keene" from the obs binding's `label`.
 - `src/render/detail/river.js`: the How this works paragraphs from `loc.copy.flowHow` and `loc.copy.flowStats` (today literals at lines 155 and 157).

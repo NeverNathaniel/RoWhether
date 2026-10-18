@@ -1140,7 +1140,7 @@ Other budgets:
 
 - No new font files and no new font weights. The map's labels use the map host's glyphs (11.8).
 - The precache stays under 400 KiB through phase 7 (today 261.65 KiB).
-- Time to the first hero from cache: measured today in Playwright with Chromium's CPU throttled 4 times (`Emulation.setCPUThrottlingRate`) and the network offline, from navigation start to a `performance.mark('hero')` added in `renderHero()`. Today's number becomes the baseline; later phases must stay within 20% of it (not yet measured; measure in phase 0 before the refactor).
+- Time to the first hero from cache: measured today in Playwright with Chromium's CPU throttled 4 times (`Emulation.setCPUThrottlingRate`) and the network offline, from navigation start to a `performance.mark('hero')` set in `render()` after `renderHero()` (08 P0.2). Today's number becomes the baseline; later phases must stay within 20% of it (not yet measured; measure in phase 0 before the refactor).
 - Nothing new is fetched before the first render. 03's `GET /api/me`, 06's club context and 05's push sync run after it.
 
 ### 10.3 Lazy modules
@@ -1480,7 +1480,7 @@ Admin, Metrics (phase 1 if the Decision is accepted, else phase 2 with Tier 0 on
 | Phase | Files | Change |
 | --- | --- | --- |
 | 0 | `src/units.js` (new), `src/logic.js`, `src/format.js`, `src/render/*`, `src/render/detail/*` | Every unit string through `m.u`, US only; `zoneFormat(tz, { clock })` with 12-hour only. Golden tests prove identical text (01 8.7). |
-| 0 | `src/render/hero.js` | `performance.mark('hero')` at the end of `renderHero()` for the timing baseline (10.2). |
+| 0 | `src/render/index.js` | `performance.mark('hero')` after `renderHero()` in `render()` for the timing baseline (10.2, 08 P0.2). |
 | 0 | `scripts/budget.mjs` (new), `budget.json` (new), CI workflow | The budget checks (10.6) with today's sizes plus 1 KB. |
 | 1 | `src/route.js` | Path plus hash routes, `parseRoute(location)`, `navigate()`, `data-nav` links, location change sequence (4.2). |
 | 1 | `index.html` | Header markup (4.3), `#picker` dialog shell, `#pageAnnounce`, `#outingBanner` slot under the tabs, install copy (6.4), absolute asset paths (01 7.3), app name meta. |
