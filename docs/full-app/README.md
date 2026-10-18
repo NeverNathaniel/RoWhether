@@ -231,4 +231,4 @@ Checks on site and by hand:
 
 ## Where Phase 0 stands
 
-Another session is building Phase 0. Step P0.1, the golden outputs, is done and the later steps are under way: see `phase-0-progress.md`.
+Another session is building Phase 0 and keeps `phase-0-progress.md` current. P0.1 (golden outputs) and P0.2 (before screenshots and the timing baseline) are done at the time of writing, and the later steps are under way.

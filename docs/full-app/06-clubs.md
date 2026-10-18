@@ -2899,7 +2899,7 @@ Exit criteria:
 5. Drills. The three overdue drills in 24.7 reach every safety officer within 2 minutes of each stage's planned time, on at least one iPhone Home Screen app and one Android phone.
 6. Safeguarding. The owner and the pilot club's safe sport or welfare contact walk through 5.2 and 03 section 11.4 on dev (a junior joining with guardian approval, guardian copies, mute and discontinue, the kiosk and public views with a junior crew out) and sign off. 03's legal review (03 section 13.5) covers junior accounts, guardian links and incident retention.
 7. Moderation. The first 10 verification requests are each reviewed within 3 days, with 3.3's checklist.
-8. Production. A production D1 database exists (CLAUDE.md: production has none yet) with the phase 5 migrations applied; CLAUDE.md is updated with the owner's approval; the owner gives the go-ahead to merge `dev` into `master` and to set `CLUBS_ENABLED` to `"1"`.
+8. Production. The production D1 database (created in phase 2, 08 5.4) has the phase 5 migrations applied; CLAUDE.md is updated with the owner's approval; the owner gives the go-ahead to merge `dev` into `master` and to set `CLUBS_ENABLED` to `"1"`.
 
 ### 23.3 Phase 6: club operations
 
