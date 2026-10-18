@@ -4,7 +4,7 @@ Reviewed `docs/full-app/01` to `08` (branch `dev-full-app` at 59bed34) from the 
 
 Status: in progress
 
-Count so far: 5 blocker, 10 major, 3 minor (18 findings).
+Count so far: 6 blocker, 17 major, 6 minor (29 findings).
 
 How to read this:
 
@@ -150,3 +150,94 @@ How to read this:
 - Where: `06-clubs.md` 4.2 line 342, 4.3 lines 351, 355 and 357, 4.5 line 389, 5.2 line 444, 5.3 line 468; `08-architecture.md` 4.4 `0009_clubs.sql`, `invites` lines 1100, 1103 and 1111.
 - Problem: Coaches can make link and code invites "for member, junior and guardian presets" (06 line 351; matrix line 468), and an invite's preset can carry "`guardianOf` (a junior membership id)" (line 355). A link admits 50 people by default and up to 500 (line 351; 08 `max_uses BETWEEN 1 AND 500`), and tokens are "stored as they are (not hashed) so admins can share them again" (line 357). "A guardian joins by a guardian invite made for a specific junior (`guardianOf`)" (line 389), which is also how roster-only juniors, including under-13 learn-to-row athletes, get guardians (line 342). A guardian sees the junior's "practices, RSVPs (and can answer them), attendance, published lineups, the junior's rows on the board" (line 444) and gets the stage 2 overdue message. One forward of the link, or a post in a parents' group chat, lets any signed-in adult become a guardian of that child. 08 ties an email address only to personal invites (`CHECK (kind = 'personal' OR email IS NULL)`) and puts no limit on `guardianOf`.
 - Fix: Allow `guardianOf` only on personal invites: single use, sent to one email address, valid 7 days, made by an admin or safety officer. Enforce it in the Worker and with a CHECK on `invites` (`kind = 'personal' OR json_extract(preset, '$.guardianOf') IS NULL`). A new guardian shows to staff as "waiting for an admin to confirm" until an admin confirms them, and the club's admins and the junior's other guardians are told when a guardian is added.
+
+#### P19. An unverified club can enrol juniors, and one person with two accounts meets the "another adult" rule
+
+- Severity: blocker (phase 5).
+- Where: `06-clubs.md` 2.2 line 124, 3.2 line 197, 3.3 lines 243 and 267, 4.3 line 353, 4.5 line 388, 8.4 line 954; `03-accounts-and-privacy.md` 11.4 line 770.
+- Problem: Any account at least 7 days old can create a club (06 line 197). Verification is meant to stop impersonation (line 124), but an unverified club is barred only from search, location pages, a public page and status, location claims, official hazards and more than 100 members: "Everything else works" (line 243; Decision line 267). So an unverified club can invite juniors and have a guardian approve them from a screen that reads "Sam wants to join Putney Rowing Club as a junior. Approve?" (line 388), with nothing saying the club is unverified. Its staff then see the juniors' rows on the board ("Admin, coach, safety officer | Everyone", line 954) and can broadcast to them. The message safeguard is `audienceGuard()`: "Add a second coach or a safety officer to the club before messaging juniors. Messages to juniors must reach another adult." (03 line 770). An admin can give a staff role to any account by a personal invite (06 line 353), including a second account the same person made, so one person can meet the "another adult" rule alone. A lookalike junior program, or one adult posing as a coach, can then reach juniors through the channel clubs are told meets MAAPP.
+- Fix: Juniors can join only verified clubs; until then, junior invites are refused with "This club must be verified before juniors can join." The guardian approval screen shows "Verified club" or "Not verified yet" and the club's website. `audienceGuard()` counts as another adult only a confirmed guardian (P18) or a staff member of a verified club who is not the sender, has held the role for at least 7 days, and whose account is at least 30 days old.
+
+### Majors
+
+#### P20. The plan gives two answers to who can see a junior's outings and emergency contacts
+
+- Severity: major (phase 5).
+- Where: `03-accounts-and-privacy.md` 11.4 lines 776 and 778, 11.5 line 807, 16.7 line 1536; `06-clubs.md` 5.2 lines 444 and 447, 8.4 line 957; `04-reports-and-check-ins.md` 5.5 line 747.
+- Problem: 03 says "A junior's outings and float plans are visible to their guardians and to their club's safety officers (04, 06)." (line 778) and that emergency contacts are "visible only to the club's safety officers during an overdue escalation" (line 776). 06 says the opposite for staff: "Staff never see a junior's personal data outside the club: the personal row log, float plan contacts, other clubs, or location history" (06 line 447). For guardians, 06 shows "Their junior's rows, with the coach's name, no crewmates" on the board (line 957) and the junior's club life (line 444), while 03's activity route returns all of the junior's "outings" (line 1536) and 03 11.5 lists "Outings and float plans (04)" (line 807). 04 gives club roles "that club's outings at its locations" only (04 line 747). A build that follows 03 shows safety officers a junior's personal float plans and contacts; one that follows 06 does not.
+- Fix: One rule, written in 03 and copied into 04, 06 and the 08 routes. Suggested: staff see a junior's club outings only, never personal outings or contacts; guardians see club outings through the club and personal outings only when the junior shares them (P17); during a club overdue escalation, safety officers see the rower's emergency contacts only if the rower chose to share them with that club. Test that the guardian activity route and the board return the same set.
+
+#### P21. The junior rules in 03 are missing where they act, in 01 and 04
+
+- Severity: major (phase 3).
+- Where: `03-accounts-and-privacy.md` 11.3 lines 743, 745 and 747; `04-reports-and-check-ins.md` 4.5 line 573; `01-locations.md` 12.1 line 1143, 13.3 line 1272; `07-product-and-ux.md` 5.5 line 535; `06-clubs.md` 5.2 line 446.
+- Problem: 03 sets three junior rules for other docs to apply: no name shown publicly with "reports, hazards, location edits" (line 743); public free text "Held for review by a moderator before it shows" (line 745); and "Add a location | No; suggestions are held for review" (line 747). 04 makes a hazard note public on the screen's verdict alone: "The note is public only after a screen verdict of `ok`" (04 line 573). 01 lets any account 24 hours old add a location (01 line 1143), and names the author publicly in History, "By Sam R." (line 1272), and on the location, "Community added by Sam R." (07 line 535). 04 mentions juniors once (escalation defaults); 01, 02 and 05 never do. A junior's free text goes public on a model's judgement, and a junior's name can appear on public pages, which 03 and 06 ("Junior names never appear on public pages", 06 line 446) forbid.
+- Fix: Write the junior rules into 01 and 04 where they act. Hazard notes and launch notes from juniors go to the moderation queue whatever the screen says. Juniors cannot create locations and see "Suggest a location" instead. History and the creator line show "A rower" for juniors. Add a test on each path that calls `isJunior()`.
+
+### Minors
+
+#### P22. Guardian phone sharing is on by default in 06 and off by default in 08
+
+- Severity: minor (phase 5).
+- Where: `06-clubs.md` 5.2 line 448; `08-architecture.md` 4.4 `0009_clubs.sql` line 1133; `03-accounts-and-privacy.md` 11.1 line 711.
+- Problem: 06 says the guardian's "Share my phone with Putney Rowing Club staff for emergencies" is "on by default" (06 line 448). 08 creates `share_phone INTEGER NOT NULL DEFAULT 0` (line 1133). 03 adopts the ICO code's "high privacy by default" (line 711). Either answer is defensible, since staff may need a parent's number in an emergency, but the two docs disagree on a contact-data default.
+- Fix: Pick one and write it in both. If it stays on by default, the join screen shows the box ticked with its reason, the privacy notice names it, and the column default is not relied on.
+
+#### P23. 06 can be read as letting the kiosk show juniors' names
+
+- Severity: minor (phase 5).
+- Where: `06-clubs.md` 5.2 line 446, 8.4 line 958, 8.5 line 975.
+- Problem: Rule 6 reads "Junior names never appear on public pages. The kiosk shows first name and last initial." (line 446), which in a rule about junior names says the kiosk shows juniors as first name and last initial. 8.4 says the kiosk shows "Adults as first name and last initial; junior crews unnamed" (line 958), and 8.5 lists "junior names" among what a kiosk cannot see (line 975). A boathouse screen is seen by anyone who walks in.
+- Fix: Reword rule 6: "Junior names never appear on public pages or on the kiosk, which shows adults as first name and last initial and junior crews unnamed."
+
+## 3. Privacy
+
+### Majors
+
+#### P24. Precise coordinates go to the server for the "at the dock" check, against 03's rule
+
+- Severity: major (phase 3).
+- Where: `03-accounts-and-privacy.md` 12.1 line 871, 12.2 lines 875 and 876; `04-reports-and-check-ins.md` 3.4 lines 184 and 195, 3.9 line 447, 4.8 line 663, 3.10 line 469; `08-architecture.md` 4.4 `0005` line 728.
+- Problem: 03 says: "If 04 wants proof someone is at the dock, the browser computes it and sends only a flag (`\"atDock\": true` when within 500 m of the location's dock point), not coordinates." (line 876), and rounds Near me before sending because "Rounding before the request keeps precise coordinates out of request logs" (line 875). 04 sends them: the dialog "sends `geo: { lat, lon, acc }`" (line 184), with a sample `"geo": { "lat": 42.96071, "lon": -72.52188, "acc": 18 }` (line 447), and hazard votes do the same (line 663). 04 keeps them out of D1 and logs (line 195), and 08 stores only the word (line 728), but the precise position of a person at a dock still leaves the phone on every report and vote, and sits in the offline outbox in `localStorage` until it sends (line 469). The browser already has the dock point from the location record, so the server gains nothing it could not get from a flag, which a client can fake just as easily as coordinates.
+- Fix: Follow 03: compute `near`, `far` or `unknown` in the browser from the location record and send only that word, for reports and hazard votes. Change 04 3.4, 3.9 and 4.8 and the tests to match, and keep the "no coordinates in the body" test as a check that none are sent.
+
+#### P25. The list of third parties that receive data is incomplete
+
+- Severity: major (phase 2 for the notice, phases 3 to 6 as each arrives).
+- Where: `03-accounts-and-privacy.md` 12.5 lines 911 to 917, 13.3; `05-notifications.md` 2.1; `02-data-sources.md` Place search lines 638 to 642, Map tiles lines 648 to 654, Photon line 227; `01-locations.md` 12.3 line 1151; `04-reports-and-check-ins.md` 8.6; `06-clubs.md` 3.2, 7.4, 14.1.
+- Problem: 03's table, which becomes the privacy notice's processor list, names Cloudflare, Resend, Anthropic (for suggestions, and "04 may use it to triage free-text reports"), GitHub and the data agencies (lines 911 to 917). The other docs send personal data to parties it does not list: Apple, Google, Mozilla and Microsoft push services receive each device's endpoint and the timing of every alert (05 2.1); OpenFreeMap receives map tile requests, and the add flow's map is "centered on the device position if permitted" (01 line 1151), so tile requests reveal where the person is; Photon (komoot) and Open-Meteo geocoding receive what people type into search (02 lines 227 and 638 to 642); Anthropic also screens hazard notes, launch notes, club descriptions and public water status notes (04 8.6, 06 3.2, 06 7.4), not only suggestions; and calendar services such as Google fetch the private calendar feed, which holds a junior's practice times, place and seat for a guardian (06 14.1).
+- Fix: Add each party to 12.5 with what it receives and why, and to the privacy notice. Start the add flow's map from a search or a rounded position rather than the device's exact position, or say plainly that the tile service sees the area shown. Note in 06 14.1 that a calendar link is read by the calendar service the person subscribes with.
+
+#### P26. Incident records holding health details of minors have three different retention answers
+
+- Severity: major (phase 5).
+- Where: `03-accounts-and-privacy.md` 12.9 lines 987 and 1009; `06-clubs.md` 3.6 line 307, 9.1 lines 1093, 1101 and 1102, 9.3 lines 1140 and 1142, 16.3 line 1467.
+- Problem: Incidents hold injuries ("Medical event, Hypothermia, Heat illness, Rowing injury, First aid, Drowning", line 1093), people involved with a "minor" flag (line 1101), and witnesses' phone or email (line 1102). 03 says deletion clears the user columns and the record is kept for a set period: "Keep `incidents` with names removed, for a retention period 06 sets with legal advice (suggest 7 years for incidents involving minors)." (03 line 1009). 06 says "Keep incident records, names included, until the club deletes them or the club is deleted" (06 line 1142), with "the names written in the record stay" after an account is deleted (line 1140), and keeps them "Until the club deletes them" (line 1467). And a club deletion deletes every incident with the club 14 days after any one admin asks (line 307), which can destroy a record about a minor that the club may need to keep. So health data about minors can be kept forever with names, or destroyed early, depending on which doc is built.
+- Fix: One rule in 03 and 06, set with legal advice: a fixed retention period (03 suggests 7 years for incidents involving minors), names and health details kept only for that period, and incidents not deleted with the club before the period ends (hand the export to the club and keep the records sealed until then, readable only by site admins on a legal request). Name the incident log as health data in the privacy notice. Treat witness contact details as third-party data with the same period.
+
+### Minors
+
+#### P27. 03 tells people their name shows with their reports; 04 never shows it
+
+- Severity: minor (phase 2).
+- Where: `03-accounts-and-privacy.md` 4.1 line 244, 11.3 lines 743 and 754, 12.1 line 859; `04-reports-and-check-ins.md` 3.6 line 274; `07-product-and-ux.md` 3.7 line 175.
+- Problem: The sign-up name hint says "Shown with your reports and in your clubs." (03 line 244); 03 11.3 has adults' names "shown to the public with reports, hazards, location edits" (line 743), and a junior turning 18 is told "Your name now shows with your reports." (line 754). 03's own inventory says "reporter names are never shown, 04" (line 859), and 04 says "Reporter names are never shown. A signed-in reporter is not identified, only badged." (04 line 274). Names do show with location creation and edits (P21). People are told the wrong thing about where their name appears, and the doc a builder reads first (03) points the wrong way.
+- Fix: State one rule in 03 11.3 and the sign-up hint: names show with locations you add or edit and in your clubs, never with reports or hazards. Change the age-up message to match ("Your name now shows with location edits.").
+
+## 4. Abuse and moderation
+
+### Majors
+
+#### P28. Two brand-new accounts can clear a real hazard, and three flags can take it down
+
+- Severity: major (phase 3).
+- Where: `04-reports-and-check-ins.md` 4.2 line 521, 4.4 lines 547 to 554 and 566, 8.2 line 1086, 8.5 line 1113; `08-architecture.md` 4.4 `0006` line 773.
+- Problem: "Clear (\"Gone\"): any signed-in user." A hazard becomes `cleared` when "two different users vote clear after the latest confirm" (lines 547 and 550). Account age limits only posting ("Accounts under 24 hours old: at most 2 hazards a day", line 521); votes are allowed to any account, 50 a day (line 1086). On clearing, the "Card disappears" (line 566), and the record is "visible only to moderators" (line 554). One person with two email addresses can make a submerged tree warning vanish for everyone, and a mistaken "Gone" from two passers-by does the same. Flags add a second path: "an item with flags from 3 different users whose accounts are at least 7 days old is hidden at once (`status = 'hidden'` ...)" (line 1113), but `hazards.status` has no `hidden` value in 08 (`'active', 'cleared', 'expired', 'removed'`, line 773), so a build must either fail the update or map it to `removed`, taking a live warning down on three flags.
+- Fix: Count clear votes only from accounts at least 7 days old, and require either the poster, a moderator, a club safety role, or two clear votes with a `near` geolocation result. Keep a cleared hazard visible for 24 hours as "Reported gone by 2 people at 7:10 AM" before it drops off the list. Flags on a hazard hide only its note, never the pin, and send the pin to the queue. Say in 04 8.5 which column auto-hide sets for each target type.
+
+#### P29. One anonymous tap can undo a "launch closed" report, and a shared network can overwrite other people's reports
+
+- Severity: major (phase 3).
+- Where: `04-reports-and-check-ins.md` 3.3 lines 152, 154 and 158, 3.5 line 212, 3.6 lines 235 and 268.
+- Problem: "`launch`: the newest report wins regardless of weight, because a closure is a fact someone just checked. A `closed` report shows in caution color until a newer `open` report or 12 hours." (line 235). A single signed-out "Open" tap, from anyone anywhere, removes "Launch reported closed or blocked at 6:10 AM." (line 268) from the screen. Separately, replacement is keyed on the reporter: "the newest row from the same `user_id` or `ip_hash` at this location with `created_at` in the last 10 minutes is updated instead of inserting" (line 212). `ip_hash` is a daily hash of the IP address (line 158), and a boathouse wifi or a mobile carrier's shared address puts different people behind one IP. A second person's "Flat water" then overwrites the first person's "launch closed" or "thick fog" row instead of adding one, and the daily cap of 20 a day per `ip_hash` (line 152) can lock a whole boathouse out.
+- Fix: An `open` report clears a `closed` one only when it comes from a weight of 1.5 or more, or from two independent reporters; until then show both ("Reported closed at 6:10 AM, open at 6:20 AM."). Replace a signed-out report only when the same browser sent it (a random id kept in `localStorage`), not on `ip_hash` alone, and merge fields rather than overwrite them. Raise the daily cap for an `ip_hash` that many signed-in members also report from, or apply it to signed-out reports only.
