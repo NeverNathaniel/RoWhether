@@ -44,6 +44,8 @@ const WEIR = resolveLocation({
     { role: 'flow_forecast', mode: 'primary', priority: 0, adapter: 'nwps', ref: 'XYZ', unit: 'm3s', label: 'Forecast' }
   ]
 }, { waterway: PUTNEY_WATERWAY });
+// A place with no flow record at all (a tidal bay, say): the flow numbers fall back to cfs.
+const NO_FLOW = resolveLocation({ ...PUTNEY_RECORD, slug: 'bay-z', flow: null }, { waterway: PUTNEY_WATERWAY });
 // The same place with rows that have no label and no note, and no copy.
 const BARE = resolveLocation({
   ...WEIR, slug: 'bare-pool', copy: {},
@@ -71,7 +73,9 @@ function screen(loc, now = NOW) {
   // The settings carry no heading, as app.settings does not: a reader of S.heading gets undefined.
   const S = effectiveSettings(loc);
   const obs = { t: now, tempF: 70, wind: 5, gust: 9, dir: 200, text: 'Clear' };
-  const m = buildModel(loc, { wx: wx(across, 3, T0), river, flow, flowFcst: { issued: now, pts: Array.from({ length: 13 }, (_, i) => ({ t: now + i * 6 * HOUR, v: 7000 + i * 600 })) }, obs }, S, now);
+  // 30 daily means, 3,950 rising by 100 a day to 6,850, the last one the day before.
+  const flowDays = Array.from({ length: 30 }, (_, i) => ({ t: now - (30 - i) * 24 * HOUR, v: 3950 + i * 100 }));
+  const m = buildModel(loc, { wx: wx(across, 3, T0), river, flow, flowDays, flowFcst: { issued: now, pts: Array.from({ length: 13 }, (_, i) => ({ t: now + i * 6 * HOUR, v: 7000 + i * 600 })) }, obs }, S, now);
   Object.assign(app, { loc, model: m, settings: S, data: m.data, errors: {} });
   return { dom, m };
 }
@@ -254,6 +258,10 @@ describe('the River view and the forecasts take flow and words from the place', 
     expect(html).toMatch(/Your settings<\/dt><dd><div class="val">20,000 m³\/s</);
     expect(html).toMatch(/about 7,600 m³\/s, NWS forecast\./);
     expect(html).toMatch(/: 5,\d{3} m³\/s, measured\./);
+    // The last 30 days: the range note, the daily means table and the chart's readings.
+    expect(html).toContain('Daily mean from 3,950 m³/s on ');
+    expect(html).toMatch(/<td>6,850 m³\/s<\/td>/);
+    expect(html).toMatch(/: 3,950 m³\/s, daily mean\./);
     // No number is left with cfs after it. The axis titles are P0.12's.
     expect(html).not.toMatch(/\d cfs/);
     expect(river.summary(m).text).not.toMatch(/cfs/);
@@ -265,6 +273,23 @@ describe('the River view and the forecasts take flow and words from the place', 
     expect(river.summary(m).text).toMatch(/^6,000 cfs now\. Forecast to rise to about 14,200 cfs by /);
     expect(river.render(m).html).toContain('6,000 cfs');
     expect(river.render(m).html).toMatch(/<td>7,000 cfs<\/td>/);
+    expect(river.render(m).html).toContain('Daily mean from 3,950 cfs on ');
+    expect(river.render(m).html).toMatch(/<td>6,850 cfs<\/td>/);
+  });
+
+  it('falls back to cfs where the place has no flow record, and still draws', () => {
+    const { dom, m } = screen(NO_FLOW);
+    expect(m.loc.flow).toBeNull();
+    expect(river.summary(m).text).toMatch(/^6,000 cfs now\./);
+    const html = river.render(m).html;
+    expect(html).toContain('6,000 cfs');
+    expect(html).toContain('Daily mean from 3,950 cfs on ');
+    expect(html).not.toMatch(/m³/);
+    expect(html).not.toMatch(BROKEN);
+    renderNow();
+    expect(dom.el('facts').textContent).toContain('6,000 cfs');
+    const p = m.days.flatMap(d => d.periods).find(x => !x.past);
+    expect(forecastPanel(m, p)).toContain('6,000 cfs');
   });
 
   it('puts the place\'s own paragraphs in How this works, escaped, and none of Putney\'s', () => {
