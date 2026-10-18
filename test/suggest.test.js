@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { handleSuggest, suggestConfig, buildIssue, cleanContext, noMentions } from '../worker/suggest.js';
 import { parseRewrite } from '../worker/claude.js';
 import worker from '../worker/index.js';
+import { verifyTurnstile } from '../worker/turnstile.js';
 
 const ENV = {
   ANTHROPIC_API_KEY: 'k', GITHUB_TOKEN: 't', GITHUB_REPO: 'owner/repo',
@@ -139,5 +140,63 @@ describe('worker routing', () => {
     expect((await (await worker.fetch(new Request('https://row.example/api/suggest'), env)).json()).enabled).toBe(true);
     expect((await worker.fetch(new Request('https://row.example/api/nope'), env)).status).toBe(404);
     expect((await worker.fetch(new Request('https://row.example/api/suggest', { method: 'PUT' }), env)).status).toBe(405);
+  });
+});
+
+// verifyTurnstile itself: every other test here stubs it through deps. Only
+// Cloudflare's siteverify answer is stood in for; nothing calls the network.
+describe('verifyTurnstile', () => {
+  const VERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+  const answer = (body, init) => vi.fn(async () => new Response(typeof body === 'string' ? body : JSON.stringify(body), init));
+  const verify = async (fetchMock, ...args) => {
+    vi.stubGlobal('fetch', fetchMock);
+    try { return await verifyTurnstile(ENV, 'tok', '1.2.3.4', ...args); } finally { vi.unstubAllGlobals(); }
+  };
+
+  it('accepts a token made for the suggest action', async () => {
+    expect(await verify(answer({ success: true, action: 'suggest' }))).toBe(true);
+  });
+  it('refuses a token made for another action, or for none', async () => {
+    expect(await verify(answer({ success: true, action: 'auth' }))).toBe(false);
+    expect(await verify(answer({ success: true, action: 'Suggest' }))).toBe(false);
+    expect(await verify(answer({ success: true, action: '' }))).toBe(false);
+    expect(await verify(answer({ success: true }))).toBe(false);
+  });
+  it('refuses a failed check, even with the right action', async () => {
+    expect(await verify(answer({ success: false, action: 'suggest', 'error-codes': ['timeout-or-duplicate'] }))).toBe(false);
+    expect(await verify(answer({ success: 'true', action: 'suggest' }))).toBe(false);
+  });
+  it('refuses when siteverify errors, answers badly or cannot be reached', async () => {
+    expect(await verify(answer({ success: true, action: 'suggest' }, { status: 500 }))).toBe(false);
+    expect(await verify(answer('not json'))).toBe(false);
+    expect(await verify(vi.fn(async () => { throw new Error('offline'); }))).toBe(false);
+  });
+  it('sends the secret, the token and the address to siteverify', async () => {
+    const f = answer({ success: true, action: 'suggest' });
+    await verify(f);
+    const [url, init] = f.mock.calls[0];
+    expect(url).toBe(VERIFY);
+    expect(init.method).toBe('POST');
+    expect(init.headers).toEqual({ 'Content-Type': 'application/x-www-form-urlencoded' });
+    expect(String(init.body)).toBe('secret=secret&response=tok&remoteip=1.2.3.4');
+    const g = answer({ success: true, action: 'suggest' });
+    vi.stubGlobal('fetch', g);
+    try { await verifyTurnstile(ENV, 'tok', ''); } finally { vi.unstubAllGlobals(); }
+    expect(String(g.mock.calls[0][1].body)).toBe('secret=secret&response=tok&remoteip=');
+  });
+  it('is what keeps a token made for another form from filing a suggestion', async () => {
+    const run = async siteverify => {
+      const d = deps({ verifyTurnstile });
+      vi.stubGlobal('fetch', answer(siteverify));
+      try { return [await handleSuggest(post(good), ENV, d), d]; } finally { vi.unstubAllGlobals(); }
+    };
+    const [ok, filed] = await run({ success: true, action: 'suggest' });
+    expect(ok.status).toBe(200);
+    expect(filed.createIssue).toHaveBeenCalledTimes(1);
+    const [no, refused] = await run({ success: true, action: 'auth' });
+    expect(no.status).toBe(403);
+    expect((await no.json()).error).toBe('verification_failed');
+    expect(refused.rewriteSuggestion).not.toHaveBeenCalled();
+    expect(refused.createIssue).not.toHaveBeenCalled();
   });
 });
