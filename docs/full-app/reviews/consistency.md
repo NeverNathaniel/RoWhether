@@ -4,7 +4,7 @@ Reviewed `docs/full-app/01` to `08` and the code they describe, on `dev-full-app
 
 Status: in progress
 
-Count: 8 blockers, 10 major, 14 minor.
+Count: 8 blockers, 13 major, 18 minor.
 
 Severity: blocker means it must be fixed before the phase it affects is built; major means wrong, contradictory or unsafe; minor means wording or a small gap. Every finding was checked against the files named. Quotes are exact. Line numbers are for the commit above.
 
@@ -251,3 +251,58 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Where: 06 19.1 (lines 2089, 2091, 2103, 2107, 2117) and 19.2 (lines 2137, 2141, 2142).
 - Problem: In a table row, `|` ends a cell even inside a code span. For example line 2141, "`PATCH`, `DELETE /api/clubs/:slug/practices/:id?scope=one|following` | Coach, admin | Edit or delete", renders the path as "...?scope=one", the Who column as "following`" and the Purpose column as "Coach, admin", and drops "Edit or delete". The other rows split JSON bodies such as `{ "method": "meta" | "dns" | "email" | "manual", ... }` across columns, so the Purpose text is cut. Checked with a script that counts unescaped pipes against each table's header; only 06 has such rows.
 - Fix: Escape each pipe inside those code spans as `\|`, or write the alternatives in words ("`method`: `meta`, `dns`, `email` or `manual`"), as 08 7.3 does with "`?scope=one` or `?scope=following`".
+
+## More contradictions between the documents
+
+### Major
+
+#### C33. Cloudflare Access lets only the owner reach routes that moderators need
+
+- Severity: major (phase 3).
+- Where: 03 3.7 (lines 213 and 217) and 12.4 (line 895); 07 5.14 (line 673); 08 7.3 (lines 1923, 1941, 1973).
+- Problem: 03: "add a self-hosted Access application for `rowhether.com/admin*` and `rowhether.com/api/admin/*` ... Policy: allow the owner's email only", and "keep Cloudflare Access in front of `/admin*` and `/api/admin/*` after phase 2 as a second lock". 07: `/admin` from phase 2 "also needs site role `moderator` or `admin`". 08 puts moderator routes under that prefix: `GET /api/admin/queue` (mod), `POST /api/admin/clubs/:slug/review` (mod), `GET /api/admin/reports.csv` (owner or mod), and defines **mod** as a site role in a passkey session, without Access. Access answers before the Worker runs, so no moderator except the owner can open the queue.
+- Fix: Either move the moderator routes and the moderator part of `/admin` out from under Access (for example `/api/mod/*`, which 08 already uses for user name resets and suspensions, and a `/mod` page), or make the Access policy include every moderator and say who keeps it in step with `site_role`.
+
+#### C34. Synced `waterOverride` values are strings today, which 03 and 08 would refuse
+
+- Severity: major (phase 2).
+- Where: `src/settings.js` line 26; 03 9.2 (line 610); 08 7.5 (line 2060); 08 14.2 P0.7 (line 2667) and P0.1 (line 2582).
+- Problem: Today Settings stores the dock reading as typed text: `if (k === 'waterOverride') { next[k] = raw; continue; }`, so a saved value is `"55"`. P0.7 keeps "the values as today" and migrates them "unchanged". 03 9.2: a synced value "is JSON: a finite number, `""` ..., an object for `plan`, or null", and unknown or invalid values answer 400 `invalid`; 08 7.5 lists `waterOverride` as "number or `""`". The first push from a device that has a dock reading fails, and with 200 changes per request the whole outbox can stall. The golden cases also pass `waterOverride: 55` as a number, so they do not exercise the stored shape.
+- Fix: In P0.7, store `waterOverride` as a number (or `''`) on save and convert it in `migrateStorage()`, with a golden case that uses the string form today's users have; or have 03 9.2 accept a numeric string for this key and normalize it on the server.
+
+#### C35. 03 and 04 make opposite promises about raw coordinates in reports
+
+- Severity: major (phase 3, privacy).
+- Where: 03 12.2 (lines 875 and 876); 04 3.4 (lines 184 to 194).
+- Problem: 03: "If 04 wants proof someone is at the dock, the browser computes it and sends only a flag (`"atDock": true` when within 500 m of the location's dock point), not coordinates", and "Rounding before the request keeps precise coordinates out of request logs." 04: the dialog "sends `geo: { lat, lon, acc }`" with `enableHighAccuracy: true`, and "The Worker computes the distance ... and stores only one word", with a 1,500 m radius. The privacy notice (03 13.3) would promise what 04 does not do, and the two radii differ.
+- Fix: Pick one. Recommended: 03's rule, since the browser has the dock point from the location record: compute `near`, `far` or `unknown` in the browser with 04's 1,500 m and accuracy rules, send only the word, and correct 03's 500 m.
+
+### Minor
+
+#### C36. 03 still recommends signed-out alerts, which 05 declined
+
+- Severity: minor.
+- Where: 03 2 (line 70); 05 13 (line 1037).
+- Problem: 03: "Location alerts on this device | 4 | 05 decides; recommended yes, device only". 05: "Decision: push and alert rules need a signed-in account." 08 7.3 gives every push route a session.
+- Fix: 03 2: "No (05 13); account needed for every alert".
+
+#### C37. 07's route table has no `/account/revert`
+
+- Severity: minor.
+- Where: 03 4.7 (line 334) and 18 (line 1621); 07 4.1 (lines 195 to 208) and 4.2 (line 218).
+- Problem: 03's email-change undo link is `https://rowhether.com/account/revert#t=<token>`, and 03 18 adds "`/account/revert` page" to `src/route.js`. 07's routes list `/account` with hashes only, and `parseRoute(loc)` returns pages `home`, `location`, `point`, `add`, `account`, `club`, `status`, `admin`, `notfound`, with nothing for the revert page.
+- Fix: Add `/account/revert#t=<token>` to 07 4.1 (phase 2, no account needed, loaded with the `account` chunk) and a `revert` page to `parseRoute`.
+
+#### C38. Two sets of percentiles for the same Putney flow history
+
+- Severity: minor.
+- Where: 01 6.1 (line 437), 6.2 (line 476) and 14.9 (line 1424); 02 Summary 8 (line 34), discovery sample (line 545) and step 3 (line 625).
+- Problem: For 3,939 days of North Walpole daily means, 01 gives "p90 21,900, p95 28,100" and writes them into Putney's waterway file; 02 gives "90th percentile 21,820, 95th percentile 28,010", "by linear interpolation between closest ranks". Only one method produced each pair, and the file phase 0 commits carries 01's. The suggested lines are the same either way after rounding down.
+- Fix: State the method once (02 step 3) and use its values in 01 6.1, 6.2 and 14.9, or note that 01's are nearest-rank values.
+
+#### C39. Stale references to decisions 08 has made
+
+- Severity: minor.
+- Where: 01 14.9 (line 1429); 02 "Default flow thresholds" step 7 (line 629); 02 Worker endpoints (line 743).
+- Problem: 01: "Cached for 30 days per adapter and ref (08 picks Cache API or KV)"; 08 6.6 picked D1 `source_cache`. 02: "Refresh yearly: the Cron Trigger on January 15 recomputes `stats`"; 08 6.4 has only `* * * * *` and `17 9 * * *`. 02's `PUT /api/locations/:slug/sources` body still uses the rejected binding shape (`"slot": "river"`, `"adapter": "usgs-latest"`, `"params": { "flow": ... }`), while 08 K2 and K3 store 01's `role`, provider `adapter` (`usgs-ogc`) and `ref`.
+- Fix: 01: "cached in D1 `source_cache` for 30 days (08 6.6)". 02 step 7: "the daily run on January 15". 02's body example in 01's binding fields (4.4).
