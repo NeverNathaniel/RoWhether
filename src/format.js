@@ -61,6 +61,15 @@ export function setZone(tz) {
 
 export const r0 = v => (v == null || isNaN(v)) ? null : Math.round(v);
 export const fmtInt = v => Math.round(v).toLocaleString('en-US');
+// A flow or level in the unit of its gauge (01 15.6): "20,000 cfs", "120 m³/s",
+// "8.2 ft", "2.45 m". Cubic metres a second keep 0 decimals from 100, 1 from 10, 2 below.
+export function fmtFlow(v, unit = 'cfs') {
+  const x = +v;
+  if (unit === 'm3s') return `${x >= 100 ? fmtInt(x) : x.toFixed(x >= 10 ? 1 : 2)} m³/s`;
+  if (unit === 'ft') return `${x.toFixed(1)} ft`;
+  if (unit === 'm') return `${x.toFixed(2)} m`;
+  return `${fmtInt(x)} cfs`;
+}
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const CARD = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 export const card = d => (d == null || isNaN(d)) ? '--' : CARD[Math.round((((d % 360) + 360) % 360) / 22.5) % 16];

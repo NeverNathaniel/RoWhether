@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { zoneFormat, setZone, hm, dayKey, localMinutes } from '../src/format.js';
+import { zoneFormat, setZone, hm, dayKey, localMinutes, fmtFlow, fmtInt } from '../src/format.js';
 
 // The reference is today's formatters, pasted from src/format.js as it was
 // before P0.4 (LOC.tz written out as the zone). After P0.4 the module's own
@@ -209,6 +209,39 @@ describe('the zone of the app', () => {
       vi.doUnmock('../src/putney.js');
       vi.resetModules();
     }
+  });
+});
+
+describe('fmtFlow', () => {
+  it('writes cubic feet a second as a whole number with a thousands separator', () => {
+    expect(fmtFlow(20000, 'cfs')).toBe('20,000 cfs');
+    expect(fmtFlow(6910.4, 'cfs')).toBe('6,910 cfs');
+    expect(fmtFlow(0, 'cfs')).toBe('0 cfs');
+  });
+
+  it('is cfs when no unit is given, and for the number of every flow that fmtInt wrote before', () => {
+    expect(fmtFlow(28000)).toBe('28,000 cfs');
+    for (const v of [0, 1, 999.5, 5000, 20300, 123456.7]) expect(fmtFlow(v, 'cfs')).toBe(`${fmtInt(v)} cfs`);
+  });
+
+  it('writes a blank setting as zero, as fmtInt did', () => {
+    expect(fmtFlow('', 'cfs')).toBe('0 cfs');
+  });
+
+  it('writes cubic metres a second to the decimals of 01 15.6: none from 100, one from 10, two below', () => {
+    expect(fmtFlow(120.4, 'm3s')).toBe('120 m³/s');
+    expect(fmtFlow(100, 'm3s')).toBe('100 m³/s');
+    expect(fmtFlow(1234.5, 'm3s')).toBe('1,235 m³/s');
+    expect(fmtFlow(45.23, 'm3s')).toBe('45.2 m³/s');
+    expect(fmtFlow(10, 'm3s')).toBe('10.0 m³/s');
+    expect(fmtFlow(8.246, 'm3s')).toBe('8.25 m³/s');
+    expect(fmtFlow(0, 'm3s')).toBe('0.00 m³/s');
+  });
+
+  it('writes a level in feet to one decimal and in metres to two', () => {
+    expect(fmtFlow(8.24, 'ft')).toBe('8.2 ft');
+    expect(fmtFlow(2.454, 'm')).toBe('2.45 m');
+    expect(fmtFlow(12, 'm')).toBe('12.00 m');
   });
 });
 

@@ -1,10 +1,11 @@
 // Temperature: each day's range, then one day hour by hour: air and feels
 // like against the freezing and cold-water lines, plus water temperature.
 import { HOUR, WORD_PLAIN } from '../../config.js';
-import { hm, r0, rng, ago, dayKey } from '../../format.js';
+import { hm, r0, rng, dayKey } from '../../format.js';
 import { worstOf, factorLevel, waterTemp, waterOverridden, sunFor } from '../../logic.js';
 import { Chart, niceTicks } from '../chart.js';
-import { fact } from '../parts.js';
+import { sourceRow } from '../../location.js';
+import { fact, readNote } from '../parts.js';
 import { dayLabel } from '../days.js';
 import { mid, chartWidth, weekDays, pickDay, weekStrip, legend, chartBox, hourTicks, tickEvery, lvlDot, hourTable, head } from './common.js';
 
@@ -76,7 +77,7 @@ export function render(m, want) {
   const f = [];
   if (wt != null) {
     f.push(fact('Water', `${r0(wt)}°F`, waterOverridden(S) ? 'Your reading, set in Settings.' :
-      `Nearest main-stem gauge, near Northfield, MA, about 19 mi downstream. ${ago(m.data.river.waterC.t)}.`));
+      readNote(sourceRow(m.loc, 'water_temp'), m.data.river.waterC.t)));
     const coldest = Math.round(bot.temp + wt);
     f.push(fact('Air plus water', `${coldest}°F`,
       coldest < S.coldCombined ? `At the coldest hour, under your ${S.coldCombined} line. Dress for immersion and row with a launch.` : `At the coldest hour, above your ${S.coldCombined} line.`,

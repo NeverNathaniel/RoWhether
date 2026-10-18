@@ -1,7 +1,7 @@
 // Wind: the strongest wind each day, then one day hour by hour: wind and
 // gusts against the settings, direction relative to the course, and water state.
 import { HOUR, WATER, WORD_PLAIN } from '../../config.js';
-import { hm, r0, card, rng, dayKey } from '../../format.js';
+import { hm, r0, card, rng, dayKey, esc } from '../../format.js';
 import { factorLevel, worstOf, relWind, windVsCourse, sunFor, confidence, confidenceText } from '../../logic.js';
 import { Chart, niceTicks, niceMax } from '../chart.js';
 import { dayLabel } from '../days.js';
@@ -30,14 +30,15 @@ function arrow(h, heading) {
   return `<g transform="rotate(${Math.round(relWind(h.dir, heading))})"><line class="carrow" x1="0" y1="-8" x2="0" y2="3"/><path class="carrow-head" d="M-4 1L4 1L0 8Z"/></g>`;
 }
 
-// "Headwind up", "Cross, NH": the course note in a table cell.
-function courseWord(h, heading) {
+// "Headwind up", "Cross, NH": the course note in a table cell, with the short name of the bank.
+function courseWord(h, loc) {
   if (h.wind == null || h.dir == null) return '--';
   if (h.wind < 3) return 'Calm';
-  const rel = relWind(h.dir, heading), c = Math.cos(rel * Math.PI / 180);
+  const rel = relWind(h.dir, loc.course.heading), c = Math.cos(rel * Math.PI / 180);
   if (c >= 0.5) return 'Headwind up';
   if (c <= -0.5) return 'Tailwind up';
-  return rel > 0 ? 'Cross, NH' : 'Cross, VT';
+  const b = loc.banks;
+  return b ? `Cross, ${esc((rel > 0 ? b.right : b.left).short)}` : 'Cross';
 }
 
 const modelRange = h => (h.ens && h.ens.wind.length >= 2 ? ` Models ${r0(Math.min(...h.ens.wind))} to ${r0(Math.max(...h.ens.wind))} mph.` : '');
@@ -70,7 +71,7 @@ export function render(m, want) {
 
   const D = c.lane(22, 0, 1, 'Direction on the course, upstream is up');
   const thin = (W - 46) / hs.length < 15 ? 2 : 1;
-  hs.forEach((h, i) => { if (i % thin === 0) c.glyph(D, mid(h), arrow(h, S.heading)); });
+  hs.forEach((h, i) => { if (i % thin === 0) c.glyph(D, mid(h), arrow(h, m.loc.course.heading)); });
   const WS = c.lane(14, 0, 1, 'Water state');
   c.cells(WS, hs.map(h => ({ t0: h.t, t1: h.t + HOUR, cls: h.water ? `cw cw${h.water.lvl}` : '' })));
 
@@ -103,7 +104,7 @@ export function render(m, want) {
   const peak = hs.reduce((a, b) => ((b.wind || 0) > (a.wind || 0) ? b : a));
 
   const table = hourTable('Hour by hour', ['Hour', 'Wind', 'Gust', 'From', 'Course', 'Water'], hs.map(h => [
-    `${lvlDot(factorLevel(h.a, KEYS).lvl)}${hm(h.t)}`, `${r0(h.wind)} mph`, `${r0(h.gust)}`, card(h.dir), courseWord(h, S.heading), h.water ? WATER.short[h.water.lvl] : '--'
+    `${lvlDot(factorLevel(h.a, KEYS).lvl)}${hm(h.t)}`, `${r0(h.wind)} mph`, `${r0(h.gust)}`, card(h.dir), courseWord(h, m.loc), h.water ? WATER.short[h.water.lvl] : '--'
   ]));
 
   const html = `${head(name, lede)}
@@ -117,7 +118,7 @@ export function render(m, want) {
     <div class="panel how">
       <h3>How this works</h3>
       <p>Sustained wind and gusts are checked against your settings. Caution at ${S.windCaution} mph wind or ${S.gustCaution} mph gusts, stay off at ${S.windOff} or ${S.gustOff}.</p>
-      <p>Arrows show where the wind is blowing, with the river running up the page. An arrow pointing down is a headwind rowing upstream. The course heading is ${S.heading}°, set in Settings.</p>
+      <p>Arrows show where the wind is blowing, with the river running up the page. An arrow pointing down is a headwind rowing upstream. The course heading is ${m.loc.course.heading}°, set in Settings.</p>
       <p>Water state is information only and does not change Go, Caution or Stay off. Wind along the straight counts fully and crosswind counts for less. It blends the last three hours, since chop takes time to build and settle, and goes up when wind blows against a strong current.</p>
       <p>Shaded hours before sunrise need lights.</p>
     </div>`;

@@ -1,5 +1,5 @@
 // Small HTML and SVG builders shared by the sections.
-import { esc, hm, hShort } from '../format.js';
+import { esc, hm, hShort, ago } from '../format.js';
 
 // A small chevron after a label that opens a detail view.
 export const CHEV = '<svg class="chev" viewBox="0 0 8 12" aria-hidden="true"><path d="M2 2l4 4-4 4"/></svg>';
@@ -10,7 +10,11 @@ export function fact(label, val, note, lvl, href) {
   return `<div class="fact"${lvl ? ` data-lvl="${lvl}"` : ''}><dt>${dt}</dt><dd><div class="val">${val}</div>${note ? `<div class="note">${esc(note)}</div>` : ''}</dd></div>`;
 }
 
-export function compassSVG(heading, dir, speed) {
+// A source's note, then how old its reading is: "Keene airport, 14 mi east. 12 min ago."
+// A row with no note gives the age alone.
+export const readNote = (row, t) => `${row?.note ? row.note + ' ' : ''}${ago(t)}.`;
+
+export function compassSVG(heading, banks, dir, speed) {
   let s = '<circle class="c-ring" r="62"/>';
   s += '<text class="c-card" x="0" y="-48" text-anchor="middle">N</text>';
   s += '<text class="c-card" x="52" y="4" text-anchor="middle">E</text>';
@@ -20,8 +24,10 @@ export function compassSVG(heading, dir, speed) {
   s += '<rect class="c-river" x="-10" y="-62" width="20" height="124" rx="4"/>';
   s += '<path class="c-flow" d="M-5 40 L5 40 L0 49 Z"/>';
   s += '</g>';
-  s += '<text class="c-bank" x="-30" y="-24" text-anchor="middle">VT</text>';
-  s += '<text class="c-bank" x="30" y="-24" text-anchor="middle">NH</text>';
+  if (banks) {
+    s += `<text class="c-bank" x="-30" y="-24" text-anchor="middle">${esc(banks.left.short)}</text>`;
+    s += `<text class="c-bank" x="30" y="-24" text-anchor="middle">${esc(banks.right.short)}</text>`;
+  }
   if (speed == null || dir == null) return s;
   if (speed < 1) return s + '<text class="c-calm" x="0" y="5" text-anchor="middle">Calm</text>';
   s += `<g transform="rotate(${dir})"><line class="c-wind" x1="0" y1="-44" x2="0" y2="30"/><path class="c-head" d="M-8 26 L8 26 L0 42 Z"/></g>`;

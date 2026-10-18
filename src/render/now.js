@@ -1,9 +1,10 @@
 // "On the water now": compass and current facts.
 import { HOUR, WATER } from '../config.js';
 import { app, $ } from '../state.js';
-import { r0, card, fmtInt, ago, visText, hm, dayKey, dayWord } from '../format.js';
+import { r0, card, fmtFlow, visText, hm, dayKey, dayWord } from '../format.js';
 import { precipKind, rateWord, fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, aqiWord } from '../logic.js';
-import { fact, compassSVG, sparkline } from './parts.js';
+import { sourceRow } from '../location.js';
+import { fact, compassSVG, sparkline, readNote } from './parts.js';
 import { precipBlock } from './precip.js';
 
 // Fog now if there is any, otherwise the outlook for the next morning.
@@ -44,11 +45,12 @@ export function renderNow() {
   // Current conditions are only shown in daylight.
   $('nowSection').hidden = !m.daytime;
   if (!m.daytime) return;
+  const heading = m.loc.course.heading;
   const lvlOf = key => { const x = a.reasons.find(r => r.key === key); return x ? x.lvl : 0; };
 
-  $('compass').innerHTML = compassSVG(S.heading, cur.dir, cur.wind);
+  $('compass').innerHTML = compassSVG(heading, m.loc.banks, cur.dir, cur.wind);
   $('compassCap').textContent = cur.wind != null
-    ? `Wind from ${card(cur.dir)}. River runs ${card(S.heading + 180)}, upstream heading ${S.heading}°.`
+    ? `Wind from ${card(cur.dir)}. River runs ${card(heading + 180)}, upstream heading ${heading}°.`
     : '';
 
   const f = [];
@@ -65,7 +67,7 @@ export function renderNow() {
   const wt = waterTemp(m);
   if (wt != null) {
     const src = waterOverridden(S) ? 'Your reading, set in Settings.' :
-      `Nearest main-stem gauge, near Northfield, MA, about 19 mi downstream. ${ago(m.data.river.waterC.t)}.`;
+      readNote(sourceRow(m.loc, 'water_temp'), m.data.river.waterC.t);
     f.push(fact('Water', `${r0(wt)}°F`, src, 0, '#temperature'));
     const sum = Math.round(cur.temp + wt);
     f.push(fact('Air plus water', `${sum}°F`,
@@ -85,8 +87,8 @@ export function renderNow() {
   const fl = flowNow(m);
   if (fl != null) {
     const tr = flowTrend(m.data.flow);
-    f.push(fact('River flow', `${fmtInt(fl)} cfs ${sparkline(m.data.flow)}`,
-      `${tr ? tr + '. ' : ''}North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. ${ago(m.data.river.flow.t)}.`,
+    f.push(fact('River flow', `${fmtFlow(fl, m.loc.flow?.unit)} ${sparkline(m.data.flow)}`,
+      `${tr ? tr + '. ' : ''}${readNote(sourceRow(m.loc, 'flow'), m.data.river.flow.t)}`,
       lvlOf('flow'), '#river'));
   } else {
     f.push(fact('River flow', '--', 'USGS gauge unavailable.', 0, '#river'));
@@ -100,13 +102,13 @@ export function renderNow() {
       lvlOf('twilight'), '#light'));
   }
 
-  const o = m.data.obs;
+  const o = m.data.obs, obsRow = sourceRow(m.loc, 'obs');
   if (o && o.t) {
     const parts = [];
     if (o.wind != null) parts.push(`${r0(o.wind)} mph${o.dir != null && o.wind >= 1 ? ' ' + card(o.dir) : ''}`);
     if (o.tempF != null) parts.push(`${r0(o.tempF)}°F`);
-    f.push(fact('Measured at Keene', parts.join(', ') || '--',
-      `${o.text ? o.text + '. ' : ''}${o.gust != null ? `Gusts ${r0(o.gust)} mph. ` : ''}Keene airport, 14 mi east. A check on the model. ${ago(o.t)}.`));
+    f.push(fact(`Measured at ${obsRow?.label || 'the station'}`, parts.join(', ') || '--',
+      `${o.text ? o.text + '. ' : ''}${o.gust != null ? `Gusts ${r0(o.gust)} mph. ` : ''}${readNote(obsRow, o.t)}`));
   }
   $('facts').innerHTML = f.join('');
   $('nowPrecip').innerHTML = nowPrecip(m);

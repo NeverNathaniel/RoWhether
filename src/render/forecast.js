@@ -1,7 +1,7 @@
 // The full forecast for one period: compass, facts and an hour by hour table.
 // Shown when a Day by day row is opened.
 import { WORD_PLAIN, LIGHT_KEYS, WATER } from '../config.js';
-import { esc, hm, r0, card, rng, fmtInt, visText, dayKey } from '../format.js';
+import { esc, hm, r0, card, rng, fmtFlow, visText, dayKey } from '../format.js';
 import { fogLift, waterWhy, debrisLikely, flowNow, flowTrend, flowForecastAt, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept, aqiWord } from '../logic.js';
 import { fact, compassSVG, sparkline } from './parts.js';
 import { precipBlock } from './precip.js';
@@ -18,7 +18,7 @@ function hoursTable(p) {
 }
 
 export function forecastPanel(m, p) {
-  const S = m.S, hs = p.hs;
+  const S = m.S, hs = p.hs, { heading } = m.loc.course;
   const maxLvl = keys => Math.max(0, ...hs.flatMap(h => h.a.reasons.filter(x => keys.includes(x.key)).map(x => x.lvl)));
   const nums = k => hs.map(h => h[k]).filter(v => v != null && !isNaN(v));
   const shifting = hs.length > 1 && Math.max(...hs.map(h => angDev(h.dir, p.dir))) > 60;
@@ -67,9 +67,9 @@ export function forecastPanel(m, p) {
     const tr = flowTrend(m.data.flow);
     const fc = flowForecastAt(m.data.flowFcst, p.from + (p.end - p.from) / 2);
     const ahead = fc != null
-      ? `NWS forecast for this period: about ${fmtInt(Math.round(fc / 100) * 100)} cfs. Go, Caution and Stay off use the latest reading.`
+      ? `NWS forecast for this period: about ${fmtFlow(Math.round(fc / 100) * 100, m.loc.flow?.unit)}. Go, Caution and Stay off use the latest reading.`
       : 'The NWS forecast does not reach this far, so check again closer to the time.';
-    f.push(fact('River flow', `${fmtInt(fl)} cfs ${sparkline(m.data.flow)}`,
+    f.push(fact('River flow', `${fmtFlow(fl, m.loc.flow?.unit)} ${sparkline(m.data.flow)}`,
       `Latest reading${tr ? ', ' + tr.charAt(0).toLowerCase() + tr.slice(1) : ''}. ${ahead}`, maxLvl(['flow']), '#river'));
   }
 
@@ -82,8 +82,8 @@ export function forecastPanel(m, p) {
   return `<div class="forecast">
     <div class="now-grid">
       <figure class="compass">
-        <svg viewBox="-70 -70 140 140" role="img" aria-label="Forecast wind direction relative to the river">${compassSVG(S.heading, p.dir, p.avgWind)}</svg>
-        <figcaption>${shifting ? 'Wind shifting during this period.' : `Wind mostly from ${card(p.dir)}.`} River runs ${card(S.heading + 180)}, upstream heading ${S.heading}°.</figcaption>
+        <svg viewBox="-70 -70 140 140" role="img" aria-label="Forecast wind direction relative to the river">${compassSVG(heading, m.loc.banks, p.dir, p.avgWind)}</svg>
+        <figcaption>${shifting ? 'Wind shifting during this period.' : `Wind mostly from ${card(p.dir)}.`} River runs ${card(heading + 180)}, upstream heading ${heading}°.</figcaption>
       </figure>
       <div>
         <dl class="facts">${f.join('')}</dl>

@@ -290,6 +290,10 @@ export function resolveSources(loc, waterway) {
   return out;
 }
 
+// The stored row for a role, whichever slot it fills. Its label and note name
+// the gauge or station in the texts. Null when the location has no such row.
+export const sourceRow = (loc, role) => Object.values(loc.sources || {}).flat().find(r => r.role === role) ?? null;
+
 // The location the app reads: the record, its waterway's sources, and the
 // viewer's course heading. A personal heading applies only to a course that is
 // one heading (01 8.6). The record is not changed.
