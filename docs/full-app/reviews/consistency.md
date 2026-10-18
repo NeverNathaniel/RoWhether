@@ -4,7 +4,7 @@ Reviewed `docs/full-app/01` to `08` and the code they describe, on `dev-full-app
 
 Status: in progress
 
-Count: 8 blockers, 3 major, 10 minor.
+Count: 8 blockers, 10 major, 14 minor.
 
 Severity: blocker means it must be fixed before the phase it affects is built; major means wrong, contradictory or unsafe; minor means wording or a small gap. Every finding was checked against the files named. Quotes are exact. Line numbers are for the commit above.
 
@@ -164,3 +164,90 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Where: 08 14.2 P0.4 (line 2637).
 - Problem: "every function of `zoneFormat('America/New_York')` equals today's module output". Once P0.4 lands, the module's exports are `zoneFormat`'s own functions, so the test compares a function with itself.
 - Fix: Copy today's six formatter definitions into `test/format.test.js` as the reference.
+
+## Contradictions between the documents and with 08
+
+### Major
+
+#### C22. 08's prefix dispatch sends report, hazard, outing and contact routes to the wrong router
+
+- Severity: major (phase 3).
+- Where: 08 3.5 (lines 227 to 237).
+- Problem: "Prefix dispatch, in this order (first match wins)". Row 2 is "`/api/auth/`, `/api/me` (except the club and notify paths below), ..." to `worker/auth/index.js`; row 4 is "`/api/locations`, `/api/waterways`, `/api/discover`, `/api/sources`" to "`worker/locations.js` (club context and proxies delegate onward)". Later rows give `/api/locations/:slug/reports` to `worker/reports.js` (line 235), and `/api/me/outings` and `/api/me/contacts` to `worker/outings.js` (line 237). With first match wins, `/api/me/outings` and `/api/me/contacts` match `/api/me` first (the exception names only the club and notify paths), and `/api/locations/:slug/reports`, `/api/locations/:slug/hazards` and `/api/waterways/:id/hazards` (7.3) match the locations row first, which names only club context and proxies as delegated.
+- Fix: Order the table from the most specific pattern to the broadest, or extend the two exceptions: `/api/me` except club, notify, outings and contacts paths; `worker/locations.js` delegates `/reports` and `/hazards` suffixes as it does club context.
+
+#### C23. 04's report checks ignore `REPORTS_ENABLED`
+
+- Severity: major (phase 2, when production gets a database).
+- Where: 04 3.5 step 1 (line 203) and 3.10 (line 474); 08 6.3 (line 1652), 7.1 "Feature off" (line 1813), K52.
+- Problem: 08: `REPORTS_ENABLED` is "`"0"` until phase 3 ships", read by "`/api/info` `reports`, report routes", and a route whose feature is off "answers 404 with ... `reports_off`". 04's server checks start "1. `env.DB` bound. Else 503 `not_configured` "Reports are not set up here."" and never read the flag, and 04 3.10 still says "Production D1 binding (phase 2 or 3, 08)". Built from 04, production accepts report posts from phase 2, when 03 adds the production database, while `/api/info` hides the form. K52 records "Edit made: None".
+- Fix: 04 3.5 step 1 becomes "`env.DB` bound and `env.REPORTS_ENABLED === '1'`. Else 404 `reports_off`". 04 3.10: "Production D1 binding in phase 2 (08 5.4), reports held off by `REPORTS_ENABLED` until phase 3".
+
+#### C24. 03's Turnstile sentences are narrower than the plan's use of Turnstile
+
+- Severity: major.
+- Where: 03 6.3 Decision (line 539) and 21 (line 1768); 03 12.4 (line 896); 08 10.8 (lines 2330 to 2339).
+- Problem: 03 6.3: "Extend the CLAUDE.md Turnstile exception to "when the suggestion form or the sign-in email field is first used"". 03 12.4, the privacy notice's cookie list: "Turnstile: ... it runs only on the sign-in and suggestion forms." 08 10.8 lists four actions: `suggest`, `auth` (sign in, `POST /api/me/email`, `POST /api/me/guardians/invite`), `report` (signed-out reports) and `safe` (the status link). The CLAUDE.md sentence 03 proposes would still be broken by 04's report dialog and status link, and the privacy notice would misstate where the script runs. 08's own replacement sentence ("suggestions, sign in, a report sent while signed out, and the status link's safe button") leaves out the email change and guardian invite forms from its own table.
+- Fix: Replace 03 6.3's Decision and 03 21's line with 08 10.8's sentence, add "changing your email and inviting a guardian" to that sentence, and make 03 12.4 say "it runs only on the forms that need it: suggestions, sign in, email change, guardian invites, signed-out reports and the status link".
+
+#### C25. 02 chooses Photon for the add flow's search, but 08's CSP never allows it
+
+- Severity: major (phase 3).
+- Where: 02 "Place search, reverse geocoding and time zones" Decision (line 642) and the open questions (line 805); 08 10.11 (lines 2362 and 2369); 07 5.6 (line 563).
+- Problem: 02: "Decision: in the add flow's search box, use Photon for boathouse names", at `https://photon.komoot.io/api/`, from the browser. 08's `connect-src` lists Open-Meteo, NWS, USGS, NOAA and the geocoding host; "Phase 3 adds `https://tiles.openfreemap.org`". Photon is not an adapter, so `test/csp.test.js` (which checks adapter `hosts`) would not catch the gap, and the request would be blocked. 07's add flow step 1 has no search box at all ("The map ... with a fixed crosshair"), so the three documents disagree on whether the search exists.
+- Fix: Decide in 07 5.6 whether step 1 has a search box. If it does, add `https://photon.komoot.io` to 08 10.11's phase 3 line and to the CSP test's extra hosts; if not, drop 02's Photon decision.
+
+#### C26. Two staleness rules for the same flow reading in phase 1
+
+- Severity: major (phase 1).
+- Where: 02 adapter catalog (lines 380, 381), the `staleMs` paragraph (line 404) and Phases (line 755); 01 15.7 (line 1501) and 6.3 notes (line 571); 07 6.7 (line 788); 08 K9.
+- Problem: 02: `usgs-latest` and `usgs-recent` have `staleMs` 12 h; "Past `staleMs` the slot reads as missing and the hero names it: "River flow data is more than 12 hours old."", and phase 1 ships "staleness per slot". 01: flow `maxAgeH` is 24 h from phase 1; "Over `maxAgeH` (24 h from phase 1): not used ... Fact note: "Last reading 2 days ago, not used for Go, Caution or Stay off."" 07 6.7 repeats 01's 24 h. K9 says only "behavior ships in phase 1 with 01's `maxAgeH`", without retiring `staleMs`. A reading 13 hours old is missing under 02 and used under 01, with different copy.
+- Fix: One rule. Recommended: 01's `maxAgeH` governs whether a value is used, and `staleMs` only decides when the hero names a source as stale, set no shorter than `maxAgeH` (24 h for the USGS slots), with 07 6.7's copy.
+
+#### C27. 08 and 04 disagree on whether the legacy report route needs Turnstile
+
+- Severity: major (phase 3).
+- Where: 08 7.3 (line 1854); 04 3.9 (line 458).
+- Problem: 08: "POST `/api/reports` | none (Turnstile from 3) | `REPORT_LIMIT` | today; alias until 4". 04: "old clients have no Turnstile, so the alias accepts signed-out reports without it but at weight 0.5 and under a tighter limit (10 a day per `ip_hash`)". The alias exists so that "a home screen app that has not updated yet still works"; built from 08 it refuses every such report.
+- Fix: 08 7.3's auth cell for the alias becomes "none (weight 0.5, D1 10 a day, 04 3.9)".
+
+### Minor
+
+#### C28. `LOCATION_LIMIT` is keyed by connection in 01 and by user in 08
+
+- Severity: minor.
+- Where: 01 12.1 (line 1143); 08 6.2 (line 1630).
+- Problem: 01: "a Workers rate limit binding `LOCATION_LIMIT`, 5 writes a minute per connection, like `REPORT_LIMIT`". 08: "`LOCATION_LIMIT` | 5 | user id". Every route that uses it requires a session (08 7.3).
+- Fix: 01 12.1: "5 writes a minute per user (08 6.2)".
+
+#### C29. 07 still asks for `at` to be reserved
+
+- Severity: minor.
+- Where: 07 4.1 (line 212) and 16 (line 1515); 08 K25.
+- Problem: 07: "`at` must be added for quick looks (section 16)" and "| 01 | Add `at` to the reserved slugs (2.2). |". K25 decided "`at` needs nothing, as slugs are 3 to 48 characters", and 07's own next sentence says the same of `o`.
+- Fix: 07 4.1: "`at` and `o` cannot collide because slugs are at least 3 characters (08 K25)"; drop the 16 row.
+
+#### C30. 01's binding fields and schema intro predate 08's merge
+
+- Severity: minor.
+- Where: 01 4.4 (line 247) and 5 (line 252).
+- Problem: 01 4.4 lists binding `status` as "`active`, `offline`, `retired` (15.7)" and has no `origin`, `fail_count`, `confirmed_by` or `confirmed_at`; 08 4.3 gives "status list `active`, `suggested`, `offline`, `retired`, `rejected`" plus those columns (K2). 01 5's intro still says "`users` (03) and `clubs` (06) must exist first", in the same paragraph that says `steward_club_id` waits for `0010` because clubs come later (K12).
+- Fix: 01 4.4: add the four columns and the five statuses, with 02's meanings. 01 5: "`users` (03) must exist first; `clubs` arrive in phase 5 (08 K12)".
+
+#### C31. 07 and 08 disagree on whether phase 0 renders the footer credits
+
+- Severity: minor.
+- Where: 07 6.6 (line 772); 08 14.2 P0.10 (line 2705) and 14.3.
+- Problem: 07: "Phase 0 reproduces today's Putney text exactly, from the Putney record's `copy.credits` (01)." 08: "Leave `index.html` alone: its title, manifest name, settings notes and credits change in phase 1 (07 15)." The text is the same either way (checked: `copy.credits` equals `index.html` line 90 with tags removed), so only the phase differs.
+- Fix: 07 6.6: "Phase 1 renders the credits from `copy.credits` ...; phase 0 leaves `index.html` as it is (08 14.3)."
+
+## Markdown that changes meaning
+
+### Major
+
+#### C32. Unescaped pipes break eight rows of 06's API tables
+
+- Severity: major.
+- Where: 06 19.1 (lines 2089, 2091, 2103, 2107, 2117) and 19.2 (lines 2137, 2141, 2142).
+- Problem: In a table row, `|` ends a cell even inside a code span. For example line 2141, "`PATCH`, `DELETE /api/clubs/:slug/practices/:id?scope=one|following` | Coach, admin | Edit or delete", renders the path as "...?scope=one", the Who column as "following`" and the Purpose column as "Coach, admin", and drops "Edit or delete". The other rows split JSON bodies such as `{ "method": "meta" | "dns" | "email" | "manual", ... }` across columns, so the Purpose text is cut. Checked with a script that counts unescaped pipes against each table's header; only 06 has such rows.
+- Fix: Escape each pipe inside those code spans as `\|`, or write the alternatives in words ("`method`: `meta`, `dns`, `email` or `manual`"), as 08 7.3 does with "`?scope=one` or `?scope=following`".
