@@ -302,10 +302,10 @@ Deletion:
 
 1. Any admin taps "Delete this club" in Settings and types the club's short name.
 2. `status = 'deleting'`, `delete_after = now + 14 days`. Every admin gets an email and push: "Alex R. asked to delete Putney Rowing Club on Oct 31, 2026. Any admin can cancel before then." A banner shows to all members.
-3. During the 14 days: everything works, and the full export (16.2) is offered to admins.
+3. During the 14 days: everything works, and the full export (16.2, incidents included) is offered to admins.
 4. Any admin can cancel: back to the previous status, audit `club.delete.cancel`.
-5. After 14 days, the daily cron (05's `17 9 * * *` run) deletes, in one batch per club: rules, statuses, groups, invites, devices, practices and series, attendance, lineups, bookings, boats, damage reports, announcements, calendar tokens for this club, and incidents. Memberships are deleted. Outings keep their row for the rower's own log with `club_id` set to NULL and `rule_lvl`, `rule_text`, `club_stage`, `ack_by` cleared. `locations.steward_club_id` is set NULL. `notify_prefs` rows for the club are deleted (05 notes it has no foreign key here).
-6. The `clubs` row becomes a tombstone: `status = 'deleted'`, every optional field NULL, `name` set to "Deleted club", slug kept, `delete_after = now + 90 days`. After 90 days the row is removed and the slug is free. Holding the slug stops someone re-registering it to impersonate the old club.
+5. After 14 days, the daily cron (05's `17 9 * * *` run) deletes, in one batch per club: rules, statuses, groups, invites, devices, practices and series, attendance, lineups, bookings, boats, damage reports, announcements, and calendar tokens for this club. Memberships are deleted. Incidents are not deleted with the club: they are sealed and kept until their own retention period ends (9.3). Outings keep their row for the rower's own log with `club_id` set to NULL and `rule_lvl`, `rule_text`, `club_stage`, `ack_by` cleared. `locations.steward_club_id` is set NULL. `notify_prefs` rows for the club are deleted (05 notes it has no foreign key here).
+6. The `clubs` row becomes a tombstone: `status = 'deleted'`, every optional field NULL, `name` set to "Deleted club", slug kept, `delete_after = now + 90 days`. After 90 days the row is removed and the slug is free, unless the club still has sealed incidents, in which case the tombstone stays until the last one is deleted (`incidents.club_id` cascades, so the row must outlive them). Holding the slug stops someone re-registering it to impersonate the old club.
 7. `audit_log` keeps `club.delete.done` with the slug and who asked.
 
 If the last admin's account is deleted (03), the earliest-joined active member with the safety role becomes admin, else the earliest coach, and they are told. If there is none, the club is flagged for moderators, who can appoint an admin on request.
@@ -1146,11 +1146,14 @@ Both links as in 2.1.
 - Who sees records: safety officers and admins (all), the person who filed (their own). Every view by staff writes `audit_log` `incident.view`.
 - Push and email never contain the narrative, injuries or names.
 - Export (safety officers and admins): CSV of all incidents in a date range in the USRowing form's order, using the form's own labels for choices; "Include names" is off by default, which replaces names with roles ("Rower 1, Cox"). A printable page per incident for the club's files (USRowing asks clubs to keep a copy).
-- Account deletion (03): `reported_by` becomes NULL; the names written in the record stay as part of the club's safety records.
+- Account deletion (03): `reported_by` becomes NULL; the names written in the record stay until the retention period below ends, as part of the club's safety records.
+- Retention, one rule (03 12.9 says the same): an incident is kept for 7 years from `occurred_at`, then the daily run deletes the whole record together: names, injury details, the narrative and witness contact details. The period is a constant, `INCIDENT_RETENTION_YEARS`, that the lawyer may change (03 13.5). Witness phone numbers and emails are data about people who never signed up, and follow the same period.
+- A club's deletion does not delete incidents. The admins get the export (16.2). The records are sealed: no club member can read them, and the incident routes answer 404 for a deleted club. A site admin can read a sealed incident only on a legal request, and each read writes an `audit_log` row `incident.sealed.view`.
+- The privacy notice names the incident log as health data about members, including minors (03 13.3).
 
-Decision: Keep incident records, names included, until the club deletes them or the club is deleted; 03 states the legal basis in the privacy policy.
+Decision: Keep incident records, names included, for a fixed 7 years from the incident, also after an account or the club is deleted; delete them together after that. Recommended, because 03 suggests 7 years for incidents involving minors and one rule is easier to state and test than two; the lawyer sets the final period and whether it runs from the incident or from a minor's 18th birthday (03 13.5). 03 states the legal basis in the privacy notice.
+- Alternative: keep records until the club deletes them or is deleted (the earlier plan; health data about minors could be kept for ever, or destroyed early).
 - Alternative: replace names with "Former member" when a person deletes their account (better for privacy, worse for insurance claims and follow-up).
-- Alternative: delete incidents after a fixed period such as 7 years (unverified whether that meets liability periods for minors; 03 decides).
 
 ## 10. Boats, damage reports and safety checks (phase 6)
 
@@ -1475,7 +1478,7 @@ The daily run (05's `17 9 * * *` cron) applies these. 03 owns the privacy policy
 | Practices, attendance, lineups | While the club exists | |
 | Bookings | 2 years after they end | Deleted |
 | Damage reports, fixed or closed | 3 years | Deleted |
-| Incidents | Until the club deletes them (9.3) | |
+| Incidents | 7 years from the incident, also after the club is deleted (9.3) | Deleted whole: names, health details, witness contacts |
 | Kiosk devices and calendar tokens, revoked | 30 days | Deleted |
 | Announcements, not pinned | 1 year | Deleted |
 | Club columns on outings | With the outing (04) | Cleared when the club is deleted |
@@ -3141,9 +3144,9 @@ Decision: Emergency info lives on the location, public, edited by steward clubs 
 - Alternative: per club.
 - Alternative: free text in the location's launch notes.
 
-Decision: Keep incident records, names included, until the club deletes them or the club is deleted; 03 states the legal basis. (9.3)
+Decision: Keep incident records, names included, for a fixed 7 years from the incident, also after an account or the club is deleted; the lawyer sets the final period. (9.3)
+- Alternative: keep records until the club deletes them or is deleted.
 - Alternative: replace names with "Former member" when a person deletes their account.
-- Alternative: delete incidents after a fixed period such as 7 years.
 
 Decision: Coaches can take a member's booking for a practice, with notice to the member; only equipment managers or admins can within 12 hours of the start. (11.4)
 - Alternative: member bookings always win.

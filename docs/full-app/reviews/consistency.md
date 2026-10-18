@@ -411,6 +411,8 @@ Applied: 07 section 9.2 drops the sentence "01 8.6 keeps 5 locations." (01 8.6 k
 - Problem: 08 asks the owner to "Approve the CLAUDE.md changes: Preview secrets, the Turnstile sentence, the storage keys, the code map | phase 0 (code map), phase 2 (the rest)". The topic documents also ask for: the navigation sentence and the app name (07, both phase 1), the "Saved" header label and test list additions (07), the Worker routes list and "the no private messages rule" (03), and "the rule that club features are broadcast only" (06). The app name and the navigation sentence are phase 1 changes, not phase 2. C41 and C42 add two more.
 - Fix: One list in 08 17.2 with every requested CLAUDE.md change and its phase.
 
+Applied: 08 section 17.2 now lists every requested CLAUDE.md change with its phase, one row per group. Phase 0: code map, `KEYS`, location tables. Phase 1: app name, navigation sentence, "Saved" label, test list additions, NWS office, service worker sentence (07 16, 01 6.1). Phase 2: Preview secrets, Turnstile sentence, Worker routes, secrets, no private messages rule, storage keys (03 18). Phase 3: the map sentence (C41). Phase 5: club files, bindings and the broadcast-only rule (06 22.6).
+
 #### C52. `unitFormat` has two different signatures
 
 - Severity: minor (phase 0, then phase 2).
@@ -426,6 +428,8 @@ Applied: 08 section 14.2 P0.11. `unitFormat({ system = 'us', wind = 'auto' } = {
 - Where: 03 12.1 (lines 855, 856 and 869); 08 10.7 (lines 2317 and 2318).
 - Problem: 03: "This table, with the retention column, is the written retention policy. The privacy notice publishes it." Its audit rows are `security` (1 year) and `admin`, `moderation` (3 years). 08 10.7 adds `club` (2 years) and `safeguarding` (7 years, legal review to confirm), which hold personal data about members and juniors.
 - Fix: Add both rows to 03 12.1 with 08's periods.
+
+Applied: 03 section 12.1 adds the `club` (2 years) and `safeguarding` (7 years, legal review to confirm) audit rows, with 08 10.7's periods and readers.
 
 
 ## Claims about the current code
@@ -477,6 +481,8 @@ Owner: May the map load its tiles, style, sprites and glyphs from `tiles.openfre
 - Problem: CLAUDE.md: "The service worker precaches the app shell only." 08 8.4's first rule is "Precache the shell only", and its sixth row precaches "`locations/index.json` and every `locations/<slug>.json` ... while the list has 50 or fewer". These are data files, though static. The change is reasonable (they ship with the build, and API responses stay out), but no document lists it among the CLAUDE.md edits the owner approves.
 - Fix: Add to 08 17.2's CLAUDE.md list: "The service worker precaches the app shell and the curated location files; it never caches API responses."
 
+Applied: 08 section 17.2, the phase 1 CLAUDE.md row, now carries "The service worker precaches the app shell and the curated location files; it never caches API responses."
+
 
 ## Cross references
 
@@ -525,12 +531,16 @@ Applied: the short `/privacy` page ships in phase 1 with the counter. 07 section
 - Problem: "| `system` | Account mail (03), moderation digest (04), engine problems (to the owner) | Always | email | ... | 2 |". Every kind is a `notify_log` row, and `notify_log` arrives in phase 3. Account mail in phase 2 goes out through `sendEmail()` with no log table to write.
 - Fix: 05 3.1: `system` from phase 3; phase 2 account mail is sent by `worker/email.js` without a `notify_log` row (03 14.2's audit rows cover it).
 
+Applied: 05 section 3.1, the `system` row. It starts in phase 3 with `notify_log`; phase 2 account mail is sent by `worker/email.js` with no `notify_log` row, and 03 14.2's audit rows cover it.
+
 #### C45. 04's migration table still puts the outing club and boat columns in phases 5 and 6
 
 - Severity: minor.
 - Where: 04 9 (lines 1227, 1236, 1237); 08 K58.
 - Problem: The intro line says 08 "creates `outings.club_id` and `boat_id` in phase 3 (K58)", but rows 6 and 7 still read "`reports.club_id`, `hazards.club_id`, `outings.club_id` | 5" and "`outings.boat_id` | 6".
 - Fix: Row 6: `reports.club_id`, `hazards.club_id` only. Row 7: drop it, or say "used from phase 6".
+
+Applied: 04 section 9 table. Row 6 is `reports.club_id` and `hazards.club_id` only; row 7 says `outings.boat_id` is created in row 3 and used from phase 6. The 5.7 line "`outings.club_id` (added in phase 5)" now says created in phase 3, used from phase 5 (08 K58).
 
 
 ## Markdown that changes meaning

@@ -112,7 +112,7 @@ Every notification sent to a user is a row in `notify_log`. Account, "Notificati
 | `water_status` | A club changes its water status (06) | On for members | push; also email when closed | high when closed, else normal | 6 h | `ws-` plus 12 of the club id | Held, except closed, and except a restriction that begins before the person's quiet hours end (06 21.3; 08 K21) | 5 |
 | `practice` | A practice the user is in is cancelled, moved or changed (06) | On for invited members | push and email | high within 12 h of the start, else normal | Until the practice start | `pr-` plus 12 of the practice id | Held, except when the practice starts before the person's quiet hours end (06 21.3; 08 K21) | 6 |
 | `overdue` | An outing escalation stage (04 section 6.2) | Always, for every outing | push and email to the rower; email to contacts | high | 15 min for push | `od-` plus 12 of the outing id | Never held | 3 email, 4 push |
-| `system` | Account mail (03), moderation digest (04), engine problems (to the owner) | Always | email | | | | | 2 |
+| `system` | Account mail (03; in phase 2 it goes out through `worker/email.js` with no `notify_log` row, and 03 14.2's audit rows cover it), moderation digest (04), engine problems (to the owner) | Always | email | | | | | 3 |
 
 ### 3.2 Copy rules
 

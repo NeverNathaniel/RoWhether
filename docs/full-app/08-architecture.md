@@ -738,6 +738,7 @@ CREATE TABLE reports_v2 (
   weight REAL NOT NULL DEFAULT 1 CHECK (weight BETWEEN 0.5 AND 3),
   fc TEXT CHECK (fc IS NULL OR (json_valid(fc) AND length(fc) <= 1024)),
   ip_hash TEXT CHECK (ip_hash IS NULL OR length(ip_hash) = 22),
+  browser_hash TEXT CHECK (browser_hash IS NULL OR length(browser_hash) = 22),
   client_id TEXT CHECK (client_id IS NULL OR length(client_id) = 36),
   status TEXT NOT NULL DEFAULT 'visible' CHECK (status IN ('visible', 'hidden', 'removed')),
   CHECK (water IS NOT NULL OR fog IS NOT NULL OR wind IS NOT NULL OR current IS NOT NULL
@@ -756,6 +757,7 @@ ALTER TABLE reports_v2 RENAME TO reports;
 CREATE INDEX reports_loc_seen ON reports (location_id, seen_at);
 CREATE INDEX reports_user ON reports (user_id, created_at) WHERE user_id IS NOT NULL;
 CREATE INDEX reports_ip ON reports (ip_hash, created_at) WHERE ip_hash IS NOT NULL;
+CREATE INDEX reports_browser ON reports (browser_hash, created_at) WHERE browser_hash IS NOT NULL;
 CREATE INDEX reports_status ON reports (status, created_at) WHERE status <> 'visible';
 CREATE INDEX reports_client ON reports (client_id) WHERE client_id IS NOT NULL;
 ```
@@ -784,7 +786,7 @@ CREATE TABLE IF NOT EXISTS hazards (
   expires_at INTEGER NOT NULL,
   last_confirmed_at INTEGER,
   confirms INTEGER NOT NULL DEFAULT 0,
-  clears_since_confirm INTEGER NOT NULL DEFAULT 0,
+  clears_since_confirm INTEGER NOT NULL DEFAULT 0,       -- counts only clear votes from accounts 7 days old or more with geo 'near' (04 4.4)
   ended_at INTEGER,
   ended_by TEXT REFERENCES users(id) ON DELETE SET NULL,
   ended_reason TEXT CHECK (ended_reason IS NULL OR length(ended_reason) <= 200),
@@ -2137,6 +2139,7 @@ Units (`system`) is a profile column, `users.units` (03 7), not a settings key.
 | `rowhether-add-draft-v1` | 3 | The add flow's draft | | 01 12.2 |
 | `rowhether-report-more-v1` | 3 | Report dialog "More" open or closed | | 04 3.2 |
 | `rowhether-report-geo-v1` | 3 | "Check that I am at the dock" on or off | | 04 3.2 |
+| `rowhether-browser-v1` | 3 | A random UUID sent as `browserId` with signed-out reports, so a shared address does not merge people (daily HMAC on the server) | | 04 3.3 |
 | `rowhether-outbox-v1` | 3 | Up to 20 queued writes, 24 hours each | | 04 3.10 (`src/outbox.js`) |
 | `rowhether-outing-last-v1` | 3 | Last boat, seats and direction per location | | 04 5.2 |
 | `rowhether-info-seen-v1` | 3 | Up to 50 slugs whose Info tab was opened | | 07 4.6 |
@@ -2296,7 +2299,7 @@ CSRF in one sentence: a write needs a same-origin `Origin` header and a JSON bod
 | Status link token, the rower's | 16 random bytes, base64url | SHA-256, base64url (43), `outings.share_hash` | 24 hours after the row ends | 04 6.3 |
 | Status link token, a contact's | `HMAC(NOTIFY_LINK_KEY, "status:" + outing id + ":" + contact id)`, first 16 bytes, base64url (22) | SHA-256, base64url (43), `outing_contacts.token_hash` | 24 hours after the row ends | 04 6.3 |
 | Contact stop token | random, base64url | SHA-256, base64url | until used | 04 6.1 |
-| Report `ip_hash` | the IP and the UTC date | HMAC with `IP_HASH_KEY`, first 16 bytes, base64url (22) | 30 days, then NULL (04 8.9) | 04 3.3 |
+| Report `ip_hash`, `browser_hash` | the IP, or the browser's random id, and the UTC date | HMAC with `IP_HASH_KEY`, first 16 bytes, base64url (22) | 30 days, then NULL (04 8.9) | 04 3.3 |
 | Push endpoint | the endpoint URL | SHA-256, base64url, for lookups; the URL itself is stored to send | until gone | 05 8 |
 | Unsubscribe link | `prefId` | not stored: `prefId.HMAC(NOTIFY_LINK_KEY, prefId)` checked on use | while the pref exists | 05 7.6 |
 | Club verify code | 6 digits | HMAC with `AUTH_PEPPER`, hex | 30 minutes, 5 tries | 06 3.3, 4.3 here |
@@ -2954,8 +2957,11 @@ Decision: Map tile, style, sprite and glyph requests to `tiles.openfreemap.org` 
 | Cloudflare Access application and its `ACCESS_AUD` values for production and Previews | phase 1 | 6.3 |
 | Workers Paid plan | phase 2 | 12 |
 | Create the production D1 database `rowhether`; record the Time Travel bookmark before each production migration | phase 2 | 5.4 |
-| Approve the CLAUDE.md changes: Preview secrets, the Turnstile sentence, the storage keys, the code map | phase 0 (code map), phase 2 (the rest) | 6.5, 10.8, 14 |
+| Approve the CLAUDE.md changes for phase 0: the code map for the new modules and `KEYS`, and the location and endpoint tables pointing at `data/locations/putney-landing.json` (the owner has approved editing CLAUDE.md on `dev-full-app` for this) | phase 0 | 3, 8.1, 14, 01 15 |
+| Approve the CLAUDE.md changes for phase 1: the app name; the navigation sentence "Within a location, the tab bar under the header is the only navigation. The location name in the header opens the switcher; the account button opens Account. Pages outside a location use the same text tabs."; the "Saved" header label; the test list additions; the NWS office; and the service worker sentence "The service worker precaches the app shell and the curated location files; it never caches API responses." | phase 1 | 07 4.5, 6.7, 13, 16; 01 6.1; 8.4 |
+| Approve the CLAUDE.md changes for phase 2: Preview secrets (the note "No secrets are set for Previews"), the Turnstile sentence, the Worker routes list, the new secrets, the no private messages rule and the storage keys | phase 2 | 6.5, 10.8, 03 18 |
 | Approve loading map tiles, style, sprites and label glyphs from `tiles.openfreemap.org` as data, with a CLAUDE.md sentence: "Map tiles, styles, sprites and label glyphs load from OpenFreeMap only when a map is opened. They are data, never part of the app shell." Or self-host the style, sprites and glyphs in `public/` and fetch only tiles | phase 3 | 2.2, 10.11, 02 Map tiles |
+| Approve the CLAUDE.md changes for phases 5 and 6: the club files in the code map, the bindings, and the rule that club features are broadcast only | phase 5 | 06 22.6 |
 | Open-Meteo API plan for server-side forecasts | phase 4 | 12 |
 | Turn `CLUBS_ENABLED` on in production | after phase 5 | 6.3 |
 | Legal review of retention, including 7 years for safeguarding rows | phase 5 | 10.7 |

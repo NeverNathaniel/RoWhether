@@ -854,13 +854,16 @@ Some clubs run learn-to-row for 11 and 12 year olds. They get no accounts. 06 ca
 | Synced settings, favorites | Sync | `user_settings`, `favorites` | Life of the account | The person |
 | Security activity (sign-ins, passkey and email changes, exports) | Account security | `audit_log`, kind `security` | 1 year | The person, admins |
 | Moderator and admin actions | Accountability | `audit_log`, kinds `admin`, `moderation` | 3 years | Admins |
+| Club actions (roles, rules, exports, verification) | Club accountability | `audit_log`, kind `club` | 2 years (08 10.7) | Admins; club admins for their own club (06 5.3) |
+| Safeguarding actions (guardian links made and ended, guardian approvals, message removals involving a junior, views of incidents naming a junior) | Safeguarding | `audit_log`, kind `safeguarding` | 7 years, subject to legal review (08 10.7) | Admins |
 | Guardian links | Safeguarding | `guardian_links` | While active; ended links 1 year | The junior, the guardian, admins |
 | Banned address hashes | Keep banned people out | `email_blocks` | 1 year | Admins |
 | Reports, hazards, votes (04) | Conditions for everyone | 04's tables | 04 decides | Public (reporter names are never shown, 04) |
-| Daily-keyed hash of the IP for signed-out reports (`reports.ip_hash`, 04) | Daily report cap for signed-out reporters | `reports` | Set to null after 30 days (04) | No one; cannot be linked across days and holds no raw IP |
+| Daily-keyed hashes of the IP and of a random browser id for signed-out reports (`reports.ip_hash`, `reports.browser_hash`, 04 3.3) | Daily report cap and replacement of one's own report, for signed-out reporters | `reports` | Set to null after 30 days (04) | No one; cannot be linked across days and holds no raw IP |
 | Outings, float plans, row log, emergency contacts (04) | Safety, personal log | 04's tables | 04 decides | The person; guardians; club safety officers and emergency contacts on overdue |
 | Push subscriptions, alert rules, notification log (05) | Alerts | 05's tables | 05 decides | The person |
-| Club memberships, roles, attendance, bookings, lineups, messages, damage reports, incidents (06) | Club operations | 06's tables | 06 decides | The club, per 06 |
+| Club memberships, roles, attendance, bookings, lineups, messages, damage reports (06) | Club operations | 06's tables | 06 decides | The club, per 06 |
+| Incident log (06 9): injuries, people involved with a minor flag, witness phone or email | Health data about members, including minors, and data about people who never signed up | `incidents` | 7 years from the incident (06 9.3) | Safety officers and admins of the club, and a site admin on a legal request |
 | Suggestions | Improve the app | Sent to Anthropic for a rewrite, then filed as an issue in the GitHub repository `NeverNathaniel/RoWhether`, which is public (verified live 2026-10-17) | Anthropic: 30 days (privacy center, via search); GitHub: until deleted | Public |
 | Request logs: URL, IP, user agent, console output | Operations, abuse | Cloudflare Workers Logs (`observability.enabled` in `wrangler.jsonc`) | 3 days on Free, 7 days on Paid (from docs, https://developers.cloudflare.com/workers/observability/logs/workers-logs/); 7 days on both from December 1, 2026, when Workers Logs moves to Observability pricing (from docs, https://developers.cloudflare.com/observability/pricing/) | The owner |
 | Turnstile signals | Spam check | Cloudflare | Cloudflare's terms (unverified) | Cloudflare |
@@ -988,7 +991,7 @@ The suggestion dialog gets one line: "Your suggestion becomes a public GitHub is
 | `lineups` | 06 | Remove the person from future seats; past seats show "Former member" | Others' history stays readable. |
 | `announcements` and other club notes (06 section 15) | 06 | Remove the person's announcements from view; the safeguarding copy stays for its retention with the sender set to null | 11.4 rule 7. |
 | `damage_reports` | 06 | Set the reporter to null; keep the report | Boat safety history. |
-| `incidents` | 06 | Set the user columns to null; keep the record for its retention period | Safety and possible legal record. Decision below. |
+| `incidents` | 06 | Set the user columns to null; names written in the record stay until the retention period ends (7 years from the incident, 06 9.3), then the whole record is deleted | Safety and possible legal record, and health data. Decision below. |
 | `flags` | 04 | Flags raised by the person: set the reporter to null. Flags about the person's deleted content: close as `content_deleted` | Moderation history. |
 
 Free text the person wrote inside shared records (location launch notes, revision summaries) stays, without their name. Hazard notes are hidden (04). The deletion page says so (4.10).
@@ -1010,7 +1013,8 @@ Foreign keys: D1 enforces foreign keys by default (from docs, https://developers
 
 Backups: deleted data remains in D1 Time Travel history for up to 30 days on Workers Paid (7 on Free) (from docs, https://developers.cloudflare.com/d1/reference/time-travel/). The privacy notice and the deletion email say "within 30 days". A restore from Time Travel must re-run deletions made after the restore point; the owner keeps the list of `user.deleted` audit rows for that (no identities, just times, 14.5).
 
-Decision: Keep `incidents` with names removed, for a retention period 06 sets with legal advice (suggest 7 years for incidents involving minors).
+Decision: Keep `incidents` for a fixed 7 years from the incident, names as written, and delete the whole record then, also after the person's account or the club is deleted (06 9.3). Recommended: one rule for 03 and 06, and the period 03 suggested for incidents involving minors. The lawyer sets the final period (13.5).
+- Alternative: keep `incidents` with names removed.
 - Alternative: delete incident rows with the person (loses a safety record the club may be required to keep).
 
 Decision: Delete free-text notes and photos from reports on account deletion, keep the choices without a name.
@@ -1060,7 +1064,7 @@ Short form for the footer: "Information only. You, your coach and your club deci
 Layered: a short summary at the top, then the detail.
 
 1. Summary: "No account needed for forecasts. If you make one, we keep your email, a display name and your settings. We do not sell data, show ads or track you. We count how often the app opens at each location, with nothing that identifies you."
-2. What we collect and why: 12.1 as a table.
+2. What we collect and why: 12.1 as a table. The incident log is named there as health data about members, including minors, with its 7 year retention.
 3. Where it is stored and who processes it: 12.5, every row, with what each receives and why.
 4. How long we keep it: 12.1 retention column (this is the published retention policy).
 5. Who can see what, including club admins and guardians (11.5).
@@ -1783,7 +1787,7 @@ Decisions, recommendation first:
 - Decision: A junior can end a guardian link, and guardians see club outings through the club and a junior's personal rows only when the junior shares them. Recommended: an adult a junior is talked into linking should not get lasting sight of where the junior rows, and parents keep club visibility through the club's confirmed guardian record. Alternatives: only guardians and admins can end a link (the earlier reading of MAAPP); guardians see all of a junior's outings. (11.5)
 - Decision: No live boat tracking in any phase. Alternative: opt-in tracking during an outing with a 24-hour retention and a visible signal. (12.2)
 - Decision: No analytics product and no tracking of people; 08 10.9 adopts an aggregate open counter, owner to confirm. Alternatives: Cloudflare Web Analytics (needs a second script exception); no counter at all. (12.3)
-- Decision: Keep `incidents` with names removed, retention set by 06 with legal advice. Alternative: delete with the person. (12.9)
+- Decision: Keep `incidents` for a fixed 7 years from the incident, names as written, then delete the whole record; the lawyer sets the period. Alternative: names removed; delete with the person. (12.9)
 - Decision: Delete report text and photos on account deletion, keep choices without a name. Alternative: keep report text without a name. (12.9)
 - Decision: Vermont law governs the terms. Alternative: no clause until a lawyer advises. (13.1)
 - Decision: License community location data openly (ODbL or CC BY-SA). Alternative: RoWhether keeps a non-exclusive license only. (13.1)
