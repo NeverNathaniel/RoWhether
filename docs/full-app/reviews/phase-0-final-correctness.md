@@ -4,12 +4,60 @@ Reviewed the whole phase 0 code diff (`git diff 2b7ef06 HEAD` over `src/`, `work
 
 Status: in progress
 
-Count: to come.
+Count so far: 0 blockers, 1 major, 5 minor.
 
 Severity: blocker must be fixed before phase 0 is called done; major is a real defect, gap or cost worth fixing now; minor is small.
 
-How the evidence was made: a git worktree at `c83a96b` with `node_modules` linked, one change or one crafted input at a time, run with `npm test` (in `Pacific/Auckland`), a Node script against `src/`, or a Playwright script against `npm run build` and `vite preview`. Nothing was written to `test/golden/` or `test/browser/__screenshots__/`.
+How the evidence was made: a git worktree at `c83a96b` with `node_modules` linked, one change or one crafted input at a time, run with `npm test` (in `Pacific/Auckland`), a scratch Vitest file against `src/`, or a Playwright script. For the upgrade, the production build (`2b7ef06`, whose tree equals `origin/master` at `8c9c36a`) and HEAD were each built with `vite build`, and a small static server on one port served one or the other, so the browser saw one origin whose build changed under it, with its service worker on. Nothing was written to `test/golden/` or `test/browser/__screenshots__/`.
 
-## Findings
+## Major
 
-To come.
+#### FC1. A gauge with no flow limits is Stay off at every flow
+
+- Severity: major.
+- Where: `src/location.js` lines 332 to 342 (`effectiveSettings`), `src/logic.js` lines 292 to 296 (the flow reasons in `assess`), `src/render/detail/river.js` lines 41 to 53, 65, 97, 98 and 146.
+- Problem: Phase 0 made blank flow limits the normal case for any place but Putney. `GLOBAL_DEFAULTS` has no flow keys, `effectiveSettings` starts from `flowCaution: ''` and `flowOff: ''`, and its comment says "A blank (null in a record) is '' and turns that level off". `validateLocation` accepts a record with no flow limits or with `null`. But `assess` compares `f >= S.flowOff` with no check for a blank, and `''` compares as 0, so every hour with any flow reading is Stay off, "High water at 3,000 cfs". Rain and air quality have the `on()` guard; flow does not, because before phase 0 the flow limits could never be blank. The River view then reads "Your settings: 0 cfs. Caution at 0, stay off at 0." and draws both lines at zero. Putney has both limits, so nothing visible changes now. Phase 1 adds places whose flow defaults are percentiles "or blank" (01 11.2), and every one left blank would read Stay off all day.
+- Evidence: a scratch Vitest file in the worktree. Putney's record with `flowCaution` and `flowOff` removed (and again with both `null`): `validateLocation` returns no problems, `effectiveSettings` gives `""` for both, and `buildModel` with a reading of 3,000 cfs gives `m.cur.a.lvl` 2 with the reason `{ lvl: 2, key: 'flow', text: 'High water at 3,000 cfs' }`, and both daylight periods of the day level 2 for the same reason. Drawn with the fake page, the River view's facts read `Your settings 0 cfs` and `Caution at 0, stay off at 0.`
+- Fix: In `assess`, use the same `on()` test for flow as for rain and air quality (`if (on(S.flowOff) && f >= S.flowOff) ... else if (on(S.flowCaution) && f >= S.flowCaution)`). In `river.js`, draw a line and a legend entry only for a limit that is set, and write "No flow limits set" in the Your settings fact when both are blank. Add a logic test for a place with blank flow limits (no flow reason at any flow) and a render test for the River view. Putney's golden files do not move, since its limits are numbers.
+
+## Minor
+
+#### FC2. A binding can take its gauge or station id from a row it did not choose
+
+- Severity: minor.
+- Where: `src/sources/index.js` lines 35 and 39; the `bind` functions in `src/sources/usgs.js` lines 38 and 43, `nws.js` lines 37 and 46, `nwps.js` line 18.
+- Problem: `bindingsFor` picks the first row whose provider has a fetcher for the slot (`rows.find(...)`), and takes the label and note from that row, but passes every row to `a.bind(rows, loc)`, and each `bind` reads `rows[0]` or the first row of a role whatever its provider. When a place's first row for a slot is from a provider with no fetcher yet and a later row is one the app can fetch, the request goes to the fetcher with the first row's id, under the second row's name. The P0.6 entry says "A slot takes the first row whose provider has a fetcher for it", so this is a case the code means to handle. Putney's rows all have fetchers.
+- Evidence: a scratch test with Putney's record and these rows: obs `metar` `EGLL` then a fallback `nws-obs` `KEEN` labelled Keene; flow `ec-hydro` `02KF005` then a fallback `usgs-ogc` `USGS-01154500` labelled North Walpole; flow forecast `other` `ZZZ1` then a fallback `nwps` `WLPN3`. `validateLocation` finds no problem. `bindingsFor` gives `obs` labelled Keene with `{"station":"EGLL"}` and the URL `.../stations/EGLL/observations/latest`; `river`, `flow` and `flowDays` labelled North Walpole with `02KF005` in the USGS URLs; `flowFcst` with `{"lid":"ZZZ1"}`.
+- Fix: Bind from the rows the fetcher can use: `const usable = rows.filter(r => fetcher(r.adapter, slot))`, then `a.bind(usable, loc)` (the `river` slot still sees its flow row and its water temperature row, both USGS). Add the case above to `test/sources.test.js`.
+
+#### FC3. A course that is not one heading prints "undefined°"
+
+- Severity: minor.
+- Where: `src/location.js` lines 104, 105 and 304; `src/logic.js` `windVsCourse` and `chopWind`; `src/render/now.js` line 53, `forecast.js` line 86, `detail/wind.js` lines 74 and 121, `parts.js` `compassSVG`.
+- Problem: `validateLocation` accepts `course.kind` `none` and `polyline`, and `resolveLocation` resolves them with `heading` undefined (courseSegments is phase 1). The model and the render code read `m.loc.course.heading` as a number. For such a record the caption says "River runs --, upstream heading undefined°", the compass gets `rotate(undefined)`, the Wind view says "The course heading is undefined°, set in Settings" and draws NaN, and every wind reads "Crosswind off the Vermont bank" (the left bank, since `rel > 0` is false for NaN) with flat water. It does not throw, so a phase 1 record of this kind would ship a wrong sentence quietly.
+- Evidence: the same scratch file, drawn with the fake page at noon on 15 June with wind 9 mph from 200°: for `{ kind: 'none' }` and for a two-point polyline, `validateLocation` returns `[]`; `#compassCap` reads "Wind from SSW. River runs --, upstream heading undefined°."; the full forecast holds `<g transform="rotate(undefined)">` and "Crosswind off the Vermont bank"; the Wind view holds "The course heading is undefined°" and 3 matches of `NaN`.
+- Fix: Until phase 1 draws a course from segments, have `validateLocation` refuse any kind but `heading` (with a comment that phase 1 lifts it), or have `windVsCourse`, `chopWind`, `compassSVG` and the three captions treat a missing heading as no course ("Course not set", no along or cross split, no water state). The first is one line and keeps phase 0 honest about what it can draw.
+
+#### FC4. Settings written by an old build after the move are lost, on a rollback or in a second tab
+
+- Severity: minor.
+- Where: `src/storage.js` `migrateStorage` (the marker check at the top), 08 8.3 ("Stop if present"; "The old keys stay until phase 2").
+- Problem: The move runs once. After the marker is set, nothing an old build writes to `putney-rowing-*` reaches the new build. Two real ways an old build runs after the move: a rollback of production after phase 0 ships, and a page that no service worker controls (a private window, a hard reload) open beside one on the new build. In both, a setting changed in the old build is dropped without a word when that page next loads the new build. A rollback also shows the old build the settings from before the upgrade, since the new build never writes the old keys.
+- Evidence: the two builds on one origin, as described above, in a persistent Chromium profile with the service worker on. Upgrade first (it works, see the last section). Then in the new build wind caution set to 12; rollback to the old build: its dialog shows wind caution 8 and heading 20, the values from before the upgrade. In the old build heading set to 30; roll forward to the new build: heading 20, wind caution 12. Second run, no service worker: tab A on the old build sets wind caution 8; the new build is deployed and tab B opens on it (marker `1`, wind caution 8); tab A, still on the old build, saves 9; tab A reloads onto the new build and shows 8.
+- Fix: Decide and write it down. The cheap fix is a note in 08 8.3 and in the ship checklist for phase 0: a rollback past phase 0 loses settings changed since the upgrade, and a roll forward loses settings changed during the rollback. If that is not acceptable, `saveOverrides` for `putney-landing` can also write the old whole-settings shape to `putney-rowing-settings-v1` until phase 2 removes the old keys, so a rollback sees current settings; the roll forward case still needs the marker to record the old settings text it copied and copy again when that text has changed.
+
+#### FC5. A golden case can be dropped and every check passes
+
+- Severity: minor.
+- Where: `test/golden/capture.js` lines 59 to 67 (`CASES` built in a loop), `test/golden/harness.js` `defineGolden`, `.github/workflows/ci.yml` (the `--diff-filter=MD` step), `test/browser/parity.spec.js` lines 33 to 36.
+- Problem: The golden files are guarded against edits and deletion, but nothing checks that each file is still compared. The harness compares the cases in the list, and CI's diff step only sees files. The variants are each named in a claim test, so dropping one fails, and the default cases are read from disk by the parity spec, so dropping one fails in the browser run. The seven main cases that no test names (`april-high-water-2100-custom`, `fall-back-1200-custom`, `fall-back-2100-custom`, `fall-back-2100-default`, `june-calm-2100-custom`, `october-fog-0600-custom`, `october-fog-2100-custom`) can leave the list in one line of test code. The parity spec also still says "The custom cases wait for P0.7", which Z1 planned and which never happened, so the custom cases have no page check either.
+- Evidence: in the worktree, line 63 of `capture.js` changed to skip the two `fall-back` 9 PM cases: `npm test` passes (the count drops by 2, which only a reader of the progress file would see), and `git diff --exit-code --diff-filter=MD c7967a6 HEAD -- 'test/golden/*.json'` passes. Put back with `git checkout`. A scratch test listed 107 cases and probes and 107 files at HEAD with none missing either way, so nothing has been dropped so far.
+- Fix: One test in `test/golden.test.js` that the names of `ALL_CASES` and `PROBES` equal the `*.json` names in `test/golden/`, both ways. Either add the custom cases to the parity spec (seed `rowhether-settings-v2` with the case's overrides) or change its comment to say why they are left out.
+
+#### FC6. The main script has 13 bytes of budget left, and about 600 of its bytes are never read
+
+- Severity: minor.
+- Where: `budget.json` (`js` 43,300), `src/putney.js` (imports both JSON files whole), `data/locations/putney-landing.json`, `data/waterways/connecticut-river-vernon-pool.json`, the adapter objects in `src/sources/*.js` (`regions`, `via`, `hosts`, `refreshMs`, `staleMs`).
+- Problem: Phase 0 grew the main script from 39,004 to 43,287 B gzip (11%), and the budget was raised step by step to 43,300, so the next change of any size fails CI (HANDOFF, 01PLGfvc's 22:20 note). Part of the growth is data nothing in phase 0 reads: the records' `copy.credits`, `subtitle`, `locality`, `tzLabel`, `launchNotes`, `verifiedVia`, `course.note`, each row's `siteLat`, `siteLon`, `distanceM`, `riverM`, `relation`, `tz`, `unit` and `params`, the flow row's `stats`, and the waterway's `reach`, `regions`, `geometry`, `traffic` and `notes`; and adapter fields that only phase 1 and the CSP test read.
+- Evidence: `npm run build && node scripts/budget.mjs` in the worktree: 43,287 B. With the two JSON files stripped of the fields above (and nothing else changed): 42,771 B, 516 B less, and the 46 tests of `test/golden.test.js` still pass. With the five adapter fields also removed: 42,671 B, 616 B less in all. Both put back with `git checkout`.
+- Fix: P0.14 settles the number, as HANDOFF asks. Do not trim the data files themselves (08 P0.5 says they are copied exactly from 01). Either accept the bytes and set `js` with real headroom (for example 44,000) with a line in 08 11.2 that says phase 0 adds about 4.3 KB, 0.6 KB of it data for phase 1, or have `src/putney.js` keep only the fields phase 0 reads (the bundler cannot drop nested JSON fields on its own). Keep the adapter fields, since 08 asks for them.
