@@ -12,6 +12,16 @@ export const DEFAULTS = {
   aqiCaution: 151, aqiOff: 201 // US AQI: Unhealthy and Very unhealthy; blank turns a level off
 };
 
+// What every location starts from, before its own thresholds and the viewer's
+// changes (01 11.5). No heading (it lives in the course) and no flow limits
+// (those come from the location's gauge history, or stay blank).
+export const GLOBAL_DEFAULTS = {
+  windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25,
+  rainCaution: 60, rainOff: 90,
+  coldCombined: 100, waterOverride: '',
+  aqiCaution: 151, aqiOff: 201
+};
+
 export const SET_KEY = 'putney-rowing-settings-v1';
 export const PLAN_KEY = 'putney-rowing-plan-v1';
 export const CACHE_KEY = 'putney-rowing-cache-v1';
