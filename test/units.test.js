@@ -80,6 +80,7 @@ describe('unitFormat, US', () => {
     expect(u.vis(1200)).toBe('0.7 mi');
     expect(u.vis(402.4)).toBe('0.3 mi');
     expect(u.vis(1590)).toBe('1.0 mi'); // a reason can round up to a whole mile
+    expect(u.vis(1045.9)).toBe('0.6 mi'); // 0.6499 miles: a mile taken as 1609 m rounds it up to 0.7
   });
 
   it('writes a distance as visText() does: two decimals under a mile, one under ten, 10+ above', () => {
@@ -218,8 +219,10 @@ describe('the reasons write their units through m.u', () => {
     // A gauge in cubic metres a second says so, and a place with no flow record falls back to cfs.
     const cubic = resolveLocation({ ...PUTNEY_RECORD, flow: { ...PUTNEY_RECORD.flow, unit: 'm3s' } }, { waterway: PUTNEY_WATERWAY });
     expect(why(build(undefined, flow(28500), cubic), 'flow')).toEqual([[2, 'High water at F(28500 m3s)']]);
+    expect(why(build(undefined, flow(22000), cubic), 'flow')).toEqual([[1, 'Elevated flow at F(22000 m3s)']]);
     const none = resolveLocation({ ...PUTNEY_RECORD, flow: null }, { waterway: PUTNEY_WATERWAY });
     expect(why(build(undefined, flow(28500), none), 'flow')).toEqual([[2, 'High water at F(28500 undefined)']]);
+    expect(why(build(undefined, flow(22000), none), 'flow')).toEqual([[1, 'Elevated flow at F(22000 undefined)']]);
   });
 
   it('writes the unit of a flow as the real formatter does for a gauge in cubic metres', () => {
