@@ -791,7 +791,7 @@ Today: two paragraphs, the data credits for Putney and the starting points sente
 | Same | Week, Alerts row | "Not available here" |
 | Same | Notification settings | "No official alerts feed here." |
 | No water temperature | Water fact | "No water temperature here. Add a dock reading in Settings." |
-| Same, typical value used (if 01's Decision stands) | Water fact | "Typical for October, about 52°F. No live reading." |
+| Same, with curated monthly values (01 11.4; 08 K1) | Water fact | "Typical for October, about 52°F. No live reading." |
 | Same | Temperature tab | "No water temperature here. Add a dock reading in Settings to turn on the cold-water check." (02) |
 | Same | Fog tab, How this works | "Steam fog needs a water temperature. Add a dock reading in Settings." (02) |
 | No course set (lake, `kind: 'none'`) | Compass caption | "Wind from SW across about 2.4 km of open water." (01 10.5), or with only a size class: "Wind from SW." |
@@ -1123,7 +1123,7 @@ Production build of the repo in the sandbox, 2026-10-17 (Vite 8.3.1, vite-plugin
 
 ### 10.2 Budget
 
-Budgets for the Now screen's critical path, gzip, checked in CI (10.6):
+Budgets for the Now screen's critical path, gzip, checked in CI (10.6). 08 11.2 rebases them on the 2026-10-18 build, which grew after this table was measured; CI uses 08's numbers (K40):
 
 | After phase | Main JS | CSS | HTML | Notes |
 | --- | --- | --- | --- | --- |
@@ -1586,5 +1586,5 @@ Open questions:
 - How VoiceOver and TalkBack read 24-hour times such as "06:41" (12.3).
 - UK and Nordic unit conventions for the defaults (7.1, 7.2): confirm with British and Nordic clubs before phase 7.
 - Today's time to the first hero from cache at 4 times CPU slowdown (10.2): measure in phase 0 to set the baseline.
-- The conflict between 01 (monthly typical water temperature feeds the cold check) and 02 (no cold check without a reading): 6.7 has copy for both; 08 resolves which one ships.
+- Settled by 08 K1: a curated monthly typical value feeds the cold check, labeled as typical; with none and no reading, the check stays off (02). 6.7's copy covers both cases.
 - Should a rower who never dismisses the "Not your water?" note, and never picks a location, see the picker when the 90-day window ends, even though they have used Putney for weeks? This plan says yes, because nothing was stored to say Putney is theirs; the owner may prefer to store Putney as the last location on the first visit instead.

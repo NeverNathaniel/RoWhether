@@ -138,7 +138,7 @@ Sample copy:
 | Water temperature out of range | "Enter a water temperature between 28 and 104°F." |
 | Tide at a non-tidal location (only if a stale client sends it) | "Tide does not apply at this location." |
 
-The Report conditions button sits where it is today, in `#dockReports` at the top of On the water now. On a location page that is not in daytime (`m.daytime` false), On the water now is hidden today; the button then moves under the hero next to Share this forecast, so a 5 AM fog report is still one tap away. Placement details are 07's.
+The Report conditions button sits where it is today, in `#dockReports` at the top of On the water now. On a location page that is not in daytime (`m.daytime` false), On the water now is hidden today; the button then moves to the "At the dock" panel directly under the hero (07 5.10; 08 K62), so a 5 AM fog report is still one tap away. Placement details are 07's.
 
 ### 3.3 Anonymous and signed-in reports
 
@@ -206,7 +206,7 @@ Cheap checks first, as `handleSuggest()` in `worker/suggest.js` does. `addReport
 4. Body is JSON and under 4 KB. Else 400 `bad_request` "That did not send. Try again."
 5. `cleanReport(body, loc)`: every key in `REPORT_FIELDS` that applies to this location, choices from the list, flags strictly `true` or absent, `waterTemp` converted to °C and inside -2 to 40, unknown keys dropped. A field that does not apply returns 400 `invalid` with `"field"`. Nothing picked returns 400 `empty` "Pick at least one thing you saw."
 6. `seenAt`: optional, defaults to now. Accepted between `now - 2 h` and `now + 2 min` (phone clocks drift). Else 400 `too_old` "That report is more than 2 hours old, so it was not sent."
-7. Session (03's `auth_session` cookie). A valid session sets `user_id`; a suspended user gets 403 `not_allowed` "Your account cannot post right now."
+7. Session (03's `__Host-rw_session` cookie; 08 K56). A valid session sets `user_id`; a suspended user gets 403 `not_allowed` "Your account cannot post right now."
 8. No session: Turnstile token required, action `report`. Else 403 `verification_failed` "The spam check did not pass. Try again."
 9. Daily cap by `ip_hash` (signed out) or `user_id` (signed in): 20 a day. Else 429 `daily_limit` "That is a lot of reports for one day. Try again tomorrow."
 10. Replacement: the newest row from the same `user_id` or `ip_hash` at this location with `created_at` in the last 10 minutes is updated instead of inserting. The response has `"replaced": "<id>"`.
@@ -324,7 +324,7 @@ Reports from the dev database are also exportable this way on the dev Preview, s
 
 ### 3.8 Schema and migration from 0001
 
-`reports` changes in phase 3, when `locations` exists in D1 (01 section 5). 08-architecture.md assigns the file number; the proposal is `migrations/00NN_reports_locations.sql`.
+`reports` changes in phase 3, when `locations` exists in D1 (01 section 5). 08-architecture.md 4.4 numbers it `migrations/0005_reports_locations.sql` and adds `client_id` with the index `reports_client`, so a repeated `clientId` (3.9) can be found (08 K51).
 
 The table is rebuilt rather than altered because the primary key changes from INTEGER to TEXT (the shared convention for user-made rows), which SQLite cannot do with `ALTER TABLE`.
 
@@ -597,7 +597,7 @@ CREATE TABLE hazards (
   screen TEXT CHECK (screen IS NULL OR json_valid(screen)),   -- { verdict, reasons, model, at }
   official INTEGER NOT NULL DEFAULT 0 CHECK (official IN (0, 1)),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'cleared', 'expired', 'removed')),
-  created_by TEXT NOT NULL REFERENCES users(id),
+  created_by TEXT NOT NULL REFERENCES users(id),        -- no action: deletion reassigns to the former member row first (03 12.9; 08 4.1)
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
@@ -605,7 +605,7 @@ CREATE TABLE hazards (
   confirms INTEGER NOT NULL DEFAULT 0,
   clears_since_confirm INTEGER NOT NULL DEFAULT 0,
   ended_at INTEGER,
-  ended_by TEXT REFERENCES users(id),
+  ended_by TEXT REFERENCES users(id) ON DELETE SET NULL,
   ended_reason TEXT CHECK (ended_reason IS NULL OR length(ended_reason) <= 200),
   CHECK (waterway_id IS NOT NULL OR location_id IS NOT NULL),
   CHECK (expires_at > created_at)
@@ -818,7 +818,7 @@ CREATE INDEX outing_crew_user ON outing_crew (user_id) WHERE user_id IS NOT NULL
 
 `outings_one_active` enforces one active outing per user in the database itself, so two phones cannot race. The rower's own seat is not a crew row; the rower is `outings.user_id`.
 
-Phase 5 adds `ALTER TABLE outings ADD COLUMN club_id TEXT REFERENCES clubs(id) ON DELETE SET NULL;` and an index `(club_id, status)`. Phase 6 adds `boat_id` (06's `boats`).
+06 8.1 replaces this table with 06 18.3's statement, which creates `club_id`, `boat_id` and the other club columns in phase 3 as plain columns, unused until phase 5 and 6, and makes `user_id` nullable (08 4.4, K58). No `ALTER` follows.
 
 ### 5.8 API
 
@@ -888,7 +888,7 @@ When a contact is added or their email changes, they get one notice email at onc
 >
 > If this is not right, stop these emails: [link]
 
-The stop link sets `opted_out_at`. The same user cannot add an address that opted out of their alerts again (409 `contact_opted_out` "Jordan asked not to get these emails. Choose someone else."). At most 5 notice emails a day per user, to keep the feature from being a way to send email to strangers.
+The stop link opens a page whose one button sets `opted_out_at`; a `GET` never acts, because mail scanners open links (08 7.4, K36). The same user cannot add an address that opted out of their alerts again (409 `contact_opted_out` "Jordan asked not to get these emails. Choose someone else."). At most 5 notice emails a day per user, to keep the feature from being a way to send email to strangers.
 
 "Send a test" on each contact sends the overdue email with "This is a test" at the top, at most 3 a day.
 
@@ -925,7 +925,7 @@ T is `due_at`. Defaults; `grace_min` and `contact_after_min` are set per outing 
 | 2 | T + `grace_min` (15) | Rower | push, email | "You are 15 minutes past your time." Says when contacts will be emailed. |
 | 3 | T + `contact_after_min` (30), float plans only | Contacts not opted out | email (SMS if chosen, 05) | The overdue email with the status link. The rower is told: "We emailed Jordan and Casey." |
 | 4 | Stage 3 + 30 min, float plans only | Contacts | email | "Still not back." |
-| 5 | Phase 5: at stage 3, for club outings | The club's safety contacts (06) | 06's channels | The club alert. |
+| 5 | Club outings, phase 5 | The club's staff (06) | 06's channels | Not a stage of this chain: 06 8.6 runs its own club chain on `club_stage` from `due_at + graceMin` (08 K17). |
 | 6 | T + 24 h | none | | `status = 'closed'`, link expires. Without a float plan this happens at T + 6 h after stage 2. |
 
 Rules:
@@ -933,7 +933,7 @@ Rules:
 - `contact_after_min` must be at least `grace_min + 10`.
 - Without a float plan, stages 3 and 4 are skipped.
 - "I'm back", "Add time" and "Cancel" set `next_check_at` again (Add time: `stage = 0`, `next_check_at = new T`). If stage 3 already happened, contacts get the all clear or the new time.
-- The engine is 05's: the every-minute cron selects `outings WHERE next_check_at <= now` (index `outings_next_check`), runs the step, writes `notify_log` (05) with the dedupe key `overdue:<outing id>:<stage>`, advances `stage` and `next_check_at` in one `env.DB.batch()`. A step that already has a `notify_log` row is never sent twice, even if two cron runs overlap.
+- The engine is 05's: the every-minute cron selects `outings WHERE next_check_at <= now` (index `outings_next_check`), runs the step, writes `notify_log` (05) with 05's dedupe key `od:<outing id>:<stage>:<recipient>` (08 K16), advances `stage` and `next_check_at` in one `env.DB.batch()`. A step that already has a `notify_log` row is never sent twice, even if two cron runs overlap.
 - Worst-case lateness: one minute (cron period) plus delivery.
 - Quiet hours never hold overdue messages (05).
 
@@ -1107,7 +1107,7 @@ From 03's `users`: `created_at` and a status (`active`, `suspended`). Suspended 
 
 ### 8.5 Flags
 
-Signed-in users can flag a report, a hazard or a hazard note. Reasons: `wrong` (Not what is there), `spam` (Spam), `abuse` (Abusive), `personal` (Personal information), `danger` (Dangerous advice), `other` (Something else). Optional note, 280 chars, seen only by moderators.
+Signed-in users can flag a report, a hazard or a hazard note. Reasons: `wrong` (Not what is there), `spam` (Spam), `abuse` (Abusive), `personal` (Personal information), `danger` (Dangerous advice), `other` (Something else), and for a `user` target `under_13` (This person is under 13, 03 11.2; 08 K47). Optional note, 280 chars, seen only by moderators.
 
 - One flag per user per item (`UNIQUE`).
 - Auto-hide: an item with flags from 3 different users whose accounts are at least 7 days old is hidden at once (`status = 'hidden'` or `note_status = 'hidden'`) and goes to the top of the queue.
@@ -1120,11 +1120,11 @@ CREATE TABLE flags (
   target_type TEXT NOT NULL CHECK (target_type IN ('report', 'hazard', 'hazard_note', 'location', 'location_revision', 'club', 'user')),
   target_id TEXT NOT NULL,
   user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-  reason TEXT NOT NULL CHECK (reason IN ('wrong', 'spam', 'abuse', 'personal', 'danger', 'other')),
+  reason TEXT NOT NULL CHECK (reason IN ('wrong', 'spam', 'abuse', 'personal', 'danger', 'other', 'under_13')),
   note TEXT CHECK (note IS NULL OR length(note) <= 280),
-  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'upheld', 'dismissed')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'upheld', 'dismissed', 'content_deleted')), -- 03 12.9
   created_at INTEGER NOT NULL,
-  resolved_by TEXT REFERENCES users(id),
+  resolved_by TEXT REFERENCES users(id) ON DELETE SET NULL,
   resolved_at INTEGER,
   UNIQUE (target_type, target_id, user_id)
 );
@@ -1224,7 +1224,7 @@ Decision: keep report content indefinitely for tuning, with identity stripped on
 
 ## 9. Schema summary and migration order
 
-All proposals for 08-architecture.md, which owns numbering and the canonical schema.
+All proposals for 08-architecture.md, which owns numbering and the canonical schema. 08 5.1 ships rows 1 to 5 in `0005` to `0007`, creates `outings.club_id` and `boat_id` in phase 3 (K58), and adds `reports.club_id` and `hazards.club_id` in `0010`.
 
 | Order | Change | Phase | Depends on |
 | --- | --- | --- | --- |
@@ -1281,7 +1281,7 @@ Bindings and secrets added: `IP_HASH_KEY` (secret), `HAZARD_LIMIT`, `FLAG_LIMIT`
 | --- | --- |
 | 0 | Nothing visible. `src/reportlogic.js` can be extracted early (REPORT_FIELDS with today's three fields) as part of the refactor. |
 | 1 | Nothing new. Dock reports stay on Putney Landing on dev. |
-| 2 | Signed-in reports get their weight and badge once accounts exist (the table change waits for phase 3). |
+| 2 | Nothing: signed-in weight and the badge arrive with the phase 3 table (08 K38). |
 | 3 | Reports at every location, hazards, outings, float plans with email (05's cron and email skeleton ships here), row log and CSV, flags, screen, moderation queue, tuning export. |
 | 4 | Push reminders for outings, hazard notifications (05). Legacy `/api/reports` alias removed. |
 | 5 | Club badge and weight on reports, club outings and board (06), crew links to members, escalation to club safety contacts, official hazards. |

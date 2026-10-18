@@ -82,11 +82,12 @@ JSON names (camelCase) are what the static files and the API use. D1 columns are
 | `waterTemp` | `water_temp` | JSON | no | Fallback when no live reading: `none` or `monthly` (12 values, °F). Max reading age (null in phase 0, 72 h from phase 1). | `{ "fallback": "none", "maxAgeH": null }` |
 | `tide` | `tide` | JSON | no | Tidal water only (section 9.4). | null |
 | `daylight` | `daylight` | JSON | no | High-latitude rowing window `{ dayWindow: [5, 22] }` (section 15.4). Null means 5 to 22. | null |
+| `emergency` | `emergency` | JSON | no | Emergency information for the Safety section (06 8.7), up to 6,000 chars. Column created in phase 3 (08 K13). | null |
 | `copy` | `copy` | JSON | no | Curated text overrides for facts and the River view (section 6.3). Curated locations only. | see section 6 |
 | `launchNotes` | `launch_notes` | text | no | Plain text, up to 1,000 chars, no links. Parking, dock type, shallows, local rules. | null |
 | `status` | `status` | text | yes | `draft`, `published`, `verified`, `archived` (2.3). | `verified` |
 | `revision` | `revision` | integer | yes | Starts at 1, plus 1 on every applied change. Used for edit conflicts. | 1 |
-| `stewardClub` | `steward_club_id` | text | no | A `clubs.id` (06-clubs.md). Phase 5. | null until claimed |
+| `stewardClub` | `steward_club_id` | text | no | A `clubs.id` (06-clubs.md). Phase 5, added by `0010_club_links.sql` (08 K12). | null until claimed |
 | `createdBy` | `created_by` | text | no | `users.id`. Null for curated and imported records. | null |
 | `verifiedBy` | `verified_by` | text | no | `users.id` of whoever verified. | null until the owner has an account |
 | `verifiedVia` | `verified_via` | text | no | `owner`, `moderator`, `club`. | `owner` |
@@ -102,7 +103,7 @@ Fields are in phase 0 as a file (no D1), phase 1 as the curated static list, pha
 ### 2.2 Slug rules
 
 - Pattern: `^[a-z0-9]+(-[a-z0-9]+)*$`, 3 to 48 chars.
-- Reserved, refused: `api, add, admin, account, club, assets, about, privacy, terms, help, settings, login, logout, static, sw, manifest`. Also refused: anything that matches a built file or folder at the top of `dist/` (`locations`, `icon-192`, `favicon`, `workbox-*`, `registerSW`), checked at build time in phase 1 and in the Worker in phase 3.
+- Reserved, refused: `api, add, admin, account, club, assets, about, privacy, terms, help, settings, login, logout, static, sw, manifest, index` (`index` because shells are `dist/<slug>.html`, 08 K25). Also refused: anything that matches a built file or folder at the top of `dist/` (`locations`, `icon-192`, `favicon`, `workbox-*`, `registerSW`), checked at build time in phase 1 and in the Worker in phase 3.
 - Generated from the name: NFKD, strip accents, lowercase, every run of other characters becomes one hyphen, trim hyphens, cut to 48 at a hyphen.
 - On a clash: add the region suffix (`riverside-park-ct`), then `-2`, `-3`.
 - Changing a slug is a moderator action. The old slug goes into `location_aliases` and keeps working forever.
@@ -220,7 +221,7 @@ One flow binding covers the latest value, the 48 h series and the daily means, b
 2. Drop `off` rows and rows with `status = 'retired'`.
 3. Order: `primary`, then `fallback` by `priority`, then `info`.
 4. A role with more than one `primary` is invalid (validation error `two_primaries`).
-5. The result is keyed for `sourcesFor(loc)` (02) with the same keys the app uses today (`wx`, `alerts`, `obs`, `river`, `flow`, `flowDays`, `flowFcst`, `aq`, `models`) plus `tide`, `tideStream`, `level`. A key with no binding is absent, which is not a failure: no "failed" note under the hero, no River tab.
+5. The result is keyed for `bindingsFor(loc)` (02; 08 K3) with the same keys the app uses today (`wx`, `alerts`, `obs`, `river`, `flow`, `flowDays`, `flowFcst`, `aq`, `models`) plus `tide`, `tideStream`, `level`. A key with no binding is absent, which is not a failure: no "failed" note under the hero, no River tab.
 
 ### 4.4 Binding fields
 
@@ -248,7 +249,7 @@ One flow binding covers the latest value, the 48 h series and the daily means, b
 
 ## 5. D1 schema
 
-These statements are the proposal for 08-architecture.md, which owns migration numbering. They follow `migrations/0001_reports.sql`: TEXT ids from `crypto.randomUUID()` (slugs for waterway ids), INTEGER ms times. `users` (03) and `clubs` (06) must exist first. D1 supports the JSON extension (used by `json_valid`) and FTS5 (from docs, https://developers.cloudflare.com/d1/sql-api/sql-statements/). Batches run as one transaction (from docs, https://developers.cloudflare.com/d1/worker-api/d1-database/). Limits that matter here: 100 bound parameters per query, 2 MB per row, 100 columns per table (from docs, https://developers.cloudflare.com/d1/platform/limits/).
+08-architecture.md 4.4 holds the canonical statements (`0003_locations.sql`), which change this proposal: no `steward_club_id` until `0010` in phase 5 (K12), an `emergency` column (K13), the reserved slug `index` (K25), and one merged `location_sources` (K2). These statements are the proposal for 08-architecture.md, which owns migration numbering. They follow `migrations/0001_reports.sql`: TEXT ids from `crypto.randomUUID()` (slugs for waterway ids), INTEGER ms times. `users` (03) and `clubs` (06) must exist first. D1 supports the JSON extension (used by `json_valid`) and FTS5 (from docs, https://developers.cloudflare.com/d1/sql-api/sql-statements/). Batches run as one transaction (from docs, https://developers.cloudflare.com/d1/worker-api/d1-database/). Limits that matter here: 100 bound parameters per query, 2 MB per row, 100 columns per table (from docs, https://developers.cloudflare.com/d1/platform/limits/).
 
 ```sql
 -- Locations and waterways. Phase 3. Proposed file: migrations/00NN_locations.sql
@@ -601,7 +602,7 @@ Emitted into `dist/`:
 | --- | --- | --- |
 | `locations/index.json` | Summaries of `published` and `verified` locations, for the picker. | about 260 bytes per location; 25 locations about 6.5 KB |
 | `locations/<slug>.json` | Full record with waterway and resolved sources inlined. | 3 to 5 KB each |
-| `<slug>/index.html` | A copy of the built `index.html` with this location's `<title>`, description, canonical and Open Graph tags. Link previews do not run JavaScript, so this is how a shared `/putney-landing` link previews correctly. | about 12 KB each |
+| `<slug>.html` (08 K24; a folder index would redirect `/putney-landing` to `/putney-landing/`) | A copy of the built `index.html` with this location's `<title>`, description, canonical and Open Graph tags. Link previews do not run JavaScript, so this is how a shared `/putney-landing` link previews correctly. | about 12 KB each |
 
 `locations/index.json`:
 
@@ -640,7 +641,7 @@ Emitted into `dist/`:
 
 ### 7.3 Service worker and hosting
 
-- `vite.config.js` Workbox `globPatterns` gains `locations/*.json`. `globIgnores` gains `*/index.html` so the per-location shells are not precached; navigations already fall back to the precached root `index.html` (`navigateFallback`). Unverified: that `*/index.html` matches only one-level folders under Workbox's glob rules. Check the generated precache manifest in phase 1.
+- `vite.config.js` Workbox `globPatterns` gains `locations/*.json`. `globIgnores` gains each `<slug>.html` by name, from the list in `data/`, so the per-location shells are not precached (08 8.4, K24); navigations already fall back to the precached root `index.html` (`navigateFallback`).
 - `wrangler.jsonc` `assets` gains `"not_found_handling": "single-page-application"`, so `/some-new-slug` serves `index.html` when no shell file exists (from docs, https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/). Curated slugs have real shell files, so they work on any static host without that setting.
 - `index.html` uses relative asset paths (`apple-touch-icon.png`, `icon-192.png`). They resolve correctly under `/putney-landing` but not under `/club/x`. Phase 1 makes them absolute (`/icon-192.png`).
 
@@ -710,7 +711,7 @@ Phase 0 changes no visible behavior. Putney renders the same text, numbers and c
 | 1 | `src/config.js` `LOC` | One dock and zone | Removed. Read from `m.loc` (logic) or the active location (UI). | 0 |
 | 2 | `src/config.js` `DEFAULTS` | `heading: 15`, flow 20,000/28,000 cfs | Split: `GLOBAL_DEFAULTS` (wind, gust, rain, cold, AQI) stays; heading moves to `course`, flow limits to the record. | 0 |
 | 3 | `src/config.js` `GAUGE_FLOW`, `GAUGE_TEMP`, `NWS_GAUGE` | Putney gauges | Bindings in the record. | 0 |
-| 4 | `src/config.js` `SRC` | URL builders closed over `LOC` and the gauge constants | `sourcesFor(loc)` returns the same keys (02 owns the adapters). | 0 |
+| 4 | `src/config.js` `SRC` | URL builders closed over `LOC` and the gauge constants | `bindingsFor(loc)` returns the same keys (02 owns the adapters; 08 K3). | 0 |
 | 5 | `src/config.js` `SOURCE_NAMES` | "Keene observations", "USGS river gauges", "the NWS river forecast" | Built from binding labels: `${label} observations`. Same text for Putney. | 0 |
 | 6 | `src/config.js` `SET_KEY`, `PLAN_KEY`, `CACHE_KEY`, `INSTALL_KEY`, `NUDGE_KEY` (`putney-rowing-*-v1`) | One location in storage | New keys and a one-time migration (8.6). | 0 |
 | 7 | `src/config.js` `WATER.against` | Thresholds in cfs | `loc.flow.against`, in the flow binding's unit. | 0 |
@@ -724,7 +725,7 @@ Phase 0 changes no visible behavior. Putney renders the same text, numbers and c
 | 15 | `src/logic.js` `periodsFor`, `rowingHours`, `runsBy`, `planSessions` | Eastern clock; dawn and sunset always exist; UTC half-hour steps line up with local half hours | `m.fmt`; polar fallbacks; local-minute plan steps (15.3). | 0, polar 1 |
 | 16 | `src/logic.js` `buildModel` | `h0 = Math.floor(now / HOUR) * HOUR` assumes local hours start on UTC hours | Find the forecast hour that contains `now` in `m.hours` (15.3). | 0 |
 | 17 | `src/data.js` `parseRiver` | Matches `GAUGE_FLOW`, `GAUGE_TEMP` | Takes the binding refs. | 0 |
-| 18 | `src/data.js` `parseFlowDays` | `T16:00:00Z` is noon Eastern | Noon in the binding's `tz`. | 0 |
+| 18 | `src/data.js` `parseFlowDays` | `T16:00:00Z` is noon Eastern | Noon in the binding's `tz`. | 1 (08 K11) |
 | 19 | `src/data.js` `alertLevel` | NWS event names | Per adapter (02). | 7 |
 | 20 | `src/render/parts.js` `compassSVG` | Fixed "VT" and "NH" positions, a straight river | Labels from `loc.banks`, rotated with the river; polyline and lake drawings (10.5). | 0 labels, 1 drawing |
 | 21 | `src/render/now.js` `renderNow` | "Nearest main-stem gauge, near Northfield, MA ...", "North Walpole gauge below Bellows Falls dam ...", "Measured at Keene", "Keene airport, 14 mi east ...", "USGS gauge unavailable.", "cfs" | Binding `note` and `label`, `copy` overrides, flow unit formatter. River flow fact omitted when there is no flow binding. | 0 |
@@ -733,7 +734,7 @@ Phase 0 changes no visible behavior. Putney renders the same text, numbers and c
 | 24 | `src/render/detail/river.js` | North Walpole, Bellows Falls dam, 16 river miles, NERFC, median stats, "cfs" | `copy.flowHow`, `copy.flowStats`, or generated; unit formatter; view hidden without a flow or level binding. | 0 |
 | 25 | `src/render/detail/temperature.js` | Northfield text | Binding note. | 0 |
 | 26 | `src/render/detail/week.js`, `light.js` `clockMin` | "Eastern time is a whole number of hours from UTC" (`getUTCMinutes()`) | `fmt.localMinutes(t)`. Wrong today for +5:30, +5:45, +9:30, -3:30 zones (verified live 2026-10-17, 15.3). | 0 |
-| 27 | `src/render/detail/fog.js` | "miles" | Units (07). | 7 |
+| 27 | `src/render/detail/fog.js` | "miles" | Units (07). | 2 (07 7.9; 08 K28) |
 | 28 | `src/share.js` | "Putney Landing rowing, ...", title "Putney Landing rowing forecast", URL `SITE_URL` | `${loc.name} rowing, ...`, `${loc.name} rowing forecast`, URL `SITE_URL + loc.slug` on production. | 0 text, 1 URL |
 | 29 | `src/settings.js` | Heading field; `DEFAULTS` for Reset; flow fieldset always shown | Fields from the location (11.6). | 0, 1 |
 | 30 | `src/storage.js` | Keys; `loadSettings()` merges `DEFAULTS` | Per-location overrides (11.5). | 0 |
@@ -830,7 +831,7 @@ The resolved location:
 
 02-data-sources.md defines the adapter interface. What this doc needs from it:
 
-- `sourcesFor(loc)` returns `{ key: () => url }` (or a fetch function) only for bound keys, so `fetchAll()` in `src/data.js` keeps its shape: `Object.keys(sources)`, each failing alone.
+- `bindingsFor(loc)` (02; 08 K3) returns one entry per bound key with its URL and parser, so `fetchAll()` in `src/data.js` keeps its shape: one fetch per entry, each failing alone.
 - An unbound key is absent, not an error. `app.errors` only lists bound sources that failed. The "every data source was blocked" message counts bound sources only.
 - Flow values are returned in the binding's native unit. A fallback binding in a different unit is converted to the location's flow unit at parse time (1 m³/s = 35.3147 ft³/s, from 1 ft = 0.3048 m exactly).
 - Daily values carry the binding's `tz` (15.2).
@@ -842,12 +843,12 @@ New keys (08-architecture.md lists the canonical set):
 | Key | Content | Replaces |
 | --- | --- | --- |
 | `rowhether-settings-v2` | `{ "<slug>": { "saved": <ms>, "values": { ...overrides } } }` | `putney-rowing-settings-v1` |
-| `rowhether-cache-v2:<slug>` | `{ data, updated }` as today, per location. Keep the 5 most recently used locations; drop older ones. | `putney-rowing-cache-v1` |
-| `rowhether-loc-v1:<slug>` | `{ record, fetchedAt }`, the cached location record. Same 5 kept. | none |
+| `rowhether-cache-v2:<slug>` | `{ data, updated }` as today, per location. Keep up to 10 locations, favorites protected, with `rowhether-cache-index-v1` (07 9.2; 08 K27). | `putney-rowing-cache-v1` |
+| `rowhether-loc-v1:<slug>` | `{ record, fetchedAt }`, the cached location record. Same 10 kept. | none |
 | `rowhether-last-v1` | Last location slug. | none |
 | `rowhether-recent-v1` | Up to 8 recent slugs, newest first. | none |
 | `rowhether-plan-v1` | Plan a row choices (global, not per location). | `putney-rowing-plan-v1` |
-| `rowhether-install-v1` | Install bar snooze. | `putney-rowing-install-v1` |
+| `rowhether-install-v1` | Install bar state `{ dismissed, never }`, as the code keeps it today. | `putney-rowing-install-v2` (the `-v1` snooze is ignored, as today; 08 K35) |
 | `rowhether-nudge-v1` | Settings reminder dismissed. | `putney-rowing-nudge-v1` |
 | `rowhether-migrated-v1` | Migration marker, `"1"`. | none |
 
@@ -856,7 +857,7 @@ Migration, `migrateStorage()` in `src/storage.js`, called at the top of `loadSet
 1. If `rowhether-migrated-v1` exists, stop.
 2. Settings: read `putney-rowing-settings-v1`. If present, keep only keys whose value differs from Putney's record (`thresholds`, plus `heading` when not 15, plus `waterOverride` when not empty). Compare numbers as numbers and keep `''` (a level turned off) as a real override. Write `rowhether-settings-v2` as `{ "putney-landing": { "saved": Date.now(), "values": {...} } }`. `saved` keeps the Settings reminder hidden for people who saved before (`hasSavedSettings()` reads it).
 3. Cache: copy `putney-rowing-cache-v1` to `rowhether-cache-v2:putney-landing` unchanged.
-4. Copy plan, install and nudge values to their new keys.
+4. Copy plan, install (`putney-rowing-install-v2`) and nudge values to their new keys.
 5. If any `putney-rowing-*` key existed, set `rowhether-last-v1` to `putney-landing`. This is what makes an installed app open on Putney with no picker.
 6. Set `rowhether-migrated-v1`.
 7. Leave the old keys in place until phase 2, so a rollback of `master` to an older build still finds them. Phase 2 deletes them.
@@ -865,7 +866,7 @@ A personal heading override (step 2, `heading` not 15) stays a per-location over
 
 ### 8.7 Proving no visible change
 
-- Before the refactor, a script `scripts/golden.mjs` builds models from the fixtures in `test/logic.test.js` and three recorded real responses (a calm June day, a foggy October morning, a windy high-flow April day) and writes `test/golden/putney-*.json`: every hour's `a`, `water`, fog risk, every period, `windVsCourse` and `waterWhy` strings, `planSessions` output.
+- Before the refactor, a script `scripts/golden.mjs` builds models from synthetic scenarios with every source (a calm June day, a foggy October morning, a windy high-flow April day, and the week across the November change; 08 14 P0.1, K43), since responses for chosen conditions cannot be recorded on demand, and writes `test/golden/putney-*.json`: every hour's `a`, `water`, fog risk, every period, `windVsCourse` and `waterWhy` strings, `planSessions` output.
 - After the refactor, `test/golden.test.js` rebuilds them through `buildModel(PUTNEY, ...)` and requires deep equality.
 - Playwright screenshots at 390 px and 1280 px with the pinned clock (midday and 9 PM), before and after, must match pixel for pixel except the compass bank labels if 10.5's rotation ships in phase 0 (it does not; it ships in phase 1).
 
@@ -1072,7 +1073,7 @@ Decision: Keep internal weather units as mph, °F and inches everywhere and conv
 | Wind | 10 / 15 mph | same, shown as 16 / 24 km/h or 4.5 / 6.7 m/s (07 picks) |
 | Gusts | 18 / 25 mph | same, converted |
 | Rain chance | 60 / 90 % | same |
-| Cold line | air plus water under 100°F | same, shown as 38°C (unverified against national rowing guidance; 07 and the owner decide) |
+| Cold line | air plus water under 100°F | same, shown as 20°C: a sum of two temperatures converts with the offset counted twice (07 7.4; 08 K26). Unverified against national rowing guidance; 07 and the owner decide |
 | Flow | percentiles (11.3), or blank | same rule, native unit |
 | AQI | US AQI 151 / 201 | European AQI: unverified, 02 and 07 decide |
 | Tidal stream | 2.0 / 3.0 kn (first guesses) | same |
@@ -1173,7 +1174,7 @@ Boathouse Row is the model case: one location for every boathouse on the row, wi
 
 ### 12.5 Step 3: water and sources
 
-Discovery runs (02-data-sources.md, assumed `GET /api/discover?lat=&lon=&type=`). This step shows:
+Discovery runs (02-data-sources.md, `GET /api/discover?lat=&lon=&water=` (08 K41)). This step shows:
 
 - Waterway cards (3.4) and "New waterway".
 - One card per role, with the suggested binding and up to 3 alternatives:
@@ -1313,7 +1314,7 @@ Waterway merges work the same way over `locations.waterway_id`, `hazards.waterwa
 
 ## 14. API
 
-Same origin, JSON, errors as `{ "error": "code", "message": "Human sentence." }`, as `worker/reports.js` does. Auth is 03's `auth_session` cookie. Times are ms since epoch. Phase 3 unless noted.
+Same origin, JSON, errors as `{ "error": "code", "message": "Human sentence." }`, as `worker/reports.js` does. Auth is 03's `__Host-rw_session` cookie (08 K56). Times are ms since epoch. Phase 3 unless noted.
 
 ### 14.1 List near
 
@@ -1580,8 +1581,8 @@ No flow reasons, no River tab, no debris warning, no wind-against-current multip
 ### 16.4 Build tests
 
 - `npm run build` fails with the file name and field when any `data/` file is invalid.
-- `dist/locations/index.json` lists every non-draft file; `dist/putney-landing/index.html` has the same title, description and Open Graph text as today's `index.html`, with canonical `https://rowhether.com/putney-landing`.
-- The precache manifest contains `locations/*.json` and no `*/index.html`.
+- `dist/locations/index.json` lists every non-draft file; `dist/putney-landing.html` has the same title, description and Open Graph text as today's `index.html`, with canonical `https://rowhether.com/putney-landing`.
+- The precache manifest contains `locations/*.json` and no `<slug>.html` shell.
 
 ### 16.5 Browser checks (Playwright, as in CLAUDE.md)
 

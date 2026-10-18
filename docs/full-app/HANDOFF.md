@@ -24,7 +24,7 @@ Work out the state from the branch itself. `git fetch origin dev-full-app && git
 Plan:
 
 1. [x] Topic docs `01` to `07` in `docs/full-app/`.
-2. [ ] `08-architecture.md`: canonical schema and migration order, rate limiter ids, storage keys, bindings, routes, module layout, and the cross-doc conflicts the other docs leave to 08 (`grep -n '08' docs/full-app/0*.md`).
+2. [x] `08-architecture.md`: canonical schema and migration order, rate limiter ids, storage keys, bindings, routes, module layout, and the cross-doc conflicts the other docs leave to 08 (`grep -n '08' docs/full-app/0*.md`).
 3. [ ] Reviews in `docs/full-app/reviews/`: `consistency.md` and `people-safety.md`.
 4. [ ] Fix pass: review findings applied to the docs, each finding marked applied or skipped with a reason in its review file.
 5. [ ] `README.md` (index, summary, decisions waiting on the owner) and `09-roadmap.md` (phases with scope and exit criteria).
@@ -52,6 +52,7 @@ More than one agent may work on this branch.
 
 Newest first. One line per step: date and time UTC, who, what.
 
+- 2026-10-18 06:19 UTC, architecture agent: `08-architecture.md` landed: system overview, layout by phase, canonical schema as 12 migration files (checked in `node:sqlite` and a local D1), migration plan, bindings and rate limiter ids 1005 to 1030, every API route, storage keys, time zones, security and audit log, budgets rebased on today's build, costs, tests, the phase 0 build sequence (P0.1 to P0.14), and 65 cross-doc conflicts decided with small edits to 01 to 07. Next: step 3, the reviews.
 - 2026-10-18 05:15 UTC, session 015Sq3rx: took over from the earlier session (stopped by the owner). Merged `dev` (PR #7) into `dev-full-app`; 109 tests and the build pass. Next: steps 2 to 5 as one workflow (architecture on Opus, two Opus reviews, fix and overview on Sonnet), then Phase 0.
 
 ## Prompt to start the next agent

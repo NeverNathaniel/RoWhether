@@ -109,8 +109,8 @@ Every notification sent to a user is a row in `notify_log`. Account, "Notificati
 | `nws_alert` | A new or upgraded NWS alert overlapping a rowing window in the next 36 hours | Stay off level only | push | high for Stay off, normal for Caution | Until the alert ends, at most 24 h | `al-` plus 12 characters of a hash of the alert id | Held | 4 |
 | `hazard` | A hazard posted within 10 km on the location's waterway, once its note is cleared or it has none | Off | push | low | 12 h | none | Held | 4 |
 | `go_window` | Evaluated at 7 AM and 5 PM location time | Off | push | normal | 12 h | `gw-` plus 12 | Held | 4 |
-| `water_status` | A club changes its water status (06) | On for members | push; also email when closed | high when closed, else normal | 6 h | `ws-` plus 12 of the club id | Held, except closed | 5 |
-| `practice` | A practice the user is in is cancelled, moved or changed (06) | On for invited members | push and email | high within 12 h of the start, else normal | Until the practice start | `pr-` plus 12 of the practice id | Held | 6 |
+| `water_status` | A club changes its water status (06) | On for members | push; also email when closed | high when closed, else normal | 6 h | `ws-` plus 12 of the club id | Held, except closed, and except a restriction that begins before the person's quiet hours end (06 21.3; 08 K21) | 5 |
+| `practice` | A practice the user is in is cancelled, moved or changed (06) | On for invited members | push and email | high within 12 h of the start, else normal | Until the practice start | `pr-` plus 12 of the practice id | Held, except when the practice starts before the person's quiet hours end (06 21.3; 08 K21) | 6 |
 | `overdue` | An outing escalation stage (04 section 6.2) | Always, for every outing | push and email to the rower; email to contacts | high | 15 min for push | `od-` plus 12 of the outing id | Never held | 3 email, 4 push |
 | `system` | Account mail (03), moderation digest (04), engine problems (to the owner) | Always | email | | | | | 2 |
 
@@ -200,6 +200,8 @@ A rule: "Tell me when there is a Go window of 90 minutes in the next 2 days, mor
 
 ### 3.9 Club water status (06)
 
+Early samples. 06 21.5 holds the copy that ships (08 K22).
+
 | Title | Body |
 | --- | --- |
 | "Putney Rowing Club: water closed" | "High water. Until further notice. Posted by Sam, coach, at 6:05 AM." |
@@ -207,6 +209,8 @@ A rule: "Tell me when there is a Go window of 90 minutes in the next 2 days, mor
 | "Putney Rowing Club: water open" | "Back to normal rules. Posted 9:40 AM." |
 
 ### 3.10 Practice changes (06)
+
+Early samples. 06 21.5 holds the copy that ships (08 K22).
 
 | Title | Body |
 | --- | --- |
@@ -617,7 +621,7 @@ Entry points:
 
 | Where | Button or link | Shown when |
 | --- | --- | --- |
-| Now screen, under Share this forecast, when the hero shows the next morning (`m.daytime` is false) | "Get this every evening at 8 PM" | `/api/info` has a push key, the viewer has no `night_before` pref for this location, and the line was not dismissed in the last 90 days (`rowhether-notify-nudge-v1`, a per-viewer convenience in `localStorage`) |
+| Now screen outside daylight, under the "At the dock" panel, or under the hero when there is none (07 5.12; 08 K45), when the hero shows the next morning (`m.daytime` is false) | "Get this every evening at 8 PM" | `/api/info` has a push key, the viewer has no `night_before` pref for this location, and the line was not dismissed in the last 90 days (`rowhether-notify-nudge-v1`, a per-viewer convenience in `localStorage`) |
 | Week tab, under Plan a row | "Tell me tomorrow's conditions at 8 PM" | Same, without the dismiss |
 | Account, Notifications | Every setting | Always for signed-in users |
 | After I'm back, for float plan users with no push subscription (04) | "Get reminders as notifications, not only email" | Once per device |
@@ -751,8 +755,8 @@ The notification opens the place that answers it. Each is a URL on the app's ori
 | `nws_alert` | `/<slug>#storms` |
 | `hazard` | `/<slug>?open=hazard:<id>` |
 | `go_window` | `/<slug>#week` |
-| `water_status` | `/club/<club-slug>` |
-| `practice` | `/club/<club-slug>?open=practice:<id>` |
+| `water_status` | `/club/<club-slug>#today` (06 20; 08 K23) |
+| `practice` | `/club/<club-slug>#practice/<id>` (06 20; 08 K23) |
 | `overdue` (rower) | `/<slug>?open=outing:<id>` |
 | test | `/account#notifications` |
 
@@ -764,11 +768,13 @@ The notification opens the place that answers it. Each is a URL on the app's ori
 - "Turn off all notifications on this device": `sub.unsubscribe()` and `POST /api/push/unsubscribe` with the endpoint. The endpoint is a capability URL, so knowing it is enough to delete its row, with or without a session.
 - Signing out (03) on a device runs the same unsubscribe first, so a shared phone stops getting the previous user's alerts.
 - Deleting the account removes subscriptions, prefs and log rows (`ON DELETE CASCADE`), after 04's outing cleanup.
-- Email: the `List-Unsubscribe` link turns off the pref that sent it, by an HMAC token: `t = base64url(prefId + "." + HMAC-SHA256(NOTIFY_LINK_KEY, prefId))` (new secret `NOTIFY_LINK_KEY`). One-click POST and a GET page ("You will not get Putney Landing's night-before outlook by email any more. [Turn it back on]").
+- Email: the `List-Unsubscribe` link turns off the pref that sent it, by an HMAC token: `t = base64url(prefId + "." + HMAC-SHA256(NOTIFY_LINK_KEY, prefId))` (new secret `NOTIFY_LINK_KEY`). The one-click POST acts. The GET page only asks, with one button that posts, because mail scanners open links (08 7.4, K36); after the post it says "You will not get Putney Landing's night-before outlook by email any more. [Turn it back on]".
 
 ## 8. Tables
 
 Proposals for 08-architecture.md. `users` is 03's, `locations` 01's, `clubs` 06's, `emergency_contacts` 04's.
+
+08 4.4 holds the canonical statements (`0008_notify.sql`): all three tables ship in phase 3, because the overdue steps write `notify_log` and it references `notify_prefs`; both kind lists include 06's `club`, with `notify_log.subkind` (K19); and `notify_log`'s CHECK is `user_id IS NOT NULL OR kind = 'system'`, with rows for emergency contacts carrying the rower's `user_id`, so deleting a contact cannot fail the CHECK (K20).
 
 ```sql
 CREATE TABLE push_subscriptions (
@@ -856,7 +862,7 @@ CREATE INDEX notify_log_ref ON notify_log (ref_id) WHERE ref_id IS NOT NULL;
 
 These statements ran cleanly in SQLite 3.45.1 with foreign keys on, after 04's tables, and the checks behaved as intended: a second `night_before` pref for the same location, a `water_status` pref without a club and a `local_time` of 25:00 were refused (verified live 2026-10-17, local SQLite, not D1).
 
-`notify_prefs.club_id` has no foreign key: `notify_prefs` arrives in phase 4 and `clubs` in phase 5, and SQLite cannot add a constraint to an existing column later. 06's membership code is its only writer and deletes a member's club prefs when they leave. (Alternative for 08: rebuild `notify_prefs` in phase 5's migration with the foreign key.)
+`notify_prefs.club_id` has no foreign key: `notify_prefs` arrives in phase 3 (08 K19) and `clubs` in phase 5, and SQLite cannot add a constraint to an existing column later. 06's membership code is its only writer and deletes a member's club prefs when they leave. (Alternative for 08: rebuild `notify_prefs` in phase 5's migration with the foreign key.)
 
 Keys from browsers are normalized before storing: `+` and `/` become `-` and `_`, and `=` padding is removed (some browsers return padded base64, unverified which), so the length checks above hold.
 
@@ -866,7 +872,7 @@ Row costs: one `notify_log` insert and one update per notification; the unique i
 
 ## 9. API
 
-Same origin, JSON, errors `{ "error": "code", "message": "Human sentence." }`. Session is 03's `auth_session` cookie.
+Same origin, JSON, errors `{ "error": "code", "message": "Human sentence." }`. Session is 03's `__Host-rw_session` cookie (08 K56).
 
 `GET /api/info` gains:
 

@@ -46,7 +46,7 @@ Facts are marked "verified live 2026-10-17" (checked today with a request, a pac
 
 - An account is optional and adds sync, identity and club features. It never gates safety information. Every forecast, every tab, every report and hazard, public club water status and the Share button work signed out, in every phase.
 - Passkeys first, then a 6-digit code sent by email. No passwords, no SMS, no magic links.
-- Collect the least data that works. No birth date is stored, no raw coordinates from reports or check-ins, no IP addresses in D1, no analytics, no ads, nothing sold.
+- Collect the least data that works. No birth date is stored, no raw coordinates from reports or check-ins, no IP addresses in D1, no analytics beyond one aggregate count of app opens per location (08 10.9), no ads, nothing sold.
 - The Now screen stays the fast, quiet answer. Nothing about accounts runs before the first render. The sign-in code and the WebAuthn browser library load only when the sign-in dialog opens.
 - Putney Landing and existing installs keep working exactly as now. Signing in for the first time never changes a threshold without asking (9.5).
 - No private messages between users, ever (11.4). This is the safeguarding rule that shapes everything social.
@@ -59,7 +59,7 @@ Facts are marked "verified live 2026-10-17" (checked today with a request, a pac
 | Now, Week and every tab, Share, refresh | 0 to 7 | Yes | Never |
 | Settings and Plan a row choices | 0 to 7 | Yes, in this browser (as today) | Sync across devices (phase 2) |
 | Location picker, recent locations, install | 1 | Yes | Never |
-| Owner tools (`/admin`, `GET /api/discover`) | 1 | No | Phase 1: Cloudflare Access (3.7). From phase 2: site role `admin` |
+| Owner tools (`/admin`, `/api/admin/*`) | 1 | No | Phase 1: Cloudflare Access (3.7). From phase 2: site role `admin` |
 | Favorites | 2 | Yes, in this browser (Decision in 8) | Sync |
 | Profile, sign-in methods, export, delete | 2 | n/a | Yes |
 | Reading reports, hazards, location pages | 3 | Yes | Never |
@@ -208,9 +208,9 @@ Masking for addresses shown in mail and on screen: first character, `***`, then 
 
 ### 3.7 Owner access before accounts (phase 1)
 
-02-data-sources.md puts `GET /api/discover` and the `/admin` tools behind "owner only" in phase 1, before accounts exist. Use Cloudflare Access:
+The `/admin` tools (07 14.5's Metrics tab in phase 1) are owner only before accounts exist. Phase 1 discovery is a local script, not a route (08 5.6, K5). Use Cloudflare Access:
 
-1. In Zero Trust, add a self-hosted Access application for `rowhether.com/admin*`, `rowhether.com/api/admin/*` and `rowhether.com/api/discover`. Access can protect a hostname, a Custom Domain or a path (from docs, https://developers.cloudflare.com/workers/configuration/routing/custom-domains/). Policy: allow the owner's email only. Login method: the Cloudflare identity provider (the default for new Zero Trust organizations since 2026, from docs, https://developers.cloudflare.com/changelog/post/2026-06-18-cloudflare-idp-default/) or one-time PIN.
+1. In Zero Trust, add a self-hosted Access application for `rowhether.com/admin*` and `rowhether.com/api/admin/*`. Access can protect a hostname, a Custom Domain or a path (from docs, https://developers.cloudflare.com/workers/configuration/routing/custom-domains/). Policy: allow the owner's email only. Login method: the Cloudflare identity provider (the default for new Zero Trust organizations since 2026, from docs, https://developers.cloudflare.com/changelog/post/2026-06-18-cloudflare-idp-default/) or one-time PIN.
 2. The Worker also validates the `Cf-Access-Jwt-Assertion` header on those paths with `jose` (`jwtVerify` and `createRemoteJWKSet` against `${TEAM_DOMAIN}/cdn-cgi/access/certs`, issuer `TEAM_DOMAIN`, audience `POLICY_AUD`), the pattern Cloudflare documents (from docs, https://developers.cloudflare.com/changelog/post/2025-10-03-one-click-access-for-workers/). Pin `"jose": "6.2.12"` (latest, verified live 2026-10-17). Vars: `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` (not secret).
 3. Zero Trust Free plan seat count: believed to be 50 users, unverified (not stated on the pages checked).
 
@@ -414,7 +414,7 @@ Set-Cookie: __Host-rw_session=<token>; Path=/; Max-Age=15552000; HttpOnly; Secur
 - Clearing: `__Host-rw_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`.
 - Locally, `Secure` is accepted on `http://localhost` (from docs, MDN: "The https: requirements are ignored when the Secure attribute is set by localhost"). Test in each browser (20.4).
 
-This is the only cookie the app sets.
+This is the only cookie the app sets for people. A paired club boathouse screen also gets `rw_kiosk` (06 8.5; 08 K34).
 
 ### 5.2 Token and storage
 
@@ -467,6 +467,7 @@ Guards in `worker/auth/guard.js` return a `Response` to send, or null to go on: 
 2. Origin check: every `/api/*` request with a method other than `GET` or `HEAD` must carry an `Origin` header equal to the request's own origin (`new URL(request.url).origin`). Missing or different: 403 `bad_origin` "That request came from another site." Browsers send `Origin` on same-origin `POST` from `fetch`.
 3. JSON only: request bodies must have `Content-Type: application/json`, else 415 `bad_type` "Send JSON." A cross-site form cannot send that type without a CORS preflight, and the API answers no preflight.
 4. `GET` never changes state. The email undo link is a page plus a `POST` (4.7).
+   One exception to rule 2: `POST /api/notify/unsubscribe` (05 7.6) skips the `Origin` check, because mail servers send RFC 8058 one-click posts from their own hosts. It acts only on the HMAC token it carries, never on a session (08 7.1, K37).
 5. No CORS headers on `/api/*`. Same origin only.
 6. `Cache-Control: no-store` on every personal response (as `worker/reports.js` does today). The service worker never handles `/api/*` (`navigateFallbackDenylist: [/^\/api\//]` in `vite.config.js`).
 
@@ -477,7 +478,7 @@ The check lives in `worker/index.js` before routing, so every later route (04, 0
 | Environment | Accounts | rpID and cookie host | Email | Notes |
 | --- | --- | --- | --- | --- |
 | Production (`master`) | On, from phase 2 | `rowhether.com` only (`AUTH_HOSTS` var) | Cloudflare Email Service, `signin@rowhether.com` | Needs a production D1 binding, which does not exist yet (CLAUDE.md). On other hosts, such as the production `workers.dev` address, `/api/auth/*` answers 404 `accounts_off` and `/api/info` says `accounts: false`. |
-| Previews (`dev` and branches) | On, behind Cloudflare Access | The Preview host | Only to verified destination addresses (the owner's test inboxes), which Email Service allows before onboarding and for free (from docs, limits page) | `rowhether-dev` D1. `AUTH_PEPPER` set as a Preview var, because Previews have no secrets (CLAUDE.md) and the dev database holds only test accounts. Cloudflare Access can be turned on for Preview URLs in one click (from docs, changelog 2025-10-03). Whether the `previews` block accepts a `send_email` binding is unverified. |
+| Previews (`dev` and branches) | On, behind Cloudflare Access | The Preview host | Only to verified destination addresses (the owner's test inboxes), which Email Service allows before onboarding and for free (from docs, limits page) | `rowhether-dev` D1. `AUTH_PEPPER` gets its own dev value as a Preview secret, or a plain Preview var if Preview secrets cannot be set (08 6.5, K49); the dev database holds only test accounts. Cloudflare Access can be turned on for Preview URLs in one click (from docs, changelog 2025-10-03). Whether the `previews` block accepts a `send_email` binding is unverified. |
 | Local (`wrangler dev`) | On | `localhost` | Not sent. When `APP_ENV` is `local` and the host is `localhost`, the code is written to the console | A local D1 (CLAUDE.md "For dock reports against a real database"). |
 
 `/api/info` grows to `{ "env": "production", "reports": true, "accounts": true }`. The app hides every account control when `accounts` is false or `/api/info` fails (a static host with no `/api`).
@@ -560,7 +561,8 @@ Decision: Extend the CLAUDE.md Turnstile exception to "when the suggestion form 
 | Display name | `users.display_name` | NFC, trimmed, inner spaces collapsed, 2 to 40 characters. No `@`, no `://`, no control characters. Refused when it contains, as a whole word and ignoring case: rowhether, admin, administrator, moderator, support, official; or equals "former member" or "a rower" (labels the app uses). | Adults: wherever their contributions appear. Juniors: their clubs only (11.3). |
 | Junior until | `users.junior_until` | ms when a junior account becomes adult (11.2). Null for adults. | The person; their guardians; their club admins see a "Junior" label (06). |
 | Home location | `users.home_location_id` | A location `id` (01 records keep `id` even when the slug changes). Null allowed. | The person. |
-| Units | `users.units` | `auto`, `us` or `metric`. 07 defines what `auto` means. | The person. |
+| Units | `users.units` | `auto`, `us`, `uk` or `metric` (`uk` from 07 7.1; 08 K30). 07 defines what `auto` means. | The person. |
+| Phone | `users.phone`, `users.phone_for_contacts` | E.164, optional. Shown on the status link to the person's emergency contacts only when `phone_for_contacts` is 1 (04 6.1). Guardians share theirs with club staff per club (`memberships.share_phone`, 06 5.2). Added by 08 (K42). | The person; their contacts and club staff as chosen. |
 | Terms version | `users.terms_version`, `terms_at` | The version accepted, such as `2026-11-01`, and when. | The person; admins. |
 | Site role | `users.site_role` | 10. | Admins; the person sees their own. |
 
@@ -595,6 +597,7 @@ Decision: Favorites work signed out, kept in the browser; an account only syncs 
 | `saved` (first time Settings was saved for this location) | Per location | Yes | Keeps the Settings reminder (`#setNudge`) hidden on every device. |
 | `useClubRules` (01 11.7, phase 5) | Per location | Yes | |
 | Plan a row choices (`minutes`, `when`) | Global, key `plan` | Yes | |
+| Wind unit and clock (`windUnit`, `clock`), limit sets `set1` to `set6`, and per location `activeSet` (07 7.1, 8.4) | Global; `activeSet` per location | Yes | 08 7.5 lists every allowed key (K31). |
 | Notification settings `{ quietFrom, quietTo, tz, emailFallback }` (05 4.4, phase 4) | Global, key `notify` | Yes | Written through 05's `PUT /api/me/notify/settings`. For juniors the Worker widens quiet hours to at least 10 PM to 6 AM for non-safety club messages (11.3). |
 | Units, home location | Profile columns (7) | Yes | |
 | Favorites | 8 | Yes | |
@@ -880,7 +883,7 @@ Decision: No live boat tracking in any phase.
 
 ### 12.3 Analytics
 
-Decision: No analytics.
+Decision: No analytics product and no tracking of people. 08 10.9 adopts the second alternative below, one aggregate open counter (07 14.3), once the owner confirms (08 K32).
 - Alternative: Cloudflare Web Analytics. It is free, uses no cookies or `localStorage` and does not fingerprint by IP or user agent (from docs, https://developers.cloudflare.com/web-analytics/data-metrics/core-web-vitals/ and https://developers.cloudflare.com/web-analytics/about/), but it loads a beacon script from a Cloudflare host at runtime, which the "no runtime loads from third-party CDNs" hard constraint rules out without a second exception.
 - Alternative: aggregate counters in the Worker (for example sign-ins per day) with no personal data.
 
@@ -888,7 +891,7 @@ Workers observability already gives request counts and errors for the API.
 
 ### 12.4 Cookies and local storage
 
-- One cookie: `__Host-rw_session`, strictly necessary for sign-in. No consent banner, because it is essential (ePrivacy and UK PECR exempt strictly necessary storage; legal reading, unverified).
+- `__Host-rw_session`, strictly necessary for sign-in, and on a paired club boathouse screen only, `rw_kiosk` (06 8.5), strictly necessary for that screen. No consent banner, because it is essential (ePrivacy and UK PECR exempt strictly necessary storage; legal reading, unverified).
 - `CF_Authorization`: set by Cloudflare Access on `/admin*` for the owner only (3.7).
 - Turnstile: whether it sets cookies is unverified; it runs only on the sign-in and suggestion forms.
 - `localStorage` keys, all functional: 01's set (`rowhether-settings-v2`, `rowhether-cache-v2:<slug>`, `rowhether-loc-v1:<slug>`, `rowhether-last-v1`, `rowhether-recent-v1`, `rowhether-plan-v1`, `rowhether-install-v1`, `rowhether-nudge-v1`, `rowhether-migrated-v1`) plus this doc's:
@@ -934,7 +937,7 @@ The suggestion dialog gets one line: "Your suggestion becomes a public GitHub is
 
 ### 12.8 Breach response
 
-1. Contain. Set the Worker var `AUTH_ENABLED` to `false`: `/api/auth/*` answers 503 `accounts_off` and `/api/info` says `accounts: false`. End every session: `npx wrangler d1 execute DB --remote --command "DELETE FROM auth_sessions"`. Rotate affected secrets (14.3).
+1. Contain. Set the Worker var `AUTH_ENABLED` to `"0"`: `/api/auth/*` answers 503 `accounts_off` and `/api/info` says `accounts: false`. End every session: `npx wrangler d1 execute DB --remote --command "DELETE FROM auth_sessions"`. Rotate affected secrets (14.3).
 2. Assess within 24 hours: what data, whose, how many, which countries, whether it was encrypted or hashed.
 3. Notify as the law requires: the UK ICO or the relevant EU authority within 72 hours where there is risk; Canada's Privacy Commissioner and affected people where there is real risk of significant harm; US states per their laws; affected clubs (06), because they may have their own duties. Notice to people in plain words: what happened, what data, what we did, what they should do.
 4. Record every breach, notified or not, in the owner's breach register outside D1, kept at least 2 years (PIPEDA).
@@ -1052,7 +1055,7 @@ Short form for the footer: "Information only. You, your coach and your club deci
 
 Layered: a short summary at the top, then the detail.
 
-1. Summary: "No account needed for forecasts. If you make one, we keep your email, a display name and your settings. We do not sell data, show ads or use analytics."
+1. Summary: "No account needed for forecasts. If you make one, we keep your email, a display name and your settings. We do not sell data, show ads or track you. We count how often the app opens at each location, with nothing that identifies you."
 2. What we collect and why: 12.1 as a table.
 3. Where it is stored and who processes it: 12.5.
 4. How long we keep it: 12.1 retention column (this is the published retention policy).
@@ -1129,7 +1132,7 @@ Worker secrets (Cloudflare dashboard, never in the repo or `wrangler.jsonc`):
 
 Others own: `VAPID_PRIVATE_KEY` (05), `OPEN_METEO_KEY` (02).
 
-New vars (not secret): `AUTH_HOSTS` (`rowhether.com`), `AUTH_ENABLED` (`true`), `EMAIL_FROM` (`RoWhether <signin@rowhether.com>`), `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `TERMS_VERSION` (`2026-11-01`).
+New vars (not secret): `AUTH_HOSTS` (`rowhether.com`), `AUTH_ENABLED` (`"1"`; every flag is `"1"` or `"0"`, 08 6.3), `EMAIL_FROM` (`RoWhether <signin@rowhether.com>`), `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `TERMS_VERSION` (`2026-11-01`).
 
 New bindings: `EMAIL` (`send_email`), `AUTH_LIMIT`, `CODE_LIMIT`, and a production `DB` (D1), which production does not have yet.
 
@@ -1147,7 +1150,7 @@ Rotation: every secret yearly, and at once after any suspected exposure. The own
   Permissions-Policy: geolocation=(self), camera=(), microphone=()
 ```
 
-`connect-src` must list every data host 02 adds, so 08 generates it from the adapter catalog. Whether Vite's build needs `'unsafe-inline'` for styles is unverified; test with the built app.
+`connect-src` must list every data host 02 adds. 08 10.11 keeps the header hand-written and adds a test that fails when an adapter's host is missing (K64). Whether Vite's build needs `'unsafe-inline'` for styles is unverified; test with the built app.
 
 ### 14.5 Backups
 
@@ -1182,7 +1185,7 @@ CREATE TABLE IF NOT EXISTS users (
   site_role TEXT NOT NULL DEFAULT 'user' CHECK (site_role IN ('user', 'moderator', 'admin')),
   webauthn_handle TEXT NOT NULL UNIQUE CHECK (length(webauthn_handle) = 22), -- 16 random bytes, base64url
   home_location_id TEXT,                                 -- locations.id; no FK while locations are static (8)
-  units TEXT NOT NULL DEFAULT 'auto' CHECK (units IN ('auto', 'us', 'metric')),
+  units TEXT NOT NULL DEFAULT 'auto' CHECK (units IN ('auto', 'us', 'uk', 'metric')), -- 'uk': 08 K30
   favorites_at INTEGER NOT NULL DEFAULT 0,               -- last change to the favorites list (8)
   terms_version TEXT NOT NULL CHECK (length(terms_version) = 10), -- 'YYYY-MM-DD'
   terms_at INTEGER NOT NULL,
@@ -1344,7 +1347,7 @@ Same origin, JSON. Errors are `{ "error": "code", "message": "Human sentence." }
 | Status | `error` | `message` |
 | --- | --- | --- |
 | 400 | `invalid` (with `"field"`) | Depends on the field, for example "Use 2 to 40 characters for your name." |
-| 401 | `signed_out` | "Sign in to do that." |
+| 401 | `sign_in` | "Sign in to do that." (the code 04 and 06 use; 08 K46) |
 | 403 | `bad_origin` | "That request came from another site." |
 | 403 | `recent_auth` | "Confirm it's you first." (client opens 4.12, then retries) |
 | 403 | `passkey_session` | "Moderator tools need a passkey sign-in." |
@@ -1354,7 +1357,7 @@ Same origin, JSON. Errors are `{ "error": "code", "message": "Human sentence." }
 | 404 | `accounts_off` | "Accounts are not available here." |
 | 415 | `bad_type` | "Send JSON." |
 | 429 | `rate_limited` | "Too many tries. Wait a minute and try again." |
-| 503 | `accounts_off` | "Sign-in is paused. Try again later." (`AUTH_ENABLED` false) |
+| 503 | `accounts_off` | "Sign-in is paused. Try again later." (`AUTH_ENABLED` is `"0"`) |
 
 ### 16.2 Sign in
 
@@ -1555,7 +1558,7 @@ Moderators get `POST /api/mod/users/:id/name-reset` and `POST /api/mod/users/:id
 
 ### 17.1 Entry points
 
-- Header: one text button, "Sign in" when signed out, the person's first name when signed in (from `rowhether-me-v1`, so it shows on the first frame). It opens the sign-in dialog or `/account`. 07 places it; the header buttons must stay on one row at 360 px (CLAUDE.md test), so 07 may move Refresh to an icon button.
+- Header: one text button, "Sign in" when signed out, the person's first name when signed in (from `rowhether-me-v1`, so it shows on the first frame). It opens the sign-in dialog or `/account`. 07 4.3 places it at the right of the title row, and Refresh stays a text button; the header buttons stay on one row at 360 px (CLAUDE.md test; 08 K61).
 - Settings dialog, top line: signed out, "Saved in this browser. Sign in to keep these settings on all your devices." with a "Sign in" link; signed in, "Saved to your account, Sam R." Hidden when `/api/info` says `accounts: false`.
 - Footer: links to Privacy, Terms and About.
 
@@ -1594,16 +1597,16 @@ Suggestion dialog addition (12.5): "Your suggestion becomes a public GitHub issu
 | Phase | File | Change |
 | --- | --- | --- |
 | 0 | `worker/turnstile.js` | `verifyTurnstile(env, token, ip, action)`; `worker/suggest.js` passes `'suggest'`. No visible change. |
-| 1 | Cloudflare Access | Application for `/admin*`, `/api/admin/*`, `/api/discover` (3.7). |
+| 1 | Cloudflare Access | Application for `/admin*` and `/api/admin/*` (3.7). |
 | 1 | `worker/auth/access.js` (new) | `requireAccess(request, env)` validates `Cf-Access-Jwt-Assertion` with `jose`. |
 | 2 | `package.json` | Add `@simplewebauthn/server` 14.0.3, `@simplewebauthn/browser` 14.0.0, `jose` 6.2.12; `engines.node` to `>=22`. |
-| 2 | `wrangler.jsonc` | Production `d1_databases` (`DB`); `send_email` binding `EMAIL`; `AUTH_LIMIT`, `CODE_LIMIT` in both the top level and `previews`; vars `AUTH_HOSTS`, `AUTH_ENABLED`, `EMAIL_FROM`, `TERMS_VERSION`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`; Previews var `AUTH_PEPPER` (dev only). |
+| 2 | `wrangler.jsonc` | Production `d1_databases` (`DB`); `send_email` binding `EMAIL`; `AUTH_LIMIT`, `CODE_LIMIT` in both the top level and `previews`; vars `AUTH_HOSTS`, `AUTH_ENABLED`, `EMAIL_FROM`, `TERMS_VERSION`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`; Previews `AUTH_PEPPER` with its own dev value (08 6.5). |
 | 2 | `migrations/00NN_accounts.sql` | 15, phase 2 tables. |
 | 2 | `worker/index.js` | Origin and content type checks for non-GET `/api/*` (5.6); routes `/api/auth/*`, `/api/me*`, `/api/admin/*`, `/api/mod/*`; `getSession` once per request; `info()` adds `accounts`. |
 | 2 | `worker/auth/session.js` | `getSession`, `startSession`, `endSession`, `cookie()`, `clearCookie()`, renewal, rotation. |
 | 2 | `worker/auth/codes.js` | `makeCode`, `hashCode`, `startCode`, `verifyCode`, per-address limits. |
 | 2 | `worker/auth/passkeys.js` | Options and verify for register, authenticate and reauth, using `@simplewebauthn/server`; RP settings from 3.4. |
-| 2 | `worker/auth/email.js` | `sendEmail(env, { to, subject, text, html })` over the `EMAIL` binding (or Resend); templates from 3.6; the local console fallback. 05 and 06 call the same function. |
+| 2 | `worker/email.js` (08 K18: shared by 03, 04, 05 and 06) | `sendEmail(env, { to, subject, text, html })` over the `EMAIL` binding (or Resend); templates from 3.6; the local console fallback. 05 and 06 call the same function. |
 | 2 | `worker/auth/guard.js` | 5.5 guards. |
 | 2 | `worker/auth/signup.js` | Age computation (11.2), user creation. |
 | 2 | `worker/auth/settings.js`, `src/settings-keys.js` | Sync endpoints and the shared allowed-key list. |
@@ -1771,7 +1774,7 @@ Decisions, recommendation first:
 - Decision: Junior quiet hours 10 PM to 6 AM. Alternative: 9 PM to 7 AM. (11.3)
 - Decision: Guardian links in phase 5. Alternative: phase 3 with outings. (11.5)
 - Decision: No live boat tracking in any phase. Alternative: opt-in tracking during an outing with a 24-hour retention and a visible signal. (12.2)
-- Decision: No analytics. Alternatives: Cloudflare Web Analytics (needs a second script exception); aggregate Worker counters. (12.3)
+- Decision: No analytics product and no tracking of people; 08 10.9 adopts an aggregate open counter, owner to confirm. Alternatives: Cloudflare Web Analytics (needs a second script exception); no counter at all. (12.3)
 - Decision: Keep `incidents` with names removed, retention set by 06 with legal advice. Alternative: delete with the person. (12.9)
 - Decision: Delete report text and photos on account deletion, keep choices without a name. Alternative: keep report text without a name. (12.9)
 - Decision: Vermont law governs the terms. Alternative: no clause until a lawyer advises. (13.1)

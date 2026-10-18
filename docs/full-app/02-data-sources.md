@@ -72,7 +72,7 @@ One row per need. Cells name the recommended source; the source cards below give
 
 ## Source cards
 
-Each card lists: adapter key (used in code and in `location_sources.adapter`), endpoint template, key, CORS, limits and terms, units, update frequency, the fields we read, and status.
+Each card lists: adapter key (used in code; stored rows hold the provider key, such as `usgs-ogc`, and `bindingsFor(loc)` derives these fetchers from it, 08 K3), endpoint template, key, CORS, limits and terms, units, update frequency, the fields we read, and status.
 
 ### Open-Meteo forecast (`om-forecast`, `om-models`)
 
@@ -282,9 +282,10 @@ A slot is what the rest of the app reads from `app.data`. The nine current keys 
 | `models` | `{ids, hours: [{t, wind: [], precip: []}]}` | ms, mph, inch | `parseModels` |
 | `waterTemp` (new) | `{v, t, dist}` | °C, ms, km | new |
 | `tide` (new) | `{station, datum, events: [{t, h, type}], series: [{t, h}]}` | ms, ft; `type` `H` or `L` | new |
-| `current` (new) | `{station, events: [{t, type, kn, dir}]}` | ms, knots, degrees; `type` flood, ebb or slack | new |
+| `tideStream` (new) | `{station, events: [{t, type, kn, dir}]}` | ms, knots, degrees; `type` flood, ebb or slack | new |
+| `level` (new) | `[{t, v}]` sorted, lake or reservoir surface level | ms, ft or m | new |
 
-`waterTemp()` in `src/logic.js` reads, in order: the Settings dock reading (`S.waterOverride`), then `river.waterC`, then the `waterTemp` slot. `tide` and `current` are information only in this plan (see the decision at the end).
+`waterTemp()` in `src/logic.js` reads, in order: the Settings dock reading (`S.waterOverride`), then `river.waterC`, then the `waterTemp` slot. Slot names follow 01 (`tideStream`, `level`; 08 K4). `tide` and `tideStream` are information only in this plan (see the decision at the end).
 
 ### Adapter
 
@@ -298,7 +299,7 @@ A slot is what the rest of the app reads from `app.data`. The nine current keys 
  * @property {string} [note]          // curated sentence for the fact detail, e.g. gauge position
  *
  * @typedef {Object} Adapter
- * @property {string} key             // stable; stored in location_sources.adapter
+ * @property {string} key             // stable fetcher key; stored rows hold the provider key (08 K3)
  * @property {string} slot            // the slot it fills
  * @property {string[]} regions       // ISO 3166-1 alpha-2 codes, or ['*'] for global
  * @property {'browser'|'worker'} via // 'worker' means url() points at our own /api/...
@@ -421,6 +422,8 @@ Decision: treat NWS `Small Craft Advisory`, `Gale Warning`, `Storm Warning` and 
 
 New table. Belongs in the canonical schema in 08-architecture.md. Holds every binding for every location, curated or discovered.
 
+08 4.3 merges this proposal with 01's table (K2): 01's `location_id` or `waterway_id`, `role`, `mode`, `priority` and `ref`, plus this table's `origin`, `fail_count`, `confirmed_by`, `confirmed_at` and statuses (`active`, `suggested`, `offline`, `retired`, `rejected`). The canonical statement is in 08 4.4.
+
 | Column | Type | Constraint | Meaning |
 | --- | --- | --- | --- |
 | `id` | TEXT | PRIMARY KEY | `crypto.randomUUID()` |
@@ -447,7 +450,7 @@ Indexes: `UNIQUE (location_slug, slot, rank) WHERE status = 'active'` (a partial
 
 Two more new tables:
 
-`flow_stats`: one row per location and gauge, the history behind the default flow lines.
+`flow_stats` (not created: 08 K6 keeps statistics in the flow binding's `stats`, 01 4.4, and caches computed results in `source_cache` for 30 days): one row per location and gauge, the history behind the default flow lines.
 
 | Column | Type | Constraint |
 | --- | --- | --- |
@@ -498,7 +501,7 @@ Budget: Workers Free allows 50 external subrequests per invocation; Workers Paid
 
 `GET /api/discover?lat=42.9607&lon=-72.5219&water=river`
 
-- Auth: Phase 1, owner only (the `/admin` tools). Phase 3, any signed-in user (03-accounts-and-privacy.md for sessions).
+- Auth: phase 3, any signed-in user (03-accounts-and-privacy.md for sessions). In phase 1 the owner runs the same steps as a local script, `scripts/locations/discover.mjs`, over `worker/discover.js` (08 5.6, K5).
 - Rate limit: new binding `DISCOVER_LIMIT`, 5 a minute per user (`simple: { limit: 5, period: 60 }`).
 - `lat` and `lon` rounded to 5 decimals (about 1 m). `water` is one of the water types in 01-locations.md; default `river`.
 - Cached in `source_cache` under `discover:{lat},{lon}:{water}` for 24 hours, and returned with `Cache-Control: private, max-age=300`.
@@ -540,7 +543,7 @@ Response for the Putney dock, as discovery would return it today (values from th
   "flowStats": {
     "gauge": "USGS-01154500", "from": "2016-01-01", "to": "2026-10-16", "days": 3939,
     "p50": 6910, "p90": 21820, "p95": 28010, "floodAction": 75661,
-    "suggest": { "flowCaution": 22000, "flowOff": 28000 }
+    "suggest": { "flowCaution": 20000, "flowOff": 28000, "against": [[20000, 1.4], [10000, 1.25]] }
   },
   "warnings": [],
   "requests": 21,
@@ -548,9 +551,9 @@ Response for the Putney dock, as discovery would return it today (values from th
 }
 ```
 
-`recordFrom`, `requests` and `tookMs` are illustrative (unverified). The other values come from the live requests. The next station, KVSF Springfield at 42.1 km, falls outside the 40 km limit in step 5.
+`recordFrom`, `requests` and `tookMs` are illustrative (unverified). `suggest` follows 01 11.3's rule from p65, p88 and p95 (08 K7), whose Putney values 01 14.9 lists. The other values come from the live requests. The next station, KVSF Springfield at 42.1 km, falls outside the 40 km limit in step 5.
 
-Errors: `400 { "error": "bad_point", "message": "That point is not a valid latitude and longitude." }`, `401 not_signed_in`, `429 rate_limited`, `503 { "error": "upstream", "message": "The river data services did not answer. Try again in a few minutes." }` (only when the place and time zone steps fail; all other failures become `warnings`).
+Errors: `400 { "error": "bad_point", "message": "That point is not a valid latitude and longitude." }`, `401 sign_in` (08 7.2), `429 rate_limited`, `503 { "error": "upstream", "message": "The river data services did not answer. Try again in a few minutes." }` (only when the place and time zone steps fail; all other failures become `warnings`).
 
 ### Steps
 
@@ -599,14 +602,14 @@ Request count at Putney: points 1, zones 1 (no ring for this water type), statio
 - **Measured weather:** "Keene airport, 13 mi away. Shown next to the forecast for comparison."
 - **Official alerts:** "NWS alerts for this point." With a marine zone: "Also include alerts for the Tidal Potomac from Key Bridge to Indian Head? Small craft advisories are issued there." Default yes.
 - **Tide question:** "Does the water at this launch rise and fall with the tide?" Choices: No, Yes, Not sure. Default No. With a hint: "The nearest tide station is Market Street Bridge, 1 mi away. Many rowing basins sit above a dam or lock, where the tide does not reach." Not sure is stored as No and the location is flagged for a curator.
-- **Flow limits:** "Suggested flow limits from 10 years of daily flow at this gauge: Caution at 22,000 cfs (higher than 9 days in 10), Stay off at 28,000 cfs (higher than 19 days in 20). Most days run near 6,900 cfs."
+- **Flow limits:** "Suggested flow limits from 10 years of daily flow at this gauge: Caution at 20,000 cfs (higher than 88 days in 100), Stay off at 28,000 cfs (higher than 19 days in 20). Most days run near 6,900 cfs."
 - **Nothing found:** "No river gauge found within 37 river miles. Flow will not be checked here." and "No official warnings feed for this country yet. Check your national weather service before you row."
 
 Every row has a small "Why this one?" disclosure stating the rule: "The nearest gauge on the same river that reports flow now."
 
 ### Health checks
 
-`worker/sourcehealth.js`, run by a Cron Trigger once a day at 09:17 UTC (an off-the-hour minute). For each active binding it requests `adapter.url()` once, parses it, and updates `last_ok_at` or `fail_count`. After 3 consecutive failures the binding is marked `stale` and listed in `/admin` with the error. A stale binding stays in use (the browser may still succeed) until a curator replaces it. Cost: one request per binding per day. Bindings to Open-Meteo are skipped (see the Open-Meteo section).
+`worker/sourcehealth.js`, run in phase 3 by the daily cron at 09:17 UTC (`17 9 * * *`, 08 6.4). For each active binding it requests `adapter.url()` once, parses it, and updates `last_ok_at`, `last_checked_at` or `fail_count`. With no data for 3 days the binding becomes `offline`, and after 30 days `retired` (01 15.7; 08 K8); both are listed in `/admin` with the error. An offline binding stays in use (the browser may still succeed) until a curator replaces it; a retired one is skipped. Cost: one request per binding per day. Bindings to Open-Meteo are skipped (see the Open-Meteo section).
 
 ## Default flow thresholds from history
 
@@ -620,11 +623,11 @@ Putney's defaults (20,000 and 28,000 cfs) were "about the top 10% and top 5% of 
    - France: Hub'Eau daily means (`obs_elab`, unverified). Germany: history depth unverified; use GloFAS.
    - No gauge: `om-flood` with `start_date={from}&end_date={to}` (3,936 days in 1.0 s, verified live 2026-10-17). Store with `modeled = 1`. The browser then compares GloFAS forecasts only with these GloFAS percentiles.
 3. **Compute.** Sort values; drop null and negative. Percentiles by linear interpolation between closest ranks (the method that gave 6,910, 21,820 and 28,010 at Putney). All seasons count, as at Putney.
-4. **Round** to two significant figures: 21,820 becomes 22,000; 28,010 becomes 28,000. Suggest `flowCaution = round(p90)` and `flowOff = round(p95)`.
+4. **Round** down to two significant figures and suggest 01 11.3's lines (08 K7): `flowCaution` = p88, `flowOff` = p95, `against` = `[[p88, 1.4], [p65, 1.25]]`. At Putney that gives 10,000, 20,000 and 28,000, today's values (01 11.3).
 5. **Cap** with NWPS when known: `flowOff` never above the NWPS action flow (`flood.categories.action.flow`, when above 0). At Putney the action flow is 75,661 cfs, so no change.
-6. **Store** in `flow_stats`, and copy the suggestion into the location's default settings (01-locations.md) when the person confirms.
-7. **Refresh** yearly: the Cron Trigger on January 15 recomputes `flow_stats`. It changes the location's default lines only when nobody has edited them since they were computed.
-8. **Putney** keeps 20,000 and 28,000 exactly. Its `flow_stats` row is written for reference only.
+6. **Store** in the flow binding's `stats` (01 4.4; 08 K6), and copy the suggestion into the location's default settings (01-locations.md) when the person confirms.
+7. **Refresh** yearly: the Cron Trigger on January 15 recomputes `stats`. It changes the location's default lines only when nobody has edited them since they were computed.
+8. **Putney** keeps 20,000 and 28,000 exactly. Its `stats` are kept for reference only.
 
 Later: "High for October" context from the USGS statistics API month-of-year percentiles (verified live 2026-10-17). Not needed for the verdict.
 
@@ -646,7 +649,7 @@ Decision: take the time zone from NWS points in the US and Open-Meteo `timezone=
 
 Only the picker map and the add flow use a map. The Now screen never loads one.
 
-Decision: MapLibre GL JS from npm, lazy-loaded only on `/add` and the picker map, with OpenFreeMap tiles. Recommended: free, no key, commercial use allowed, CORS `*`. Alternative: Leaflet 1.9.4 with OSM standard tiles (a smaller library, but the OSM tile policy offers "no SLA" and may block). Alternative: no map; search and "Use my location" only.
+Decision: MapLibre GL JS from npm, lazy-loaded only on `/add` and the picker map, with OpenFreeMap tiles. Recommended: free, no key, commercial use allowed, CORS `*`. Measured by 07 10.4: about 430 KB gzip over the network when opened, with the worker file set through `setWorkerUrl()`. Alternative: Leaflet 1.9.4 with OSM standard tiles (a smaller library, but the OSM tile policy offers "no SLA" and may block). Alternative: no map; search and "Use my location" only.
 
 Decision: whether tile, style, glyph and sprite requests to `tiles.openfreemap.org` fit the "no runtime loads from third-party CDNs" rule. Recommended: yes, as data, like the API calls. The rule protects the app shell from failing offline, and the map is not part of it. The map library itself is bundled. Alternative: self-host tiles (PMTiles in R2), which costs storage and a build pipeline.
 
@@ -720,15 +723,15 @@ Two states per slot, kept apart in code and copy:
 | --- | --- | --- | --- |
 | `alerts` | Thunderstorm risk from weather codes and CAPE | No `alert` reasons. In Week, the Alerts factor reads "Not available here" instead of no concern | Storms: "No official warnings feed for this country yet. Check your national weather service before you row." |
 | `obs` | Everything | The measured comparison fact is hidden | none |
-| `river`, `flow` | Everything else | No `flow` reasons, no debris warning, River tab shows a message | River: "No river gauge for this spot. Flow is not checked." For lakes: "This is a lake. Flow is not checked." |
+| `river`, `flow` | Everything else | No `flow` reasons, no debris warning, River tab hidden (01 9.7; 08 K29) | River: "No river gauge for this spot. Flow is not checked." For lakes: "This is a lake. Flow is not checked." |
 | `flowFcst` | Flow now | No forecast line on River | River: "No river forecast for this gauge." |
-| water temperature (no `river.waterC`, no `waterTemp`, no dock reading) | Air below 32 °F rule | The air plus water cold check cannot run. Steam fog cannot be judged | Temperature: "No water temperature here. Add a dock reading in Settings to turn on the cold-water check." Fog, How this works: "Steam fog needs a water temperature. Add a dock reading in Settings." |
+| water temperature (no `river.waterC`, no `waterTemp`, no dock reading) | Air below 32 °F rule | The air plus water cold check cannot run, unless the location has curated monthly typical values (01 11.4; 08 K1). Steam fog cannot be judged | Temperature: "No water temperature here. Add a dock reading in Settings to turn on the cold-water check." Fog, How this works: "Steam fog needs a water temperature. Add a dock reading in Settings." |
 | `aq` | Everything else | No `aqi` reasons; Air tab shows a message | Air: "No air quality forecast for this spot right now." |
 | `models` | Everything else | No confidence lines | none (as today) |
-| `tide`, `current` | Everything | Not shown | none |
+| `tide`, `tideStream` | Everything | Not shown | none |
 | `wx` | Nothing | As today: "No data." | unchanged |
 
-Decision: for a location with no water temperature source, leave the cold check off until the person enters a dock reading. Recommended, because a guessed water temperature presented as a measurement could make a cold morning look safe. Alternative: estimate water temperature from the mean air temperature over the past 14 to 30 days (first guess, unverified accuracy), labeled "Estimate".
+Decision: for a location with no water temperature source and no curated monthly typical values (01 11.4, which feed the cold check labeled as typical; 08 K1), leave the cold check off until the person enters a dock reading. Recommended, because a guessed water temperature presented as a measurement could make a cold morning look safe. Alternative: estimate water temperature from the mean air temperature over the past 14 to 30 days (first guess, unverified accuracy), labeled "Estimate".
 
 Decision: tides and tidal currents stay information only (charts and text, no verdict change). Recommended until reports show what levels matter, like water state today. Alternative: add caution for a strong ebb against the wind, which needs tuning data.
 
@@ -736,21 +739,21 @@ Decision: tides and tidal currents stay information only (charts and text, no ve
 
 | Method and path | Phase | Auth | Purpose |
 | --- | --- | --- | --- |
-| `GET /api/discover?lat=&lon=&water=` | 1 (owner), 3 (signed in) | owner, then signed in | Discovery, as above |
-| `PUT /api/locations/:slug/sources` | 1 (owner), 3 (location curator) | owner or curator | Confirm bindings. Body `{ "sources": [ { "slot": "river", "adapter": "usgs-latest", "params": { "flow": "USGS-01154500" }, "label": "USGS river gauges", "note": "..." } ] }`. Response `{ "ok": true, "sources": [...] }`. Writes `location_revisions` (01-locations.md) |
-| `POST /api/locations/:slug/flow-stats` | 1 | owner | Recompute flow statistics. Response `{ "ok": true, "stats": { "p50": 6910, "p90": 21820, "p95": 28010, "days": 3939 } }` |
+| `GET /api/discover?lat=&lon=&water=` | 3; a local script in phase 1 (08 5.6) | signed in | Discovery, as above |
+| `PUT /api/locations/:slug/sources` | 3; phase 1 curates by pull request (08 K5) | location curator or moderator | Confirm bindings. Body `{ "sources": [ { "slot": "river", "adapter": "usgs-latest", "params": { "flow": "USGS-01154500" }, "label": "USGS river gauges", "note": "..." } ] }`. Response `{ "ok": true, "sources": [...] }`. Writes `location_revisions` (01-locations.md) |
+| `POST /api/locations/:slug/flow-stats` | not built (08 K6: `GET /api/sources/stats` with `&fresh=1`) | | Recompute flow statistics. Response `{ "ok": true, "stats": { "p50": 6910, "p90": 21820, "p95": 28010, "days": 3939 } }` |
 | `GET /api/locations/:slug/alerts` | 7 | none | Normalized alerts for sources without CORS (Met Office, MeteoAlarm, MetService). Response `{ "alerts": [ { "event", "headline", "desc", "instr", "start", "end", "lvl" } ], "source": "meteoalarm", "fetchedAt": 0 }`. `Cache-Control: public, s-maxage=300` |
 | `GET /api/locations/:slug/obs` | 7 | none | METAR through the Worker. Response is the `obs` shape plus `station`. `s-maxage=300` |
 
-`GET /api/locations/:slug` (01-locations.md) includes `sources` (the active bindings, without `confirmed_by`) and `flowStats`.
+`GET /api/locations/:slug` (01-locations.md) includes `sources` (the active bindings, without `confirmed_by`), each flow binding with its `stats` (08 K6).
 
 The two proxy endpoints never take a URL from the client. The upstream host and path come from the location's stored binding, so they cannot be used as an open proxy. Rate limit: a new binding `SOURCE_LIMIT`, 30 a minute per connection.
 
 ## Phases
 
-- **Phase 0 (foundations):** `src/sources/` with the nine current adapters; `fetchAll(loc)`; Putney bindings as data with identical URLs and labels; `parseFlowDays` and formatters use `loc.tz`; per-slot `refreshMs` and `staleMs`; parser fixtures and tests. No visible change.
-- **Phase 1 (many locations):** `/api/discover` and `PUT /api/locations/:slug/sources` for the owner; `location_sources`, `flow_stats` and `source_cache` tables; US adapters for tides, currents and the NWPS tide forecast; marine zones; GloFAS and marine fallbacks; place search; the picker map; attribution line; health check cron.
-- **Phase 3 (community):** discovery opens to signed-in users in `/add`; curators review `suggested` and `stale` bindings.
+- **Phase 0 (foundations):** `src/sources/` with the nine current adapters; `fetchAll(loc)`; Putney bindings as data with identical URLs and labels; formatters use `loc.tz`; `refreshMs` and `staleMs` fields, unused until phase 1; parser fixtures and tests. No visible change. `parseFlowDays` at local noon moves to phase 1 (08 K9, K11).
+- **Phase 1 (many locations):** discovery as a local script for the owner (08 5.6); bindings in the curated `data/` files, no tables; US adapters for tides, currents and the NWPS tide forecast; marine zones; GloFAS and marine fallbacks; place search; attribution line; staleness per slot. The tables, `PUT /api/locations/:slug/sources`, the picker map and the health check cron are phase 3 (08 K5, K8, K57).
+- **Phase 3 (community):** discovery opens to signed-in users in `/add`; curators review `suggested` and `offline` bindings (08 K8).
 - **Phase 4 (notifications):** server-side forecast with an Open-Meteo key (decision above).
 - **Phase 7 (beyond the US):** Canada, UK, France, Germany and the Worker-proxied warnings and METAR; regional AQ indexes and models.
 
@@ -779,7 +782,7 @@ Fixtures recorded from the live responses of 2026-10-17 go in `test/fixtures/sou
   - Budget: a stub that returns 60 candidate sites keeps total requests at or under 45.
 - `test/flowstats.test.js`
   - The 3,939-day Putney fixture gives p50 6,910, p90 21,820, p95 28,010 (to the nearest cfs).
-  - Two significant figures: 21,820 to 22,000; 28,010 to 28,000; 950 to 950; 1,049 to 1,000.
+  - Rounded down to two significant figures (01 11.3; 08 K7): 21,820 to 21,000; 28,010 to 28,000; 950 to 950; 1,049 to 1,000. The suggestion from p88 and p95 is 20,000 and 28,000.
   - Fewer than 1,095 days gives no suggestion.
   - The NWPS action flow caps `flowOff`.
 - `test/logic.test.js` additions
@@ -811,11 +814,11 @@ Decision: buy Open-Meteo API Standard for server-side calls when Phase 4 starts.
 
 Decision: if a paid tier is ever added, proxy Open-Meteo through the Worker with a key and per-location edge caching. Alternative: self-host Open-Meteo. Alternative: stay free with no ads.
 
-Decision: leave the cold check off where there is no water temperature source until a dock reading is entered. Alternative: a labeled estimate from past air temperature.
+Decision: leave the cold check off where there is no water temperature source and no curated monthly value (08 K1) until a dock reading is entered. Alternative: a labeled estimate from past air temperature.
 
 Decision: tides and tidal currents are information only for now. Alternative: a caution rule for strong ebb against the wind.
 
-Decision: switch `src/sources/usgs.js` from `/ogcapi/v0` to `/ogcapi/v1` in Phase 0, behind the parity test. Recommended, because the service root now links to v1 and both return the same data today. Alternative: stay on v0 until USGS announces a retirement date (none found).
+Decision: switch `src/sources/usgs.js` from `/ogcapi/v0` to `/ogcapi/v1` in phase 1 (08 K10: phase 0's parity test requires today's URLs). Recommended, because the service root now links to v1 and both return the same data today. Alternative: stay on v0 until USGS announces a retirement date (none found).
 
 Decision: the contact string in the Worker's User-Agent for NWS, Nominatim and aviationweather.gov. Recommended: a dedicated address the owner chooses (for example a data@ address on rowhether.com). Alternative: the GitHub repository URL only, which NWS and Nominatim may treat as insufficient.
 

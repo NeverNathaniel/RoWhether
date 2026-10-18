@@ -383,12 +383,12 @@ Approve opens kind and groups. Decline is silent: the requester sees "Not approv
 
 ### 4.5 Juniors and guardians
 
-These rules assume 03's safeguarding outline: an account for a minor needs a linked guardian account (03's guardian link), and children under 13 do not hold accounts. If 03 decides differently, 08 reconciles.
+03 settled the safeguarding outline (08 K48): rowers aged 13 to 17 may hold accounts without a guardian, with 03 11.3's junior defaults; children under 13 do not hold accounts; and joining a club as a junior needs a linked guardian (03 11.5) to approve, as below.
 
 - A junior with an account joins only by an invite with the `junior` preset. Their membership is `pending_guardian` until one linked guardian (03) approves in their own account: "Sam wants to join Putney Rowing Club as a junior. Approve?" Approval also makes the guardian a club guardian of Sam (kind `guardian` unless they already have a membership). If the guardian declines, the membership is `declined`.
 - A guardian joins by a guardian invite made for a specific junior (`guardianOf`), or automatically when their linked junior joins. A junior has at most 4 guardians in a club.
 - Junior memberships always have club rules on (`rules_on = 1`, enforced by a CHECK).
-- At 18 (from 03's birth date, checked by the daily run; for roster-only juniors, staff change the kind), the kind becomes `adult`, `club_guardians` rows for them are removed, and both sides are told: "Sam is now an adult member of Putney Rowing Club. Guardians no longer see Sam's club schedule."
+- At 18 (from 03's `junior_until`, checked by the daily run; for roster-only juniors, staff change the kind), the kind becomes `adult`, `club_guardians` rows for them are removed, and both sides are told: "Sam is now an adult member of Putney Rowing Club. Guardians no longer see Sam's club schedule."
 - Each September 1, staff get a reminder to check roster-only junior kinds.
 
 ### 4.6 Leaving, removal and blocking
@@ -647,7 +647,7 @@ When an adult turns club rules off, the hero shows their own view. The club resu
 New elements on the Now screen, all inside `#home` and hidden when there is no club context:
 
 - `#clubStatus` above the hero: the water status banner (7.4).
-- `#clubLine` inside the hero above the verdict, small: whose rules and which crew type, with "Change".
+- `#rowAs` (07 8.4 shares this line with personal limit sets; 08 K44) inside the hero above the verdict, small: whose rules and which crew type, with "Change".
 - `#clubNotes` under `holds`: notes from requirements.
 - `#clubAlt` under the notes: the general result, only when it differs.
 
@@ -732,7 +732,7 @@ On the club page Today tab, for staff and members: one row per crew type the rul
 | Masters, 1x without a launch | Caution: gusts to 14 mph | Go | Stay off: gusts to 19 mph, club limit 15 | Go |
 | Everyone else | Go | Go | Caution | Go |
 
-Crew types come from `crewTypes(rules, groups)`: each enabled rule with a group, class or escort scope gives one row labeled by its scope, deduplicated; classes in a list use the first class as the example ("1x" for `["1x", "2x"]`, labeled "1x, 2x"). At most 12 rows. The table is computed client-side with `levelsFor(m, ctx)`, which reruns `assess()` on the existing hours with each crew type's settings. No extra fetch. At 168 hours and 12 crew types this is about 2,000 `assess()` calls (estimate; measure in the benchmark 05 plans).
+Crew types come from `crewTypes(rules, groups)`: each enabled rule with a group, class or escort scope gives one row labeled by its scope, deduplicated; classes in a list use the first class as the example ("1x" for `["1x", "2x"]`, labeled "1x, 2x"). At most 12 rows. Below 46 rem each crew type is its own panel instead of a table row, so nothing scrolls sideways at 360 px (07 5.8; 08 K63). The table is computed client-side with `levelsFor(m, ctx)`, which reruns `assess()` on the existing hours with each crew type's settings. No extra fetch. At 168 hours and 12 crew types this is about 2,000 `assess()` calls (estimate; measure in the benchmark 05 plans).
 
 ### 6.8 Templates from USRowing guidance
 
@@ -752,7 +752,7 @@ The four-oar rule is offered as an example in the editor's help text, not as a t
 
 - `src/clubrules.js` (new, pure): `BOAT_CLASSES`, `OARS`, `SEATS`, `LIMIT_KEYS` (key, unit, direction, range), `REQ_KEYS`, `ruleMatches`, `mergeRules`, `stricter`, `stricterReq`, `clubSettings`, `clubReasons(m, h, light)`, `clubNotes(m, ctx)`, `statusFor(statuses, ctx, t)`, `crewTypes`, `levelsFor`, `rulesText` (sentences for the public page and How this works).
 - `src/logic.js`:
-  - `buildModel(data, S, now, club = null)`. With `club`, sets `m.club = { ctx, rules, statuses, clearances, dockWater, settingsAt, mergedAt }`. Without it, nothing changes (a snapshot test proves Putney output is identical).
+  - `buildModel(loc, data, S, now, { club })` (08 K14). With `club`, sets `m.club = { ctx, rules, statuses, clearances, dockWater, settingsAt, mergedAt }`. Without it, nothing changes (a snapshot test proves Putney output is identical).
   - `assess()`: `const S = m.club ? m.club.settingsAt(h.t) : m.S;` then, after the alert loop, `if (m.club) r.push(...clubReasons(m, h, light))`. Threshold texts gain ", club limit 15" when `S._from[key] === 'club'`.
   - `waterTemp(m)`: when `m.club` has a dock reading under 24 hours old, use it first, labeled "dock reading by Alex R. at 6:05 AM".
   - `LIGHT_KEYS` in `src/config.js` becomes `['dark', 'twilight', 'club_daylight']`, so periods, holds and `callRuns()` ignore the daylight reason the same way they ignore twilight.
@@ -969,7 +969,7 @@ Pairing:
 
 1. An admin opens Settings, Boathouse screens, "Add a screen": a name ("Boathouse tablet") and a location. The server creates a `club_devices` row with a 6-digit code valid 10 minutes.
 2. On the device, open `/club/<slug>#kiosk` and tap "Use this device as the boathouse screen", then enter the code.
-3. `POST /api/kiosk/pair` checks the code (rate limited by `CODE_LIMIT`, 5 tries a minute per IP), clears it, and sets cookie `rw_kiosk`: a 32-byte random token, `HttpOnly; Secure; SameSite=Strict; Path=/api/; Max-Age=15552000` (180 days, renewed on use). Only its SHA-256 is stored.
+3. `POST /api/kiosk/pair` checks the code (rate limited by `JOIN_CODE_LIMIT`, 5 tries a minute per IP; 22.6), clears it, and sets cookie `rw_kiosk`: a 32-byte random token, `HttpOnly; Secure; SameSite=Strict; Path=/api/; Max-Age=15552000` (180 days, renewed on use). Only its SHA-256 is stored.
 4. Admins see each screen with its last activity and a "Remove" button.
 
 What a kiosk can do: read the board (kiosk view), read adult member names (first name, last initial) for the picker, start a row for a picked adult, mark back rows it started or the picked member's. What it cannot do: see staff tools, incidents, clearances (other than "missing" warnings for the picked person), contacts, settings, junior names.
@@ -999,7 +999,7 @@ The club chain runs on `club_stage` and `club_next_at`, beside 04's personal cha
 
 If the club has no active safety officer, stage 1 goes to admins and the board shows admins "Nobody has the safety officer role. Overdue alerts go to admins."
 
-The engine: 05's every-minute tick also selects `outings WHERE club_next_at <= ?` (index `outings_club_next`) and calls `clubOverdueStep(env, outing, now)` in `worker/clubs/overdue.js`. Each step writes `notify_log` with dedupe key `overdue-club:<outing id>:<club_stage>` (kind `overdue`), advances `club_stage` and `club_next_at` in the same `env.DB.batch()`, and never sends a step twice. Quiet hours never hold these (05).
+The engine: 05's every-minute tick also selects `outings WHERE club_next_at <= ?` (index `outings_club_next`) and calls `clubOverdueStep(env, outing, now)` in `worker/clubs/overdue.js`. Each step writes one `notify_log` row per recipient with dedupe key `odc:<outing id>:<stage>:<user id>` (kind `overdue`; 21.4, 08 K16), advances `club_stage` and `club_next_at` in the same `env.DB.batch()`, and never sends a step twice. Quiet hours never hold these (05).
 
 "On it" (staff): sets `ack_by`, `ack_name`, `ack_at`; stops stage 2; tells the stage 1 recipients "Alex R. is on it: Sam L., 1x, overdue since 7:45 AM."; stage 3 still fires 30 minutes after stage 2 would have, if the outing is still open.
 
@@ -1482,7 +1482,7 @@ The daily run (05's `17 9 * * *` cron) applies these. 03 owns the privacy policy
 | Active invites per club | 50 |
 | Invite uses | 1 to 500 |
 | Invite expiry | Links and codes up to 90 days; personal up to 14; staff roles 7 |
-| Code tries | 5 a minute per IP (`CODE_LIMIT`), 20 a day per account |
+| Code tries | 5 a minute per IP (`JOIN_CODE_LIMIT`), 20 a day per account |
 | Join requests | 5 pending per user, 1 per club, 30 days after a decline |
 | Guardians per junior | 4 |
 | Water status posts | 30 a day per club; at most 30 days long |
@@ -1502,7 +1502,7 @@ New rate limit bindings, with separate namespace ids for production and Previews
 | Binding | Limit per 60 s | Key |
 | --- | --- | --- |
 | `CLUB_LIMIT` | 30 | user id, for club writes |
-| `CODE_LIMIT` | 5 | IP, for invite codes and kiosk pairing |
+| `JOIN_CODE_LIMIT` (22.6) | 5 | IP, for invite codes and kiosk pairing |
 | `KIOSK_LIMIT` | 30 | device id |
 | `CAL_LIMIT` | 10 | token hash |
 
@@ -2065,21 +2065,17 @@ CREATE INDEX outing_crew_user ON outing_crew (user_id) WHERE user_id IS NOT NULL
 CREATE INDEX outing_crew_member ON outing_crew (membership_id) WHERE membership_id IS NOT NULL;
 ```
 
-01's `locations` gains the emergency info (8.7), in phase 5:
-
-```sql
-ALTER TABLE locations ADD COLUMN emergency TEXT CHECK (emergency IS NULL OR (json_valid(emergency) AND length(emergency) <= 6000));
-```
+01's `locations` holds the emergency info (8.7) in an `emergency` column, `TEXT CHECK (emergency IS NULL OR (json_valid(emergency) AND length(emergency) <= 6000))`, which 08's `0003` creates in phase 3, because 07 shows the Safety section from phase 3 (08 K13). No `ALTER` is needed.
 
 04 adds `reports.club_id` and `hazards.club_id` in phase 5 (04 section 9); nothing more is needed here.
 
-05's `notify_prefs.kind` and `notify_log.kind` gain `club` (section 21). Because SQLite cannot change a CHECK in place, this is easiest if 05 creates the phase 4 tables with `club` already in the lists, unused until phase 5, the same approach as 8.1.
+05's `notify_prefs.kind` and `notify_log.kind` gain `club` (section 21). Because SQLite cannot change a CHECK in place, 08's `0008` creates these tables in phase 3 with `club` already in the lists, unused until phase 5, the same approach as 8.1 (08 K19).
 
 `audit_log` is 08's table. Club actions written to it: `club.create`, `club.update`, `club.verify`, `club.verify.reject`, `club.suspend`, `club.delete.request`, `club.delete.cancel`, `club.delete.done`, `member.approve`, `member.decline`, `member.remove`, `member.block`, `member.roles`, `member.groups`, `member.kind`, `member.clearance`, `member.roster.add`, `invite.create`, `invite.revoke`, `group.update`, `rules.update`, `status.set`, `status.clear`, `board.start_for`, `board.ack`, `board.resolve`, `device.pair`, `device.revoke`, `incident.create`, `incident.view`, `incident.update`, `incident.export`, `boat.update`, `boat.status`, `damage.update`, `booking.decide`, `booking.bump`, `practice.cancel`, `practice.land`, `lineup.publish`, `announcement.send`, `announcement.delete`, `export.download`. Each row: actor user id, club id, action, target type and id, a small JSON detail (for example `{ "state": ["open", "closed"] }`), time.
 
 ## 19. API
 
-JSON under `/api/`, same origin only, signed in through 03's `auth_session` cookie unless marked otherwise. Errors are `{ "error": "code", "message": "Human sentence." }` as in `worker/reports.js`. Writes are rate limited by `CLUB_LIMIT` per user. `worker/index.js` hands every path starting with `/api/clubs/`, `/api/invites/`, `/api/kiosk/`, `/api/cal/`, `/api/me/clubs`, `/api/me/juniors/`, `/api/me/calendar-links` and `/api/locations/:slug/club-context` to `routeClubs()` in `worker/clubs/index.js`, a small table of regular expressions and handlers (no router dependency).
+JSON under `/api/`, same origin only, signed in through 03's `__Host-rw_session` cookie unless marked otherwise (08 K56). Errors are `{ "error": "code", "message": "Human sentence." }` as in `worker/reports.js`. Writes are rate limited by `CLUB_LIMIT` per user. `worker/index.js` hands every path starting with `/api/clubs/`, `/api/invites/`, `/api/kiosk/`, `/api/cal/`, `/api/me/clubs`, the exact pattern `/api/me/juniors/:membershipId/approve` (03 owns the other `/api/me/juniors/` routes; 08 3.5, K50), `/api/me/calendar-links` and `/api/locations/:slug/club-context` to `routeClubs()` in `worker/clubs/index.js`, a small table of regular expressions and handlers (no router dependency).
 
 ### 19.1 Phase 5
 
@@ -2331,9 +2327,9 @@ Club notifications use three kinds 05 already has, and one new kind:
 
 Changes to 05's tables, for 05 and 08:
 
-- `notify_prefs.kind` and `notify_log.kind` gain `club` in their CHECK lists. SQLite cannot change a CHECK in place, so 05 creates both tables in phase 4 with `club` already listed, as 18.3 asks.
+- `notify_prefs.kind` and `notify_log.kind` gain `club` in their CHECK lists. SQLite cannot change a CHECK in place, so 08's `0008` creates both tables in phase 3 with `club` already listed (08 K19).
 - In `notify_prefs`, the two club CHECKs widen to `kind IN ('water_status', 'practice', 'club')`. 05's unique index `notify_prefs_one` then allows one `club` pref per person per club, which is what 21.8 needs.
-- `notify_log` gains `subkind TEXT CHECK (subkind IS NULL OR (kind = 'club' AND length(subkind) BETWEEN 3 AND 24))`. 05 can create it in phase 4, or phase 5 adds it with `ALTER TABLE notify_log ADD COLUMN`, which SQLite allows for a nullable column with a CHECK.
+- `notify_log` gains `subkind TEXT CHECK (subkind IS NULL OR (kind = 'club' AND length(subkind) BETWEEN 3 AND 24))`. 08's `0008` creates it with the table in phase 3 (08 K19).
 - Checked locally (SQLite 3.50.4 through `node:sqlite` in Node 22.22.0, 2026-10-17, not D1): the added column's CHECK refused a subkind on a `night_before` row and a one-letter subkind; the widened `notify_prefs` CHECKs refused a `club` pref with no club, and the unique index refused a second `club` pref for the same club.
 - `notify_log.ref_id` holds what the notification is about: the water status, practice, outing, booking, damage report, boat, announcement or incident id, or the club id for rules and membership notices.
 - 05's owner stats (`GET /api/admin/notify/stats`) group `club` rows by `subkind`.
@@ -2418,7 +2414,7 @@ Safety (phase 5):
 | S11 | Emergency info due for a check | Daily run: the day the location's `emergency.checkedAt` turns a year old, then every 30 days until someone checks it (8.7) | Safety officers and admins of the steward club | `club` (`emergency_check`) | `cl:emergency_check:<location id>:<month key>:<user id>` |
 | S12 | Clearance about to expire | Daily run: 30 days before, and on the day, a clearance expires that an enabled rule requires (6.3) | The member; a junior's guardians | `club` (`clearance`) | `cl:clearance:<membership id>:<key>:<expiry day key>:<user id>` |
 
-8.6 writes the club stage key as `overdue-club:<outing id>:<club_stage>`. The keys above are its per-recipient form, in 05's short style: `notify_log` holds one row per recipient, so the user id must be in the key. 08 keeps one spelling.
+These are the club overdue keys, in 05's short style: `notify_log` holds one row per recipient, so the user id must be in the key. 08 K16 keeps this spelling, and 8.6 uses it.
 
 Decision: When every stage 1 recipient is aboard the overdue boat, stage 1 also goes to the club's admins.
 - Alternative: stage 1 as 8.6 says, so a lone safety officer who is the overdue sculler hears about their own boat and nobody else hears until stage 2.
@@ -2658,9 +2654,7 @@ CREATE INDEX IF NOT EXISTS practices_rsvp ON practices (rsvp_by)
 CREATE INDEX IF NOT EXISTS bookings_due ON bookings (starts_at)
   WHERE status IN ('pending', 'confirmed');
 
--- 05's notify_log, in phase 4, or in phase 5 if 05 left it out
-ALTER TABLE notify_log ADD COLUMN subkind TEXT
-  CHECK (subkind IS NULL OR (kind = 'club' AND length(subkind) BETWEEN 3 AND 24));
+-- notify_log.subkind needs no ALTER: 08's 0008 creates it in phase 3 (08 K19).
 ```
 
 Checked with `EXPLAIN QUERY PLAN` in local SQLite 3.50.4 (2026-10-17, not D1): the evening check and RSVP queries search their new indexes. `bookings_due` fixes 11.3's no-show step: with only `bookings_boat`, the plan was `SCAN bookings USING INDEX bookings_boat`, every pending and confirmed booking every minute; with `bookings_due` it is `SEARCH bookings USING INDEX bookings_due (starts_at<?)`.
@@ -2758,7 +2752,7 @@ Loaded with dynamic `import()` on `/club/` routes or when a club sheet opens (20
 
 | File | Phase | Holds |
 | --- | --- | --- |
-| `src/club/index.js` | 5 | `initClubPage(slug, hash)`: the club tab bar, 20's hash routes, the public or the members' view. |
+| `src/club/club.js` (not `index.js`, so the lazy chunk is named `club`; 08 8.4, K55) | 5 | `initClubPage(slug, hash)`: the club tab bar, 20's hash routes, the public or the members' view. |
 | `src/club/api.js` | 5 | `clubApi(method, path, body)`: same-origin fetch, 19's error shape, and 04's `src/outbox.js` for writes that must survive no signal (board actions, incidents). |
 | `src/club/create.js` | 5 | `/club/new` (3.2). |
 | `src/club/join.js` | 5 | `/club/join/<token>` and code entry (4.3). |
@@ -2785,15 +2779,15 @@ Loaded with dynamic `import()` on `/club/` routes or when a club sheet opens (20
 
 | File | Phase | Change |
 | --- | --- | --- |
-| `index.html` | 5 | `#clubStatus` above `#hero`; `#clubLine` above `#verdict`; `#clubNotes` and `#clubAlt` under `#holds` (6.6); the public club line and "Clubs here" in `#home`; a `#club` container beside `#home` and `#detail`; one `<dialog id="clubSheet">` for club sheets. |
+| `index.html` | 5 | `#clubStatus` above `#hero`; `#rowAs` above `#verdict` (from phase 2, 07; 08 K44); `#clubNotes` and `#clubAlt` under `#holds` (6.6); the public club line and "Clubs here" in `#home`; a `#club` container beside `#home` and `#detail`; one `<dialog id="clubSheet">` for club sheets. |
 | `src/main.js` | 5 | Starts `loadClubContext()` beside `refresh()`'s data fetch and on the 10-minute timer, never awaited before the first `render()`; sends `/club/` paths to `initClubPage()`; starts kiosk mode on `#kiosk`. |
 | `src/state.js` | 5 | `app.club` (the context for the active location) and `app.clubPick` (the club chosen per location). |
 | `src/config.js` | 5 | 6.9's `LIGHT_KEYS`, `THEN` and `FACTORS`; storage keys `CLUB_KEY` (`rowhether-club-v1`), `BOARD_KEY` (`rowhether-board-v1`), `INCIDENT_DRAFT_KEY` (`rowhether-incident-draft-v1`). |
 | `src/storage.js` | 5 | `loadClubCache`, `saveClubCache`, `loadBoard`, `saveBoard`, `loadIncidentDraft`, `saveIncidentDraft`, each wrapped in try/catch. |
-| `src/logic.js` | 5 | 6.9: `buildModel(..., club)`, club reasons in `assess()`, the dock reading in `waterTemp()`, the daylight rule in `periodsFor()` and `m.daytime`. |
+| `src/logic.js` | 5 | 6.9: `buildModel(loc, data, S, now, { club })`, club reasons in `assess()`, the dock reading in `waterTemp()`, the daylight rule in `periodsFor()` and `m.daytime`. |
 | `src/render/hero.js` | 5 | `renderClubStatus`, `renderClubLine`, `renderClubNotes`, `renderClubAlt` (6.6) and the "as of" line (21.6). |
 | `src/render/now.js` | 5 | The public club status line and "Clubs here" (3.5), placed by 07. |
-| `src/render/safety.js` (new) | 5 | The location Safety section from `loc.emergency` (8.7). Small and in the main bundle, so it works offline with the location cache. |
+| `src/render/safety.js` (new) | 3 (07 4.4 shows the Safety section from phase 3; 08 K54) | The location Safety section from `loc.emergency` (8.7). Small and in the main bundle, so it works offline with the location cache. |
 | `src/render/detail/week.js` | 5, 6 | Club rules factor lines (6.9); "Book a boat" on Plan a row sessions when booking is on (11.5). |
 | `src/render/detail/common.js` | 5 | `limitText(S, key)`: "Club rule: 15 mph." for the How this works panels (6.5). |
 | `src/settings.js` | 5 | Club labels per field and the "Use club rules here" switch (6.5). |
@@ -2827,8 +2821,8 @@ Loaded with dynamic `import()` on `/club/` routes or when a club sheet opens (20
 | File | Phase | Holds |
 | --- | --- | --- |
 | `migrations/00NN_clubs.sql` | 5 | 18.1's tables and indexes. |
-| `migrations/00NN_locations_club.sql` | 5 | `ALTER TABLE locations ADD COLUMN steward_club_id TEXT REFERENCES clubs(id) ON DELETE SET NULL;`, its index `locations_steward`, and `emergency` (18.3), all after `clubs` (23.1). |
-| `migrations/00NN_notify_subkind.sql` | 5, only if 05 did not create it | `notify_log.subkind` (21.1). |
+| `migrations/00NN_locations_club.sql` | 5 | `ALTER TABLE locations ADD COLUMN steward_club_id TEXT REFERENCES clubs(id) ON DELETE SET NULL;` and its index `locations_steward`, after `clubs` (23.1). 08 numbers it `0010_club_links.sql` with `reports.club_id` and `hazards.club_id`; `emergency` is created in phase 3 (08 K13). |
+| `migrations/00NN_notify_subkind.sql` | not needed | `notify_log.subkind` is in 08's `0008` (08 K19). |
 | `migrations/00NN_club_ops.sql` | 6 | 18.2's tables, with `practices.check_at` and the three indexes in 21.7. |
 | `wrangler.jsonc` | 5, 6 | Rate limits `CLUB_LIMIT`, `JOIN_CODE_LIMIT` and `KIOSK_LIMIT` (phase 5) and `CAL_LIMIT` (phase 6), at the top level and in `previews`, with separate namespace ids (08 assigns them); a var `CLUBS_ENABLED`, `"1"` in `previews` and `"0"` at the top level until the owner turns clubs on. |
 | `CLAUDE.md` | 5, 6 | With the owner's approval, as for every CLAUDE.md edit: the Worker routes list, the club files in the code map, the bindings, and the rule that club features are broadcast only. |
@@ -3071,7 +3065,7 @@ In Chromium and WebKit, at 390 px light and 1280 px dark unless stated, with `/a
 - Incident form: typing saves a draft; a reload restores it; Send while offline queues it.
 - Account: Your clubs, a guardian approval, and invite code entry typed in lowercase with no hyphen.
 - Plan a row (phase 6): "Book a boat" shows only when booking is on; the sheet lists the free boats; after booking, the session shows "Booked: Bellows".
-- Bundle: `scripts/bundle-budget.mjs` compares the gzipped entry chunk with a stored baseline and fails above 4 KB of growth (20; 08 sets the final number). CI runs it after `npm run build`.
+- Bundle: `scripts/budget.mjs` (07 10.6; 08 K39) compares the gzipped entry chunk with `budget.json`, whose phase 5 step is 4,000 B (20; 08 11.2). CI runs it after `npm run build`.
 
 ### 24.7 Device and pilot checks
 
