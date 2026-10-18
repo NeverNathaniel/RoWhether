@@ -4,7 +4,7 @@ Reviewed `docs/full-app/01` to `08` and the code they describe, on `dev-full-app
 
 Status: in progress
 
-Count: 8 blockers, 16 major, 24 minor.
+Count: 8 blockers, 17 major, 28 minor.
 
 Severity: blocker means it must be fixed before the phase it affects is built; major means wrong, contradictory or unsafe; minor means wording or a small gap. Every finding was checked against the files named. Quotes are exact. Line numbers are for the commit above.
 
@@ -387,3 +387,44 @@ The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this
 - Where: 08 9.2 (lines 2170 to 2180); 01 15.3 (line 1458); `src/render/now.js` 29; `src/render/detail/river.js` 73 and 78.
 - Problem: 08 9.2 is the list "fixed in phase 0", and names `clockMin`, `h0` in `buildModel`, `PLAN_STEP`, `parseFlowDays` and `sunFor`. 01 15.3 also names "`nowPrecip`'s same expression" (`const h0 = Math.floor(m.now / HOUR) * HOUR;` in `now.js` line 29), and the River chart's hour ticks use `Math.ceil(t0 / HOUR) * HOUR` (`river.js` 73, 78). In a +5:30 zone the precipitation window and the ticks fall on half hours.
 - Fix: Add both to 08 9.2, fixed with the hour that contains `now` and local hour starts.
+
+## Further contradictions
+
+### Major
+
+#### C49. 05 merges club rules and personal limits in the opposite order to 06
+
+- Severity: major (phase 5).
+- Where: 05 5.2 `runDue()` step 4 (line 351); 06 6.5 (lines 621 to 627).
+- Problem: 05: "the effective settings `S` for that location: the location's thresholds (01), then the user's synced overrides for that location (03's `user_settings`), then club rules when the user rows under a club rule set (06)". 06: "`S = { ...Base, ...Club }`" and then "For each key, `S[k] = stricter(k, S[k], personal[k])`. A personal value looser than `S` is ignored". In 05's order the club value replaces a member's stricter personal limit, so a night-before message can say Go while the app, with the same data, says Caution. 05 3.2 sets the rule that "a notification and the screen never disagree".
+- Fix: 05 5.2 step 4: "`S` from 06's `clubSettings()` when club rules apply, else 01's `effectiveSettings()`", so the Worker and the app call the same function.
+
+### Minor
+
+#### C50. 08's list of CLAUDE.md changes for the owner leaves out several the topic documents ask for
+
+- Severity: minor.
+- Where: 08 17.2 (line 2914); 03 18 (line 1632); 06 22.6 (line 2828); 07 16 (line 1530).
+- Problem: 08 asks the owner to "Approve the CLAUDE.md changes: Preview secrets, the Turnstile sentence, the storage keys, the code map | phase 0 (code map), phase 2 (the rest)". The topic documents also ask for: the navigation sentence and the app name (07, both phase 1), the "Saved" header label and test list additions (07), the Worker routes list and "the no private messages rule" (03), and "the rule that club features are broadcast only" (06). The app name and the navigation sentence are phase 1 changes, not phase 2. C41 and C42 add two more.
+- Fix: One list in 08 17.2 with every requested CLAUDE.md change and its phase.
+
+#### C51. 07 cites 01 text that 08's edits have since changed
+
+- Severity: minor.
+- Where: 07 4.2 (line 227) and 7.4 (line 900); 08 K24 and K26.
+- Problem: 07 4.2: "01 7.2 plans per-location shells as `<slug>/index.html`, which would send `/putney-landing` to `/putney-landing/`. Emit them as `dist/<slug>.html` instead (section 16)." 01 7.2 now says `<slug>.html` (K24). 07 7.4: "01's table 11.2 says "shown as 38°C"; that is a conversion slip to fix (section 16)." 01 11.2 now says 20°C (K26). A reader following the reference finds the opposite of what 07 describes.
+- Fix: Reword both as settled: "Shells are `dist/<slug>.html` (01 7.2, 08 K24)" and "01 11.2 shows the cold line as 20°C (08 K26)".
+
+#### C52. `unitFormat` has two different signatures
+
+- Severity: minor (phase 0, then phase 2).
+- Where: 07 7.7 (line 924); 08 14.2 P0.11 (lines 2711 and 2712).
+- Problem: 07: `export function unitFormat({ system = 'us', wind = 'auto' } = {})`, returning `speed`, `speedUnit`, `temp`, `tempDiff`, `tempSum`, `precip`, `rate`, `vis`, `dist`, `flow`, `stage` and the `to*` converters. 08: "`unitFormat(system = 'us')`: `speed(v)` ..., `temp(v)` ..., `dist(m)` ..., `precip(v)`, `flow(v, unit)`, `aqi(v)`", and "`m.u = unitFormat(units || 'us')`". Phase 0 builds one shape and phase 2 needs the other, so every call changes twice.
+- Fix: P0.11 uses 07's object argument and names (`unitFormat({ system: 'us' })`), implementing only the US branch.
+
+#### C53. 03's written retention policy leaves out two audit kinds
+
+- Severity: minor.
+- Where: 03 12.1 (lines 855, 856 and 869); 08 10.7 (lines 2317 and 2318).
+- Problem: 03: "This table, with the retention column, is the written retention policy. The privacy notice publishes it." Its audit rows are `security` (1 year) and `admin`, `moderation` (3 years). 08 10.7 adds `club` (2 years) and `safeguarding` (7 years, legal review to confirm), which hold personal data about members and juniors.
+- Fix: Add both rows to 03 12.1 with 08's periods.
