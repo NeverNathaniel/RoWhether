@@ -1,8 +1,8 @@
 # Consistency review of the plan
 
-Reviewed `docs/full-app/01` to `08` and the code they describe, on `dev-full-app` at commit `59bed34` (no file under `src/`, `worker/`, `test/` or the build config has changed since `20e4255`, where 08 read the code). Started Sun Oct 18 10:12:10 UTC 2026 (`date -u`).
+Reviewed `docs/full-app/01` to `08` and the code they describe, on `dev-full-app` at commit `59bed34` (no file under `src/`, `worker/`, `test/` or the build config has changed since `20e4255`, where 08 read the code). Started Sun Oct 18 10:12:10 UTC 2026 and finished Sun Oct 18 10:31:52 UTC 2026 (`date -u`).
 
-Status: in progress
+Status: complete
 
 Count: 8 blockers, 17 major, 30 minor.
 
@@ -10,7 +10,7 @@ Severity: blocker means it must be fixed before the phase it affects is built; m
 
 ## Phase 0 (08 section 14)
 
-The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this section comes first. Each step was checked against `src/`, `worker/`, `test/`, `index.html`, `vite.config.js`, `package.json` and `.github/workflows/ci.yml`. What holds: the golden scenarios and clocks (19 cases), `T0` and `wx()` in `test/logic.test.js`, every function `capture` calls exists with the signature given (except C15), the views return `{ day, html }` with the lede inside, `matchMedia('(min-width:46rem)')` in `chartWidth()`, the today build sizes in 11.1 (rebuilt here: 38,988, 5,976 and 3,618 B gzip, 17 precache entries, 262.89 KiB), Playwright 1.56.1 with `chromium-1194` in the container, the 109 tests, the `relWind` lines 65 and 89, the compass literals at `parts.js` 23 and 24, the river literals at `river.js` 155, 157 and 14, Putney's JSON thresholds and copy against `DEFAULTS` and the render text, the Turnstile literal, and the storage migration against `src/storage.js`, `src/config.js` and `src/install.js` after the install bar change (`putney-rowing-install-v2`, `{ dismissed, never }`, the `-v1` snooze not read). The findings below are what does not hold.
+The Phase 0 build follows 08 14.2 and runs in parallel with this review, so this section comes first. Each step was checked against `src/`, `worker/`, `test/`, `index.html`, `vite.config.js`, `package.json` and `.github/workflows/ci.yml`. What holds: the golden scenarios and clocks (19 cases), `T0` and `wx()` in `test/logic.test.js`, every function `capture` calls exists with the signature given (except C15), the views return `{ day, html }` with the lede inside, `matchMedia('(min-width:46rem)')` in `chartWidth()`, the today build sizes in 11.1 (rebuilt here: 38,988, 5,976 and 3,618 B gzip, 17 precache entries, 262.89 KiB), Playwright 1.56.1 with `chromium-1194` in the container, the 109 tests, the `relWind` lines 65 and 89, the compass literals at `parts.js` 23 and 24, the river literals at `river.js` 155, 157 and 14, Putney's JSON thresholds and copy against `DEFAULTS` and the render text, the Turnstile literal, every element id P0.1 and P0.2 name (`#verdict`, `#why`, `#holds`, `#hero`, `#detail`, `#statusNote` and the rest exist in `index.html`), and the storage migration against `src/storage.js`, `src/config.js` and `src/install.js` after the install bar change (`putney-rowing-install-v2`, `{ dismissed, never }`, the `-v1` snooze not read). The findings below are what does not hold.
 
 ### Blockers
 
