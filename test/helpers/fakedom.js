@@ -30,6 +30,15 @@ export class FakeElement {
     this._disabled = false;
     this.dataset = watched(this);
     this.style = watched(this);
+    this.extra = {}; // any other property the page code set, such as title or className
+    // A property the stand-in does not model is kept, not lost, so a change that
+    // starts setting an attribute shows up in the captured output.
+    return new Proxy(this, {
+      set(o, k, v, recv) {
+        if (typeof k === 'string' && !(k in o)) { o.extra[k] = typeof v === 'object' && v !== null ? String(v) : v; o.written = true; return true; }
+        return Reflect.set(o, k, v, recv);
+      }
+    });
   }
   get innerHTML() { return this._html; }
   set innerHTML(v) { this.written = true; this._html = String(v ?? ''); this._text = strip(this._html); }

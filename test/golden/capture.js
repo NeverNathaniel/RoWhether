@@ -21,11 +21,26 @@ import { VIEWS } from '../../src/render/detail/index.js';
 import { weekDays } from '../../src/render/detail/common.js';
 import { shareText } from '../../src/share.js';
 import { app } from '../../src/state.js';
-import { SCENARIOS } from '../fixtures/golden.js';
+import { SCENARIOS, EXTRA_SCENARIOS } from '../fixtures/golden.js';
+import { VARIANTS } from '../fixtures/variants.js';
 import { installFakeDom, uninstallFakeDom } from '../helpers/fakedom.js';
 
 // ---------- the cases ----------
 export const CUSTOM = { ...DEFAULTS, heading: 20, windCaution: 8, rainCaution: '', waterOverride: 55 };
+
+// Settings the variants use besides DEFAULTS and CUSTOM: every line the rain,
+// smoke and cold settings can leave blank, and a tight set with the course
+// turned round.
+export const BLANK = { ...DEFAULTS, rainCaution: '', rainOff: '', aqiCaution: '', aqiOff: '' };
+export const TIGHT = { ...DEFAULTS, heading: 200, windCaution: 6, windOff: 9, gustCaution: 10, gustOff: 14, rainCaution: 30, rainOff: 60, coldCombined: 120, flowCaution: 8000, flowOff: 12000, aqiCaution: 51, aqiOff: 101 };
+// A heading whose reverse, 191°, is one degree short of a compass point edge, and a
+// cold line that air plus water meets exactly in june-calm at noon (76 and 68).
+export const EDGE = { ...DEFAULTS, heading: 11 };
+export const COLD144 = { ...DEFAULTS, coldCombined: 144 };
+// Rain lines at the ends of what the charts can draw: 1% and 100%, then 0% and 101%.
+export const RAIN1 = { ...DEFAULTS, rainCaution: 1, rainOff: 100 };
+export const RAIN2 = { ...DEFAULTS, rainCaution: 0, rainOff: 101 };
+const SETTINGS = { default: DEFAULTS, custom: CUSTOM, blank: BLANK, tight: TIGHT, edge: EDGE, cold144: COLD144, rain1: RAIN1, rain2: RAIN2 };
 
 // 9 scenario clocks times 2 settings, and one wide layout.
 export const CASES = [];
@@ -38,7 +53,24 @@ for (const scenario of Object.values(SCENARIOS)) {
 }
 CASES.push({ name: 'june-calm-1200-wide', scenario: SCENARIOS['june-calm'], clock: SCENARIOS['june-calm'].clock(12), settings: DEFAULTS, width: 1280 });
 
+// The variants (test/fixtures/variants.js): the same capture, leaner, on other
+// clocks and on data that was cut, emptied or pushed to extremes.
+export const VARIANT_CASES = VARIANTS.map(v => {
+  const scenario = SCENARIOS[v.scenario] || EXTRA_SCENARIOS[v.scenario];
+  return { name: v.name, scenario, clock: v.at ?? scenario.clock(v.hr), settings: SETTINGS[v.settings], width: v.width || 390, options: { raw: v.raw, data: v.data, open: v.open || 0, lean: true, extraDays: v.extraDays || [] }, claim: v.claim };
+});
+export const ALL_CASES = [...CASES, ...VARIANT_CASES];
+
 // ---------- helpers ----------
+// The one place the capture builds a model, so a change to buildModel's
+// arguments is made here and nowhere else.
+export const buildModel = (data, S, now) => L.buildModel(data, S, now);
+// What fetchAll would hold: the forecast as is, the rest parsed.
+export const dataFrom = raw => ({
+  wx: raw.wx, alerts: parseAlerts(raw.alerts), obs: parseObs(raw.obs), river: parseRiver(raw.river), flow: parseFlow(raw.flow),
+  flowDays: parseFlowDays(raw.flowDays), flowFcst: parseFlowForecast(raw.flowFcst), aq: parseAQ(raw.aq), models: parseModels(raw.models)
+});
+
 const sha = s => createHash('sha256').update(s).digest('hex');
 const pick = (o, keys) => Object.fromEntries(keys.map(k => [k, o[k] ?? null]));
 const T = hs => hs.map(h => h.t);
@@ -85,10 +117,29 @@ function withPlan(plan, fn) {
   try { return fn(); } finally { if (was) Object.defineProperty(globalThis, 'localStorage', was); else delete globalThis.localStorage; }
 }
 
+// Words the logic gives for fixed values. They do not depend on the data, so the
+// variant cases leave them out.
+const words = () => ({
+  kinds: Object.fromEntries([0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99].map(c => [c, L.precipKind(c)])),
+  rates: Object.fromEntries([0, 0.05, 0.1, 0.2, 0.3, 0.5].map(v => [v, L.rateWord(v)])),
+  aqi: Object.fromEntries([0, 50, 51, 100, 101, 150, 151, 200, 201, 300, 301, 500].map(v => [v, L.aqiWord(v)])),
+  uv: Object.fromEntries([0, 2.9, 3, 5.9, 6, 7.9, 8, 10.9, 11, 13].map(v => [v, L.uvWord(v)])),
+  alertLevels: Object.fromEntries(['Flood Watch', 'Flood Warning', 'Flash Flood Warning', 'Severe Thunderstorm Warning', 'Wind Advisory', 'High Wind Warning', 'Dense Fog Advisory', 'Winter Storm Warning', 'Frost Advisory', 'Special Weather Statement'].map(e => [e, alertLevel(e)]))
+});
+
 // ---------- the capture ----------
 // scenario: an entry of SCENARIOS. clock: the pinned time (ms). settings: the
 // settings object. sink(name, text) receives every string in full, for dumping.
-export function capture(scenario, clock, settings, { width = 390, sink = null } = {}) {
+//
+// Options for the variant cases (see VARIANTS):
+//   raw(raw, clock)  edits the upstream-shaped responses before they are parsed
+//   data(data)       edits the parsed data, for a source that failed and left nothing
+//   open             how many Day by day rows are open (the rows a viewer expanded)
+//   extraDays        day keys to draw each view for as well, such as one with no forecast
+//   lean             leaves out what an edit cannot change (the sun table, the
+//                    source list, fixed word tables), the 90 minute re-render, the
+//                    Plan a row choices, and every day of each detail view but the one it opens on
+export function capture(scenario, clock, settings, { width = 390, sink = null, raw: editRaw = null, data: editData = null, open = 0, lean = false, extraDays = [] } = {}) {
   if (Date.now() !== clock) throw new Error('Pin the clock to the case before capturing.');
   const kept = ['settings', 'data', 'errors', 'updated', 'fromCache', 'model', 'openPeriods'].map(k => [k, app[k]]);
 
@@ -99,19 +150,28 @@ export function capture(scenario, clock, settings, { width = 390, sink = null } 
   const elements = (dom, tag) => Object.fromEntries(dom.elements().filter(e => e.written).sort((a, b) => (a.id < b.id ? -1 : 1)).map(e => [e.id, {
     innerHTML: keep(`${tag}/${e.id}.innerHTML.html`, e.innerHTML),
     textContent: keep(`${tag}/${e.id}.textContent.txt`, e.textContent),
-    hidden: e.hidden, disabled: e.disabled, dataset: { ...e.dataset }
+    hidden: e.hidden, disabled: e.disabled, dataset: { ...e.dataset }, style: { ...e.style }, extra: { ...e.extra }
   }]));
 
   try {
     const raw = scenario.raw(clock);
+    if (editRaw) editRaw(raw, clock);
     const S = { ...settings };
-    // What fetchAll would hold: the forecast as is, the rest parsed.
-    const data = {
-      wx: raw.wx, alerts: parseAlerts(raw.alerts), obs: parseObs(raw.obs), river: parseRiver(raw.river), flow: parseFlow(raw.flow),
-      flowDays: parseFlowDays(raw.flowDays), flowFcst: parseFlowForecast(raw.flowFcst), aq: parseAQ(raw.aq), models: parseModels(raw.models)
-    };
-    const m = L.buildModel(data, S, clock);
+    const data = dataFrom(raw);
+    if (editData) editData(data);
+    const m = buildModel(data, S, clock);
     const out = {};
+
+    // No usable forecast: the model is null and the page shows the no data note.
+    if (!m) {
+      Object.assign(app, { model: null, data, errors: {}, settings: S, updated: raw.fetched, fromCache: false, openPeriods: new Set() });
+      const dom = installFakeDom({ width });
+      renderHeader(); renderNoData();
+      out.model = null;
+      out.parsers = { alerts: data.alerts, obs: data.obs, river: data.river, flow: data.flow, flowDays: data.flowDays, flowFcst: data.flowFcst, aq: data.aq, models: data.models };
+      out.home = elements(dom, 'noModel');
+      return JSON.parse(JSON.stringify(out));
+    }
 
     // ----- model -----
     out.model = projectModel(m);
@@ -147,11 +207,7 @@ export function capture(scenario, clock, settings, { width = 390, sink = null } 
       flow: { now: L.flowNow(m), trend: L.flowTrend(data.flow), change: L.flowChange(data.flow), waterTemp: L.waterTemp(m), overridden: L.waterOverridden(S) },
       light: m.hours.map(h => ({ day: 'd', twilight: 't', dark: 'n' }[L.lightAt(m, h.t + 30 * MIN)])).join(''),
       sunFor,
-      kinds: Object.fromEntries([0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99].map(c => [c, L.precipKind(c)])),
-      rates: Object.fromEntries([0, 0.05, 0.1, 0.2, 0.3, 0.5].map(v => [v, L.rateWord(v)])),
-      aqi: Object.fromEntries([0, 50, 51, 100, 101, 150, 151, 200, 201, 300, 301, 500].map(v => [v, L.aqiWord(v)])),
-      uv: Object.fromEntries([0, 2.9, 3, 5.9, 6, 7.9, 8, 10.9, 11, 13].map(v => [v, L.uvWord(v)])),
-      alertLevels: Object.fromEntries(['Flood Watch', 'Flood Warning', 'Flash Flood Warning', 'Severe Thunderstorm Warning', 'Wind Advisory', 'High Wind Warning', 'Dense Fog Advisory', 'Winter Storm Warning', 'Frost Advisory', 'Special Weather Statement'].map(e => [e, alertLevel(e)]))
+      ...(lean ? {} : words())
     };
 
     // ----- plans, runs, sun -----
@@ -169,27 +225,31 @@ export function capture(scenario, clock, settings, { width = 390, sink = null } 
         factors: Object.fromEntries(FACTORS.map(f => [f.key, L.factorRuns(m, d.key, f.keys).map(run)]))
       };
     }
-    out.sun = {};
-    for (let mo = 0; mo < 12; mo++) {
-      for (const day of [1, 15]) out.sun[`2026-${String(mo + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`] = L.sunOn(Date.UTC(2026, mo, day, 16));
+    if (!lean) {
+      out.sun = {};
+      for (let mo = 0; mo < 12; mo++) {
+        for (const day of [1, 15]) out.sun[`2026-${String(mo + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`] = L.sunOn(Date.UTC(2026, mo, day, 16));
+      }
     }
 
     // ----- sources and parsers -----
-    out.sources = Object.keys(SRC).map(k => [k, SRC[k](), SOURCE_NAMES[k]]);
+    if (!lean) out.sources = Object.keys(SRC).map(k => [k, SRC[k](), SOURCE_NAMES[k]]);
     out.parsers = { alerts: data.alerts, obs: data.obs, river: data.river, flow: data.flow, flowDays: data.flowDays, flowFcst: data.flowFcst, aq: data.aq, models: data.models };
 
     // ----- detail views -----
     // chartWidth() reads #detail and matchMedia, so the views need the stand-in page.
     let dom = installFakeDom({ width });
-    const days = weekDays(m).map(d => d.key);
+    const week = weekDays(m).map(d => d.key);
+    // A lean case draws each view once, for the day it opens on.
+    const days = lean ? [] : week;
     out.views = {};
     for (const v of VIEWS) {
       const entry = { summary: v.summary(m), days: {} };
-      for (const k of [null, ...days]) {
+      for (const k of [null, ...extraDays, ...days]) {
         const r = v.render(m, k);
         entry.days[String(k)] = { day: r.day, ...big(`views/${v.key}/${k}.html`, r.html) };
       }
-      if (v.key === 'week') {
+      if (v.key === 'week' && !lean) {
         // Plan a row remembers its choices; the other combinations draw differently.
         entry.plans = {};
         for (const plan of [{ minutes: 60, when: 'morning' }, { minutes: 120, when: 'afternoon' }]) {
@@ -201,7 +261,9 @@ export function capture(scenario, clock, settings, { width = 390, sink = null } 
     }
 
     // ----- the home screen -----
-    Object.assign(app, { model: m, data, errors: {}, settings: S, updated: raw.fetched, fromCache: false, openPeriods: new Set() });
+    // Rows a viewer opened stay open through a refresh: the first few that are not over.
+    const opened = new Set(m.days.flatMap(d => d.periods).filter(x => !x.past).slice(0, open).map(x => `${x.dayKey}-${x.key}`));
+    Object.assign(app, { model: m, data, errors: {}, settings: S, updated: raw.fetched, fromCache: false, openPeriods: opened });
     dom = installFakeDom({ width });
     renderHeader(); renderHero(); renderAlerts(); renderNow(); renderDays();
     out.home = elements(dom, 'home');
@@ -220,6 +282,8 @@ export function capture(scenario, clock, settings, { width = 390, sink = null } 
       noDataForecast: snap('noDataForecast', { wx: true }, renderNoData),
       noDataQuiet: snap('noDataQuiet', {}, renderNoData),
       partial: snap('partial', { alerts: true, river: true }, renderHero),
+      // Every source named in the note, in the order of SRC.
+      partialAll: snap('partialAll', all, renderHero),
       header: {}
     };
     for (const [tag, updated, errors, fromCache] of [
@@ -243,8 +307,8 @@ export function capture(scenario, clock, settings, { width = 390, sink = null } 
     // model falls back to the hour's values. At 6 AM in October this lands in
     // daylight with fog still on the river, which no case clock does.
     const t1 = clock + 90 * MIN;
-    out.later = at(t1, () => {
-      const m1 = L.buildModel(data, S, t1);
+    if (!lean) out.later = at(t1, () => {
+      const m1 = buildModel(data, S, t1);
       Object.assign(app, { model: m1, openPeriods: new Set() });
       const dom1 = installFakeDom({ width });
       renderHeader(); renderHero(); renderAlerts(); renderNow(); renderDays();
@@ -271,4 +335,5 @@ function fmt(v, depth, pad) {
   const ks = Object.keys(v);
   return ks.length ? `{\n${ks.map(k => `${inner}${JSON.stringify(k)}: ${fmt(v[k], depth - 1, inner)}`).join(',\n')}\n${pad}}` : '{}';
 }
-export const format = v => `${fmt(v, 3, '')}\n`;
+// A probe's rows are pairs of a value and an answer, one more level down.
+export const format = (v, depth = 3) => `${fmt(v, depth, '')}\n`;

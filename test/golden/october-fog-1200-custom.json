@@ -1384,98 +1384,126 @@
       "textContent": "\n    \n      Frost Advisory\n      Frost Advisory issued October 14 at 3:47AM EDT until October 15 at 9:00AM EDT by NWS Albany NY\n      Details* WHAT...Temperatures as low as 34 will result in frost formation.\n\n* WHERE...Windham County.\n\nTake steps now to protect tender plants from the cold.\n    ",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "compass": {
       "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(262)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
       "textContent": "NESWVTNH",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "compassCap": {
       "innerHTML": "Wind from W. River runs SSW, upstream heading 20°.",
       "textContent": "Wind from W. River runs SSW, upstream heading 20°.",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "days": {
       "innerHTML": {"length":15507,"sha256":"2ff85e2262ecda6ce309789046ffee76488efa73169892ef172f1130e3cc3b5e"},
       "textContent": {"length":5982,"sha256":"ece9aef8002c865367694743ed9cfbd3b8b64b888f7c84e3754d287859f63ac2"},
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "facts": {
       "innerHTML": {"length":4866,"sha256":"90aa07d2a6fa3cf6eebf5ec2e08fb0c9c78afbe1be68464511e119c35c751792"},
       "textContent": "Wind5 mph, gusts 10From W. Crosswind off the Vermont bank.Water stateFlat waterNot enough wind along the straight to build chop.Air60°FFeels like 58°F. Dew point 47°F.Water55°FYour reading, set in Settings.Air plus water115°FAbove the 100 cold-water line.Visibility10+ miFog risk low now. Tomorrow morning: valley fog likely, lifting about 9 AM. Air at the dew point, light wind and a clear night.Air qualityAQI 29Good. Fine particles 5 µg/m³. A forecast, not a measurement.River flow3,292 cfs Steady over 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 15 min ago.Daylight7:03 AM to 6:11 PMFirst light 6:34 AM, dark by 6:39 PM. Lights required outside sunrise to sunset.Measured at Keene5 mph W, 59°FClear. Keene airport, 14 mi east. A check on the model. 7 min ago.",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "hero": {
       "innerHTML": "",
       "textContent": "",
       "hidden": false,
       "disabled": false,
-      "dataset": {"lvl":0}
+      "dataset": {"lvl":0},
+      "style": {},
+      "extra": {}
     },
     "holds": {
       "innerHTML": "Holds until sunset at 6:11 PM.",
       "textContent": "Holds until sunset at 6:11 PM.",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "nowPrecip": {
       "innerHTML": {"length":3302,"sha256":"199a8360605ff88b1a715b2404ed333d0a4068f1458ebaae7c8639677b36716c"},
       "textContent": "\n    Precipitation, now to 6 PM\n    4% chance\n    Dry now. Little chance of rain or snow. Under 20% throughout.\n    90%12 PM1 PM2 PM4%3 PM4 PM5 PM12 PM: 0% chance.1 PM: 0% chance.2 PM: 3% chance.3 PM: 4% chance.4 PM: 3% chance.5 PM: 3% chance.\n    Tap a column for that hour.\n  ",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "nowSection": {
       "innerHTML": "",
       "textContent": "",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "shareBtn": {
       "innerHTML": "",
       "textContent": "",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "statusNote": {
       "innerHTML": "",
       "textContent": "",
       "hidden": true,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "updated": {
       "innerHTML": "Updated 11:57 AM",
       "textContent": "Updated 11:57 AM",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "verdict": {
       "innerHTML": "Go.",
       "textContent": "Go.",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "why": {
       "innerHTML": "Wind 5 mph from W, gusts 10. Flat water. 60°F air, 55°F water.",
       "textContent": "Wind 5 mph from W, gusts 10. Flat water. 60°F air, 55°F water.",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     }
   },
   "forecasts": {
@@ -1562,33 +1590,41 @@
   },
   "status": {
     "noDataAll": {
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""}},
-      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{}}
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "noDataForecast": {
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""}},
-      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{}}
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "noDataQuiet": {
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""}},
-      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{}}
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "partial": {
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":0}},
-      "holds": {"innerHTML":"Holds until sunset at 6:11 PM.","textContent":"Holds until sunset at 6:11 PM.","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"Go.","textContent":"Go.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"Wind 5 mph from W, gusts 10. Flat water. 60°F air, 55°F water.","textContent":"Wind 5 mph from W, gusts 10. Flat water. 60°F air, 55°F water.","hidden":false,"disabled":false,"dataset":{}}
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":0},"style":{},"extra":{}},
+      "holds": {"innerHTML":"Holds until sunset at 6:11 PM.","textContent":"Holds until sunset at 6:11 PM.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Go.","textContent":"Go.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Wind 5 mph from W, gusts 10. Flat water. 60°F air, 55°F water.","textContent":"Wind 5 mph from W, gusts 10. Flat water. 60°F air, 55°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partialAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":0},"style":{},"extra":{}},
+      "holds": {"innerHTML":"Holds until sunset at 6:11 PM.","textContent":"Holds until sunset at 6:11 PM.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","textContent":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Go.","textContent":"Go.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Wind 5 mph from W, gusts 10. Flat water. 60°F air, 55°F water.","textContent":"Wind 5 mph from W, gusts 10. Flat water. 60°F air, 55°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "header": {
       "loading": "Loading",
@@ -1654,20 +1690,20 @@
       1792004400000
     ],
     "home": {
-      "alerts": {"innerHTML":"\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Frost Advisory</strong>\n      <p>Frost Advisory issued October 14 at 3:47AM EDT until October 15 at 9:00AM EDT by NWS Albany NY</p>\n      <details><summary>Details</summary><pre>* WHAT...Temperatures as low as 34 will result in frost formation.\n\n* WHERE...Windham County.\n\nTake steps now to protect tender plants from the cold.</pre></details>\n    </div>","textContent":"\n    \n      Frost Advisory\n      Frost Advisory issued October 14 at 3:47AM EDT until October 15 at 9:00AM EDT by NWS Albany NY\n      Details* WHAT...Temperatures as low as 34 will result in frost formation.\n\n* WHERE...Windham County.\n\nTake steps now to protect tender plants from the cold.\n    ","hidden":false,"disabled":false,"dataset":{}},
-      "compass": {"innerHTML":"<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(242)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>","textContent":"NESWVTNH","hidden":false,"disabled":false,"dataset":{}},
-      "compassCap": {"innerHTML":"Wind from WSW. River runs SSW, upstream heading 20°.","textContent":"Wind from WSW. River runs SSW, upstream heading 20°.","hidden":false,"disabled":false,"dataset":{}},
-      "days": {"innerHTML":{"length":15502,"sha256":"f7885778a691555253767b273f0ed854525608527ac9a1583077b3af27c0fb37"},"textContent":{"length":5977,"sha256":"730c3472dddb6b1f869453b5097c62984f86ee23a1478fa20e1083b8b5b3b542"},"hidden":false,"disabled":false,"dataset":{}},
-      "facts": {"innerHTML":{"length":4895,"sha256":"faaca7f30bbda799445ea7d3619cfe4f0dd4842cf86afed88505c51e4675344e"},"textContent":"Wind6 mph, gusts 11From WSW. Tailwind rowing upstream, headwind coming back.Water stateLight chopWind runs along the straight, with a long reach to build waves.Air62°FFeels like 60°F. Dew point 48°F.Water55°FYour reading, set in Settings.Air plus water117°FAbove the 100 cold-water line.Visibility10+ miFog risk low now. Tomorrow morning: valley fog likely, lifting about 9 AM. Air at the dew point, light wind and a clear night.Air qualityAQI 28Good. Fine particles 5 µg/m³. A forecast, not a measurement.River flow3,292 cfs Steady over 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 2 hr ago.Daylight7:03 AM to 6:11 PMFirst light 6:34 AM, dark by 6:39 PM. Lights required outside sunrise to sunset.Measured at Keene5 mph W, 59°FClear. Keene airport, 14 mi east. A check on the model. 2 hr ago.","hidden":false,"disabled":false,"dataset":{}},
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":0}},
-      "holds": {"innerHTML":"Holds until sunset at 6:11 PM.","textContent":"Holds until sunset at 6:11 PM.","hidden":false,"disabled":false,"dataset":{}},
-      "nowPrecip": {"innerHTML":{"length":3335,"sha256":"95b0bc71041e3aa073f6127320a658e76f3bc282d884a67629475ea2c006d134"},"textContent":"\n    Precipitation, now to 6:11 PM\n    4% chance\n    Dry now. Little chance of rain or snow. Under 20% throughout.\n    90%1 PM2 PM4%3 PM4 PM5 PM6 PM1:30 PM: 0% chance.2 PM: 3% chance.3 PM: 4% chance.4 PM: 3% chance.5 PM: 3% chance.6 PM: 3% chance.\n    Tap a column for that hour.\n  ","hidden":false,"disabled":false,"dataset":{}},
-      "nowSection": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "statusNote": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "updated": {"innerHTML":"Updated 11:57 AM","textContent":"Updated 11:57 AM","hidden":false,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"Go.","textContent":"Go.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"Wind 6 mph from WSW, gusts 11. Light chop. 62°F air, 55°F water.","textContent":"Wind 6 mph from WSW, gusts 11. Light chop. 62°F air, 55°F water.","hidden":false,"disabled":false,"dataset":{}}
+      "alerts": {"innerHTML":"\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Frost Advisory</strong>\n      <p>Frost Advisory issued October 14 at 3:47AM EDT until October 15 at 9:00AM EDT by NWS Albany NY</p>\n      <details><summary>Details</summary><pre>* WHAT...Temperatures as low as 34 will result in frost formation.\n\n* WHERE...Windham County.\n\nTake steps now to protect tender plants from the cold.</pre></details>\n    </div>","textContent":"\n    \n      Frost Advisory\n      Frost Advisory issued October 14 at 3:47AM EDT until October 15 at 9:00AM EDT by NWS Albany NY\n      Details* WHAT...Temperatures as low as 34 will result in frost formation.\n\n* WHERE...Windham County.\n\nTake steps now to protect tender plants from the cold.\n    ","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "compass": {"innerHTML":"<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(242)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>","textContent":"NESWVTNH","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "compassCap": {"innerHTML":"Wind from WSW. River runs SSW, upstream heading 20°.","textContent":"Wind from WSW. River runs SSW, upstream heading 20°.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "days": {"innerHTML":{"length":15502,"sha256":"f7885778a691555253767b273f0ed854525608527ac9a1583077b3af27c0fb37"},"textContent":{"length":5977,"sha256":"730c3472dddb6b1f869453b5097c62984f86ee23a1478fa20e1083b8b5b3b542"},"hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "facts": {"innerHTML":{"length":4895,"sha256":"faaca7f30bbda799445ea7d3619cfe4f0dd4842cf86afed88505c51e4675344e"},"textContent":"Wind6 mph, gusts 11From WSW. Tailwind rowing upstream, headwind coming back.Water stateLight chopWind runs along the straight, with a long reach to build waves.Air62°FFeels like 60°F. Dew point 48°F.Water55°FYour reading, set in Settings.Air plus water117°FAbove the 100 cold-water line.Visibility10+ miFog risk low now. Tomorrow morning: valley fog likely, lifting about 9 AM. Air at the dew point, light wind and a clear night.Air qualityAQI 28Good. Fine particles 5 µg/m³. A forecast, not a measurement.River flow3,292 cfs Steady over 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 2 hr ago.Daylight7:03 AM to 6:11 PMFirst light 6:34 AM, dark by 6:39 PM. Lights required outside sunrise to sunset.Measured at Keene5 mph W, 59°FClear. Keene airport, 14 mi east. A check on the model. 2 hr ago.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":0},"style":{},"extra":{}},
+      "holds": {"innerHTML":"Holds until sunset at 6:11 PM.","textContent":"Holds until sunset at 6:11 PM.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "nowPrecip": {"innerHTML":{"length":3335,"sha256":"95b0bc71041e3aa073f6127320a658e76f3bc282d884a67629475ea2c006d134"},"textContent":"\n    Precipitation, now to 6:11 PM\n    4% chance\n    Dry now. Little chance of rain or snow. Under 20% throughout.\n    90%1 PM2 PM4%3 PM4 PM5 PM6 PM1:30 PM: 0% chance.2 PM: 3% chance.3 PM: 4% chance.4 PM: 3% chance.5 PM: 3% chance.6 PM: 3% chance.\n    Tap a column for that hour.\n  ","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "nowSection": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "updated": {"innerHTML":"Updated 11:57 AM","textContent":"Updated 11:57 AM","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Go.","textContent":"Go.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Wind 6 mph from WSW, gusts 11. Light chop. 62°F air, 55°F water.","textContent":"Wind 6 mph from WSW, gusts 11. Light chop. 62°F air, 55°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "share": "Putney Landing rowing, 1:30 PM: Go. Wind 6 mph from WSW, gusts 11. Light chop. 62°F air, 55°F water. Holds until sunset at 6:11 PM."
   }

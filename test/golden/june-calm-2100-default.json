@@ -1350,70 +1350,90 @@
       "textContent": "",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "days": {
       "innerHTML": {"length":13673,"sha256":"74fdb5d54d2324cdeeae4cf4b8288ce6bb263ef750960643f6f9985e1cd412bb"},
       "textContent": {"length":5125,"sha256":"3bea4f8ffec441ae57065518e7c38ffea55dc7ef5172a7b7fa0bba88c6528b89"},
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "hero": {
       "innerHTML": "",
       "textContent": "",
       "hidden": false,
       "disabled": false,
-      "dataset": {"lvl":0}
+      "dataset": {"lvl":0},
+      "style": {},
+      "extra": {}
     },
     "holds": {
       "innerHTML": "",
       "textContent": "",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "nowSection": {
       "innerHTML": "",
       "textContent": "",
       "hidden": true,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "shareBtn": {
       "innerHTML": "",
       "textContent": "",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "statusNote": {
       "innerHTML": "",
       "textContent": "",
       "hidden": true,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "updated": {
       "innerHTML": "Updated 8:57 PM",
       "textContent": "Updated 8:57 PM",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "verdict": {
       "innerHTML": "Go.",
       "textContent": "Go.",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "why": {
       "innerHTML": "Tomorrow morning, 4:36 AM to 10 AM.<span class=\"cond\">Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water.</span>",
       "textContent": "Tomorrow morning, 4:36 AM to 10 AM.Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water.",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     }
   },
   "forecasts": {
@@ -1492,33 +1512,41 @@
   },
   "status": {
     "noDataAll": {
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""}},
-      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{}}
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "noDataForecast": {
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""}},
-      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{}}
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "noDataQuiet": {
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""}},
-      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{}}
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "partial": {
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":0}},
-      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"Go.","textContent":"Go.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"Tomorrow morning, 4:36 AM to 10 AM.<span class=\"cond\">Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water.</span>","textContent":"Tomorrow morning, 4:36 AM to 10 AM.Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water.","hidden":false,"disabled":false,"dataset":{}}
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":0},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Go.","textContent":"Go.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Tomorrow morning, 4:36 AM to 10 AM.<span class=\"cond\">Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water.</span>","textContent":"Tomorrow morning, 4:36 AM to 10 AM.Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partialAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":0},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","textContent":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Go.","textContent":"Go.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Tomorrow morning, 4:36 AM to 10 AM.<span class=\"cond\">Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water.</span>","textContent":"Tomorrow morning, 4:36 AM to 10 AM.Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "header": {
       "loading": "Loading",
@@ -1584,16 +1612,16 @@
       1781582400000
     ],
     "home": {
-      "alerts": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "days": {"innerHTML":{"length":13673,"sha256":"74fdb5d54d2324cdeeae4cf4b8288ce6bb263ef750960643f6f9985e1cd412bb"},"textContent":{"length":5125,"sha256":"3bea4f8ffec441ae57065518e7c38ffea55dc7ef5172a7b7fa0bba88c6528b89"},"hidden":false,"disabled":false,"dataset":{}},
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":0}},
-      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "nowSection": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "statusNote": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "updated": {"innerHTML":"Updated 8:57 PM","textContent":"Updated 8:57 PM","hidden":false,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"Go.","textContent":"Go.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"Tomorrow morning, 4:36 AM to 10 AM.<span class=\"cond\">Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water.</span>","textContent":"Tomorrow morning, 4:36 AM to 10 AM.Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water.","hidden":false,"disabled":false,"dataset":{}}
+      "alerts": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "days": {"innerHTML":{"length":13673,"sha256":"74fdb5d54d2324cdeeae4cf4b8288ce6bb263ef750960643f6f9985e1cd412bb"},"textContent":{"length":5125,"sha256":"3bea4f8ffec441ae57065518e7c38ffea55dc7ef5172a7b7fa0bba88c6528b89"},"hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":0},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "nowSection": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "updated": {"innerHTML":"Updated 8:57 PM","textContent":"Updated 8:57 PM","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Go.","textContent":"Go.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Tomorrow morning, 4:36 AM to 10 AM.<span class=\"cond\">Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water.</span>","textContent":"Tomorrow morning, 4:36 AM to 10 AM.Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "share": "Putney Landing rowing, 10:30 PM: Go. Tomorrow morning, 4:36 AM to 10 AM. Wind 2 to 4 mph SSW, gusts 8. 60 to 72°F. Rain 8%. Flat water."
   }

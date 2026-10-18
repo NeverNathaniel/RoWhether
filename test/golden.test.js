@@ -1,63 +1,16 @@
-// Golden outputs: for fixed inputs and clocks, everything the app computes and
-// draws must equal the files in test/golden/. See test/golden/capture.js.
+// Golden outputs for the 19 cases of 08 section 14.2 and for the probes: for
+// fixed inputs and clocks, everything the app computes and draws must equal the
+// files in test/golden/. See test/golden/capture.js, probes.js and harness.js.
 //
-//   npm test                          compares
-//   node scripts/golden.mjs write     writes the files that do not exist yet
-//   node scripts/golden.mjs dump <c>  writes every captured string in full
-//
-// Writing fails the run on purpose, so it can never pass unnoticed. Files that
-// exist are never rewritten unless GOLDEN_FORCE=1, which is for P0.1 only.
-import { describe, it, expect, vi } from 'vitest';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { CASES, capture, format } from './golden/capture.js';
+// The golden tests are in two files so they run side by side: this one (the 19
+// cases and the probes) and golden-variants.test.js (the variant cases).
+import { describe, it, expect } from 'vitest';
+import { CASES } from './golden/capture.js';
+import { PROBES } from './golden/probes.js';
+import { DUMP, defineGolden, got } from './golden/harness.js';
 
-const DIR = join(dirname(fileURLToPath(import.meta.url)), 'golden');
-const WRITE = process.env.GOLDEN_WRITE === '1', FORCE = process.env.GOLDEN_FORCE === '1';
-const DUMP = process.env.GOLDEN_DUMP, OUT = process.env.GOLDEN_OUT || join(DIR, 'out');
-const fileOf = c => join(DIR, `${c.name}.json`);
+defineGolden([...CASES, ...PROBES]);
 
-const done = new Map();
-function run(c, sink = null) {
-  if (!sink && done.has(c.name)) return done.get(c.name);
-  vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(c.clock);
-  try {
-    const got = capture(c.scenario, c.clock, c.settings, { width: c.width, sink });
-    if (!sink) done.set(c.name, got);
-    return got;
-  } finally { vi.useRealTimers(); }
-}
-const got = name => run(CASES.find(c => c.name === name));
-
-describe('golden outputs', () => {
-  for (const c of CASES) {
-    (DUMP && DUMP !== c.name ? it.skip : it)(c.name, () => {
-      if (DUMP) {
-        const sink = (name, text) => { const f = join(OUT, c.name, name); mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, text); };
-        const g = run(c, sink);
-        mkdirSync(join(OUT, c.name), { recursive: true });
-        writeFileSync(join(OUT, c.name, 'capture.json'), format(g));
-        return;
-      }
-      const have = run(c);
-      if (WRITE) {
-        const text = format(have), f = fileOf(c);
-        if (existsSync(f) && readFileSync(f, 'utf8') !== text && !FORCE) throw new Error(`${c.name}.json exists and differs. Not rewritten. GOLDEN_FORCE=1 rewrites it.`);
-        writeFileSync(f, text);
-        return;
-      }
-      const want = JSON.parse(readFileSync(fileOf(c), 'utf8'));
-      expect(Object.keys(have).sort()).toEqual(Object.keys(want).sort());
-      for (const k of Object.keys(want)) expect(have[k], `${c.name}: ${k}`).toEqual(want[k]);
-    });
-  }
-
-  it('is not in write mode', () => {
-    expect(WRITE, 'GOLDEN_WRITE=1 writes the files and fails on purpose. Run npm test without it to check them.').toBe(false);
-  });
-});
 
 // A scenario that never triggers its condition protects nothing, so each
 // claim in 08 section 14.2 is checked against what was captured.
@@ -189,3 +142,101 @@ describe.skipIf(DUMP)('the scenarios exercise what they claim', () => {
     expect(wide.model).toEqual(narrow.model);
   });
 });
+
+describe.skipIf(DUMP)('the probes cross the lines they exist for', () => {
+  const first = (rows, i = 0) => rows[i][0];
+  it('assess finds the lines of the default settings and of the rules', () => {
+    const p = got('p-assess-default');
+    expect(p.wind.map(r => r[0])).toEqual([0, 9.5, 14.5]);
+    expect(p.gust.map(r => r[0])).toEqual([0, 17.5, 24.5]);
+    expect(p.pop.map(r => r[0])).toEqual([0, 59.5, 89.5]);
+    expect(p.flow.map(r => r[0])).toEqual([0, 20000, 28000]);
+    expect(p.aqi.map(r => r[0])).toEqual([0, 150.5, 200.5, 300.5]);
+    expect(p.capeWithRain.map(r => r[0])).toEqual([0, 1000]);
+    expect(p.capeAt29).toHaveLength(1);
+    expect(p.precip.map(r => r[0])).toEqual([0, 0.15]);
+    expect(p.vis.map(r => r[0])).toEqual([0, 402.5, 1609.5]);
+    expect(first(p.temp, 2)).toBe(31.5);
+    expect(p.temp.map(r => r[0])).toContain(32);
+    expect(p.valleySpread.map(r => r[0])).toEqual([0, 2.01, 4.01]);
+    expect(p.valleyWind.map(r => r[0])).toEqual([0, 4.05, 6.05, 9.5]);
+    expect(p.valleyCloud.map(r => r[0])).toEqual([0, 50.1, 80.1]);
+    expect(p.valleyHours.filter(([, s]) => /valley/.test(s)).map(r => r[0])).toEqual(range(0, 10));
+    expect(p.steamDiff.map(r => r[0])).toEqual([40, 50, 58, 59.5]);
+    expect(p.waterTemp.map(r => r[0])).toEqual([32, 59.5]);
+  });
+
+  it('the settings move the lines', () => {
+    expect(got('p-assess-custom').wind.map(r => r[0])).toEqual([0, 7.5, 14.5]);
+    expect(got('p-assess-custom').pop.map(r => r[0])).toEqual([0, 89.5]);
+    expect(got('p-assess-blank').pop).toHaveLength(1);
+    expect(got('p-assess-blank').aqi).toHaveLength(1);
+    expect(got('p-assess-tight').flow.map(r => r[0])).toEqual([0, 8000, 12000]);
+    expect(got('p-assess-tight').waterTemp.map(r => r[0])).toEqual([32, 79.5]);
+  });
+
+  it('the water probe separates 9,999 from 10,000 cfs and 19,999 from 20,000 for a wind from downstream', () => {
+    const l = got('p-water').levels, at = (f, d = 195) => JSON.stringify(l[`heading15/flow${f}/dir${d}`]);
+    expect(at(9999)).not.toBe(at(10000));
+    expect(at(10000)).toBe(at(15000));
+    expect(at(19999)).not.toBe(at(20000));
+    expect(at(0)).toBe(at(9999));
+    expect(at(20000)).toBe(at(25000));
+    expect(at(9999, 15)).toBe(at(25000, 15));
+    expect(at(9999, 105)).toBe(at(25000, 105));
+    expect(l['heading15/flow15000/dir195'].flat().join()).toMatch(/S/);
+    expect(l['heading15/flow5000/dir195'].flat().join()).not.toMatch(/S/);
+    expect(got('p-water').debris.map(r => r[0])).toEqual([-30, 20]);
+  });
+
+  it('the pure helpers cross their lines', () => {
+    const p = got('p-pure');
+    expect(p.confidenceWind.map(r => r[0])).toEqual([0, 4.01, 8.01]);
+    expect(p.trend.map(r => r[0])).toEqual([-60, -10, 10]);
+    expect(p.rates.map(r => r[0])).toEqual([0, 0.1, 0.3]);
+    expect(p.precipSummary.empty).toBeNull();
+    expect(p.alertLevels['Tornado Warning']).toBe(2);
+    expect(p.alertLevels['Frost Advisory']).toBe(1);
+  });
+
+  it('daylight turns over at first light, sunrise and sunset to the millisecond', () => {
+    const p = got('p-sun-edges');
+    for (const day of ['june', 'october']) {
+      expect(p[`${day}/dawn-1`][0], day).toBe(false);
+      expect(p[`${day}/dawn`][0], day).toBe(true);
+      expect(p[`${day}/sunset-1`][0], day).toBe(true);
+      expect(p[`${day}/sunset`][0], day).toBe(false);
+      expect(p[`${day}/dawn-1`][1]).toBe('dark');
+      expect(p[`${day}/dawn`][1]).toBe('twilight');
+      expect(p[`${day}/sunrise`][1]).toBe('day');
+      expect(p[`${day}/sunset+1`][1]).toBe('twilight');
+      expect(p[`${day}/dusk+1`][1]).toBe('dark');
+    }
+  });
+
+  it('the water sentence changes at 0.8 and 1.25 of the hour\'s chop wind, and the vis lines are found to the millimeter', () => {
+    const w = got('p-water').why.map(r => r[5]).join(' ');
+    expect(w).toMatch(/Building\./);
+    expect(w).toMatch(/Settling after earlier wind\./);
+    expect(got('p-assess-default').visEdges.map(r => r[0])).toEqual([402.33, 402.335, 1609.34]);
+  });
+
+  it('the tables and routes are recorded whole', () => {
+    const p = got('p-config');
+    expect(p.config.THEN.stormrisk).toBe('a storm risk');
+    expect(p.config.PERIODS).toHaveLength(3);
+    expect(p.config.WATER.names).toHaveLength(4);
+    expect(Object.values(p.config).includes('(missing)')).toBe(false);
+    expect(p.views.map(v => v[0])).toEqual(['week', 'wind', 'river', 'storms', 'fog', 'temperature', 'rain', 'light', 'air']);
+    expect(p.routes['#wind/2026-10-14']).toEqual({ name: 'wind', day: '2026-10-14' });
+    expect(p.routes['#nope']).toBeNull();
+    expect(p.routes['#wind/bad']).toEqual({ name: 'wind', day: null });
+  });
+
+  it('there is no model for a forecast that cannot be used', () => {
+    const p = got('p-null-model');
+    for (const k of ['noData', 'noWx', 'noHourly', 'noDaily', 'emptyHours', 'afterTheEnd']) expect(p[k], k).toBeNull();
+    expect(p.usable.h72).toBe(72);
+  });
+});
+function range(a, b) { return Array.from({ length: b - a + 1 }, (_, i) => a + i); }

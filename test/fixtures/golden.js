@@ -100,6 +100,12 @@ const ALERT = {
     description: '* WHAT...West winds 15 to 25 mph with gusts up to 40 mph expected.\n\n* WHERE...Windham County.',
     instruction: 'Winds this strong can blow around unsecured objects. Boats on open water should secure moorings.'
   },
+  winter: {
+    event: 'Winter Weather Advisory', sev: 'Minor', urgency: 'Expected', certainty: 'Likely',
+    headline: 'Winter Weather Advisory issued March 8 at 3:30AM EST until March 9 at 11:00AM EDT by NWS Albany NY',
+    description: '* WHAT...Snow expected. Total snow accumulations of 2 to 4 inches.\n\n* WHERE...Windham County.',
+    instruction: ''
+  },
   frost: {
     event: 'Frost Advisory', sev: 'Minor', urgency: 'Expected', certainty: 'Likely',
     headline: 'Frost Advisory issued October 14 at 3:47AM EDT until October 15 at 9:00AM EDT by NWS Albany NY',
@@ -206,6 +212,31 @@ const SCN = {
     },
     spread: [12, 11, 9, 4, 3, 5, 6], split: [1, 1, 1, 0, 0, 1, 1],
     alerts: [{ ...ALERT.flood, from: 5, to: 56 }, { ...ALERT.wind, from: 54, to: 66 }], obsUnit: 'km_h-1', fcBias: 1.04, fcMissing: [12]
+  },
+
+  // The 23 hour day: clocks go forward on 2026-03-08. Snowmelt keeps the river
+  // between 10,000 and 20,000 cfs, with the wind from downstream on day 1.
+  'spring-forward': {
+    t0: Date.UTC(2026, 2, 7, 5), seed: 3070, clocks: [],
+    days: [
+      day(24, 41, { sn: 5, sd: 14, wind: [4, 10], dir: [190, 200], cloud: [30, 60], pop: 10 }),
+      day(28, 46, { sn: 4, sd: 10, wind: [6, 14], dir: [200, 210], cloud: [60, 80], pop: 35, gr: 1.7 }),
+      day(30, 44, { sn: 3, sd: 6, wind: [8, 16], dir: [270, 300], cloud: [85, 70], pop: 70, gr: 1.7 }),
+      day(22, 38, { sn: 6, sd: 14, wind: [5, 12], dir: [320, 330], cloud: [20, 30], pop: 10 }),
+      day(20, 40, { sn: 2, sd: 14, wind: [1.5, 5], dir: [340, 250], cloud: [3, 10], pop: 2 }),
+      day(27, 48, { sn: 5, sd: 16, wind: [3, 8], dir: [250, 230], cloud: [30, 40], pop: 20 }),
+      day(33, 52, { sn: 4, sd: 10, wind: [6, 12], dir: [180, 200], cloud: [70, 85], pop: 50 })
+    ],
+    events: [
+      // Day 1 is 23 hours long. Rain in the afternoon, the wind from downstream.
+      ev(1, 14, 20, { code: 61, pop: seq([50, 55, 60, 60, 50, 40]), precip: seq([0.02, 0.03, 0.05, 0.04, 0.02, 0.01]) }),
+      // Day 2: snow all morning.
+      ev(2, 6, 14, { code: seq([71, 73, 73, 75, 73, 71, 71, 71]), pop: seq([60, 75, 80, 85, 80, 70, 60, 50]), precip: seq([0.02, 0.04, 0.05, 0.07, 0.05, 0.03, 0.02, 0.01]), cloud: 95 })
+    ],
+    water: 1.5,
+    flow: [[-768, 9000], [-300, 11000], [-100, 12400], [0, 12000], [48, 11000], [200, 8000]],
+    aq: { base: 25, events: [] }, spread: [3, 4, 5, 3, 2, 3, 4], split: [0, 0, 1, 0, 0, 0, 0],
+    alerts: [{ ...ALERT.winter, from: 28, to: 58 }], obsUnit: 'km_h-1', fcBias: 1
   },
 
   'fall-back': {
@@ -461,9 +492,12 @@ function rawFor(sc, clock) {
 }
 
 // ---------- public ----------
+// SCENARIOS are the four of 08 section 14.2. EXTRA_SCENARIOS are used only by
+// the variant cases (clocks is empty, so they make none of the 19 cases).
 export const SCENARIOS = {};
+export const EXTRA_SCENARIOS = {};
 for (const [name, sc] of Object.entries(SCN)) {
-  SCENARIOS[name] = {
+  (sc.clocks.length ? SCENARIOS : EXTRA_SCENARIOS)[name] = {
     name, t0: sc.t0, clocks: sc.clocks, water: sc.water,
     clock: hour => sc.t0 + hour * HOUR,
     raw: clock => structuredClone(rawFor(sc, clock))

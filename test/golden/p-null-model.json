@@ -1,0 +1,14 @@
+{
+  "noData": null,
+  "noWx": null,
+  "noHourly": null,
+  "noDaily": null,
+  "emptyHours": null,
+  "afterTheEnd": null,
+  "usable": {
+    "hours": 168,
+    "days": 7,
+    "h72": 72,
+    "daytime": true
+  }
+}

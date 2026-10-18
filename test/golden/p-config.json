@@ -1,0 +1,329 @@
+{
+  "config": {
+    "SITE_URL": "https://rowhether.com/",
+    "LOC": {
+      "lat": 42.9607,
+      "lon": -72.5219,
+      "tz": "America/New_York"
+    },
+    "DEFAULTS": {
+      "heading": 15,
+      "windCaution": 10,
+      "windOff": 15,
+      "gustCaution": 18,
+      "gustOff": 25,
+      "rainCaution": 60,
+      "rainOff": 90,
+      "coldCombined": 100,
+      "flowCaution": 20000,
+      "flowOff": 28000,
+      "waterOverride": "",
+      "aqiCaution": 151,
+      "aqiOff": 201
+    },
+    "PERIODS": [
+      {
+        "key": "morning",
+        "name": "Morning",
+        "from": "dawn",
+        "to": 10
+      },
+      {
+        "key": "midday",
+        "name": "Midday",
+        "from": 10,
+        "to": 15
+      },
+      {
+        "key": "afternoon",
+        "name": "Afternoon",
+        "from": 15,
+        "to": "sunset"
+      }
+    ],
+    "FOG": {
+      "lastHour": 10,
+      "valley": {
+        "likely": {"spread":2,"wind":4,"cloud":50},
+        "possible": {"spread":4,"wind":6,"cloud":80}
+      },
+      "steam": {
+        "likely": {"diff":18,"wind":6,"rh":75},
+        "possible": {"diff":10,"wind":8,"rh":60}
+      },
+      "codes": [
+        45,
+        48
+      ]
+    },
+    "WATER": {
+      "levels": [
+        5,
+        9,
+        13
+      ],
+      "cross": 0.4,
+      "blend": [
+        0.5,
+        0.3,
+        0.2
+      ],
+      "against": [
+        [20000,1.4],
+        [10000,1.25]
+      ],
+      "debrisRise": 20,
+      "names": [
+        "Flat water",
+        "Light chop",
+        "Chop",
+        "Rough water"
+      ],
+      "short": [
+        "Flat",
+        "Light",
+        "Chop",
+        "Rough"
+      ]
+    },
+    "GAUGE_FLOW": "USGS-01154500",
+    "GAUGE_TEMP": "USGS-01161280",
+    "NWS_GAUGE": "WLPN3",
+    "MODELS": [
+      {
+        "id": "gfs_seamless",
+        "name": "GFS (US)"
+      },
+      {
+        "id": "ecmwf_ifs025",
+        "name": "ECMWF (Europe)"
+      },
+      {
+        "id": "gem_seamless",
+        "name": "GEM (Canada)"
+      },
+      {
+        "id": "icon_seamless",
+        "name": "ICON (Germany)"
+      }
+    ],
+    "CONFIDENCE": {
+      "medium": {
+        "wind": 4,
+        "rain": 0.25
+      },
+      "low": {
+        "wind": 8,
+        "rain": 0.5
+      }
+    },
+    "AQI": [
+      [
+        50,
+        "Good"
+      ],
+      [
+        100,
+        "Moderate"
+      ],
+      [
+        150,
+        "Unhealthy for sensitive groups"
+      ],
+      [
+        200,
+        "Unhealthy"
+      ],
+      [
+        300,
+        "Very unhealthy"
+      ],
+      [
+        null,
+        "Hazardous"
+      ]
+    ],
+    "SOURCE_NAMES": {
+      "wx": "the forecast",
+      "alerts": "NWS alerts",
+      "obs": "Keene observations",
+      "river": "USGS river gauges",
+      "flow": "USGS flow history",
+      "flowDays": "USGS daily flow",
+      "flowFcst": "the NWS river forecast",
+      "aq": "the air quality forecast",
+      "models": "the model comparison"
+    },
+    "FACTORS": [
+      {
+        "key": "wind",
+        "name": "Wind",
+        "keys": ["wind","gust"]
+      },
+      {
+        "key": "rain",
+        "name": "Rain",
+        "keys": ["pop","rain","snow","ice"]
+      },
+      {
+        "key": "storm",
+        "name": "Thunder",
+        "keys": ["storm","stormrisk"]
+      },
+      {
+        "key": "air",
+        "name": "Air quality",
+        "keys": ["aqi"]
+      },
+      {
+        "key": "fog",
+        "name": "Fog",
+        "keys": ["fog"]
+      },
+      {
+        "key": "cold",
+        "name": "Cold",
+        "keys": ["freeze","cold"]
+      },
+      {
+        "key": "flow",
+        "name": "River",
+        "keys": ["flow"]
+      },
+      {
+        "key": "alert",
+        "name": "Alerts",
+        "keys": ["alert"]
+      }
+    ],
+    "THEN": {
+      "dark": "dark",
+      "twilight": "lights needed",
+      "storm": "thunderstorms",
+      "stormrisk": "a storm risk",
+      "ice": "freezing rain",
+      "snow": "snow",
+      "rain": "heavy rain",
+      "wind": "the wind builds",
+      "pop": "rain likely",
+      "gust": "gusts build",
+      "fog": "fog",
+      "freeze": "freezing temps",
+      "cold": "cold-water caution",
+      "flow": "high water",
+      "alert": "an NWS alert",
+      "aqi": "smoky air"
+    },
+    "WORD": [
+      "Go.",
+      "Caution.",
+      "Stay off."
+    ],
+    "WORD_PLAIN": [
+      "Go",
+      "Caution",
+      "Stay off"
+    ],
+    "LIGHT_KEYS": [
+      "dark",
+      "twilight"
+    ],
+    "REFRESH_MS": 600000,
+    "HOUR": 3600000,
+    "MIN": 60000,
+    "MAX_TEXT": 2000
+  },
+  "views": [
+    [
+      "week",
+      "Week"
+    ],
+    [
+      "wind",
+      "Wind"
+    ],
+    [
+      "river",
+      "River"
+    ],
+    [
+      "storms",
+      "Storms"
+    ],
+    [
+      "fog",
+      "Fog"
+    ],
+    [
+      "temperature",
+      "Temperature"
+    ],
+    [
+      "rain",
+      "Rain"
+    ],
+    [
+      "light",
+      "Light"
+    ],
+    [
+      "air",
+      "Air"
+    ]
+  ],
+  "routes": {
+    "": null,
+    "#": null,
+    "#now": null,
+    "#wind": {
+      "name": "wind",
+      "day": null
+    },
+    "#wind/2026-10-14": {
+      "name": "wind",
+      "day": "2026-10-14"
+    },
+    "#/wind": {
+      "name": "wind",
+      "day": null
+    },
+    "#/wind/2026-10-14": {
+      "name": "wind",
+      "day": "2026-10-14"
+    },
+    "#wind/bad": {
+      "name": "wind",
+      "day": null
+    },
+    "#wind/2026-10-14/extra": {
+      "name": "wind",
+      "day": "2026-10-14"
+    },
+    "#nope": null,
+    "#week/2026-1-1": {
+      "name": "week",
+      "day": null
+    },
+    "#air/2026-12-31": {
+      "name": "air",
+      "day": "2026-12-31"
+    },
+    "#WIND": null,
+    "wind": {
+      "name": "wind",
+      "day": null
+    },
+    "#fog/": {
+      "name": "fog",
+      "day": null
+    },
+    "#river/2026-02-30": {
+      "name": "river",
+      "day": "2026-02-30"
+    }
+  },
+  "noRoute": [
+    null,
+    null
+  ]
+}

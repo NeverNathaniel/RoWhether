@@ -1,7 +1,8 @@
-// Helper for the golden outputs (test/golden.test.js).
+// Helper for the golden outputs (test/golden.test.js and test/golden-variants.test.js).
 //
 //   node scripts/golden.mjs write [--force]    writes the test/golden/*.json files that do not exist yet
-//   node scripts/golden.mjs dump <case> [dir]  writes every string one case captured, in full
+//                                              (the 19 cases, the v-* variants and the p-* probes)
+//   node scripts/golden.mjs dump <case> [dir]  writes every string one case or variant captured, in full
 //   node scripts/golden.mjs dump               lists the cases
 //
 // write runs the test with GOLDEN_WRITE=1, which fails the run on purpose so a
@@ -16,10 +17,13 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { CASES } from '../test/golden/capture.js';
+import { ALL_CASES } from '../test/golden/capture.js';
+import { PROBES } from '../test/golden/probes.js';
+
+const CASES = [...ALL_CASES, ...PROBES];
 
 const [cmd, ...args] = process.argv.slice(2);
-const vitest = env => spawnSync('npx', ['vitest', 'run', 'test/golden.test.js', ...env.extra], {
+const vitest = env => spawnSync('npx', ['vitest', 'run', 'test/golden', ...env.extra], {
   env: { ...process.env, ...env.vars }, encoding: 'utf8', stdio: env.inherit ? 'inherit' : 'pipe'
 });
 

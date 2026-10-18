@@ -1376,98 +1376,126 @@
       "textContent": "",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "compass": {
       "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(219)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
       "textContent": "NESWVTNH",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "compassCap": {
       "innerHTML": "Wind from SW. River runs SSW, upstream heading 20°.",
       "textContent": "Wind from SW. River runs SSW, upstream heading 20°.",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "days": {
       "innerHTML": {"length":15729,"sha256":"4c3a9daee9f3ed663fbbe9998604ee01dd5c0812d9edb3bcf87c66064285787a"},
       "textContent": {"length":6209,"sha256":"9d7b462562781f52cba3423760af749047d89ffdbb98f18d038563adb352b174"},
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "facts": {
       "innerHTML": {"length":4930,"sha256":"5b86847db51d217422330d60699462d252a6dbae560a626a51452f5d9c79a0d3"},
       "textContent": "Wind9 mph, gusts 18From SW. Tailwind rowing upstream, headwind coming back. Chop builds along the straight.Water stateLight chopWind runs along the straight, with a long reach to build waves.Air56°FFeels like 53°F. Dew point 40°F.Water55°FYour reading, set in Settings.Air plus water111°FAbove the 100 cold-water line.Visibility10+ miFog risk low now. Tomorrow morning: steam fog possible, lifting about 8 AM. Water 55°F under 40°F air.Air qualityAQI 38Good. Fine particles 7 µg/m³. A forecast, not a measurement.River flow4,338 cfs Steady over 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 15 min ago.Daylight7:24 AM to 5:45 PMFirst light 6:54 AM, dark by 6:14 PM. Lights required outside sunrise to sunset.Measured at Keene8 mph SW, 55°FPartly Cloudy. Gusts 16 mph. Keene airport, 14 mi east. A check on the model. 7 min ago.",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "hero": {
       "innerHTML": "",
       "textContent": "",
       "hidden": false,
       "disabled": false,
-      "dataset": {"lvl":1}
+      "dataset": {"lvl":1},
+      "style": {},
+      "extra": {}
     },
     "holds": {
       "innerHTML": "Next go: Wed Nov 4 midday, 10 AM to 3 PM.",
       "textContent": "Next go: Wed Nov 4 midday, 10 AM to 3 PM.",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "nowPrecip": {
       "innerHTML": {"length":3342,"sha256":"d5b89794f0cc05a7b1f82f1373399423b82cebd76892aafa2f147fcaaecca8f6"},
       "textContent": "\n    Precipitation, now to 5:45 PM\n    14% chance\n    Dry now. Little chance of rain or snow. Under 20% throughout.\n    90%12 PM1 PM2 PM3 PM14%4 PM5 PM12 PM: 10% chance.1 PM: 11% chance.2 PM: 12% chance.3 PM: 10% chance.4 PM: 14% chance.5 PM: 12% chance.\n    Tap a column for that hour.\n  ",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "nowSection": {
       "innerHTML": "",
       "textContent": "",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "shareBtn": {
       "innerHTML": "",
       "textContent": "",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "statusNote": {
       "innerHTML": "",
       "textContent": "",
       "hidden": true,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "updated": {
       "innerHTML": "Updated 11:57 AM",
       "textContent": "Updated 11:57 AM",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "verdict": {
       "innerHTML": "Caution.",
       "textContent": "Caution.",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     },
     "why": {
       "innerHTML": "Wind 9 mph. Gusts to 18 mph.<span class=\"cond\">Wind 9 mph from SW, gusts 18. Light chop. 56°F air, 55°F water.</span>",
       "textContent": "Wind 9 mph. Gusts to 18 mph.Wind 9 mph from SW, gusts 18. Light chop. 56°F air, 55°F water.",
       "hidden": false,
       "disabled": false,
-      "dataset": {}
+      "dataset": {},
+      "style": {},
+      "extra": {}
     }
   },
   "forecasts": {
@@ -1554,33 +1582,41 @@
   },
   "status": {
     "noDataAll": {
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""}},
-      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{}}
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "noDataForecast": {
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""}},
-      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{}}
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "noDataQuiet": {
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""}},
-      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{}}
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "partial": {
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":1}},
-      "holds": {"innerHTML":"Next go: Wed Nov 4 midday, 10 AM to 3 PM.","textContent":"Next go: Wed Nov 4 midday, 10 AM to 3 PM.","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"Caution.","textContent":"Caution.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"Wind 9 mph. Gusts to 18 mph.<span class=\"cond\">Wind 9 mph from SW, gusts 18. Light chop. 56°F air, 55°F water.</span>","textContent":"Wind 9 mph. Gusts to 18 mph.Wind 9 mph from SW, gusts 18. Light chop. 56°F air, 55°F water.","hidden":false,"disabled":false,"dataset":{}}
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":1},"style":{},"extra":{}},
+      "holds": {"innerHTML":"Next go: Wed Nov 4 midday, 10 AM to 3 PM.","textContent":"Next go: Wed Nov 4 midday, 10 AM to 3 PM.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Caution.","textContent":"Caution.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Wind 9 mph. Gusts to 18 mph.<span class=\"cond\">Wind 9 mph from SW, gusts 18. Light chop. 56°F air, 55°F water.</span>","textContent":"Wind 9 mph. Gusts to 18 mph.Wind 9 mph from SW, gusts 18. Light chop. 56°F air, 55°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partialAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":1},"style":{},"extra":{}},
+      "holds": {"innerHTML":"Next go: Wed Nov 4 midday, 10 AM to 3 PM.","textContent":"Next go: Wed Nov 4 midday, 10 AM to 3 PM.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","textContent":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Caution.","textContent":"Caution.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Wind 9 mph. Gusts to 18 mph.<span class=\"cond\">Wind 9 mph from SW, gusts 18. Light chop. 56°F air, 55°F water.</span>","textContent":"Wind 9 mph. Gusts to 18 mph.Wind 9 mph from SW, gusts 18. Light chop. 56°F air, 55°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "header": {
       "loading": "Loading",
@@ -1646,20 +1682,20 @@
       1793473200000
     ],
     "home": {
-      "alerts": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "compass": {"innerHTML":"<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(216)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>","textContent":"NESWVTNH","hidden":false,"disabled":false,"dataset":{}},
-      "compassCap": {"innerHTML":"Wind from SW. River runs SSW, upstream heading 20°.","textContent":"Wind from SW. River runs SSW, upstream heading 20°.","hidden":false,"disabled":false,"dataset":{}},
-      "days": {"innerHTML":{"length":15729,"sha256":"636667a2efe04ba1eebe030bf939b24a8443c6851ea505eae8b86bb01d1ee48e"},"textContent":{"length":6209,"sha256":"f9f4c19f50166ed0fa531c346d8922e508e53a18ed3b6b42e201e5515f890324"},"hidden":false,"disabled":false,"dataset":{}},
-      "facts": {"innerHTML":{"length":4921,"sha256":"94e6a82e9862a95a58aa12bf69b8683113c2f0c3855c4c4a696e0afbf25e6328"},"textContent":"Wind9 mph, gusts 17From SW. Tailwind rowing upstream, headwind coming back. Chop builds along the straight.Water stateChopWind runs along the straight, with a long reach to build waves.Air57°FFeels like 55°F. Dew point 40°F.Water55°FYour reading, set in Settings.Air plus water112°FAbove the 100 cold-water line.Visibility10+ miFog risk low now. Tomorrow morning: steam fog possible, lifting about 8 AM. Water 55°F under 40°F air.Air qualityAQI 38Good. Fine particles 7 µg/m³. A forecast, not a measurement.River flow4,338 cfs Steady over 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 2 hr ago.Daylight7:24 AM to 5:45 PMFirst light 6:54 AM, dark by 6:14 PM. Lights required outside sunrise to sunset.Measured at Keene8 mph SW, 55°FPartly Cloudy. Gusts 16 mph. Keene airport, 14 mi east. A check on the model. 2 hr ago.","hidden":false,"disabled":false,"dataset":{}},
-      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":1}},
-      "holds": {"innerHTML":"Next go: Wed Nov 4 midday, 10 AM to 3 PM.","textContent":"Next go: Wed Nov 4 midday, 10 AM to 3 PM.","hidden":false,"disabled":false,"dataset":{}},
-      "nowPrecip": {"innerHTML":{"length":2444,"sha256":"77e9e4956d8ba63135d6bec53652621bf33826e15beb2a364d511d1e8a8eeeb3"},"textContent":"\n    Precipitation, now to 5:45 PM\n    14% chance\n    Dry now. Little chance of rain or snow. Under 20% throughout.\n    90%1 PM2 PM3 PM14%4 PM5 PM1:30 PM: 11% chance.2 PM: 12% chance.3 PM: 10% chance.4 PM: 14% chance.5 PM: 12% chance.\n    Tap a column for that hour.\n  ","hidden":false,"disabled":false,"dataset":{}},
-      "nowSection": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{}},
-      "statusNote": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{}},
-      "updated": {"innerHTML":"Updated 11:57 AM","textContent":"Updated 11:57 AM","hidden":false,"disabled":false,"dataset":{}},
-      "verdict": {"innerHTML":"Caution.","textContent":"Caution.","hidden":false,"disabled":false,"dataset":{}},
-      "why": {"innerHTML":"Wind 9 mph.<span class=\"cond\">Wind 9 mph from SW, gusts 17. Chop. 57°F air, 55°F water.</span>","textContent":"Wind 9 mph.Wind 9 mph from SW, gusts 17. Chop. 57°F air, 55°F water.","hidden":false,"disabled":false,"dataset":{}}
+      "alerts": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "compass": {"innerHTML":"<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(216)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>","textContent":"NESWVTNH","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "compassCap": {"innerHTML":"Wind from SW. River runs SSW, upstream heading 20°.","textContent":"Wind from SW. River runs SSW, upstream heading 20°.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "days": {"innerHTML":{"length":15729,"sha256":"636667a2efe04ba1eebe030bf939b24a8443c6851ea505eae8b86bb01d1ee48e"},"textContent":{"length":6209,"sha256":"f9f4c19f50166ed0fa531c346d8922e508e53a18ed3b6b42e201e5515f890324"},"hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "facts": {"innerHTML":{"length":4921,"sha256":"94e6a82e9862a95a58aa12bf69b8683113c2f0c3855c4c4a696e0afbf25e6328"},"textContent":"Wind9 mph, gusts 17From SW. Tailwind rowing upstream, headwind coming back. Chop builds along the straight.Water stateChopWind runs along the straight, with a long reach to build waves.Air57°FFeels like 55°F. Dew point 40°F.Water55°FYour reading, set in Settings.Air plus water112°FAbove the 100 cold-water line.Visibility10+ miFog risk low now. Tomorrow morning: steam fog possible, lifting about 8 AM. Water 55°F under 40°F air.Air qualityAQI 38Good. Fine particles 7 µg/m³. A forecast, not a measurement.River flow4,338 cfs Steady over 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 2 hr ago.Daylight7:24 AM to 5:45 PMFirst light 6:54 AM, dark by 6:14 PM. Lights required outside sunrise to sunset.Measured at Keene8 mph SW, 55°FPartly Cloudy. Gusts 16 mph. Keene airport, 14 mi east. A check on the model. 2 hr ago.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":1},"style":{},"extra":{}},
+      "holds": {"innerHTML":"Next go: Wed Nov 4 midday, 10 AM to 3 PM.","textContent":"Next go: Wed Nov 4 midday, 10 AM to 3 PM.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "nowPrecip": {"innerHTML":{"length":2444,"sha256":"77e9e4956d8ba63135d6bec53652621bf33826e15beb2a364d511d1e8a8eeeb3"},"textContent":"\n    Precipitation, now to 5:45 PM\n    14% chance\n    Dry now. Little chance of rain or snow. Under 20% throughout.\n    90%1 PM2 PM3 PM14%4 PM5 PM1:30 PM: 11% chance.2 PM: 12% chance.3 PM: 10% chance.4 PM: 14% chance.5 PM: 12% chance.\n    Tap a column for that hour.\n  ","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "nowSection": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "updated": {"innerHTML":"Updated 11:57 AM","textContent":"Updated 11:57 AM","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Caution.","textContent":"Caution.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Wind 9 mph.<span class=\"cond\">Wind 9 mph from SW, gusts 17. Chop. 57°F air, 55°F water.</span>","textContent":"Wind 9 mph.Wind 9 mph from SW, gusts 17. Chop. 57°F air, 55°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "share": "Putney Landing rowing, 1:30 PM: Caution. Wind 9 mph. Wind 9 mph from SW, gusts 17. Chop. 57°F air, 55°F water. Next go: Wed Nov 4 midday, 10 AM to 3 PM."
   }
