@@ -14,6 +14,7 @@ export function render() {
   renderDetail();
   if (!app.model) { renderNoData(); return; }
   renderHero();
+  performance.mark('hero');
   renderAlerts();
   renderNow();
   renderReports();
