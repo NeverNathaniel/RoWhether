@@ -26,8 +26,9 @@ vi.mock('../src/units.js', async importOriginal => {
 });
 
 // What the views wrote before this step, as text a place's data can not make:
-// a unit after a number, or a unit word of a title.
-const US_UNIT = /\d\s?mph|\bmph\b|°F|\d\s?cfs|\bcfs\b|\d(\.\d+)? in\b|\binches\b|\bmiles?\b|\d\s?mi\b|\bmi\b/;
+// a unit after a number, a unit word of a title, or the air quality index
+// named by a number ("AQI 33"; "AQI up to 33" is a label and not matched).
+const US_UNIT = /\d\s?mph|\bmph\b|°F|\d\s?cfs|\bcfs\b|\d(\.\d+)? in\b|\binches\b|\bmiles?\b|\d\s?mi\b|\bmi\b|\bAQI \d+(?!\d| to\b)/;
 // Putney's own text has units in it that belong to the place, not to the render code:
 // the notes of its gauges and station, and its words for the river. And the NWS writes
 // alerts and station readings with its own units. A place with none of that makes the rest show.

@@ -1,7 +1,7 @@
 // The full forecast for one period: compass, facts and an hour by hour table.
 // Shown when a Day by day row is opened.
 import { WORD_PLAIN, LIGHT_KEYS, WATER } from '../config.js';
-import { esc, hm, r0, card, rng, dayKey } from '../format.js';
+import { esc, hm, r0, card, dayKey } from '../format.js';
 import { fogLift, waterWhy, debrisLikely, flowNow, flowTrend, flowForecastAt, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept, aqiWord } from '../logic.js';
 import { fact, compassSVG, sparkline } from './parts.js';
 import { precipBlock } from './precip.js';
@@ -58,8 +58,8 @@ export function forecastPanel(m, p) {
 
   const aq = nums('aqi');
   if (aq.length) {
-    const hi = Math.max(...aq);
-    f.push(fact('Air quality', `AQI ${rng(Math.min(...aq), hi, '')}`, `${aqiWord(hi)} at worst.`, maxLvl(['aqi']), `#air/${p.dayKey}`));
+    const hi = Math.max(...aq), lo = r0(Math.min(...aq)), top = r0(hi);
+    f.push(fact('Air quality', lo === top ? m.u.aqi(hi) : `${m.u.aqi(lo)} to ${top}`, `${aqiWord(hi)} at worst.`, maxLvl(['aqi']), `#air/${p.dayKey}`));
   }
 
   const fl = flowNow(m);
