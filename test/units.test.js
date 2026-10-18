@@ -33,6 +33,9 @@ describe('unitFormat, US', () => {
     expect(u.speed(26.49)).toBe('26 mph');
     expect(u.speed(0)).toBe('0 mph');
     expect(u.speed(9.4)).toBe('9 mph'); // "models differ by about 9 mph on wind"
+    // A missing wind reads this way today (v-june-no-wind-now.json holds "null mph from -- now"),
+    // so the view that moves onto speed() in P0.12 keeps its text.
+    expect(u.speed(null)).toBe('null mph');
   });
 
   it('writes air and water temperature as whole degrees Fahrenheit: `${r0(h.temp)}°F`', () => {
