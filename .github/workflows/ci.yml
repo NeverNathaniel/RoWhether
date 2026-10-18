@@ -20,3 +20,17 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - run: node scripts/budget.mjs
+      # Right after the budget step, not at the end: the Playwright web server
+      # runs npm run build, which empties dist/ and deletes the report.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: budget
+          path: dist/budget-report.json
+      - run: npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/worker"
+      - run: npx playwright install --with-deps chromium
+      # playwright.config.js adds the WebKit projects only when WEBKIT=1, so
+      # this runs the two Chromium projects. Pixel comparisons (@visual) run
+      # on the machine that made the baseline.
+      - run: npx playwright test --grep-invert @visual
