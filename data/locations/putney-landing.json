@@ -1,0 +1,72 @@
+{
+  "v": 1,
+  "id": "19fe7acb-de20-48c9-b25d-20d5e99d113a",
+  "slug": "putney-landing",
+  "name": "Putney Landing",
+  "shortName": "Putney",
+  "subtitle": "Connecticut River at the Putney Rowing Club docks.",
+  "locality": "Putney, VT",
+  "waterway": "connecticut-river-vernon-pool",
+  "lat": 42.9607,
+  "lon": -72.5219,
+  "tz": "America/New_York",
+  "tzLabel": "Eastern",
+  "country": "US",
+  "region": "US-VT",
+  "waterType": "river",
+  "course": {
+    "kind": "heading",
+    "heading": 15,
+    "reachWord": "straight",
+    "confirmed": false,
+    "note": "Estimate of the reach at Putney Landing."
+  },
+  "banks": {
+    "word": "bank",
+    "left": { "short": "VT", "name": "Vermont" },
+    "right": { "short": "NH", "name": "New Hampshire" }
+  },
+  "thresholds": {
+    "windCaution": 10, "windOff": 15, "gustCaution": 18, "gustOff": 25,
+    "rainCaution": 60, "rainOff": 90, "coldCombined": 100,
+    "flowCaution": 20000, "flowOff": 28000, "aqiCaution": 151, "aqiOff": 201
+  },
+  "aqiScale": "us",
+  "flow": {
+    "measure": "discharge",
+    "unit": "cfs",
+    "against": [[20000, 1.4], [10000, 1.25]],
+    "maxAgeH": null,
+    "staleSwitchH": 6
+  },
+  "water": { "mode": "river", "cross": 0.4 },
+  "fog": null,
+  "waterTemp": { "fallback": "none", "maxAgeH": null },
+  "tide": null,
+  "daylight": null,
+  "copy": {
+    "flowStats": "Since 2016 the median day is about 6,900 cfs. 20,000 is roughly the top 10% of days, 28,000 the top 5%.",
+    "flowHow": "Flow is measured at the USGS gauge at North Walpole, below the Bellows Falls dam, about 16 river miles upstream of the dock. The forecast is from the NWS Northeast River Forecast Center for the same gauge, in 6-hour steps.",
+    "credits": "Forecast from Open-Meteo (NOAA HRRR and GFS models). Alerts and Keene observations from the National Weather Service, Albany. River flow from USGS gauge 01154500 at North Walpole, water temperature from 01161280 near Northfield. River forecast from the NWS Northeast River Forecast Center. Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo."
+  },
+  "launchNotes": null,
+  "status": "verified",
+  "verifiedVia": "owner",
+  "sources": [
+    {
+      "role": "alerts", "adapter": "nws-alerts", "ref": "point:42.9607,-72.5219", "label": "NWS"
+    },
+    {
+      "role": "obs", "adapter": "nws-obs", "ref": "KEEN", "label": "Keene",
+      "note": "Keene airport, 14 mi east. A check on the model.",
+      "siteLat": 42.9, "siteLon": -72.26667, "distanceM": 21848, "relation": "nearby"
+    },
+    {
+      "role": "water_temp", "mode": "primary", "adapter": "usgs-ogc", "ref": "USGS-01161280",
+      "params": { "parameterCode": "00010" }, "unit": "degC", "tz": "America/New_York",
+      "label": "Northfield",
+      "note": "Nearest main-stem gauge, near Northfield, MA, about 19 mi downstream.",
+      "siteLat": 42.683333, "siteLon": -72.471944, "distanceM": 31110, "relation": "downstream"
+    }
+  ]
+}

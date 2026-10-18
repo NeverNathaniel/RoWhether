@@ -1,0 +1,30 @@
+{
+  "v": 1,
+  "id": "connecticut-river-vernon-pool",
+  "name": "Connecticut River",
+  "reach": "Bellows Falls dam to Vernon dam",
+  "kind": "river",
+  "country": "US",
+  "regions": ["US-VT", "US-NH"],
+  "geometry": null,
+  "traffic": null,
+  "notes": null,
+  "sources": [
+    {
+      "role": "flow", "mode": "primary", "priority": 0,
+      "adapter": "usgs-ogc", "ref": "USGS-01154500", "params": { "parameterCode": "00060" },
+      "unit": "cfs", "tz": "America/New_York",
+      "label": "North Walpole",
+      "note": "North Walpole gauge below Bellows Falls dam, about 16 river miles upstream.",
+      "siteLat": 43.126189, "siteLon": -72.436755,
+      "distanceM": 19659, "riverM": 25750, "relation": "upstream",
+      "stats": { "from": "2016-01-01", "to": "2026-10-15", "days": 3939,
+                 "p50": 6910, "p65": 10100, "p88": 20300, "p90": 21820, "p95": 28010 }
+    },
+    {
+      "role": "flow_forecast", "mode": "primary", "priority": 0,
+      "adapter": "nwps", "ref": "WLPN3", "unit": "cfs",
+      "label": "NWS Northeast River Forecast Center"
+    }
+  ]
+}
