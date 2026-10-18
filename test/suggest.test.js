@@ -184,6 +184,22 @@ describe('verifyTurnstile', () => {
     try { await verifyTurnstile(ENV, 'tok', ''); } finally { vi.unstubAllGlobals(); }
     expect(String(g.mock.calls[0][1].body)).toBe('secret=secret&response=tok&remoteip=');
   });
+  it('checks the action a caller names, and suggest when none is named', async () => {
+    expect(await verify(answer({ success: true, action: 'auth' }), 'auth')).toBe(true);
+    expect(await verify(answer({ success: true, action: 'safe' }), 'safe')).toBe(true);
+    expect(await verify(answer({ success: true, action: 'suggest' }), undefined)).toBe(true);
+    expect(await verify(answer({ success: true, action: 'auth' }), undefined)).toBe(false);
+  });
+  it('refuses a token made for another action than the one named', async () => {
+    expect(await verify(answer({ success: true, action: 'suggest' }), 'auth')).toBe(false);
+    expect(await verify(answer({ success: true, action: 'auth' }), 'report')).toBe(false);
+    expect(await verify(answer({ success: true, action: 'Auth' }), 'auth')).toBe(false);
+    expect(await verify(answer({ success: true, action: '' }), 'auth')).toBe(false);
+    expect(await verify(answer({ success: true }), 'auth')).toBe(false);
+  });
+  it('still refuses a failed check for the action named', async () => {
+    expect(await verify(answer({ success: false, action: 'auth' }), 'auth')).toBe(false);
+  });
   it('is what keeps a token made for another form from filing a suggestion', async () => {
     const run = async siteverify => {
       const d = deps({ verifyTurnstile });

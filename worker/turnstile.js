@@ -1,5 +1,6 @@
-// Check a Turnstile token with Cloudflare's siteverify API.
-export async function verifyTurnstile(env, token, ip) {
+// Check a Turnstile token with Cloudflare's siteverify API. The token must
+// have been made for this action, so one form's token cannot pass for another's.
+export async function verifyTurnstile(env, token, ip, action = 'suggest') {
   try {
     const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
       method: 'POST',
@@ -9,7 +10,7 @@ export async function verifyTurnstile(env, token, ip) {
     });
     if (!r.ok) return false;
     const result = await r.json();
-    return result.success === true && result.action === 'suggest';
+    return result.success === true && result.action === action;
   } catch {
     return false;
   }
