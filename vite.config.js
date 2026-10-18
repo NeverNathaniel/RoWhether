@@ -42,6 +42,8 @@ export default defineConfig({
     })
   ],
   test: {
-    environment: 'node'
+    environment: 'node',
+    // Playwright's *.spec.js files live in test/browser and run with `npm run test:browser`.
+    exclude: ['**/node_modules/**', 'test/browser/**']
   }
 });
