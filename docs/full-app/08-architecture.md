@@ -2787,6 +2787,7 @@ Done when: all tests pass; the Worker is the same for every current caller.
   5. `node scripts/budget.mjs` passes.
   6. The CLAUDE.md browser checklist (Testing) by hand: 390 and 1280 px, light and dark, midday and 9 PM, every tab at 360, 390 and 1280, the install bar, blocked sources, the Dev label with `/api/info` stubbed, Share this forecast copying the same text as before.
   7. An installed copy of the old build updated to the new one keeps its settings, its cached forecast (shown offline at once) and its install bar choice.
+- After item 3 is recorded in the progress file, and not before (until then the screenshots are the proof), P0.14 deletes the screenshots. The owner decided on 2026-10-19 (final design review FD3; 17.1): delete `test/browser/__screenshots__/`; drop the screenshot half of the CI diff step, since a deletion fails `--diff-filter=MD`; point `snapshotPathTemplate` in `playwright.config.js` at a git-ignored folder (add it to `.gitignore`) and keep `test/browser/screens.spec.js` as the before and after tool for a later phase, with its baseline made on the machine that compares. The golden JSON stays. The owner squash-merges PR #6, so `dev` and `master` never hold the images, and `dev-full-app` stays, since the progress file cites its commits. The progress file records the deletion as a decision, with the size it removes (15.1 MB of 17.6 MB packed, FD3).
 
 ### 14.3 What phase 0 does not change
 
@@ -2960,6 +2961,10 @@ Decision: From phase 2, `verifyTurnstile` skips the action comparison only when 
 
 Decision: A rollback of production past phase 0 loses the settings changed since the upgrade, and a roll forward loses the settings changed during the rollback. It is accepted and written into the phase 0 ship notes (09). (8.3, final correctness review FC4)
 - Alternative: until phase 2 removes the old keys, `saveOverrides` for `putney-landing` also writes the old settings shape to `putney-rowing-settings-v1`, and the migration marker records the old text it copied, so a roll forward copies again when that text changes.
+
+Decision (owner, 2026-10-19): The 48 pixel screenshots in `test/browser/__screenshots__/` are deleted after P0.14 item 3 confirms them on the machine that made them. `test/browser/screens.spec.js` stays, writing its baseline to a git-ignored folder on the machine that compares. The owner squash-merges PR #6, so `dev` and `master` never hold the images. The golden JSON stays. `dev-full-app` is not deleted, since the progress file cites its commits and the images at `743e8cd`. (14.1, 14.2 P0.14, final design review FD3)
+- Alternative: merge as is, so every clone of `dev` and `master` carries about 16 MB of images for good.
+- Alternative: Git LFS, which cannot take files out of history that is already pushed, and adds a tool.
 
 ### 17.2 Waiting on the owner
 

@@ -41,10 +41,11 @@ Owner tasks: none open. The owner approved editing `CLAUDE.md` on this branch so
 Ship notes, for the PR #6 description and the merge:
 
 - A rollback of production past phase 0 loses the settings a rower changed since the upgrade, and a roll forward loses the settings changed during the rollback. The move from `putney-rowing-*` runs once and the new build never writes the old keys. A page still on the old build beside one on the new build does the same until it reloads. The cost is entering a limit again. This is accepted (08 8.3 and 17.1, final correctness review FC4).
+- Owner decision of 2026-10-19 (final design review FD3): the 48 screenshots are deleted after P0.14 item 3 confirms them, `screens.spec.js` stays with a git-ignored local baseline, the golden JSON stays, and the owner squash-merges PR #6, so `dev` and `master` never hold the images. `dev-full-app` is not deleted (08 17.1 and 14.2 P0.14).
 
 Exit criteria:
 
-1. The final proof in 08 14.2 under P0.14 holds: tests and build pass, the golden JSON diff against the P0.1 commit is empty, the pixel screenshots match, the timing is within 20% of the baseline, the budget passes, the `CLAUDE.md` browser checklist passes by hand, and an old installed copy keeps its settings, cache and install choice.
+1. The final proof in 08 14.2 under P0.14 holds: tests and build pass, the golden JSON diff against the P0.1 commit is empty, the pixel screenshots match (and are then deleted, see the ship notes), the timing is within 20% of the baseline, the budget passes, the `CLAUDE.md` browser checklist passes by hand, and an old installed copy keeps its settings, cache and install choice.
 2. The budget row for phase 0 in 08 11.2 holds: main JS 40,500 B, CSS 6,100 B, HTML 3,700 B, precache under 400 KiB.
 3. 07 section 13 (phase 0): screenshots match before and after, and the manifest still has `start_url` and `scope` of `./`.
 4. Nothing in 08 14.3 has changed: the app name, `index.html`, the manifest, the settings fields, routes, storage behavior beyond key names, the Worker routes, `wrangler.jsonc`, refresh timing and source staleness.
