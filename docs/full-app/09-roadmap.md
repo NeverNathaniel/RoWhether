@@ -38,6 +38,10 @@ Migrations: none.
 
 Owner tasks: none open. The owner approved editing `CLAUDE.md` on this branch so it matches Phase 0 (08 17.2). P0.14 writes those edits.
 
+Ship notes, for the PR #6 description and the merge:
+
+- A rollback of production past phase 0 loses the settings a rower changed since the upgrade, and a roll forward loses the settings changed during the rollback. The move from `putney-rowing-*` runs once and the new build never writes the old keys. A page still on the old build beside one on the new build does the same until it reloads. The cost is entering a limit again. This is accepted (08 8.3 and 17.1, final correctness review FC4).
+
 Exit criteria:
 
 1. The final proof in 08 14.2 under P0.14 holds: tests and build pass, the golden JSON diff against the P0.1 commit is empty, the pixel screenshots match, the timing is within 20% of the baseline, the budget passes, the `CLAUDE.md` browser checklist passes by hand, and an old installed copy keeps its settings, cache and install choice.

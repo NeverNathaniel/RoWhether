@@ -2164,6 +2164,8 @@ Units (`system`) is a profile column, `users.units` (03 7), not a settings key.
 
 Rules: each step in its own try/catch; a failed step leaves the old key for the next start and does not set the marker; each step writes its target only when the target key is absent, so a rerun after a failed step never overwrites a value saved since; the function is idempotent and safe to call from every loader. The old keys stay until phase 2, which deletes them (01 8.6 step 7). The install key has changed once already on `dev` (`putney-rowing-install-v2`, read 2026-10-18 in `src/config.js`), which is why 01's table, written before that change, named `-v1` (conflict K35).
 
+Decision, settled 2026-10-19 (final correctness review, FC4): the move runs once, and nothing an old build writes after it reaches the new build. Two real cases lose a change: production rolled back past phase 0 and forward again, and a page that no service worker controls (a private window, a hard reload) still running the old build beside one on the new build. In a rollback the old build also shows the settings from before the upgrade, since the new build never writes the old keys. So a rollback past phase 0 loses the settings changed since the upgrade, and a roll forward loses the settings changed during the rollback. The same holds for the Plan a row choice, the install bar count and the Settings reminder, which the marker stops from being copied again. The saved forecast refreshes itself. The cost is a rower entering a limit again. It is accepted for phase 0 and written into the phase 0 ship notes (09). Phase 0 does not write the old keys, and its tests do not check a rollback. If the loss stops being acceptable, `saveOverrides` for `putney-landing` can also write the old whole-settings shape to `putney-rowing-settings-v1` until phase 2 removes the old keys, so a rollback sees current settings, and the marker can record the old settings text it copied, so a roll forward copies again when that text has changed.
+
 ### 8.4 Service worker
 
 | Rule | Detail | Phase |
@@ -2955,6 +2957,9 @@ Decision: Map tile, style, sprite and glyph requests to `tiles.openfreemap.org` 
 Decision: From phase 2, `verifyTurnstile` skips the action comparison only when siteverify's answer has `metadata.result_with_testing_key` true. A testing secret's answer carries no `action` (verified 2026-10-19). (10.8, final correctness review FC8)
 - Alternative: skip the check when `APP_ENV` is not `production`, which does not reach local `wrangler dev`, since it reads `"production"` from `wrangler.jsonc`.
 - Alternative: Previews and local work use a real widget's keys, which needs Preview secrets (6.5).
+
+Decision: A rollback of production past phase 0 loses the settings changed since the upgrade, and a roll forward loses the settings changed during the rollback. It is accepted and written into the phase 0 ship notes (09). (8.3, final correctness review FC4)
+- Alternative: until phase 2 removes the old keys, `saveOverrides` for `putney-landing` also writes the old settings shape to `putney-rowing-settings-v1`, and the migration marker records the old text it copied, so a roll forward copies again when that text changes.
 
 ### 17.2 Waiting on the owner
 
