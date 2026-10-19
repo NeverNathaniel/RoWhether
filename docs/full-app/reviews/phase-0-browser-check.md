@@ -44,6 +44,8 @@ Both failures also reproduce on the production build `2b7ef06`, so neither is a 
 
 Applied: `skipWaiting: true` and `clientsClaim: true` in the `workbox` block of `vite.config.js`, and the comment in `src/main.js` corrected, in 70e6f90, outside phase 0 by the owner's choice. The second suggestion (calling the function `registerSW` returns) was not used: in auto mode it sends no skip message. Proven with the checker's setup on one origin and port in a persistent profile: without the fix the new worker waits and the page stays on the old build; with it one reload (or one update check) brings in the new build, which reloads once, with the setting and the saved forecast intact. `test/browser/update.spec.js` serves two builds and fails when either line is removed. The entry is in `phase-0-progress.md`.
 
+Applied, the close-out gate: the third check of `update.spec.js` called `registration.update()` itself, and Chromium checks the worker again about a second after a page load, so it passed with the page's own update check in `src/main.js` removed. It now waits for that browser check to be answered by the older build, then brings the page back to the foreground 5 minutes later, so only the page's check can find the newer build. It fails with that check removed, with it waiting 10 minutes and with `skipWaiting` removed. 0b45498.
+
 #### B2. The last footer line is under the install bar at 360 px when Don't show again shows
 
 - Severity: minor. The bar can be dismissed, and only the last line is hidden.
