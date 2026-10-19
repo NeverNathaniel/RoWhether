@@ -92,6 +92,8 @@ Applied: `test/golden.test.js` has three tests: no two names in `ALL` (the cases
 
 P0.14: settle `budget.json` `js` at 44,000 with the 08 11.2 sentence (FD1 has the sentence, the moved rows and the rule). The main script is 43,489 B and `js` is 43,500 B now. Phase 0 ends at about 4.3 KB over P0.3, 0.6 KB of it data for phase 1. Keep the data files and adapter fields as they are, as the finding says.
 
+Applied: `js` is 44,000 with the 08 11.2 sentence, as FD1 asks, and the data files and adapter fields are as they were. The main script ends at 43,505 B, with the records' 621 B of fields only later phases read counted in the sentence. 76efb29.
+
 #### FC7. A stage gauge is read as discharge
 
 - Severity: minor.

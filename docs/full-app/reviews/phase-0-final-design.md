@@ -39,6 +39,8 @@ How the evidence was made: git worktrees at `c83a96b` and at the last commit of 
 
 P0.14: settle `budget.json` `js` at 44,000 with the 08 11.2 sentence. Set the phase 0 row to 44,000, add the sentence under the table (phase 0 ended at 43,287 B at the time of this review, 4,283 B above P0.3, and the cost of the records, the migration and the rest), move rows 1 to 7 up by 3,500 B, and add the rule that a step raises the budget only by what it planned to add, in its own commit. The main script is 43,489 B and `js` is 43,500 B after the final review fixes, so the sentence should give today's number. 09 phase 0 exit criterion 2 repeats 40,500 B and changes with it.
 
+Applied: `budget.json` `js` is 44,000 (495 B to spare over the 43,505 B the main script ends at). 08 11.2 has the phase 0 row at 44,000 and the six rows after it up by 3,500 B (46,700, 48,700, 51,700, 52,700, 56,700, 57,700), the sentence under the table with the final numbers (43,505 B, 4,501 B above P0.3's 39,004 and 3,005 B over the 40,500 planned, the records at 1,191 B and the migration at 377 B, and the three 100 B raises since 43,300 for B2, FC1 and FC2), and the rule that a step raises the budget only by what it planned to add. 09 phase 0 exit criterion 2 and the budget rows of phases 1 to 7 follow. The P0.3 row of the file table keeps what P0.3 wrote and says `js` is 44,000 after P0.14. 76efb29.
+
 ## Major
 
 #### FD2. Most of the test time, and most of the drawing time, is the same instants formatted again and again
