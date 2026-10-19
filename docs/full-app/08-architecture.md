@@ -2432,22 +2432,24 @@ Verified live 2026-10-18 with `npm run build` at commit `20e4255` (Vite 8.3.1, v
 
 ### 11.2 Budgets
 
-Gzip bytes for the Now screen's critical path, checked by `scripts/budget.mjs` against `budget.json` in CI from phase 0. Rule: 07 10.2's number for the phase plus the growth since 07 measured, rounded up to 100 B (JS +200, CSS +100, HTML +100), with phase 0's JS raised 300 B more because 02's source adapters were not in 07's phase 0 estimate.
+Gzip bytes for the Now screen's critical path, checked by `scripts/budget.mjs` against `budget.json` in CI from phase 0. Rule: 07 10.2's number for the phase plus the growth since 07 measured, rounded up to 100 B (JS +200, CSS +100, HTML +100). Phase 0's JS row and the six after it are 3,500 B above that rule, for what phase 0 added to the main script (the sentence under the table).
 
 | After phase | Main JS | CSS | HTML | Precache |
 | --- | --- | --- | --- | --- |
 | today (measured) | 38,988 | 5,976 | 3,618 | 262.89 KiB |
-| 0 | 40,500 | 6,100 | 3,700 | 400 KiB |
-| 1 | 43,200 | 7,100 | 3,700 | 400 KiB |
-| 2 | 45,200 | 7,600 | 3,900 | 400 KiB |
-| 3 | 48,200 | 8,100 | 3,900 | 400 KiB |
-| 4 | 49,200 | 8,100 | 3,900 | 400 KiB |
-| 5 | 53,200 | 8,600 | 3,900 | 400 KiB |
-| 6 and 7 | 54,200 | 9,100 | 3,900 | 400 KiB |
+| 0 | 44,000 | 6,100 | 3,700 | 400 KiB |
+| 1 | 46,700 | 7,100 | 3,700 | 400 KiB |
+| 2 | 48,700 | 7,600 | 3,900 | 400 KiB |
+| 3 | 51,700 | 8,100 | 3,900 | 400 KiB |
+| 4 | 52,700 | 8,100 | 3,900 | 400 KiB |
+| 5 | 56,700 | 8,600 | 3,900 | 400 KiB |
+| 6 and 7 | 57,700 | 9,100 | 3,900 | 400 KiB |
 
+- Phase 0 ended with the main script at 43,505 B, 4,501 B (11.5%) above P0.3's 39,004 and 3,005 B over the 40,500 B first planned, with 495 B to spare under 44,000. Putney's two records ship inside the main script until phase 1 loads them from `data/` (1,191 B, 621 B of it fields only later phases read). The one-time storage migration adds 377 B. The rest is the location resolver, the adapters in place of `SRC`, zone-aware formatters and units. The six steps from P0.7 to P0.12 raised `budget.json` each time to the measured size plus a few bytes, so the check never failed and had 13 B to spare at P0.13. After P0.13, `js` went from 43,300 to 43,600 in three steps of 100 B (B2, FC1 and FC2), and P0.14 set it at 44,000 for the rest of phase 0 and the start of phase 1. Phase 1 takes the records out of the main script (01 7.4), so it may come in under its row.
 - 06 20 asked for club code in the main bundle to stay under 4 KB gzip; phase 5's step of 4,000 B is that budget.
 - Lazy chunks have no CI budget except `map` (MapLibre, about 430 KB gzip measured by 07 10.4), which must not grow by more than 10% without a note in the pull request. `scripts/budget.mjs` prints every chunk's size so changes are visible.
 - A budget changes only in a commit that says why. `budget.json` holds the current phase's row.
+- A step raises the budget only by what it planned to add, in the commit that adds it, and never to the measured size plus a few bytes. A raise with no plan behind it is a finding for the review of that step.
 - `scripts/budget.mjs` is the name (07 10.6); 06 24.6 called it `bundle-budget.mjs` (conflict K39).
 
 ### 11.3 Time to first render
@@ -2682,7 +2684,7 @@ Done when: the screenshots and the baseline are committed. Pixel output differs 
 | File | Content |
 | --- | --- |
 | `scripts/budget.mjs` | Reads `dist/index.html`, finds the main script and stylesheet it links, gzips each at level 9 with `zlib`, and adds up the precache from the entries listed in `dist/sw.js`. Compares with `budget.json`; prints every file in `dist/assets/` with raw and gzip size; exits 1 when over; also writes `dist/budget-report.json` with the sizes it printed |
-| `budget.json` | `{ "phase": 0, "js": 40500, "css": 6100, "html": 3700, "precacheKiB": 400 }` (11.2) |
+| `budget.json` | `{ "phase": 0, "js": 40500, "css": 6100, "html": 3700, "precacheKiB": 400 }` as P0.3 wrote it. `js` is 44,000 after P0.14 (11.2) |
 | `.github/workflows/ci.yml` | After `npm run build`: `node scripts/budget.mjs`; `npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/worker"` (verified live 2026-10-18: runs without a login and lists the bindings); `npx playwright install --with-deps chromium`; `npx playwright test --grep-invert @visual`; `actions/upload-artifact@v4` with `name: budget`, `path: dist/budget-report.json` and `if: always()`. Later steps added the checkout with `fetch-depth: 0` and the golden and screenshot diff step (Z9), and the browser cache (FD7); 13.6 lists the workflow as it ended |
 
 Done when: CI passes on the pull request with the new steps.

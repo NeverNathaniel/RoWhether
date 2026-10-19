@@ -46,7 +46,7 @@ Ship notes, for the PR #6 description and the merge:
 Exit criteria:
 
 1. The final proof in 08 14.2 under P0.14 holds: tests and build pass, the golden JSON diff against the golden base `c7967a6` is empty (08 14.1), the pixel screenshots match (and are then deleted, see the ship notes), the timing is within 20% of the baseline, the budget passes, the `CLAUDE.md` browser checklist passes by hand, and an old installed copy keeps its settings, cache and install choice.
-2. The budget row for phase 0 in 08 11.2 holds: main JS 40,500 B, CSS 6,100 B, HTML 3,700 B, precache under 400 KiB.
+2. The budget row for phase 0 in 08 11.2 holds: main JS 44,000 B, CSS 6,100 B, HTML 3,700 B, precache under 400 KiB.
 3. 07 section 13 (phase 0): screenshots match before and after, and the manifest still has `start_url` and `scope` of `./`.
 4. Nothing in 08 14.3 has changed: the app name, `index.html`, the manifest, the settings fields, routes, storage behavior beyond key names, the Worker routes, `wrangler.jsonc`, refresh timing and source staleness.
 
@@ -93,7 +93,7 @@ Exit criteria:
 2. Putney looks as before except for the changes 07 3.2 lists for phase 1: the chevron after the title, the bank labels, the share link, the "Saved" label and the footer credit. The Putney golden tests pass with only those differences (01 16.2). 08 14.1 says how the cases that change are rewritten.
 3. An existing install keeps its settings and cache, opens at `/putney-landing` with no note above the hero, and renders the cached hero before any request completes (07 13 phase 1; 01 16.5).
 4. The browser checks in 07 13 (phase 1) pass: the first-visit note inside and after the 90-day window; the picker at 360 px with no network request while typing; the switcher's focus; Near me granted, denied and timed out; the header at 360 px for every curated name; a lake with no River tab; a tidal location with a Tide tab after Wind; a Chicago time zone on Putney with every time still Eastern; an unknown slug; `/putney-landing` served from its shell with the old title and no redirect; the offline picker; the share link; the built manifest named RoWhether with id `/`.
-5. Budget row for phase 1: main JS 43,200 B, CSS 7,100 B, HTML 3,700 B, precache under 400 KiB (08 11.2). The first hero from cache is within 20% of the baseline. The console is clean on every screen.
+5. Budget row for phase 1: main JS 46,700 B, CSS 7,100 B, HTML 3,700 B, precache under 400 KiB (08 11.2). The first hero from cache is within 20% of the baseline. The console is clean on every screen.
 6. A lazy chunk's name is checked by `scripts/budget.mjs` on the first build that adds one, and the Workers Free request limit of 100,000 a day is checked against the pricing page (08 17.3).
 7. The owner has confirmed the open counter, created the Access application, and approved the `CLAUDE.md` changes.
 
@@ -139,7 +139,7 @@ Exit criteria:
 1. Tests: `npm test`, `npm run build` and the dry run pass. The new tests are `auth-*.test.js`, `settings-sync.test.js`, `delete.test.js`, `migrations.test.js` and the UK and metric cases in `units.test.js` (08 13.7). CI also runs migrations on Miniflare's D1 and `npm run test:workerd` (08 13.6).
 2. 03 section 20 holds: the unit and Worker tests (20.2), including the deletion test that fails when a table references `users` without an `ON DELETE` action; the browser checks (20.3), including that the first hero render does not wait for `/api/me`; and the manual device checks (20.4) on iPhone in Safari and installed, Android Chrome, macOS Safari, Windows Chrome and real code emails in Gmail, iCloud and Outlook.
 3. The browser checks in 07 13 (phase 2) pass: the header at 360 px with Sign in and with a name; favorites signed out; compare; limit sets; units for `en-GB` and for an existing install pinned to US; `/privacy` online and offline.
-4. Budget row for phase 2: main JS 45,200 B, CSS 7,600 B, HTML 3,900 B, precache under 400 KiB (08 11.2). The first hero stays within 20% of the baseline.
+4. Budget row for phase 2: main JS 48,700 B, CSS 7,600 B, HTML 3,900 B, precache under 400 KiB (08 11.2). The first hero stays within 20% of the baseline.
 5. The checks in 08 17.3 marked "before phase 2" are done: Preview secrets, the dev host name, `crypto.subtle.timingSafeEqual` in workerd, `node:sqlite` from Node 22.13, and D1's foreign keys and `RETURNING`. The Turnstile action check skips a testing key's answer as 08 10.8 says, with a test on the recorded answer (the testing secret's answer carries no `action`, settled 2026-10-19).
 6. The lawyer has answered item A, a Time Travel bookmark is recorded, the migrations are on production, and production has `REPORTS_ENABLED` of `"0"`.
 
@@ -187,7 +187,7 @@ Exit criteria:
 2. The browser checks pass: 04 section 12 (report dialog by water type, offline queueing, Start a row and I'm back, `/o/<token>` with and without JavaScript and Turnstile) and 07 13 (phase 3: Info tab, map load only on tap, add flow, quick look, outing banner announcements).
 3. The `0005` procedure ran: backup, Time Travel bookmark, a count before and after, and every old row present as `legacy-<n>` at Putney (08 5.5). The existing report tests keep passing through the legacy `/api/reports` alias (04 section 12).
 4. With `/api/health` at 503, the Start a row sheet and the banner show "Late alerts are delayed right now. Tell someone your plan." (04 section 12).
-5. Budget row for phase 3: main JS 48,200 B, CSS 8,100 B, HTML 3,900 B, precache under 400 KiB (08 11.2).
+5. Budget row for phase 3: main JS 51,700 B, CSS 8,100 B, HTML 3,900 B, precache under 400 KiB (08 11.2).
 6. The checks in 08 17.3 for this phase are done: Preview cron and queue behavior, MapLibre's need for `blob:`, a render of the map in a real browser, and whether `migrations apply` wraps a file in one transaction (before `0005` on dev).
 7. The lawyer has answered items 1 and 2. The emergency number table is checked and a location in an uncovered country is refused (review P13).
 8. The owner has approved the map tiles sentence for `CLAUDE.md`, or chosen self-hosting.
@@ -235,7 +235,7 @@ Exit criteria:
 2. The Workers runtime check in 05 section 12 passes: a Putney model built in workerd from fixtures equals the Node result. `scripts/bench-model.mjs` stays under the design's 20 ms per model. Above 50 ms, the tick handles fewer preferences per run.
 3. The manual device checklist in 05 section 12 passes: iPhone from the Home Screen (iOS 16.4 or later, and 18.4 or later for the declarative path), iPad, Android Chrome, desktop Chrome and Firefox, and Safari on macOS. For each: subscribe, test notification, tap opens the right view, the overnight update replaces the night-before, unsubscribe.
 4. The browser checks in 05 section 12 and 07 13 (phase 4) pass.
-5. Budget row for phase 4: main JS 49,200 B, CSS 8,100 B, HTML 3,900 B, precache under 400 KiB (08 11.2).
+5. Budget row for phase 4: main JS 52,700 B, CSS 8,100 B, HTML 3,900 B, precache under 400 KiB (08 11.2).
 6. After a month in use, `notify_log` skip reasons and opens are read to check the change rules and caps, which are first guesses (05 13).
 
 Main risks:
@@ -278,7 +278,7 @@ Owner tasks:
 Exit criteria (06 23.2, merged with 08 and 03):
 
 1. Tests. `npm test`, `npm run build` and `npx wrangler deploy --dry-run` pass. The permission matrix test covers every phase 5 row of 06 5.3. Every safety case in 06 24.5 passes: closed water never shows Go to members, overdue escalation reaches the safety officer, a row against club rules is recorded and never blocked, and juniors send no free text to adults. The minors tests in 03 20.2 pass. The Putney golden test passes unchanged.
-2. The Now screen. The entry chunk grows by at most 4 KB gzipped, which is the phase 5 budget row: main JS 53,200 B, CSS 8,600 B, HTML 3,900 B (08 11.2). The first render never waits for club data.
+2. The Now screen. The entry chunk grows by at most 4 KB gzipped, which is the phase 5 budget row: main JS 56,700 B, CSS 8,600 B, HTML 3,900 B (08 11.2). The first render never waits for club data.
 3. Putney without a club looks and behaves as before: the golden test, and screenshots at 390 and 1280 px that match the phase 4 build.
 4. Pilot. One verified club uses water status and the board on dev for 4 weeks covering at least 20 practices, with its paper logbook kept. The board and the logbook agree on every boat out, or each difference has a written cause.
 5. Drills. The three overdue drills in 06 24.7 reach every safety officer within 2 minutes of each stage's planned time, on at least one iPhone Home Screen app and one Android phone.
@@ -328,7 +328,7 @@ Exit criteria (06 23.3):
 2. Practices pilot. A junior program runs 4 weeks of practices with the evening check, RSVPs and published lineups. Coaches get the check within 2 minutes of `decideAt` on every evening before a morning practice, and guardians get lineup and cancellation notices.
 3. Booking pilot. A masters group books for 4 weeks with no double booking and no boat shown as free that was not.
 4. Calendars. The device checks in 06 24.7 pass: a cancelled practice shows as cancelled after the app refreshes, and times are right across November 1.
-5. The Now screen is unchanged apart from the Plan a row button, and every phase 6 screen loads lazily. Budget row for phases 6 and 7: main JS 54,200 B, CSS 9,100 B, HTML 3,900 B (08 11.2).
+5. The Now screen is unchanged apart from the Plan a row button, and every phase 6 screen loads lazily. Budget row for phases 6 and 7: main JS 57,700 B, CSS 9,100 B, HTML 3,900 B (08 11.2).
 6. Retention and export cover the phase 6 tables (06 16.2 and 16.3), and 03's account export and deletion include RSVPs, attendance and seats.
 
 Main risks:
@@ -365,7 +365,7 @@ Owner tasks:
 Exit criteria: `01` to `08` do not write phase 7 exit criteria. What they require before it ships:
 
 1. Tests. Adapter fixture tests per country (08 13.7). The same rules as every phase: `npm test`, `npm run build` and the dry run pass.
-2. Budget row for phases 6 and 7: main JS 54,200 B, CSS 9,100 B, HTML 3,900 B (08 11.2).
+2. Budget row for phases 6 and 7: main JS 57,700 B, CSS 9,100 B, HTML 3,900 B (08 11.2).
 3. The lawyer review for the EU, UK and Canada is done (03 13.5).
 4. The feed terms and licences for the new sources are read and recorded (02 Open questions).
 5. UK and Nordic unit conventions are confirmed with clubs (07 17).
