@@ -4,12 +4,12 @@ Notes for whichever agent picks this work up next. Read this first, then `CLAUDE
 
 ## The job
 
-Turn RoWhether from an app for the Putney Rowing Club into an app for all rowers: any location, check-ins and reports, accounts, clubs. The plan lives in `docs/full-app/`. After the plan is finished, build Phase 0.
+Turn RoWhether from an app for the Putney Rowing Club into an app for all rowers: any location, check-ins and reports, accounts, clubs. The plan lives in `docs/full-app/`. The plan is finished and Phase 0 (no visible change for Putney) is built. Phase 1 onward is next.
 
 ## Standing instructions from the owner
 
-- Work only on `dev-full-app`. Never push to `master` (it deploys production) or `dev`. Never force push or rewrite history.
-- Draft PR [NeverNathaniel/RoWhether#6](https://github.com/NeverNathaniel/RoWhether/pull/6) is `dev-full-app` into `dev`. Keep its description current. Do not merge it.
+- Phase 0 was built only on `dev-full-app`. Phase 1 and later go on a new branch off `dev`, after the owner has squash-merged PR #6, and only with the owner's go-ahead. Never push to `master` (it deploys production) or `dev`. Never force push or rewrite history.
+- Draft PR [NeverNathaniel/RoWhether#6](https://github.com/NeverNathaniel/RoWhether/pull/6) is `dev-full-app` into `dev`. Keep its description current. Do not merge it: the owner squash-merges it, so `dev` and `master` never hold the screenshots that `dev-full-app` still has in its history.
 - No more than 10 agents in one workflow or batch.
 - Build work runs on Sonnet agents (`model: 'sonnet'`). Use an occasional Opus agent (`model: 'opus'`) for review.
 - The owner approved Phase 0 starting as soon as the plan is finished.
@@ -18,6 +18,8 @@ Turn RoWhether from an app for the Putney Rowing Club into an app for all rowers
 - Before you run out of usage, update the log below, commit and push, so the next agent can carry on.
 
 ## Where things stand
+
+Phase 0 is done (P0.14, 2026-10-19). What is left of it is step 11, the PR #6 description, which the orchestrator writes from `phase-0-progress.md` and the ship notes in `09-roadmap.md`. Then the owner squash-merges PR #6 into `dev`. Phase 1 comes next, after the owner answers the Phase 1 decisions in `docs/full-app/README.md` (the rows marked Phase 1 in its decisions table), and on a new branch only with the owner's go-ahead.
 
 Work out the state from the branch itself. `git fetch origin dev-full-app && git log --oneline -15 origin/dev-full-app`, then check this list in order. The first unchecked item is the next step.
 
@@ -35,8 +37,13 @@ Phase 0 build (no visible change for Putney; see `01-locations.md` section 8 and
 7. [x] Refactor steps, each its own commit with `npm test` and `npm run build` passing. Progress in `docs/full-app/phase-0-progress.md`.
 8. [x] `test/golden.test.js` proves deep equality with the captured outputs. (Held at every commit since P0.1; P0.14 item 2 checks the diff.)
 9. [x] Opus review of the Phase 0 diff, then fixes.
-10. [ ] Browser check per `CLAUDE.md` Testing, and `CLAUDE.md` updated for the new code map.
-11. [ ] PR #6 description updated with what Phase 0 changed.
+10. [x] Browser check per `CLAUDE.md` Testing (`reviews/phase-0-browser-check.md`, rerun on `581f637`: 50 of 51 pass, B1 and B2 closed, and the upgrade from `2b7ef06` passes), and `CLAUDE.md` updated for the new code map (`6fce3eb`).
+11. [ ] PR #6 description updated with what Phase 0 changed (the orchestrator's step).
+
+After Phase 0:
+
+12. [ ] The owner squash-merges PR #6 into `dev`.
+13. [ ] Phase 1 (`09-roadmap.md`, `08-architecture.md`), on a new branch off `dev`, after the owner has answered the Phase 1 decisions in `README.md` and given the go-ahead. Not started.
 
 ## Coordinating with other agents
 
@@ -52,6 +59,7 @@ More than one agent may work on this branch.
 
 Newest first. One line per step: date and time UTC, who, what.
 
+- 2026-10-19 14:58 UTC, P0.14 (015Sq3rx, Sonnet): phase 0 done. 700 tests pass (109 before phase 0). Main JS 43,505 of 44,000 B: `budget.json` `js` is settled at 44,000 and 08 11.2 says why phase 0 grew (FD1, FC6). The golden diff against `c7967a6` and the screenshot diff against `743e8cd` print nothing. The 48 screenshots pass at `maxDiffPixelRatio` 0 and the whole Playwright run passes (123 passed, 19 skipped). Timing is within 20% of `743e8cd`, run alternately in two worktrees for 5 rounds: 0.85 at 390 px and 0.92 at 1280 px. The browser checklist, rerun on `581f637`, has 50 of 51 entries passing, none failing and one not run (a live load that Open-Meteo rate limited), with B1 and B2 closed. An installed `2b7ef06` updates to HEAD in one persistent profile with its settings, saved forecast and install choice kept (12 of 12). Then, per FD3, the 48 screenshots are deleted (`7f98e1d`): `743e8cd` holds the last copy, `@visual` keeps a local, git-ignored baseline, and the whole net except `@visual` passes (700 tests, 75 browser tests, the build and the budget). Commits: `6fce3eb` (CLAUDE.md), `76efb29` and `581f637` (the budget), `4fbb64f` (the proof entry and the browser check rerun), `7f98e1d` (the screenshots) and this line. Step 10 is ticked. Next: step 11 (the PR #6 description, the orchestrator's), then the owner squash-merges PR #6 into `dev`, then phase 1 after the owner answers the Phase 1 decisions in `README.md`. The entries are in `phase-0-progress.md`.
 - 2026-10-19 08:52 UTC, close-out gate (015Sq3rx, Opus): read every commit since b20565e and ran the whole net on the result, with 11 mutations of the fixes, all caught. Fixed two gaps: FC2 (8697c46, a binding reads only the rows it can fetch, `budget.json` `js` 43,600 for its 16 B) and the B1 check, which passed with the page's own update check removed (0b45498, test code only). Every finding of the two final reviews and B1 and B2 now has a line, so step 9 is ticked. Verdict: pass. The entry is in `phase-0-progress.md`. Next: P0.14 (settle `js` at 44,000, counting the 300 B raised since 43,300; the final proof; the screenshots deleted after item 3), then the browser check rerun on the final commit (step 10).
 - 2026-10-19 08:26 UTC, step 9 fixes (015Sq3rx, Sonnet): the docs-only findings are applied and pushed: FC4, FC8, FD3 (the owner's decision of 2026-10-19 is in 08 17.1, 14.2 and 09), FD4, FD6 and FD11, with FC6 and FD1 marked for P0.14, and step 8 ticked. Counts over the two final reviews and B1 and B2 (23 findings): 19 applied, 1 skipped, 2 P0.14. FC2, a code fix (a binding can take its id from a row it did not choose, or from an info row), still has no Applied, Skipped, P0.14 or Owner line, so step 9 stays unticked until it has one. The entry is in `phase-0-progress.md`. Next: FC2, then tick step 9, then P0.14 (it settles `budget.json` `js` at 44,000, runs the final proof, and deletes the screenshots after item 3).
 - 2026-10-19 05:55 UTC, session 015Sq3rx: resumed at the owner's request; 015Sq3rx keeps step 9 to step 11. Owner decisions today: (1) FD3: the 48 screenshots are deleted after P0.14 item 3 confirms them, `screens.spec.js` stays with a git-ignored local baseline, and the owner squash-merges PR #6 so dev and master never hold the images; the golden JSON stays. (2) B1 (a new service worker waits until the browser closes) and B2 (the footer under the install bar at 360 px) are fixed on this branch as separate commits outside phase 0, each retested in the browser. Now: an Opus agent finishes `reviews/phase-0-final-correctness.md` (FC1 to FC7 so far; the Putney-visible part of its lens is covered by `reviews/phase-0-browser-check.md`). Then a Sonnet fix pass for FC, FD and B, then P0.14.
@@ -87,4 +95,4 @@ Newest first. One line per step: date and time UTC, who, what.
 
 Paste this into a new Claude Code session on `NeverNathaniel/RoWhether`:
 
-> Continue the RoWhether all-rowers work on branch `dev-full-app`. Read `docs/full-app/HANDOFF.md` and `CLAUDE.md` first and follow them. Work out where things stand from the branch, as HANDOFF.md describes, and carry on from the first unfinished step. Work only on `dev-full-app`; never push to `master` or `dev`. Use Sonnet agents for building and an occasional Opus agent for review, no more than 10 agents at a time. Keep HANDOFF.md's log current and push it before you run out of usage, and give me an updated prompt for the next agent when you stop.
+> Continue the RoWhether all-rowers work. Phase 0 is done on branch `dev-full-app`, and I squash-merge PR #6 into `dev`. Read `docs/full-app/HANDOFF.md` and `CLAUDE.md` first and follow them. Then start phase 1, planning before building. Read the owner decisions in `docs/full-app/README.md` first, and ask me the ones phase 1 needs (the rows marked Phase 1) before you build. Do not guess them. Then build phase 1 as `docs/full-app/09-roadmap.md` and `docs/full-app/08-architecture.md` describe it, in small steps, each with `npm test`, `npm run build` and `node scripts/budget.mjs` passing. Phase 1's first commit replaces the CI diff step, as 08 14.1 says. Do the work on a new branch off `dev`, and only when I give you the go-ahead: until then create and push no branch, and never push to `master` or `dev`. If PR #6 is not merged yet, ask me. Use Sonnet agents for building and an occasional Opus agent for review, no more than 10 agents at a time. Keep HANDOFF.md's log current and push it before you run out of usage, and give me an updated prompt for the next agent when you stop.

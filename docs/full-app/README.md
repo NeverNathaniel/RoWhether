@@ -231,4 +231,4 @@ Checks on site and by hand:
 
 ## Where Phase 0 stands
 
-Another session is building Phase 0 and keeps `phase-0-progress.md` current. P0.1 (golden outputs) and P0.2 (before screenshots and the timing baseline) are done at the time of writing, and the later steps are under way.
+Phase 0 is done (2026-10-19). `phase-0-progress.md` has the record of each step and the final proof, and `reviews/phase-0-browser-check.md` has the browser check, rerun on the final commit. Nothing visible changed for Putney. The owner squash-merges PR #6 into `dev`, and phase 1 comes next, after the owner answers the Phase 1 decisions in the table above.
