@@ -9,8 +9,9 @@ import { riverForecast } from './nwps.js';
 export const SLOT_ORDER = ['wx', 'alerts', 'obs', 'river', 'flow', 'flowDays', 'flowFcst', 'aq', 'models'];
 
 // A stored row names a provider (01 4.4). Each provider has one fetcher per
-// slot, and bindingsFor() derives the fetcher from the row.
-const PROVIDERS = {
+// slot, and bindingsFor() derives the fetcher from the row. Exported so a test
+// can check every row of a stored record against it.
+export const PROVIDERS = {
   'open-meteo': [forecast, airQuality, models],
   'nws-alerts': [alerts],
   'nws-obs': [obs],
@@ -26,8 +27,9 @@ const fetcher = (provider, slot) => (PROVIDERS[provider] || []).find(a => a.slot
 
 // One binding for each slot the location has a source for, in SLOT_ORDER. A
 // slot with no source is left out, which is not a failure (01 8.5). A binding
-// holds its slot, its fetcher's key, the options and names read from the
+// holds its slot, its fetcher's key, the options and label read from the
 // stored rows, the URL (already built) and `parse`, which is all fetchAll needs.
+// The texts read a row's note from the row itself (sourceRow in location.js).
 export function bindingsFor(loc, now = Date.now()) {
   const out = [];
   for (const slot of SLOT_ORDER) {
@@ -36,7 +38,7 @@ export function bindingsFor(loc, now = Date.now()) {
     // With no rows at all, only the three implicit slots have a source.
     const a = row ? fetcher(row.adapter, slot) : !rows.length && IMPLICIT.includes(slot) ? fetcher('open-meteo', slot) : null;
     if (!a) continue;
-    const b = { slot, adapter: a.key, params: a.bind(rows, loc), label: row?.label ?? null, note: row?.note ?? null };
+    const b = { slot, adapter: a.key, params: a.bind(rows, loc), label: row?.label ?? null };
     b.url = a.url(b, loc, now);
     b.parse = json => a.parse(json, b, loc);
     out.push(b);

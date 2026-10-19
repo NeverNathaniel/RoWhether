@@ -4,7 +4,7 @@ import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
 import { resolveLocation } from '../src/location.js';
 import { MODELS } from '../src/config.js';
 import { cToF } from '../src/format.js';
-import { SLOT_ORDER, ADAPTERS, bindingsFor, labelFor } from '../src/sources/index.js';
+import { SLOT_ORDER, ADAPTERS, PROVIDERS, bindingsFor, labelFor } from '../src/sources/index.js';
 import * as nws from '../src/sources/nws.js';
 import * as usgs from '../src/sources/usgs.js';
 import * as nwps from '../src/sources/nwps.js';
@@ -154,8 +154,12 @@ describe('bindingsFor(PUTNEY)', () => {
       {}, { point: '42.9607,-72.5219' }, { station: 'KEEN' }, { flow: 'USGS-01154500', temp: 'USGS-01161280' },
       { id: 'USGS-01154500' }, { id: 'USGS-01154500' }, { lid: 'WLPN3' }, {}, { models: MODELS.map(x => x.id) }
     ]);
-    expect(by(bs, 'obs')).toMatchObject({ label: 'Keene', note: 'Keene airport, 14 mi east. A check on the model.' });
-    expect(by(bs, 'wx')).toMatchObject({ label: null, note: null });
+    expect(by(bs, 'obs')).toMatchObject({ label: 'Keene' });
+    expect(by(bs, 'wx')).toMatchObject({ label: null });
+  });
+
+  it('carries no note: the texts read it from the stored row', () => {
+    for (const b of bs) expect(Object.keys(b).sort(), b.slot).toEqual(['adapter', 'label', 'params', 'parse', 'slot', 'url']);
   });
 
   it('does not change with the clock', () => {
@@ -436,5 +440,48 @@ describe('src/sources', () => {
       const text = readFileSync(new URL(`../src/${n}`, import.meta.url), 'utf8');
       expect(imports(text).filter(i => i.includes('sources')), n).toEqual([]);
     }
+  });
+});
+
+// Records in data/ are written by hand from phase 1 (FD9). The validators cannot
+// check an adapter against the fetchers, since location.js does not import them,
+// and bindingsFor() skips a row it cannot fetch so that a page still draws. A
+// misspelled adapter would then drop its slots with no error, and a zones ref
+// would ask for alerts at the point. Both are caught here, where the files are.
+describe('the stored records', () => {
+  const read = dir => readdirSync(new URL(`../data/${dir}/`, import.meta.url)).filter(n => n.endsWith('.json'))
+    .map(n => JSON.parse(readFileSync(new URL(`../data/${dir}/${n}`, import.meta.url), 'utf8')));
+  const waterways = Object.fromEntries(read('waterways').map(w => [w.id, w]));
+  // What the adapters cannot do with the rows a resolved location has.
+  const problems = loc => {
+    const out = [], bound = bindingsFor(loc).map(b => b.slot);
+    for (const [slot, rows] of Object.entries(loc.sources)) {
+      if (!bound.includes(slot)) out.push(`${slot}: no binding`);
+      for (const r of rows) {
+        if (!(PROVIDERS[r.adapter] || []).some(a => a.slot === slot)) out.push(`${slot}: no fetcher for ${r.adapter}`);
+        // Zone lists are read from phase 1, which lifts this.
+        if (r.adapter === 'nws-alerts' && !/^point:/.test(r.ref)) out.push(`${slot}: ${r.ref} is not a point`);
+      }
+    }
+    return out;
+  };
+
+  it('have a fetcher for every row, a binding for every slot and a point for the alerts, in every file under data/', () => {
+    const files = read('locations');
+    expect(files.map(r => r.slug)).toContain('putney-landing');
+    for (const r of files) expect(problems(resolveLocation(r, { waterway: waterways[r.waterway] ?? null })), r.slug).toEqual([]);
+  });
+
+  it('finds a misspelled adapter, a provider that lacks the slot, and a zones ref', () => {
+    const way = clone(PUTNEY_WATERWAY);
+    expect(problems(locOf(() => {}, way))).toEqual([]);
+    // The flow row fills river, flow and flowDays. river is still bound through the temperature row.
+    way.sources[0].adapter = 'usgs-ogcc';
+    expect(problems(locOf(() => {}, way))).toEqual([
+      'river: no fetcher for usgs-ogcc', 'flow: no binding', 'flow: no fetcher for usgs-ogcc', 'flowDays: no binding', 'flowDays: no fetcher for usgs-ogcc'
+    ]);
+    // A provider that has no fetcher for this slot.
+    expect(problems(locOf(r => { r.sources.find(s => s.role === 'obs').adapter = 'usgs-ogc'; }, PUTNEY_WATERWAY))).toEqual(['obs: no binding', 'obs: no fetcher for usgs-ogc']);
+    expect(problems(locOf(r => { r.sources[0].ref = 'zones:VTZ015,VTC025'; }, PUTNEY_WATERWAY))).toEqual(['alerts: zones:VTZ015,VTC025 is not a point']);
   });
 });
