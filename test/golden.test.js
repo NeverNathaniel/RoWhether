@@ -5,11 +5,31 @@
 // The golden tests are in two files so they run side by side: this one (the 19
 // cases and the probes) and golden-variants.test.js (the variant cases).
 import { describe, it, expect } from 'vitest';
+import { readdirSync } from 'node:fs';
 import { CASES } from './golden/capture.js';
 import { PROBES } from './golden/probes.js';
-import { DUMP, defineGolden, got } from './golden/harness.js';
+import { DUMP, ALL, defineGolden, got } from './golden/harness.js';
 
 defineGolden([...CASES, ...PROBES]);
+
+// The files are guarded against edits and deletion, and nothing else checks
+// that each one is still compared (FC5). A case that left the lists in one line
+// of test code would pass every check, so the names of the cases and probes are
+// the names of the files, both ways.
+describe.skipIf(DUMP)('the golden files and the cases', () => {
+  const names = ALL.map(c => c.name);
+  const files = readdirSync(new URL('./golden/', import.meta.url)).filter(f => f.endsWith('.json')).map(f => f.slice(0, -'.json'.length));
+
+  it('give each case and probe its own name, so no two share a file', () => {
+    expect(names.filter((n, i) => names.indexOf(n) !== i)).toEqual([]);
+  });
+  it('have a file for every case and probe', () => {
+    expect(names.filter(n => !files.includes(n)), 'cases or probes with no file in test/golden/').toEqual([]);
+  });
+  it('have a case or probe for every file', () => {
+    expect(files.filter(f => !names.includes(f)), 'files in test/golden/ that no case or probe compares').toEqual([]);
+  });
+});
 
 
 // A scenario that never triggers its condition protects nothing, so each

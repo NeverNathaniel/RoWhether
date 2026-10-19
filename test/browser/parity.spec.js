@@ -28,11 +28,14 @@ const GOLDEN = new URL('../golden/', import.meta.url);
 const golden = name => JSON.parse(readFileSync(new URL(`${name}.json`, GOLDEN), 'utf8'));
 const sha = s => createHash('sha256').update(s).digest('hex');
 
-// The nine default cases run at 390 px and the wide one at 1280 px, the two
-// projects of playwright.config.js. The custom cases wait for P0.7, which lets
-// the dialog save their settings.
+// The nine default cases and the nine custom cases run at 390 px and the wide
+// one at 1280 px, the two projects of playwright.config.js. A default case runs
+// with empty storage. A custom case starts with the settings the capture used
+// (the values of CUSTOM that differ from BASE, and the heading of its location)
+// saved in rowhether-settings-v2, as the dialog saves them, so what the page
+// reads back from storage is checked against the same golden files (FC5, FC9).
 const files = readdirSync(GOLDEN).map(f => f.replace(/\.json$/, ''));
-const NARROW = files.filter(n => /^(june-calm|october-fog|april-high-water|fall-back)-\d{4}-default$/.test(n));
+const NARROW = files.filter(n => /^(june-calm|october-fog|april-high-water|fall-back)-\d{4}-(default|custom)$/.test(n));
 const WIDE = ['june-calm-1200-wide'];
 const TABS = ['week', 'wind', 'river', 'storms', 'fog', 'temperature', 'rain', 'light', 'air'];
 
@@ -70,11 +73,24 @@ async function view(page, hash) {
   return page.evaluate(() => document.getElementById('detailBody').textContent.replace(/\s+/g, ' ').trim());
 }
 
+// What a viewer of a custom case has saved: the limits that differ from the
+// defaults, and the course heading, written plainly and not by the app's own
+// code, so a step that drops one of them shows here.
+async function savedFor() {
+  const { BASE, CUSTOM, LOCS } = await loadCapture();
+  const values = Object.fromEntries(Object.entries(CUSTOM).filter(([k, v]) => v !== BASE[k]));
+  values.heading = LOCS.custom.course.heading;
+  return { 'rowhether-migrated-v1': '1', 'rowhether-settings-v2': JSON.stringify({ 'putney-landing': { saved: 1, values } }) };
+}
+
 function parity(name, hr, scenarioName) {
   test(name, async ({ page }) => {
     const scenario = SCENARIOS[scenarioName], clock = scenario.clock(hr);
     await page.clock.setFixedTime(clock);
     const seen = await routeAll(page, scenario, clock);
+    if (name.endsWith('-custom')) {
+      await page.addInitScript(items => { for (const [k, v] of Object.entries(items)) localStorage.setItem(k, v); }, await savedFor());
+    }
     await page.goto('/');
     await ready(page);
     expect(seen.missing).toEqual([]);
