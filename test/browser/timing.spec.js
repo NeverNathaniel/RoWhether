@@ -20,15 +20,21 @@
 // context) and turns the clock's assignment into a no-op, so performance stays
 // the browser's own: real marks and a real timeline.
 //
-// Prints the median of 5 (after one warm-up run). TIMING_BASELINE_MS, if set, fails the run when the
-// median is more than 20% above it (P0.14).
+// Prints the median of 5 (after one warm-up run), or the one run in CI.
+// TIMING_BASELINE_MS, if set, fails the run when the median is more than 20%
+// above it (P0.14).
 import { test, expect } from '@playwright/test';
 import { SCENARIOS, routeAll, ready } from './fixtures.js';
 
-const RUNS = 5;
+// CI loads the page once, with no warm-up (FD7). One load proves what CI can: the
+// worker serves the page offline, the hero comes from the saved copy, and the
+// failed refresh does not empty it. CI never sets TIMING_BASELINE_MS, so a
+// median there would be printed and compared with nothing. The median of 5 is
+// for a person on a quiet machine, who sets it before a merge.
+const RUNS = process.env.CI ? 1 : 5;
 // One more run first, not counted: the first load of a browser that has just
 // started is the slowest, and would be one of the five.
-const WARMUP = 1;
+const WARMUP = process.env.CI ? 0 : 1;
 const scenario = SCENARIOS['june-calm'];
 const clock = scenario.clock(12);
 
