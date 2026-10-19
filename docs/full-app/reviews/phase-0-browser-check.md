@@ -52,6 +52,8 @@ Applied: `skipWaiting: true` and `clientsClaim: true` in the `workbox` block of 
 - Not a phase 0 regression: measured identically on `2b7ef06` (last line bottom 574, bar top 556). The styles, `src/install.js` and `index.html` are unchanged.
 - Suggested fix (a guess): raise the padding to about 12rem, or set it from the bar's measured height. 172 px plus the 12 px gap is 11.5rem, and the line is 18 px under the bar, so 12rem clears it. Recheck at 360 px with Don't show again showing.
 
+Applied: the room under the page is now `max(10rem, the bar's measured height + 2.25rem + the safe area inset)`, with a `ResizeObserver` in `src/install.js` writing the height to `--install-h` and `src/styles/app.css` reading it, in 3c972cf, outside phase 0 by the owner's choice. A fixed 12rem was not used: the bar is 172 px tall at 360 and 390 px but 191 px at 320 px, and at 320 px 12rem leaves the last line 4.2 px under it. The first visit is unchanged (room 160 px, last line at 573.6, bar top 604.4, before and after). At 360 px with 5 dismissals the last line now ends 30.8 px above the bar (it was 17.2 px under it). `test/browser/smoke.spec.js` has seven checks that fail without the fix. `budget.json` `js` goes from 43,300 to 43,400 B for the 59 B the fix adds. The entry is in `phase-0-progress.md`.
+
 ## Passed
 
 Widths are 360, 390 (light) and 1280 (dark). Clocks are pinned Eastern. Scenarios are the golden fixtures. Console and page errors were collected on every page. Only the 404s for `/api/info` and `/api/suggest` on the static preview and Playwright's service worker note were allowed, as in `smoke.spec.js`.
