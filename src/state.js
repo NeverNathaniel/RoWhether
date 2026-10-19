@@ -1,11 +1,12 @@
 // Mutable app state shared by the render and event code.
 import { loadOverrides } from './storage.js';
 import { setZone } from './format.js';
-import { PUTNEY_RECORD, PUTNEY_WATERWAY } from './putney.js';
+import { PUTNEY_RECORD, PUTNEY_WATERWAY, PUTNEY_DEFAULTS } from './putney.js';
 import { resolveLocation, effectiveSettings } from './location.js';
 
 export const app = {
   loc: null,       // the resolved location, with the viewer's heading
+  defaults: PUTNEY_DEFAULTS, // the location's settings and heading with nothing overridden
   settings: null,  // the limits in force: the location's, then the viewer's
   data: {},        // last good response per source
   errors: {},      // sources that failed on the latest refresh

@@ -345,3 +345,12 @@ export function effectiveSettings(loc, { overrides = {} } = {}) {
   for (const k of Object.keys(S)) if (S[k] === null) S[k] = '';
   return S;
 }
+
+// The values in S that differ from `defaults`: the settings of the location
+// shown with nothing overridden, plus its course heading. Numbers compare as
+// numbers, and '' (a level turned off) is a real override.
+export function overridesOf(S, defaults) {
+  const values = {};
+  for (const k of Object.keys(defaults)) if (S[k] !== undefined && S[k] !== defaults[k]) values[k] = S[k];
+  return values;
+}

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
-import { validateLocation, validateWaterway, validateSlug, RESERVED_SLUGS, resolveSources, resolveLocation, effectiveSettings } from '../src/location.js';
+import { validateLocation, validateWaterway, validateSlug, RESERVED_SLUGS, resolveSources, resolveLocation, effectiveSettings, overridesOf } from '../src/location.js';
 import { GLOBAL_DEFAULTS, PERIODS, WATER, FOG } from '../src/config.js';
 import { zoneFormat } from '../src/format.js';
 
@@ -420,5 +420,36 @@ describe('imports', () => {
     expect(imports('format.js')).toEqual(['./config.js']);
     expect(imports('location.js').sort()).toEqual(['./config.js', './format.js']);
     expect(imports('putney.js').sort()).toEqual(['../data/locations/putney-landing.json', '../data/waterways/connecticut-river-vernon-pool.json', './location.js']);
+  });
+});
+
+describe('overridesOf', () => {
+  // A place that is not Putney: heading 90, wind caution 12 and no flow limits.
+  const lake = resolveLocation(rec(r => {
+    r.slug = 'some-lake'; r.course.heading = 90; r.thresholds.windCaution = 12;
+    delete r.thresholds.flowCaution; delete r.thresholds.flowOff; r.flow = null;
+  }), { waterway: PUTNEY_WATERWAY });
+  const defaultsOf = loc => ({ ...effectiveSettings(loc), heading: loc.course.heading });
+
+  it('keeps what differs from the defaults it is given, so settings saved unchanged store nothing at any place', () => {
+    expect(overridesOf(defaultsOf(PUTNEY), defaultsOf(PUTNEY))).toEqual({});
+    expect(overridesOf(defaultsOf(lake), defaultsOf(lake))).toEqual({});
+    // The same settings against Putney's defaults would all be "changes": the old behavior.
+    expect(overridesOf(defaultsOf(lake), defaultsOf(PUTNEY))).toEqual({ heading: 90, windCaution: 12, flowCaution: '', flowOff: '' });
+  });
+
+  it("keeps a viewer's own change against the place's defaults, blanks included", () => {
+    const S = { ...defaultsOf(lake), windCaution: 9, flowOff: 5000, rainCaution: '' };
+    expect(overridesOf(S, defaultsOf(lake))).toEqual({ windCaution: 9, flowOff: 5000, rainCaution: '' });
+    // A value equal to the place's default is not a change, even when it differs from Putney's.
+    expect(overridesOf({ ...defaultsOf(lake), windCaution: 12 }, defaultsOf(lake))).toEqual({});
+  });
+
+  it('compares strictly: a blank is a change from a default of 0, and a missing key is no change', () => {
+    const d = { windCaution: 10, rainCaution: 0 };
+    expect(overridesOf({ windCaution: 10, rainCaution: '' }, d)).toEqual({ rainCaution: '' });
+    expect(overridesOf({ windCaution: 10, rainCaution: 0 }, d)).toEqual({});
+    // Not a key with the value undefined, which toEqual would not tell from a missing one.
+    expect(Object.keys(overridesOf({ rainCaution: 5 }, d))).toEqual(['rainCaution']);
   });
 });

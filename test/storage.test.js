@@ -10,9 +10,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { KEYS, OLD_KEYS } from '../src/config.js';
 import {
-  migrateStorage, loadOverrides, saveOverrides, overridesOf, hasSavedSettings, nudgeDismissed, dismissNudge,
+  migrateStorage, loadOverrides, saveOverrides, hasSavedSettings, nudgeDismissed, dismissNudge,
   loadCache, saveCache, loadPlan, savePlan, loadInstall, saveInstall
 } from '../src/storage.js';
+import { overridesOf } from '../src/location.js';
 
 const NOW = 1760700000000;
 
@@ -351,13 +352,13 @@ describe('after the move, the loaders read the old values', () => {
 describe('settings overrides', () => {
   it('overridesOf keeps what differs from Putney, blanks included, numbers as numbers', () => {
     const defaults = { heading: 15, windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25, rainCaution: 60, rainOff: 90, coldCombined: 100, waterOverride: '', flowCaution: 20000, flowOff: 28000, aqiCaution: 151, aqiOff: 201 };
-    expect(overridesOf(defaults)).toEqual({});
-    expect(overridesOf({ ...defaults, heading: 20, windCaution: 8, rainCaution: '', waterOverride: 55, flowCaution: 20000.5 })).toEqual({ heading: 20, windCaution: 8, rainCaution: '', waterOverride: 55, flowCaution: 20000.5 });
+    expect(overridesOf(defaults, defaults)).toEqual({});
+    expect(overridesOf({ ...defaults, heading: 20, windCaution: 8, rainCaution: '', waterOverride: 55, flowCaution: 20000.5 }, defaults)).toEqual({ heading: 20, windCaution: 8, rainCaution: '', waterOverride: 55, flowCaution: 20000.5 });
     // A blank where the default is blank is not an override; a blank where it is a number is.
-    expect(overridesOf({ ...defaults, waterOverride: '' })).toEqual({});
-    expect(overridesOf({ ...defaults, aqiOff: '' })).toEqual({ aqiOff: '' });
+    expect(overridesOf({ ...defaults, waterOverride: '' }, defaults)).toEqual({});
+    expect(overridesOf({ ...defaults, aqiOff: '' }, defaults)).toEqual({ aqiOff: '' });
     // Keys the settings do not know, and missing keys, are ignored.
-    expect(overridesOf({ windCaution: 11, streamCaution: 3 })).toEqual({ windCaution: 11 });
+    expect(overridesOf({ windCaution: 11, streamCaution: 3 }, defaults)).toEqual({ windCaution: 11 });
   });
 
   it('saveOverrides writes saved and values for that location and keeps the others', () => {
@@ -378,7 +379,7 @@ describe('settings overrides', () => {
     use({});
     expect(hasSavedSettings('putney-landing')).toBe(false);
     const defaults = { heading: 15, windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25, rainCaution: 60, rainOff: 90, coldCombined: 100, waterOverride: '', flowCaution: 20000, flowOff: 28000, aqiCaution: 151, aqiOff: 201 };
-    saveOverrides('putney-landing', overridesOf(defaults));
+    saveOverrides('putney-landing', overridesOf(defaults, defaults));
     expect(JSON.parse(ls.map.get('rowhether-settings-v2'))).toEqual({ 'putney-landing': { saved: NOW, values: {} } });
     expect(hasSavedSettings('putney-landing')).toBe(true);
     expect(hasSavedSettings('lake-natoma')).toBe(false);

@@ -4,6 +4,7 @@
 // putney-rowing-* keys to the new ones once.
 import { KEYS, OLD_KEYS } from './config.js';
 import { PUTNEY_DEFAULTS } from './putney.js';
+import { overridesOf } from './location.js';
 
 // The one location the old keys held.
 const OLD_SLUG = 'putney-landing';
@@ -15,14 +16,6 @@ const OLD_PREFIX = 'putney-rowing-';
 function oldValue(key, v) {
   if (key === 'waterOverride') { const n = parseFloat(v); return Number.isFinite(n) ? n : undefined; }
   if (v === '' || Number.isFinite(v)) return v;
-}
-
-// The values in S that differ from Putney's defaults. Numbers compare as
-// numbers, and '' (a level turned off) is a real override.
-export function overridesOf(S) {
-  const values = {};
-  for (const k of Object.keys(PUTNEY_DEFAULTS)) if (S[k] !== undefined && S[k] !== PUTNEY_DEFAULTS[k]) values[k] = S[k];
-  return values;
 }
 
 // Copies the old keys to the new ones (08 8.3). Each step has its own try/catch
@@ -49,7 +42,7 @@ export function migrateStorage() {
     try { const s = JSON.parse(raw); if (s && typeof s === 'object') old = s; } catch (e) { /* unreadable, as it was before */ }
     const S = { ...PUTNEY_DEFAULTS };
     for (const k of Object.keys(S)) { const v = oldValue(k, old[k]); if (v !== undefined) S[k] = v; }
-    localStorage.setItem(KEYS.settings, JSON.stringify({ [OLD_SLUG]: { saved: Date.now(), values: overridesOf(S) } }));
+    localStorage.setItem(KEYS.settings, JSON.stringify({ [OLD_SLUG]: { saved: Date.now(), values: overridesOf(S, PUTNEY_DEFAULTS) } }));
   });
   copy(OLD_KEYS.cache, KEYS.cache(OLD_SLUG));
   copy(OLD_KEYS.plan, KEYS.plan);

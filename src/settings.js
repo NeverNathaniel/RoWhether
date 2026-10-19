@@ -2,12 +2,12 @@
 // Until Settings has been saved once, or the note dismissed, a note above
 // the hero points to it.
 import { app, $, applyOverrides } from './state.js';
-import { PUTNEY_DEFAULTS } from './putney.js';
-import { saveOverrides, overridesOf, hasSavedSettings, nudgeDismissed, dismissNudge } from './storage.js';
+import { overridesOf } from './location.js';
+import { saveOverrides, hasSavedSettings, nudgeDismissed, dismissNudge } from './storage.js';
 
 const OPTIONAL = ['rainCaution', 'rainOff', 'aqiCaution', 'aqiOff'];
 // The dialog's fields: the limits, and the course heading.
-const FIELDS = Object.keys(PUTNEY_DEFAULTS);
+const FIELDS = Object.keys(app.defaults);
 
 export function initSettings(onSave) {
   const dlg = $('settings'), form = $('setForm');
@@ -21,7 +21,7 @@ export function initSettings(onSave) {
   $('setNudgeBtn').addEventListener('click', open);
   $('setNudge').hidden = hasSavedSettings(app.loc.slug) || nudgeDismissed();
   $('setNudgeLater').addEventListener('click', () => { dismissNudge(); $('setNudge').hidden = true; });
-  $('resetSet').addEventListener('click', () => fill(PUTNEY_DEFAULTS));
+  $('resetSet').addEventListener('click', () => fill(app.defaults));
   dlg.addEventListener('close', () => {
     if (dlg.returnValue !== 'save') return;
     const next = current();
@@ -43,7 +43,7 @@ export function initSettings(onSave) {
     if (next.rainOff !== '' && next.rainCaution !== '' && next.rainOff < next.rainCaution) next.rainOff = next.rainCaution;
     if (next.aqiOff !== '' && next.aqiCaution !== '' && next.aqiOff < next.aqiCaution) next.aqiOff = next.aqiCaution;
     // Only what differs from the location's defaults is kept.
-    const values = overridesOf(next);
+    const values = overridesOf(next, app.defaults);
     saveOverrides(app.loc.slug, values);
     applyOverrides(values);
     $('setNudge').hidden = true;
