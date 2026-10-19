@@ -203,7 +203,10 @@ ol.periods{list-style:none; margin:0; padding:0; display:grid; gap:.5rem}
   .install-bar{grid-template-columns:auto 1fr auto}
   .install-actions{grid-column:auto}
 }
-body.install-open .wrap{padding-bottom:10rem}
+/* Room for the bar: its measured height (src/install.js), its .75rem offset from
+   the screen edge and 1.5rem of air. A first visit's bar is 124px tall at 360px,
+   which makes this exactly the 10rem the page always kept, and never less. */
+body.install-open .wrap{padding-bottom:max(10rem, calc(var(--install-h, 0px) + 2.25rem + env(safe-area-inset-bottom, 0px)))}
 .steps{margin:.5rem 0 1rem; padding-left:1.4rem}
 .steps li{margin:0 0 .6rem; padding-left:.2rem}
 .share-icon{width:.9em; height:1.1em; vertical-align:-.15em; color:var(--river)}

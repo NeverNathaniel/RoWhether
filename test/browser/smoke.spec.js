@@ -16,6 +16,8 @@ const clock = scenario.clock(12);
 // exactly these, not only for something the fixtures answer on the same path.
 const GOLDEN = JSON.parse(readFileSync(new URL('../golden/june-calm-1200-default.json', import.meta.url), 'utf8'));
 const TABS = ['now', 'week', 'wind', 'river', 'storms', 'fog', 'temperature', 'rain', 'light', 'air'];
+// An iPhone in Safari: the user agent that gets the install bar and its written steps.
+const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1';
 
 // What the console must not show. Two things the test setup causes are let
 // through: the 404s for /api/info and /api/suggest (the fixtures answer as a
@@ -274,7 +276,7 @@ test.describe('smoke', () => {
   // upstream request aborted, so the first hero can only come from the saved copy
   // (review Z7). A cache the app wrote itself stands in for the old one.
   test.describe('upgrade from the old keys', () => {
-    test.use({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1' });
+    test.use({ userAgent: IPHONE_UA });
 
     const OLD_DEFAULTS = { heading: 15, windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25, rainCaution: 60, rainOff: 90, coldCombined: 100, flowCaution: 20000, flowOff: 28000, waterOverride: '', aqiCaution: 151, aqiOff: 201 };
     const NEW_KEYS = ['rowhether-cache-v2:putney-landing', 'rowhether-install-v1', 'rowhether-last-v1', 'rowhether-migrated-v1', 'rowhether-nudge-v1', 'rowhether-plan-v1', 'rowhether-settings-v2'];
@@ -341,6 +343,74 @@ test.describe('smoke', () => {
       await page.reload();
       await ready(page);
       await expect(bar(page)).toBeVisible();
+    });
+  });
+
+  // The install bar is fixed over the bottom of the page, so the page keeps room
+  // for it (B2 in docs/full-app/reviews/phase-0-browser-check.md). The bar is taller
+  // with Don't show again, and its text wraps at narrow widths, so the room follows
+  // the bar's measured height: the last footer line has to end above the bar, the
+  // room is the bar and 2.25rem (its offset and some air), and it never drops under
+  // 10rem, which a first visit's bar at 360 px has always had.
+  test.describe('the footer clears the install bar', () => {
+    test.use({ userAgent: IPHONE_UA });
+
+    const seed = (page, dismissed) => page.evaluate(v => localStorage.setItem('rowhether-install-v1', v), JSON.stringify({ dismissed, never: false }));
+    // Scrolled to the very bottom of the page.
+    const measure = page => page.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      const bar = document.getElementById('installBar').getBoundingClientRect();
+      const lastLine = [...document.querySelectorAll('footer p')].pop().getBoundingClientRect();
+      return {
+        height: bar.height,
+        clearance: bar.top - lastLine.bottom,
+        room: parseFloat(getComputedStyle(document.querySelector('.wrap')).paddingBottom),
+        atBottom: Math.abs(window.scrollY + window.innerHeight - document.documentElement.scrollHeight) < 1
+      };
+    });
+    // The gap between the last footer line and the bar once the page has settled at the bottom.
+    const clearance = page => async () => { const m = await measure(page); return m.atBottom ? m.clearance : -Infinity; };
+
+    for (const { width, dismissed } of [
+      { width: 360, dismissed: 0 }, // the first visit: no Don't show again, the room it always had
+      { width: 360, dismissed: 5 }, // B2: Don't show again adds a row
+      { width: 390, dismissed: 5 },
+      { width: 320, dismissed: 5 }, // the text wraps more
+      { width: 600, dismissed: 0 }, // one row, short: the room stays 10rem
+      { width: 600, dismissed: 5 }
+    ]) {
+      test(`${width} px, ${dismissed} dismissals stored`, async ({ page }) => {
+        await routeAll(page, scenario, clock);
+        await page.goto('/');
+        await ready(page);
+        await seed(page, dismissed);
+        await page.setViewportSize({ width, height: 740 });
+        await page.reload();
+        await ready(page);
+        await expect(page.locator('#installBar')).toBeVisible();
+        await expect(page.locator('#installNever')).toBeVisible({ visible: dismissed >= 5 });
+        await expect.poll(clearance(page), { message: 'the last footer line ends above the bar' }).toBeGreaterThanOrEqual(0);
+        const m = await measure(page);
+        // The room is the bar, its offset and some air, and not less than 10rem (160 px).
+        expect(Math.abs(m.room - Math.max(160, Math.round(m.height) + 36)), `room ${m.room} px for a bar ${m.height} px tall`).toBeLessThanOrEqual(1);
+      });
+    }
+
+    test('the room follows the bar when the width changes', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.setViewportSize({ width: 600, height: 740 });
+      await page.goto('/');
+      await ready(page);
+      await seed(page, 5);
+      await page.reload();
+      await ready(page);
+      await expect(page.locator('#installNever')).toBeVisible();
+      await expect.poll(clearance(page)).toBeGreaterThanOrEqual(0);
+      const wide = await measure(page);
+      // A narrower screen wraps the bar into more lines, with no reload in between.
+      await page.setViewportSize({ width: 320, height: 740 });
+      await expect.poll(async () => (await measure(page)).height, { message: 'the bar grew' }).toBeGreaterThan(wide.height + 20);
+      await expect.poll(clearance(page), { message: 'the last footer line ends above the taller bar' }).toBeGreaterThanOrEqual(0);
     });
   });
 });
