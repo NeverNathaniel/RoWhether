@@ -102,6 +102,9 @@ export function validateSlug(slug, { field = 'slug', min = 3, max = 48, reserved
 function checkCourse(p, c) {
   if (!isObj(c)) return missing(p, 'course');
   pick(p, 'course.kind', c.kind, ['heading', 'polyline', 'none'], true);
+  // The wind code reads course.heading, which only a heading course has. Phase 1
+  // lifts this when courseSegments() draws the other kinds.
+  if (c.kind === 'polyline' || c.kind === 'none') fail(p, 'course.kind', 'unsupported', 'Only a course with one heading can be drawn until phase 1.');
   if (c.kind === 'heading' && (!isNum(c.heading) || c.heading < 0 || c.heading >= 360)) fail(p, 'course.heading', 'range', 'Use degrees from 0 to 359.');
   if (c.kind === 'polyline') {
     if (!Array.isArray(c.points) || c.points.length < 2 || c.points.length > 50) fail(p, 'course.points', 'length', 'Use 2 to 50 points.');
@@ -138,6 +141,8 @@ function checkFlow(p, f) {
   if (f == null) return;
   if (!isObj(f)) return fail(p, 'flow', 'value', 'Use an object.');
   pick(p, 'flow.measure', f.measure, ['discharge', 'stage'], true);
+  // The USGS adapter reads discharge only. Phase 1 lifts this when it reads stage.
+  if (f.measure === 'stage') fail(p, 'flow.measure', 'unsupported', 'A stage gauge cannot be read until phase 1.');
   pick(p, 'flow.unit', f.unit, FLOW_UNITS, true);
   // Steps run from the highest flow down, each a flow and a multiplier.
   const step = (s, i, all) => Array.isArray(s) && s.length === 2 && isNum(s[0]) && s[0] > 0 && isNum(s[1]) && s[1] >= 1 && (i === 0 || s[0] < all[i - 1][0]);

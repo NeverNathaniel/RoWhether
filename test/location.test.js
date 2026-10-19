@@ -105,6 +105,8 @@ describe('validateLocation', () => {
       ['unknown water type', r => { r.waterType = 'ocean'; }, 'waterType', 'value'],
       ['heading 360', r => { r.course.heading = 360; }, 'course.heading', 'range'],
       ['unknown course kind', r => { r.course.kind = 'loop'; }, 'course.kind', 'value'],
+      ['a none course, until phase 1', r => { r.course = { kind: 'none' }; }, 'course.kind', 'unsupported'],
+      ['a polyline, until phase 1', r => { r.course = { kind: 'polyline', points: [[42.96, -72.52], [42.97, -72.51]] }; }, 'course.kind', 'unsupported'],
       ['polyline of 1 point', r => { r.course = { kind: 'polyline', points: [[42.96, -72.52]] }; }, 'course.points', 'length'],
       ['polyline of 51 points', r => { r.course = { kind: 'polyline', points: Array.from({ length: 51 }, (_, i) => [42.96 + i / 1000, -72.52]) }; }, 'course.points', 'length'],
       ['polyline point off the globe', r => { r.course = { kind: 'polyline', points: [[42.96, -72.52], [95, -72.5]] }; }, 'course.points[1]', 'range'],
@@ -116,6 +118,8 @@ describe('validateLocation', () => {
       ['caution above stay off', r => { r.thresholds.gustCaution = 30; }, 'thresholds.gustOff', 'order'],
       ['aqi scale', r => { r.aqiScale = 'cn'; }, 'aqiScale', 'value'],
       ['flow unit', r => { r.flow.unit = 'gal'; }, 'flow.unit', 'value'],
+      ['a stage gauge, until phase 1', r => { r.flow = { measure: 'stage', unit: 'ft' }; }, 'flow.measure', 'unsupported'],
+      ['a stage gauge in metres, until phase 1', r => { r.flow = { measure: 'stage', unit: 'm' }; }, 'flow.measure', 'unsupported'],
       ['against steps in the wrong order', r => { r.flow.against = [[10000, 1.25], [20000, 1.4]]; }, 'flow.against', 'value'],
       ['against multiplier under 1', r => { r.flow.against = [[20000, 0.5]]; }, 'flow.against', 'value'],
       ['flow age of 0', r => { r.flow.maxAgeH = 0; }, 'flow.maxAgeH', 'range'],
@@ -149,10 +153,9 @@ describe('validateLocation', () => {
       ['blank rain and aqi levels, null or empty', r => { r.thresholds.rainCaution = null; r.thresholds.aqiOff = ''; }],
       ['no flow limits', r => { delete r.thresholds.flowCaution; delete r.thresholds.flowOff; r.flow = null; }],
       ['no banks', r => { r.banks = null; }],
+      ['a discharge in cubic metres a second', r => { r.flow.unit = 'm3s'; }],
       ['a second obs row as a fallback', r => { r.sources.push(row('obs', { mode: 'fallback', priority: 1 })); }],
       ['a retired row beside a primary', r => { r.sources.push(row('obs', { status: 'retired' })); }],
-      ['a none course', r => { r.course = { kind: 'none' }; }],
-      ['a polyline of 2 points', r => { r.course = { kind: 'polyline', points: [[42.96, -72.52], [42.97, -72.51]] }; }],
       ['a day window', r => { r.daylight = { dayWindow: [6, 21] }; }]
     ];
     for (const [name, edit] of ok) expect(validateLocation(rec(edit)), name).toEqual([]);
