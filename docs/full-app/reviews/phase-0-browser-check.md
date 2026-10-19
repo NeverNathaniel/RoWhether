@@ -42,6 +42,8 @@ Both failures also reproduce on the production build `2b7ef06`, so neither is a 
 - Cause found by the checker: with `injectRegister: false`, vite-plugin-pwa adds no `skipWaiting` or `clientsClaim` to the generated worker (it does so only for `'auto'` or null, around line 873 of `node_modules/vite-plugin-pwa/dist/index.js`), and `src/main.js` never asks a waiting worker to skip. I read `vite.config.js` and `src/main.js` and they match; I did not re-read the plugin.
 - Suggested fix (a guess, not tested): add `skipWaiting: true` and `clientsClaim: true` to the `workbox` block in `vite.config.js`, or keep the update function `registerSW` returns and call it with `true` when a worker is waiting, which also reloads the page. Either way, correct the comment in `src/main.js`. Retest with the same two-build setup.
 
+Applied: `skipWaiting: true` and `clientsClaim: true` in the `workbox` block of `vite.config.js`, and the comment in `src/main.js` corrected, in 70e6f90, outside phase 0 by the owner's choice. The second suggestion (calling the function `registerSW` returns) was not used: in auto mode it sends no skip message. Proven with the checker's setup on one origin and port in a persistent profile: without the fix the new worker waits and the page stays on the old build; with it one reload (or one update check) brings in the new build, which reloads once, with the setting and the saved forecast intact. `test/browser/update.spec.js` serves two builds and fails when either line is removed. The entry is in `phase-0-progress.md`.
+
 #### B2. The last footer line is under the install bar at 360 px when Don't show again shows
 
 - Severity: minor. The bar can be dismissed, and only the last line is hidden.
