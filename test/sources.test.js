@@ -225,6 +225,46 @@ describe('a location with other sources', () => {
     const loc = locOf(r => { delete r.sources[1].label; });
     expect(labelFor('obs', by(bindingsFor(loc), 'obs'))).toBe('KEEN observations');
   });
+
+  // FC2: a slot takes the first row a fetcher can read, so its ids must come from
+  // that row too, not from a row before it that no fetcher reads.
+  it('takes the ids and the name from the row it can fetch, past one it cannot', () => {
+    const waterway = clone(PUTNEY_WATERWAY);
+    waterway.sources[0].mode = 'fallback';
+    waterway.sources[1].mode = 'fallback';
+    waterway.sources.unshift(
+      { role: 'flow', adapter: 'ec-hydro', ref: '02KF005', label: 'Ottawa' },
+      { role: 'flow_forecast', adapter: 'other', ref: 'ZZZ1', label: 'Elsewhere' }
+    );
+    const loc = locOf(r => {
+      r.sources.find(s => s.role === 'obs').mode = 'fallback';
+      r.sources.push({ role: 'obs', adapter: 'metar', ref: 'EGLL', label: 'Heathrow' });
+    }, waterway);
+    const bs = bindingsFor(loc);
+    expect(by(bs, 'obs')).toMatchObject({ params: { station: 'KEEN' }, label: 'Keene', url: 'https://api.weather.gov/stations/KEEN/observations/latest' });
+    expect(by(bs, 'river').params).toEqual({ flow: 'USGS-01154500', temp: 'USGS-01161280' });
+    expect(by(bs, 'flow')).toMatchObject({ params: { id: 'USGS-01154500' }, label: 'North Walpole' });
+    expect(by(bs, 'flowDays').params).toEqual({ id: 'USGS-01154500' });
+    expect(by(bs, 'flowFcst')).toMatchObject({ params: { lid: 'WLPN3' }, url: 'https://api.water.noaa.gov/nwps/v1/gauges/WLPN3/stageflow/forecast' });
+    expect(bs.map(b => b.url).join('\n')).not.toMatch(/EGLL|02KF005|ZZZ1/);
+  });
+
+  // FC2: an info row is never read for the call (01 4.2), so a gauge kept for
+  // information does not bind, and its reading cannot drive Go or Stay off.
+  it('reads no info row', () => {
+    const waterway = clone(PUTNEY_WATERWAY);
+    waterway.sources[0].mode = 'info';
+    const bs = bindingsFor(locOf(() => {}, waterway));
+    expect(bs.map(b => b.slot)).toEqual(['wx', 'alerts', 'obs', 'river', 'flowFcst', 'aq', 'models']);
+    expect(by(bs, 'river').params).toEqual({ flow: undefined, temp: 'USGS-01161280' });
+    expect(by(bs, 'river').url).toContain('monitoring_location_id=USGS-01161280&parameter_code=00010&f=json');
+    // Beside a primary row, the info row is left out and the primary one is read.
+    const both = clone(PUTNEY_WATERWAY);
+    both.sources.unshift({ ...both.sources[0], ref: 'USGS-01100000', label: 'Info gauge', mode: 'info' });
+    const bs2 = bindingsFor(locOf(() => {}, both));
+    expect(by(bs2, 'flow')).toMatchObject({ params: { id: 'USGS-01154500' }, label: 'North Walpole' });
+    expect(bs2.map(b => b.url).join('\n')).not.toContain('USGS-01100000');
+  });
 });
 
 describe('labelFor', () => {

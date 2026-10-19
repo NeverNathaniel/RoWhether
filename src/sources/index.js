@@ -34,11 +34,13 @@ export function bindingsFor(loc, now = Date.now()) {
   const out = [];
   for (const slot of SLOT_ORDER) {
     const rows = loc.sources?.[slot] || [];
-    const row = rows.find(r => fetcher(r.adapter, slot));
+    // Only the rows a fetcher can read give the binding its ids and its name. An
+    // info row is never read for the call (01 4.2); phase 1 draws it in the River view.
+    const usable = rows.filter(r => r.mode !== 'info' && fetcher(r.adapter, slot)), row = usable[0];
     // With no rows at all, only the three implicit slots have a source.
     const a = row ? fetcher(row.adapter, slot) : !rows.length && IMPLICIT.includes(slot) ? fetcher('open-meteo', slot) : null;
     if (!a) continue;
-    const b = { slot, adapter: a.key, params: a.bind(rows, loc), label: row?.label ?? null };
+    const b = { slot, adapter: a.key, params: a.bind(usable, loc), label: row?.label ?? null };
     b.url = a.url(b, loc, now);
     b.parse = json => a.parse(json, b, loc);
     out.push(b);
