@@ -93,6 +93,8 @@ const localHour = t => { let h = hours.get(t); if (h === undefined) { h = parseI
 - Evidence: size experiments on copies of `c83a96b` (43,287 B): adapter fields removed 43,189 (98 B less); only `via`, `refreshMs` and `staleMs` removed 43,256 (31 B); unit members removed 43,234 (53 B); adapter fields, unit members and `ROLES` together 43,144 (143 B); records cut to what the code reads 42,666 (621 B); `copy.credits` removed 43,130 (157 B).
 - Fix: Optional. Remove `ROLES` from module scope (compute it inside `checkSources`). Leave the adapter fields and unit members: 151 B is not worth splitting 02's typedef across two files or re-adding 07's names later. Do not trim the records. FD1's budget already has room for all of this.
 
+Skipped: the one change the finding keeps, moving `ROLES` into `checkSources`, saves 4 B gzip (20 B raw; 43,444 to 43,440 in a build with it), and no test fails without it short of one that reads the source text, which would check nothing the budget does not. The adapter fields, the unit members and the records stay, as the finding says.
+
 #### FD7. CI is the right size; two parts of it cost more than they check
 
 - Severity: minor.
@@ -109,6 +111,8 @@ const localHour = t => { let h = hours.get(t); if (h === undefined) { h = parseI
 - Evidence: a scratch test, not committed: Putney's record with slug `some-lake`, heading 90, wind caution 12 and no flow limits, resolved, then `overridesOf({ ...effectiveSettings(loc), heading: loc.course.heading })` (the dialog saved with nothing changed) gives `{"windCaution":12,"flowCaution":"","flowOff":"","heading":90}`. For Putney it gives `{}`.
 - Fix: Move `overridesOf(S, defaults)` next to `effectiveSettings` in `src/location.js`, with the defaults as an argument. The dialog passes `{ ...effectiveSettings(base), heading: base.course.heading }` for the location shown (Putney's today, so nothing changes), and Reset fills from the same object. The migration keeps calling it with `PUTNEY_DEFAULTS`. The tests in `test/storage.test.js` keep their Putney cases.
 
+Applied: `overridesOf(S, defaults)` is in `src/location.js` next to `effectiveSettings`, and `src/storage.js` calls it with `PUTNEY_DEFAULTS` in the migration, in a2bbf17. `app.defaults` in `src/state.js` holds the defaults of the location shown (Putney's today); the dialog takes its field list, Reset and the comparison on Save from it, so `src/settings.js` no longer imports `src/putney.js`. The finding's `{ ...effectiveSettings(base), heading: base.course.heading }` is what `PUTNEY_DEFAULTS` already is, so no second helper was added. New `test/settings.test.js` runs the dialog against a fake page at Putney and at a lake with heading 90, wind caution 12 and no flow limits: saving unchanged stores `{}`, Reset shows the lake's numbers, and a value back at the lake's default is dropped. `test/storage.test.js` keeps its Putney cases with the defaults passed in. Three of the dialog tests fail on the old code, and 10 mutations (including the dialog and Reset reading Putney's defaults again) all fail; two survived the first tests (a missing key kept, a loose comparison) and drove a strict-comparison test. Main JS 43,440 to 43,452 B.
+
 #### FD9. A source the code cannot fetch is dropped without a word
 
 - Severity: minor.
@@ -117,6 +121,10 @@ const localHour = t => { let h = hours.get(t); if (h === undefined) { h = parseI
 - Evidence: a scratch test, not committed, on `c83a96b`: the waterway's flow row with `adapter: 'usgs-ogcc'`. `validateWaterway` returns `[]`. `bindingsFor` gives `wx,alerts,obs,river,flowFcst,aq,models`: `flow` and `flowDays` are gone, so the 48 hour series, the debris check and the 30 day chart go with them, while `river` still asks for the flow gauge through the temperature row. With the alerts ref set to `zones:VTZ015,VTC025,NHZ011,NHC005`, the alerts URL is `https://api.weather.gov/alerts/active?point=42.9607,-72.5219`.
 - Fix: Check adapters where records are checked, not at run time: in phase 1's `test/locations-data.test.js` (13.7), require every row's `adapter` to have a fetcher for each slot its role fills (`PROVIDERS` in `src/sources/index.js` can be exported for that). Make `alerts.bind` throw on a ref it cannot read, so the binding fails loudly until zones are built. Keep `bindingsFor` skipping rows quietly at run time, since a page must still draw.
 
+Applied: `test/sources.test.js` has a test that reads every record under `data/` (Putney's two files today) and requires, for the resolved location, a fetcher for each row's slot, a binding for each slot, and a `point:` ref for `nws-alerts` until phase 1 reads zone lists. A second test shows it finds a misspelled adapter, a provider with no fetcher for the slot, and a zones ref. `PROVIDERS` in `src/sources/index.js` is exported for it. Three tests fail on the old code, and mutating the data files or `PROVIDERS` makes the first fail. 96ace19.
+
+Skipped: `alerts.bind` throwing on a ref it cannot read. Bindings are built in `fetchAll` and in the hero's draw, so a throw there stops every source and the page, where the finding's own rule is that a page must still draw. A zones ref is refused in the data test instead, and phase 1 builds the zones request, which replaces the fallback. The runtime skip of a row with no fetcher stays, as the finding says.
+
 #### FD10. Fields set and never read, and fallbacks only tests reach
 
 - Severity: minor.
@@ -124,6 +132,12 @@ const localHour = t => { let h = hours.get(t); if (h === undefined) { h = parseI
 - Problem: Small duplication that phase 1 will build on. Each binding carries the row's `note`, but the texts read notes from the rows with `sourceRow()`, as the P0.10 entry explains, so `binding.note` is never read. The resolved location has `fmt`, and `buildModel` makes its own `m.fmt` from the same zone; the two are one cached object, but nothing reads `loc.fmt`. `labelFor(slot)` with no binding searches the adapters by slot, then falls back to the slot's id ("Could not reach wx"); the page never calls it without a binding. `parseModels(d)` with no binding uses the configured model list; only tests and the probes call it that way, through the old name. `renderNoData` and `renderStatus` rebuild every binding, URLs included, each time they draw, to read labels the last fetch already had.
 - Evidence: `grep -rn "\.fmt\b" src | grep -v "m\.fmt\."` finds no reader of `loc.fmt`; `grep -rn "\.note\b" src` finds no reader of a binding's `note`; `grep -rn "parseModels(\|labelFor(" src test` shows the calls without a binding only in `test/`.
 - Fix: Drop `note` from the binding. Have `buildModel` use `loc.fmt` (`fmt: loc.fmt`), so the zone has one source. Give `labelFor` the binding only, and have `parseModels` require it, moving the test calls onto a binding. Keep the bindings of the last fetch on `app` (for example `app.bindings`), and let the hero read their labels. None of this changes output; the golden files and the parity spec prove it.
+
+Applied: `note` is gone from the binding in `src/sources/index.js`, since the texts read the note from the stored row with `sourceRow()`; a test pins the six keys a binding has. Main JS 43,452 to 43,444 B. 96ace19.
+
+Skipped: `fmt: loc.fmt` in `buildModel`. 01 8.3 puts `fmt` on the resolved location and 01 8.2 and 08 K14 set `m.fmt` from `loc.tz`; the two are one cached object, so one formatter is in effect now. Copying the field would let a location built with a new `tz` and the old `fmt` keep the old formatters. If phase 1 wants one holder it can drop `loc.fmt`, which only one test reads.
+
+Skipped, phase 1: `labelFor` and `parseModels` taking a binding only, and the bindings of the last fetch kept on `app`. 02 and 08 print `labelFor(slot, binding)`, and the fallbacks guard the moment `app.loc` changes before the next fetch finishes, which place switching introduces in phase 1. Keeping the bindings on `app` changes what `fetchAll` returns and how `main.js` refreshes, which the refresh failure and timing specs guard; phase 1 reworks the status line for per-location sources and is the time to do it.
 
 #### FD11. Nine progress entries name "this commit" instead of a hash
 
