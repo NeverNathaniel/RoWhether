@@ -2566,7 +2566,7 @@ test: { environment: 'node', exclude: ['**/node_modules/**', 'test/browser/**'] 
 | Migrations on Miniflare | `npx wrangler d1 migrations apply DB --local -c test/wrangler.test.jsonc` | 2 |
 | workerd tests | `npm run test:workerd` | 2 |
 
-A failed step fails the run. The budget report is uploaded as an artifact (P0.3), which the Metrics tab's budget history reads (07 14.5). Screenshots are not made in CI (13.5).
+A failed step fails the run. The golden and screenshot diff step is a phase 0 rule: it holds until PR #6 merges into `dev`, and phase 1's first commit replaces it (14.1). Its screenshot half goes with the screenshots (P0.14, 17.1). The budget report is uploaded as an artifact (P0.3), which the Metrics tab's budget history reads (07 14.5). Screenshots are not made in CI (13.5).
 
 ### 13.7 Tests by phase
 
@@ -2604,6 +2604,13 @@ Every code fact below was read on 2026-10-18 at commit `20e4255`.
 Rule for every step: the golden JSON files and the screenshot images are never written after P0.1 and P0.2. The capture code in `test/golden/capture.js` may change how it reaches a value (for example `bindingsFor(PUTNEY)` instead of `SRC`), and that change is reviewed as test code; what it produces must stay equal.
 
 Rule for additions (review Z9, point 4): a new golden case or screenshot is written from code whose `src/` equals the base, in a worktree, and committed with the test change that defines it; a capture edit that a step needs lands in its own commit and passes against the unchanged `src/` first. A new file passes the CI diff step, which fails only a modified or deleted file, so a new case also needs a test that would fail without it (the check that the names of the cases and probes equal the files in `test/golden/` is in `test/golden.test.js`, FC5).
+
+When these rules end (final design review FD4). The phase 0 rules (no golden write, the CI diff step, no screenshot update) hold until PR #6 merges into `dev`. From phase 1 the golden files are snapshots of Putney: a commit that changes Putney's output on purpose rewrites the cases it changes, and only those, and says in its message which listed change moved them (07 3.2 lists them, among them the chevron after "Putney Landing" and the rotated bank labels). The diff of the JSON is the review. A commit that changes no behavior changes no golden file. The tools follow in phase 1's first commit, which also lifts the two guards that make this impossible today (the harness never rewrites a file that exists, and the CI diff step fails any modified golden file):
+
+- An update mode that rewrites the named cases only, never all of them. Prefer what Vitest has to growing `scripts/golden.mjs`: `expect(text).toMatchFileSnapshot('golden/<case>.json')` with `npx vitest run -u -t <case>` rewrites one case, and Vitest writes no snapshots when `CI` is set, which is the guard CI needs. The digest step stays, applied before the comparison.
+- The CI diff step is replaced by one that fails only when a golden file and a file under `src/` change in a commit whose message does not name a listed change, or it is dropped and review takes over. The screenshot half goes earlier, with the screenshots (P0.14, 17.1).
+- The phase 0 scaffolding goes in the same commit: the copies of the old parsers in `test/sources.test.js` and of the old formatters in `test/format.test.js` prove only that phase 0 moved code without changing it, and the `src/data.js` re-exports end in phase 1 (3.2).
+- 09's phase 1 exit criterion 2, "The Putney golden tests pass with only those differences", is checked by that diff.
 
 ### 14.2 The steps
 
