@@ -243,6 +243,9 @@ export function nextMorning(m) {
   return null;
 }
 
+// A limit is set unless it is blank, which turns that level off.
+export const isSet = v => v !== '' && v != null && !isNaN(v);
+
 // Level for one hour (or the current moment): 0 go, 1 caution, 2 stay off.
 // The level is the worst of its reasons.
 export function assess(m, h, lightT) {
@@ -260,9 +263,9 @@ export function assess(m, h, lightT) {
   else if ([71, 73, 75, 77, 85, 86].includes(c)) add(1, 'snow', 'Snow');
   if (h.precip != null && h.precip >= 0.15) add(1, 'rain', 'Heavy rain');
   if (h.pop != null) {
-    const pop = Math.round(h.pop), on = v => v !== '' && v != null && !isNaN(v);
-    if (on(S.rainOff) && pop >= S.rainOff) add(2, 'pop', `Rain chance ${pop}%`);
-    else if (on(S.rainCaution) && pop >= S.rainCaution) add(1, 'pop', `Rain chance ${pop}%`);
+    const pop = Math.round(h.pop);
+    if (isSet(S.rainOff) && pop >= S.rainOff) add(2, 'pop', `Rain chance ${pop}%`);
+    else if (isSet(S.rainCaution) && pop >= S.rainCaution) add(1, 'pop', `Rain chance ${pop}%`);
   }
 
   const w = r0(h.wind), g = r0(h.gust);
@@ -291,14 +294,14 @@ export function assess(m, h, lightT) {
   }
   const f = flowNow(m);
   if (f != null) {
-    if (f >= S.flowOff) add(2, 'flow', `High water at ${m.u.flow(f, m.loc.flow?.unit)}`);
-    else if (f >= S.flowCaution) add(1, 'flow', `Elevated flow at ${m.u.flow(f, m.loc.flow?.unit)}`);
+    if (isSet(S.flowOff) && f >= S.flowOff) add(2, 'flow', `High water at ${m.u.flow(f, m.loc.flow?.unit)}`);
+    else if (isSet(S.flowCaution) && f >= S.flowCaution) add(1, 'flow', `Elevated flow at ${m.u.flow(f, m.loc.flow?.unit)}`);
   }
   if (h.aqi != null) {
-    const q = Math.round(h.aqi), on = v => v !== '' && v != null && !isNaN(v);
+    const q = Math.round(h.aqi);
     const text = `Air quality ${m.u.aqi(h.aqi)}, ${aqiWord(q).toLowerCase()}`;
-    if (on(S.aqiOff) && q >= S.aqiOff) add(2, 'aqi', text);
-    else if (on(S.aqiCaution) && q >= S.aqiCaution) add(1, 'aqi', text);
+    if (isSet(S.aqiOff) && q >= S.aqiOff) add(2, 'aqi', text);
+    else if (isSet(S.aqiCaution) && q >= S.aqiCaution) add(1, 'aqi', text);
   }
   for (const a of m.alerts) {
     if (h.t >= a.start && h.t < a.end) add(a.lvl, 'alert', a.event);

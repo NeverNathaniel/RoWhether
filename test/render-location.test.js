@@ -324,6 +324,52 @@ describe('the River view and the forecasts take flow and words from the place', 
   });
 });
 
+// The same place with no flow limits, and with a stay off level only. A blank limit
+// turns that level off, so it has no line, no legend entry and no words in the
+// Your settings fact (01 11.1).
+const limits = (drop, set = {}) => resolveLocation({
+  ...PUTNEY_RECORD, slug: 'bay-w',
+  thresholds: { ...Object.fromEntries(Object.entries(PUTNEY_RECORD.thresholds).filter(([k]) => !drop.includes(k))), ...set }
+}, { waterway: PUTNEY_WATERWAY });
+const NO_LIMITS = limits(['flowCaution', 'flowOff']);
+// 22,000 is within reach of the flow on the screen, so its line is in view.
+const OFF_ONLY = limits(['flowCaution'], { flowOff: 22000 });
+
+describe('the River view draws only the flow limits that are set', () => {
+  it("draws both lines and both legend entries at Putney, and says both levels", () => {
+    const html = river.render(screen(PUTNEY).m).html;
+    expect(html).toMatch(/Your settings<\/dt><dd><div class="val">20,000 cfs<\/div><div class="note">Caution at 20,000, stay off at 28,000\.</);
+    expect(html).toContain('class="cthr1"');
+    expect(html).toContain('class="cthr2"');
+    expect(html).toContain('Caution 20,000</li>');
+    expect(html).toContain('Stay off 28,000</li>');
+  });
+
+  it('says so and draws no line at a place with no flow limits', () => {
+    const { m } = screen(NO_LIMITS);
+    expect(m.S).toMatchObject({ flowCaution: '', flowOff: '' });
+    const html = river.render(m).html;
+    expect(html).toMatch(/Your settings<\/dt><dd><div class="val">--<\/div><div class="note">No flow limits set\.</);
+    expect(html).not.toMatch(/cthr[12]/);
+    expect(html).not.toMatch(/Caution \d|Stay off \d/);
+    expect(html).not.toMatch(/Caution at|stay off at/);
+    expect(html).not.toMatch(BROKEN);
+    // The level never comes from a limit that is not there.
+    expect(m.cur.a.reasons.map(r => r.key)).not.toContain('flow');
+  });
+
+  it('writes and draws the one level a place has', () => {
+    const { m } = screen(OFF_ONLY);
+    const html = river.render(m).html;
+    expect(html).toMatch(/Your settings<\/dt><dd><div class="val">22,000 cfs<\/div><div class="note">Stay off at 22,000\.</);
+    expect(html).toContain('class="cthr2"');
+    expect(html).not.toContain('class="cthr1"');
+    expect(html).toContain('Stay off 22,000</li>');
+    expect(html).not.toMatch(/Caution \d/);
+    expect(html).not.toMatch(BROKEN);
+  });
+});
+
 describe('Share this forecast names the place', () => {
   it('starts the text with the name and time of the place', () => {
     screen(WEIR);

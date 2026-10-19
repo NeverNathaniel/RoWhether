@@ -2,7 +2,7 @@
 // the next 3, then the last 30 days for context.
 import { HOUR, MIN, WATER } from '../../config.js';
 import { fmtInt, esc, ago, whenText, monthDay, localHour, localMinutes, weekday, dayKey } from '../../format.js';
-import { flowNow, flowTrend, flowChange, flowForecastPeak, factorLevel } from '../../logic.js';
+import { flowNow, flowTrend, flowChange, flowForecastPeak, factorLevel, isSet } from '../../logic.js';
 import { Chart, niceTicks, niceMax } from '../chart.js';
 import { fact } from '../parts.js';
 import { chartWidth, legend, chartBox, hourTable, head } from './common.js';
@@ -38,7 +38,8 @@ export function summary(m) {
   return { text: `${flowText(m, fl)} now. ${outlook(m, fl)}`.trim(), lvl: factorLevel(m.cur.a, ['flow']).lvl };
 }
 
-// Keep the settings lines in view when the flow is anywhere near them.
+// Keep the settings lines in view when the flow is anywhere near them. A blank
+// limit counts as 0 here and leaves the top as it was.
 function topFor(S, max) {
   let hi = niceMax(max * 1.15);
   if (S.flowCaution <= hi * 1.5) hi = niceMax(Math.max(hi, S.flowCaution * 1.05));
@@ -48,8 +49,8 @@ function topFor(S, max) {
 const kfmt = v => (v >= 1000 ? `${Math.round(v / 100) / 10}K` : String(v));
 
 function settingLines(c, L, S) {
-  c.hline(L, S.flowCaution, 'cthr1', kfmt(S.flowCaution));
-  c.hline(L, S.flowOff, 'cthr2', kfmt(S.flowOff));
+  if (isSet(S.flowCaution)) c.hline(L, S.flowCaution, 'cthr1', kfmt(S.flowCaution));
+  if (isSet(S.flowOff)) c.hline(L, S.flowOff, 'cthr2', kfmt(S.flowOff));
 }
 // Every nth point, counting back from the latest so it is always included.
 const every = (pts, n) => pts.filter((_, i) => (pts.length - 1 - i) % n === 0);
@@ -94,8 +95,8 @@ export function render(m) {
     const keys = legend([
       { kind: 'line', text: 'Measured' },
       ...(fc.length ? [{ kind: 'fcst', text: 'NWS forecast' }] : []),
-      ...(S.flowCaution <= hi ? [{ kind: 'dash1', text: `Caution ${fmtInt(S.flowCaution)}` }] : []),
-      ...(S.flowOff <= hi ? [{ kind: 'dash2', text: `Stay off ${fmtInt(S.flowOff)}` }] : [])
+      ...(isSet(S.flowCaution) && S.flowCaution <= hi ? [{ kind: 'dash1', text: `Caution ${fmtInt(S.flowCaution)}` }] : []),
+      ...(isSet(S.flowOff) && S.flowOff <= hi ? [{ kind: 'dash2', text: `Stay off ${fmtInt(S.flowOff)}` }] : [])
     ]);
     near = `<h3 class="dhead">Last 2 days and next 3</h3>
       ${chartBox(c.svg('River flow over the last 2 days and the NWS forecast for the next 3'), { keys, hint: 'Tap the chart for a reading.' })}`;
@@ -143,7 +144,12 @@ export function render(m) {
   } else {
     f.push(fact('NWS forecast', '--', 'Not available right now.'));
   }
-  f.push(fact('Your settings', flowText(m, S.flowCaution), `Caution at ${fmtInt(S.flowCaution)}, stay off at ${fmtInt(S.flowOff)}.${far ? ' Well above the current flow.' : ''}`));
+  // The levels that are set, as "caution at 20,000, stay off at 28,000".
+  const set = [['caution', S.flowCaution], ['stay off', S.flowOff]].filter(l => isSet(l[1]));
+  const said = set.map(l => `${l[0]} at ${fmtInt(l[1])}`).join(', ');
+  f.push(set.length
+    ? fact('Your settings', flowText(m, set[0][1]), `${said[0].toUpperCase()}${said.slice(1)}.${far ? ' Well above the current flow.' : ''}`)
+    : fact('Your settings', '--', 'No flow limits set.'));
 
   const fcTable = fc.length ? hourTable('NWS forecast', ['Time', 'Flow'], fc.map(p => [whenText(p.t), flow100(m, p.v)])) : '';
   const dayTable = days.length ? hourTable('Daily means', ['Day', 'Flow'], days.slice().reverse().map(p => [monthDay(p.t), flowText(m, p.v)])) : '';

@@ -92,6 +92,32 @@ describe('assess', () => {
     expect(at(95, { ...SETTINGS, rainOff: '' }).lvl).toBe(1);
     expect(at(95, { ...SETTINGS, rainCaution: '', rainOff: '' }).lvl).toBe(0);
   });
+  it('applies flow limits from settings, and a blank limit is off', () => {
+    const at = (v, S = SETTINGS) => hourAt(buildModel(PUTNEY, { wx: wx(), river: { ...RIVER, flow: { v, t: NOON } } }, { ...S }, NOON), 12).a;
+    expect(at(19999).lvl).toBe(0);
+    expect(at(20000).reasons[0]).toMatchObject({ lvl: 1, key: 'flow', text: 'Elevated flow at 20,000 cfs' });
+    expect(at(28000).reasons[0]).toMatchObject({ lvl: 2, key: 'flow', text: 'High water at 28,000 cfs' });
+    // A blank stay off level leaves caution; a blank caution level leaves stay off.
+    expect(at(30000, { ...SETTINGS, flowOff: '' }).lvl).toBe(1);
+    expect(at(25000, { ...SETTINGS, flowCaution: '' }).lvl).toBe(0);
+    expect(at(28000, { ...SETTINGS, flowCaution: '' }).lvl).toBe(2);
+    // Both blank is no flow reason at any flow. A '' compares as 0, so without the test every reading was stay off.
+    const none = { ...SETTINGS, flowCaution: '', flowOff: '' };
+    for (const v of [0, 3000, 30000, 500000]) expect(at(v, none), `${v} cfs`).toMatchObject({ lvl: 0, reasons: [] });
+  });
+  it('has no flow reason at a place whose record sets no flow limits', () => {
+    const { flowCaution, flowOff, ...rest } = PUTNEY_RECORD.thresholds;
+    const loc = resolveLocation({ ...PUTNEY_RECORD, slug: 'bay-w', thresholds: rest }, { waterway: PUTNEY_WATERWAY });
+    const S = effectiveSettings(loc);
+    expect(S).toMatchObject({ flowCaution: '', flowOff: '' });
+    const m = buildModel(loc, { wx: wx(), river: { ...RIVER, flow: { v: 30000, t: NOON } } }, S, NOON);
+    expect(hourAt(m, 12).a).toMatchObject({ lvl: 0, reasons: [] });
+    expect(m.cur.a.reasons.map(r => r.key)).not.toContain('flow');
+    // The reading applies to every hour, so every period that is left is Go too.
+    const left = m.days.flatMap(d => d.periods).filter(p => !p.past);
+    expect(left.length).toBeGreaterThan(0);
+    for (const p of left) expect(p.lvl, p.name).toBe(0);
+  });
   it('flags thunderstorms, storm risk, freezing rain and snow', () => {
     const at = o => hourAt(model((i, t) => (t === NOON ? o : {})), 12).a;
     expect(at({ code: 95 }).lvl).toBe(2);
