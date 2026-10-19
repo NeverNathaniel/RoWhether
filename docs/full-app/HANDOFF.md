@@ -33,7 +33,7 @@ Phase 0 build (no visible change for Putney; see `01-locations.md` section 8 and
 
 6. [x] Golden outputs captured before any refactor: `scripts/golden.mjs`, `test/golden/`, before screenshots.
 7. [x] Refactor steps, each its own commit with `npm test` and `npm run build` passing. Progress in `docs/full-app/phase-0-progress.md`.
-8. [ ] `test/golden.test.js` proves deep equality with the captured outputs.
+8. [x] `test/golden.test.js` proves deep equality with the captured outputs. (Held at every commit since P0.1; P0.14 item 2 checks the diff.)
 9. [ ] Opus review of the Phase 0 diff, then fixes.
 10. [ ] Browser check per `CLAUDE.md` Testing, and `CLAUDE.md` updated for the new code map.
 11. [ ] PR #6 description updated with what Phase 0 changed.

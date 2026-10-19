@@ -45,7 +45,7 @@ Ship notes, for the PR #6 description and the merge:
 
 Exit criteria:
 
-1. The final proof in 08 14.2 under P0.14 holds: tests and build pass, the golden JSON diff against the P0.1 commit is empty, the pixel screenshots match (and are then deleted, see the ship notes), the timing is within 20% of the baseline, the budget passes, the `CLAUDE.md` browser checklist passes by hand, and an old installed copy keeps its settings, cache and install choice.
+1. The final proof in 08 14.2 under P0.14 holds: tests and build pass, the golden JSON diff against the golden base `c7967a6` is empty (08 14.1), the pixel screenshots match (and are then deleted, see the ship notes), the timing is within 20% of the baseline, the budget passes, the `CLAUDE.md` browser checklist passes by hand, and an old installed copy keeps its settings, cache and install choice.
 2. The budget row for phase 0 in 08 11.2 holds: main JS 40,500 B, CSS 6,100 B, HTML 3,700 B, precache under 400 KiB.
 3. 07 section 13 (phase 0): screenshots match before and after, and the manifest still has `start_url` and `scope` of `./`.
 4. Nothing in 08 14.3 has changed: the app name, `index.html`, the manifest, the settings fields, routes, storage behavior beyond key names, the Worker routes, `wrangler.jsonc`, refresh timing and source staleness.

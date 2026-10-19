@@ -182,10 +182,10 @@ New files and folders, by the phase in which they first appear. Owners are the d
 | `src/location.js`, `src/putney.js` | 0 | 01 7.2, 14 here | Location logic (3.3); Putney's resolved record for phase 0, replaced by loading from `data/` in phase 1 |
 | `src/sources/index.js`, `openmeteo.js`, `nws.js`, `usgs.js`, `nwps.js` | 0 | 02 | The nine current adapters, `bindingsFor(loc)`, `labelFor()`, `SLOT_ORDER` |
 | `src/units.js` | 0 | 07 7.7 | `unitFormat()`, US only |
-| `scripts/golden.mjs`, `test/golden.test.js`, `test/golden/*.json`, `test/fixtures/golden.js`, `test/helpers/fakedom.js` | 0 | 01 8.7, 14 here | Golden outputs and their check |
+| `scripts/golden.mjs`, `test/golden.test.js`, `test/golden-variants.test.js`, `test/golden-location.test.js`, `test/golden/*.json`, `test/golden/capture.js`, `harness.js`, `probes.js`, `digest.js`, `test/fixtures/golden.js`, `test/fixtures/variants.js`, `test/fixtures/sources/`, `test/helpers/fakedom.js`, `test/helpers/forecast.js` | 0 | 01 8.7, 14 here | Golden outputs, the variant cases and threshold probes, recorded upstream answers, and their checks |
 | `scripts/budget.mjs`, `budget.json` | 0 | 07 10.6, 11 here | Bundle and precache budget check |
-| `playwright.config.js`, `test/browser/fixtures.js`, `test/browser/screens.spec.js`, `test/browser/smoke.spec.js`, `test/browser/timing.spec.js` | 0 | 14 here | Before and after screenshots, browser smoke checks, the first-render timing |
-| `test/location.test.js`, `test/format.test.js`, `test/storage.test.js`, `test/sources.test.js`, `test/units.test.js` | 0 | 01 16, 02 Tests, 07 7.7 | Unit tests |
+| `playwright.config.js`, `test/browser/fixtures.js`, `test/browser/screens.spec.js`, `smoke.spec.js`, `timing.spec.js`, `parity.spec.js`, `settings.spec.js`, `update.spec.js` | 0 | 14 here | Before and after screenshots, browser smoke checks, the first-render timing, the page against the golden files, the Settings round trip, and the update takeover (`update.spec.js` is B1, outside phase 0) |
+| `test/location.test.js`, `test/format.test.js`, `test/zone.test.js`, `test/storage.test.js`, `test/settings.test.js`, `test/sources.test.js`, `test/data.test.js`, `test/units.test.js`, `test/units-callers.test.js`, `test/render-location.test.js`, `test/render-units.test.js`, `test/render-zone.test.js`, `test/suggest-context.test.js` | 0 | 01 16, 02 Tests, 07 7.7 | Unit tests. `test/logic.test.js` and `test/suggest.test.js` are extended |
 | `docs/full-app/phase-0-progress.md` | 0 | HANDOFF | Step log for phase 0 |
 | `scripts/locations/flowstats.mjs`, `bearing.mjs`, `discover.mjs` | 1 | 01 7.2, 02, 5.6 here | Curation tools; `discover.mjs` runs `worker/discover.js` from Node |
 | `worker/discover.js` | 1 | 02 Discovery | Pure discovery steps with an injected `get` (used by the script in 1, the route in 3) |
@@ -2452,7 +2452,7 @@ Gzip bytes for the Now screen's critical path, checked by `scripts/budget.mjs` a
 
 ### 11.3 Time to first render
 
-- Measured in Playwright with Chromium, CPU throttled 4 times (`Emulation.setCPUThrottlingRate` over CDP), the network offline after a first load, from navigation start to `performance.mark('hero')` set in `render()` after `renderHero()` (P0.2; 07 10.2), with `Date` pinned by `page.clock.setFixedTime` to a scenario's midday so the model has hours. The median of 5 runs is the number.
+- Measured in Playwright with Chromium, CPU throttled 4 times (`Emulation.setCPUThrottlingRate` over CDP), the network offline after a first load, from navigation start to `performance.mark('hero')` set in `render()` after `renderHero()` (P0.2; 07 10.2), with `Date` pinned by `page.clock.setFixedTime` to a scenario's midday so the model has hours. The median of 5 runs, after one warm-up run, is the number. It is the hand check before a merge, run with `TIMING_BASELINE_MS` set (14.2 P0.14 item 4). CI sets `CI`, loads the page once and checks only that the hero comes from the saved copy offline.
 - Phase 0 step P0.2 records the baseline in `docs/full-app/phase-0-progress.md`. Every later phase stays within 20% of it.
 - Nothing is fetched before the first render (8.5).
 
@@ -2551,16 +2551,18 @@ test: { environment: 'node', exclude: ['**/node_modules/**', 'test/browser/**'] 
 
 ### 13.6 CI
 
-`.github/workflows/ci.yml` today runs `npm ci`, `npm test`, `npm run build` on Node 22 for pushes to `master` and `dev` and for every pull request (read 2026-10-18). Pushes to `dev-full-app` run through its pull request.
+`.github/workflows/ci.yml` ran `npm ci`, `npm test` and `npm run build` on Node 22 for pushes to `master` and `dev` and for every pull request (read 2026-10-18). Phase 0 added the steps marked 0 below, read from the file on 2026-10-19. Pushes to `dev-full-app` run through its pull request.
 
 | Step | Command | Phase |
 | --- | --- | --- |
+| Checkout | `actions/checkout@v4` with `fetch-depth: 0`, so the next step reaches the base commits | 0 |
+| Golden and screenshot diff | `git diff --exit-code --diff-filter=MD c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab HEAD -- 'test/golden/*.json' && git diff --exit-code --diff-filter=MD 743e8cdd8589653bab4bd3554b09ea5eb5efff95 HEAD -- test/browser/__screenshots__`. A modified or deleted file fails the run and a new one does not (14.1) | 0 |
 | Install | `npm ci` | today |
 | Unit, golden, Worker, D1 | `npm test` | today |
 | Build | `npm run build` | today |
-| Budget | `node scripts/budget.mjs` | 0 |
+| Budget | `node scripts/budget.mjs`, then `actions/upload-artifact@v4` of `dist/budget-report.json` at once, since the Playwright web server runs `npm run build` and empties `dist/` | 0 |
 | Worker bundles and bindings | `npx wrangler deploy --dry-run --outdir $RUNNER_TEMP/worker` | 0 |
-| Browser | `npx playwright install --with-deps chromium`, then `npx playwright test --grep-invert @visual` (pixel comparisons run on the machine that made the baseline, 13.5) | 0 |
+| Browser | Playwright's browsers are cached with `actions/cache@v4` at `~/.cache/ms-playwright`, keyed on the Playwright version. On a miss, `npx playwright install --with-deps chromium`; on a hit, `npx playwright install-deps chromium`, since the system packages are not in the cache. Then `npx playwright test --grep-invert @visual` (pixel comparisons run on the machine that made the baseline, 13.5). `CI` is set there, so `timing.spec.js` loads the page once with no warm-up (FD7) | 0 |
 | Migrations on Miniflare | `npx wrangler d1 migrations apply DB --local -c test/wrangler.test.jsonc` | 2 |
 | workerd tests | `npm run test:workerd` | 2 |
 
@@ -2570,7 +2572,7 @@ A failed step fails the run. The budget report is uploaded as an artifact (P0.3)
 
 | Phase | New test files | Owner |
 | --- | --- | --- |
-| 0 | `golden.test.js`, `location.test.js`, `format.test.js`, `storage.test.js`, `sources.test.js`, `units.test.js`, `test/browser/screens.spec.js`, `smoke.spec.js`, `timing.spec.js` | 01 16, 02, 07, 14 here |
+| 0 | `golden.test.js`, `golden-variants.test.js`, `golden-location.test.js`, `location.test.js`, `format.test.js`, `zone.test.js`, `storage.test.js`, `settings.test.js`, `sources.test.js`, `data.test.js`, `units.test.js`, `units-callers.test.js`, `render-location.test.js`, `render-units.test.js`, `render-zone.test.js`, `suggest-context.test.js` (`logic.test.js` and `suggest.test.js` extended); `test/browser/screens.spec.js`, `smoke.spec.js`, `timing.spec.js`, `parity.spec.js`, `settings.spec.js`, `update.spec.js` (B1, outside phase 0). Helpers: `test/golden/capture.js`, `harness.js`, `probes.js`, `digest.js`, `test/fixtures/golden.js`, `variants.js`, `sources/`, `test/helpers/fakedom.js`, `forecast.js`, `test/browser/fixtures.js` | 01 16, 02, 07, 14 here |
 | 1 | `route.test.js`, `picker.test.js`, `csp.test.js`, `info.test.js`, `locations-data.test.js` (every `data/` record validates), `test/browser/picker.spec.js` | 01, 07 |
 | 2 | `auth-*.test.js`, `settings-sync.test.js`, `delete.test.js`, `migrations.test.js`, `units.test.js` (UK, metric) | 03 20 |
 | 3 | `reports.test.js` (extended), `hazards.test.js`, `outings.test.js`, `overdue.test.js`, `flags.test.js`, `locations-api.test.js`, `notify-tick.test.js` | 01, 04 12, 05 12 |
@@ -2589,14 +2591,19 @@ Every code fact below was read on 2026-10-18 at commit `20e4255`.
 | Proof | What it covers | Made in | Checked in |
 | --- | --- | --- | --- |
 | Golden outputs: JSON files of the model, every sentence the logic writes, every detail view's HTML, the home screen's elements and each full forecast, for fixed inputs and clocks | Logic and rendering, exactly | P0.1 | every step, by `npm test` |
-| `git diff <P0.1 commit> HEAD -- test/golden/` is empty | Nobody edited the expected outputs to make a step pass | P0.1 | P0.14, and in each step's review |
+| `git diff c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab HEAD -- 'test/golden/*.json'` is empty | Nobody edited the expected outputs to make a step pass. `c7967a6` is the base: the last P0.1 commit, which stored the large variant outputs as digests. `29613d4`, the first P0.1 commit, is not the base, since the variant files came after it. The `*.json` keeps the diff to the expected outputs, because `test/golden/` also holds the capture code, which a step may edit as test code | P0.1 | CI on every push (the same diff with `--diff-filter=MD`, 13.6), P0.14, and in each step's review |
 | Before screenshots, Chromium, 390 px light and 1280 px dark, midday and 9 PM, home and four tabs | Layout, CSS, the parts the golden files cannot see | P0.2 | P0.14 on the same machine |
-| Timing baseline, first hero from cache, CPU 4 times slower, offline | Speed | P0.2 | P0.14: within 20% |
+| `git diff 743e8cdd8589653bab4bd3554b09ea5eb5efff95 HEAD -- test/browser/__screenshots__` is empty | Nobody rewrote the screenshots. `743e8cd` is the P0.2 commit. Playwright runs with `updateSnapshots: 'none'`, so a missing baseline fails and is not written | P0.2 | CI on every push (`--diff-filter=MD`), P0.14, and in each step's review. P0.14 deletes the screenshots on purpose after item 3 (14.2, 17.1) |
+| Timing baseline, first hero from cache, CPU 4 times slower, offline | Speed | P0.2 | P0.14: within 20%, run with `TIMING_BASELINE_MS` (14.2 P0.14 item 4) |
 | URL and label parity test | The requests the app makes and the failure names are identical | P0.6 | every step after |
+| Parity spec, `test/browser/parity.spec.js`: the real page against the golden files | The page's own path (storage, `fetchAll`, the parsers, `render()`, the Day by day rows and the tab router) draws what the capture drew for the same inputs. The default cases run with empty storage. The custom cases run with the values of `CUSTOM` that differ from the defaults saved before the page loads (FC5) | before P0.6 (review Z1), custom cases in the final review | CI on every push |
+| Settings spec, `test/browser/settings.spec.js` | What a person sets in Settings applies at once, survives a reload, and Reset goes back to the defaults, for all 13 limits and the order rule on Save | P0.7, written to pass on the code before it (review Z6); extended in the final review (FC9) | CI on every push |
 | Storage migration tests | Existing users keep their settings, cache and install choices | P0.7 | every step after |
 | Bundle budget | Size | P0.3 | every CI run |
 
 Rule for every step: the golden JSON files and the screenshot images are never written after P0.1 and P0.2. The capture code in `test/golden/capture.js` may change how it reaches a value (for example `bindingsFor(PUTNEY)` instead of `SRC`), and that change is reviewed as test code; what it produces must stay equal.
+
+Rule for additions (review Z9, point 4): a new golden case or screenshot is written from code whose `src/` equals the base, in a worktree, and committed with the test change that defines it; a capture edit that a step needs lands in its own commit and passes against the unchanged `src/` first. A new file passes the CI diff step, which fails only a modified or deleted file, so a new case also needs a test that would fail without it (the check that the names of the cases and probes equal the files in `test/golden/` is in `test/golden.test.js`, FC5).
 
 ### 14.2 The steps
 
@@ -2669,7 +2676,7 @@ Done when: the screenshots and the baseline are committed. Pixel output differs 
 | --- | --- |
 | `scripts/budget.mjs` | Reads `dist/index.html`, finds the main script and stylesheet it links, gzips each at level 9 with `zlib`, and adds up the precache from the entries listed in `dist/sw.js`. Compares with `budget.json`; prints every file in `dist/assets/` with raw and gzip size; exits 1 when over; also writes `dist/budget-report.json` with the sizes it printed |
 | `budget.json` | `{ "phase": 0, "js": 40500, "css": 6100, "html": 3700, "precacheKiB": 400 }` (11.2) |
-| `.github/workflows/ci.yml` | After `npm run build`: `node scripts/budget.mjs`; `npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/worker"` (verified live 2026-10-18: runs without a login and lists the bindings); `npx playwright install --with-deps chromium`; `npx playwright test --grep-invert @visual`; `actions/upload-artifact@v4` with `name: budget`, `path: dist/budget-report.json` and `if: always()` |
+| `.github/workflows/ci.yml` | After `npm run build`: `node scripts/budget.mjs`; `npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/worker"` (verified live 2026-10-18: runs without a login and lists the bindings); `npx playwright install --with-deps chromium`; `npx playwright test --grep-invert @visual`; `actions/upload-artifact@v4` with `name: budget`, `path: dist/budget-report.json` and `if: always()`. Later steps added the checkout with `fetch-depth: 0` and the golden and screenshot diff step (Z9), and the browser cache (FD7); 13.6 lists the workflow as it ended |
 
 Done when: CI passes on the pull request with the new steps.
 
@@ -2781,9 +2788,9 @@ Done when: all tests pass; the Worker is the same for every current caller.
 - `CLAUDE.md` code map: `src/location.js`, `src/putney.js`, `src/sources/`, `src/units.js`, `data/`, the golden and browser tests, `scripts/budget.mjs`; the storage keys sentence (`rowhether-*`); `buildModel(loc, data, S, now)`. The owner approved CLAUDE.md edits on this branch for phase 0 (HANDOFF).
 - Final proof, recorded in `docs/full-app/phase-0-progress.md`:
   1. `npm test` and `npm run build` pass; the test count is today's 109 plus the new tests.
-  2. `git diff <P0.1 commit> HEAD -- test/golden/` prints nothing.
+  2. `git diff c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab HEAD -- 'test/golden/*.json'` prints nothing, and so does `git diff 743e8cdd8589653bab4bd3554b09ea5eb5efff95 HEAD -- test/browser/__screenshots__` until the screenshots are deleted on purpose after item 3 (14.1 names both commits; `29613d4` is not the golden base).
   3. `npx playwright test --grep @visual` passes on the machine that made the screenshots, with `maxDiffPixelRatio: 0`.
-  4. `timing.spec.js` median within 20% of the P0.2 baseline.
+  4. `timing.spec.js` median of 5 within 20% of the P0.2 baseline: run each project on a quiet machine with `TIMING_BASELINE_MS` set to its baseline (about 99 for `chromium-390-light` and about 104 for `chromium-1280-dark`, from the P0.2 entry); the spec fails when the median is more than 20% above it. CI never sets it and loads the page once. A miss is re-run and read as the middle of three invocations before it counts as a regression (P0.2 entry).
   5. `node scripts/budget.mjs` passes.
   6. The CLAUDE.md browser checklist (Testing) by hand: 390 and 1280 px, light and dark, midday and 9 PM, every tab at 360, 390 and 1280, the install bar, blocked sources, the Dev label with `/api/info` stubbed, Share this forecast copying the same text as before.
   7. An installed copy of the old build updated to the new one keeps its settings, its cached forecast (shown offline at once) and its install bar choice.
