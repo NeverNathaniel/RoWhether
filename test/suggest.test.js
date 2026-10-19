@@ -143,6 +143,44 @@ describe('worker routing', () => {
   });
 });
 
+// The route as the Worker wires it (FC10). Every handleSuggest test above hands
+// it deps, so the defaults the route takes were never run: production could
+// ask Turnstile for another action, or not ask at all, and all of them passed.
+// These send POST /api/suggest through worker.fetch with the full ENV. Only the
+// global fetch is stood in for: siteverify answers with the action it is given,
+// and every other host gets a 400, so no paid API is reached.
+describe('the suggest route with its own wiring', () => {
+  const VERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+  const send = async action => {
+    const asked = [];
+    vi.stubGlobal('fetch', vi.fn(async (input) => {
+      const url = String(input?.url ?? input);
+      asked.push(url);
+      return url === VERIFY ? new Response(JSON.stringify({ success: true, action })) : new Response('refused by the test', { status: 400 });
+    }));
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const r = await worker.fetch(post(good), ENV);
+      return { status: r.status, body: await r.json(), asked };
+    } finally { vi.unstubAllGlobals(); spy.mockRestore(); }
+  };
+
+  it('refuses a token made for another form, having asked only Turnstile', async () => {
+    const { status, body, asked } = await send('auth');
+    expect(status).toBe(403);
+    expect(body.error).toBe('verification_failed');
+    expect(asked).toEqual([VERIFY]);
+  });
+  it('takes a token made for suggest and goes on to Claude, which the test refuses', async () => {
+    const { status, body, asked } = await send('suggest');
+    expect(status).toBe(502);
+    expect(body.error).toBe('unavailable');
+    expect(asked).toHaveLength(2);
+    expect(asked[0]).toBe(VERIFY);
+    expect(new URL(asked[1]).host).toBe('api.anthropic.com');
+  });
+});
+
 // verifyTurnstile itself: every other test here stubs it through deps. Only
 // Cloudflare's siteverify answer is stood in for; nothing calls the network.
 describe('verifyTurnstile', () => {
