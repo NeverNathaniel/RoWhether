@@ -6,7 +6,31 @@ Three checkers each took part of the checklist: the home screen and its actions,
 
 WebKit is not installed in this container. The WebKit half of the checklist is for the owner's Mac with `WEBKIT=1`.
 
-Status: first run on 276969d; rerun after the fixes to come.
+Status: first run on 276969d (68 pass, 2 fail, 4 not run). Rerun on `581f637`, the head of `dev-full-app` after the fixes, on 2026-10-19 at 14:46 UTC (P0.14 item 6 and 7, session 015Sq3rx): B1 and B2 pass, and every area that passed on `276969d` passes again. 50 of 51 entries pass, none fail, and 1 is not run (a live load, below). See "Rerun on 581f637".
+
+## Rerun on 581f637
+
+The same checklist, on a build of `581f637` served with `vite preview` (the source is the same as `ec7141e`; only `CLAUDE.md`, `budget.json` and the docs changed since). Chromium 141 (build 1194, Playwright 1.56.1), the golden fixtures from `test/browser/fixtures.js`, the page clock pinned with `page.clock.install`, the machine zone UTC. New Playwright scripts outside the repo, in the session scratchpad, not committed, as for the first run. Nothing in the repo was edited by the checks.
+
+| Area | Entries | Pass | Fail | Not run |
+| --- | --- | --- | --- | --- |
+| Home screen, actions, settings | 17 | 17 | 0 | 0 |
+| Tabs and flows | 7 | 6 | 0 | 1 |
+| Install bar, install prompt and B2 | 15 | 15 | 0 | 0 |
+| Upgrade from `2b7ef06` (B1) | 12 | 12 | 0 | 0 |
+| Total | 51 | 50 | 0 | 1 |
+
+The entries are grouped more coarsely than on `276969d`, so the counts do not line up one for one. Each area keeps every check of the first run.
+
+- B1, a new version takes over without closing the browser: passes. One origin and port, a persistent Chromium profile, iPhone user agent and touch at 390 by 664, the clock fixed at 12:00 on june-calm. The old build `2b7ef06` loads, its worker takes control and caches the shell, and it saves `windCaution` 8, a forecast (34,531 characters) and 2 install dismissals. The same address then serves `581f637`. With every upstream blocked, a reload brings in the new build by itself (two page loads: the reload and the one the register code makes), no worker is left waiting, the old build's files are gone from the cache and the new main script is the one running. Without a reload, coming back to the tab 5 minutes later does the same with one reload. No browser restart in either.
+- What survives the upgrade, all passing: `rowhether-settings-v2` holds `{windCaution:8}` for `putney-landing`, the dialog shows 8 with `windOff` at 15, the reminder stays hidden and the three old `putney-rowing-*` keys are untouched. The saved forecast is copied byte for byte and shows at once ("Saved data from 12 PM", Go). With upstream requests held open the hero is drawn 37 ms after the reload begins and the status reads Refreshing. Offline, the new build opens from its worker in 47 ms with the saved forecast, loads the web font, names all nine sources as unreachable and opens `#week`. Back online its home screen text equals the old build's, 3,747 characters each. The install count of 2 is in `rowhether-install-v1`, three more Not now reach 5 and the next visit offers Don't show again. No page errors.
+- B2, the footer clears the install bar: passes. iPhone user agent, scrolled to the bottom, 5 dismissals stored so Don't show again shows. At 360 px the last footer line ends 30.8 px above the bar (the bar is 172 px tall, the room under the page 208 px). At 390 px 30.9 px, at 320 px 30.6 px (bar 191 px), and at 600 px 30.6 px with 5 dismissals and 82.6 px on a first visit (room 160 px). The first visit at 360 px reads as on `276969d`: bar top 604, last line 574, footer button 317.
+- Home screen: midday and 9 PM at 390 light and 1280 dark read as on `276969d` (the hero text, 20 and 18 period rows, the two backgrounds, no overflow, a clean console). The 16 pixel comparisons of the first run are the 48 screenshots of `npx playwright test --grep @visual`, which pass at `maxDiffPixelRatio` 0 on this commit (the progress file's P0.14 entry). Six opened rows show their facts, compass, Precipitation block and hour table. Blocked data, the Dev label, dock reports, Share this forecast, Plan a row, Settings and Reset defaults pass.
+- Tabs: the 54 combinations (9 tabs, 3 widths, 2 days) pass 390 checks (no horizontal scroll, strip labels in their buttons, header on one row, tab bar pinned after scrolling to 700 px and at the bottom, a tap on the middle column of every chart gives the readout that column's text and marks one column, no NaN or undefined in the text), and so do the 18 at 390 px in Pacific/Auckland with de-DE. The Fog view opens on 2026-10-15 at 9 PM and at noon and on 2026-10-14 at 6 AM, at 360, 390 and 1280 px. The home scroll is kept, opened Week days and `details[data-keep]` sections stay open through Refresh and the 10 minute timer (18 tab runs).
+- Install bar and prompt: all passing, as on `276969d` (first visit, Show me how, visits 2 to 5, Don't show again and `never`, the return after 31 minutes but not 10, the footer button, and the Chromium `beforeinstallprompt` flow with Install, a declined and an accepted choice, `appinstalled`, the Settings button and Don't show again).
+- Live loads: the home screen at 390 px loaded all nine sources with 200 and read Caution. The nine tabs at 360 px are not run: Open-Meteo answered one request with 429 (its CORS-less reply also shows as a failed fetch), so that load is not valid. Open-Meteo rate-limits this host, as in the first run.
+- Not run again: WebKit (the owner's Mac, `WEBKIT=1`), and the live cells above.
+- The Observations of the first run are untouched.
 
 ## Summary
 
