@@ -2548,7 +2548,7 @@ test: { environment: 'node', exclude: ['**/node_modules/**', 'test/browser/**'] 
 
 - `playwright.config.js` (phase 0) starts `npm run build && npx vite preview --port 4173`, blocks service workers (`serviceWorkers: 'block'`) except in the offline test, and routes every upstream host to fixtures in `test/browser/fixtures.js`, so runs are repeatable.
 - Projects: `chromium-390-light`, `chromium-1280-dark`. The `webkit-390-light` and `webkit-1280-dark` projects are added only when `WEBKIT=1` is set, for a manual run on the owner's Mac; CI does not set it, and `timing.spec.js` skips itself outside Chromium because CDP CPU throttling is Chromium only. The container has no WebKit (verified live 2026-10-18: only Chromium 1194 is installed under `/opt/pw-browsers`).
-- Screenshots are compared with `toHaveScreenshot` against committed images in `test/browser/__screenshots__/`, with `maxDiffPixelRatio: 0` for phase 0 (no visible change) and a small ratio after. Pixels differ between machines, so the `@visual` specs run where the baseline was made until a CI run shows they match there too (17.3).
+- Screenshots are compared with `toHaveScreenshot` against a local, git-ignored baseline in `test/browser/__screenshots__/` (the owner's decision of 2026-10-19, FD3: P0.14 deleted the committed images, and `743e8cd` holds the last copy), with `maxDiffPixelRatio: 0` for phase 0 (no visible change) and a small ratio after. Pixels differ between machines, so the `@visual` specs run on the machine that made the baseline, and CI runs `--grep-invert @visual` (17.3). `screens.spec.js` says how to make a baseline, also from another commit.
 - Each phase adds its checklist from CLAUDE.md Testing and the owning document as specs.
 
 ### 13.6 CI
@@ -2558,7 +2558,7 @@ test: { environment: 'node', exclude: ['**/node_modules/**', 'test/browser/**'] 
 | Step | Command | Phase |
 | --- | --- | --- |
 | Checkout | `actions/checkout@v4` with `fetch-depth: 0`, so the next step reaches the base commits | 0 |
-| Golden and screenshot diff | `git diff --exit-code --diff-filter=MD c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab HEAD -- 'test/golden/*.json' && git diff --exit-code --diff-filter=MD 743e8cdd8589653bab4bd3554b09ea5eb5efff95 HEAD -- test/browser/__screenshots__`. A modified or deleted file fails the run and a new one does not (14.1) | 0 |
+| Golden diff | `git diff --exit-code --diff-filter=MD c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab HEAD -- 'test/golden/*.json'`. A modified or deleted file fails the run and a new one does not (14.1). It had a second half for the screenshots until P0.14 deleted them | 0 |
 | Install | `npm ci` | today |
 | Unit, golden, Worker, D1 | `npm test` | today |
 | Build | `npm run build` | today |
@@ -2568,7 +2568,7 @@ test: { environment: 'node', exclude: ['**/node_modules/**', 'test/browser/**'] 
 | Migrations on Miniflare | `npx wrangler d1 migrations apply DB --local -c test/wrangler.test.jsonc` | 2 |
 | workerd tests | `npm run test:workerd` | 2 |
 
-A failed step fails the run. The golden and screenshot diff step is a phase 0 rule: it holds until PR #6 merges into `dev`, and phase 1's first commit replaces it (14.1). Its screenshot half goes with the screenshots (P0.14, 17.1). The budget report is uploaded as an artifact (P0.3), which the Metrics tab's budget history reads (07 14.5). Screenshots are not made in CI (13.5).
+A failed step fails the run. The golden diff step is a phase 0 rule: it holds until PR #6 merges into `dev`, and phase 1's first commit replaces it (14.1). Its screenshot half went with the screenshots (P0.14, 17.1). The budget report is uploaded as an artifact (P0.3), which the Metrics tab's budget history reads (07 14.5). Screenshots are not made in CI (13.5).
 
 ### 13.7 Tests by phase
 
@@ -2595,7 +2595,7 @@ Every code fact below was read on 2026-10-18 at commit `20e4255`.
 | Golden outputs: JSON files of the model, every sentence the logic writes, every detail view's HTML, the home screen's elements and each full forecast, for fixed inputs and clocks | Logic and rendering, exactly | P0.1 | every step, by `npm test` |
 | `git diff c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab HEAD -- 'test/golden/*.json'` is empty | Nobody edited the expected outputs to make a step pass. `c7967a6` is the base: the last P0.1 commit, which stored the large variant outputs as digests. `29613d4`, the first P0.1 commit, is not the base, since the variant files came after it. The `*.json` keeps the diff to the expected outputs, because `test/golden/` also holds the capture code, which a step may edit as test code | P0.1 | CI on every push (the same diff with `--diff-filter=MD`, 13.6), P0.14, and in each step's review |
 | Before screenshots, Chromium, 390 px light and 1280 px dark, midday and 9 PM, home and four tabs | Layout, CSS, the parts the golden files cannot see | P0.2 | P0.14 on the same machine |
-| `git diff 743e8cdd8589653bab4bd3554b09ea5eb5efff95 HEAD -- test/browser/__screenshots__` is empty | Nobody rewrote the screenshots. `743e8cd` is the P0.2 commit. Playwright runs with `updateSnapshots: 'none'`, so a missing baseline fails and is not written | P0.2 | CI on every push (`--diff-filter=MD`), P0.14, and in each step's review. P0.14 deletes the screenshots on purpose after item 3 (14.2, 17.1) |
+| `git diff 743e8cdd8589653bab4bd3554b09ea5eb5efff95 HEAD -- test/browser/__screenshots__` is empty | Nobody rewrote the screenshots. `743e8cd` is the P0.2 commit. Playwright runs with `updateSnapshots: 'none'`, so a missing baseline fails and is not written | P0.2 | CI on every push (`--diff-filter=MD`), P0.14, and in each step's review, until P0.14 deleted the screenshots on purpose after item 3 (14.2, 17.1) |
 | Timing baseline, first hero from cache, CPU 4 times slower, offline | Speed | P0.2 | P0.14: within 20%, run with `TIMING_BASELINE_MS` (14.2 P0.14 item 4) |
 | URL and label parity test | The requests the app makes and the failure names are identical | P0.6 | every step after |
 | Parity spec, `test/browser/parity.spec.js`: the real page against the golden files | The page's own path (storage, `fetchAll`, the parsers, `render()`, the Day by day rows and the tab router) draws what the capture drew for the same inputs. The default cases run with empty storage. The custom cases run with the values of `CUSTOM` that differ from the defaults saved before the page loads (FC5) | before P0.6 (review Z1), custom cases in the final review | CI on every push |

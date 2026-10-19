@@ -3,8 +3,36 @@
 // a foggy October day. Chromium at 390 px light and 1280 px dark.
 //
 // The page clock is installed at the hour, so the app's own dates, "Updated"
-// time and today's periods are fixed. Pixels differ between machines, so this
-// spec is compared where the baseline was made (13.5), not in CI.
+// time and today's periods are fixed.
+//
+// The baseline is local and git-ignored (FD3). Pixels differ between machines,
+// so the images are made and compared on the same machine, and never in CI,
+// which runs `--grep-invert @visual`. The 48 images of the P0.2 baseline were
+// committed in 743e8cd and deleted in P0.14, and that commit still holds the last
+// copy (`git show 743e8cd:test/browser/__screenshots__/<name>.png`).
+//
+// Make the baseline from the commit you are on, then compare later changes with it:
+//
+//   npx playwright test --grep @visual --update-snapshots
+//   npx playwright test --grep @visual
+//
+// A run with no baseline fails and writes nothing. Only --update-snapshots writes.
+//
+// Make it from another commit, the one before a change you want to compare, in a
+// worktree so your own tree stays as it is. A commit before this file needs this
+// spec and playwright.config.js copied in, so that it reads VISUAL_BASELINE:
+//
+//   git worktree add ../rowhether-base <commit>
+//   ln -s "$PWD/node_modules" ../rowhether-base/node_modules
+//   cp playwright.config.js ../rowhether-base/
+//   cp test/browser/screens.spec.js ../rowhether-base/test/browser/
+//   (cd ../rowhether-base && VISUAL_BASELINE=/absolute/folder npx playwright test --grep @visual --update-snapshots)
+//   VISUAL_BASELINE=/absolute/folder npx playwright test --grep @visual
+//   git worktree remove --force ../rowhether-base
+//
+// The `ln` and `cp` lines are only for a commit that has no node_modules of its
+// own or predates this spec. Phase 0 changed no pixel, so a baseline made from
+// 743e8cd matches HEAD of phase 0 at maxDiffPixelRatio 0.
 import { test, expect } from '@playwright/test';
 import { SCENARIOS, routeAll, ready } from './fixtures.js';
 

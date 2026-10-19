@@ -2,15 +2,22 @@
 // preview, and runs the specs in test/browser against fixtures: every upstream
 // host is answered from test/fixtures/golden.js, so a run is repeatable.
 //
-//   npm run test:browser                       the two Chromium projects
-//   npx playwright test --grep-invert @visual  without the pixel comparisons (CI)
+//   npm run test:browser                       the two Chromium projects, with the pixel comparisons
+//   npx playwright test --grep-invert @visual  without the pixel comparisons (CI, and any machine with no baseline)
 //   WEBKIT=1 npx playwright test               adds the WebKit projects (a Mac with WebKit)
+//
+// The @visual baseline is local and git-ignored (FD3). By default it is in
+// test/browser/__screenshots__/, and VISUAL_BASELINE names another folder.
+// test/browser/screens.spec.js says how to make it, also from another commit.
 //
 // Service workers are blocked so route() sees every request. timing.spec.js
 // allows them for its own contexts.
 import { defineConfig } from '@playwright/test';
 
 const PORT = 4173;
+// Where the @visual images are read from and written to. Not committed: pixels
+// differ between machines, so a baseline is made on the machine that compares.
+const BASELINE = process.env.VISUAL_BASELINE || 'test/browser/__screenshots__';
 const size = (width, height) => ({ viewport: { width, height } });
 
 const projects = [
@@ -29,9 +36,9 @@ export default defineConfig({
   testDir: 'test/browser',
   testMatch: '**/*.spec.js',
   outputDir: 'test-results',
-  snapshotPathTemplate: 'test/browser/__screenshots__/{arg}-{projectName}{ext}',
+  snapshotPathTemplate: `${BASELINE}/{arg}-{projectName}{ext}`,
   // A screenshot with no baseline fails and is never written by a run. Only
-  // --update-snapshots writes one, and the baseline is not rewritten after P0.2.
+  // --update-snapshots writes one, so a baseline is never replaced unseen.
   updateSnapshots: 'none',
   reporter: 'list',
   forbidOnly: !!process.env.CI,
