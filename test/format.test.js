@@ -122,6 +122,70 @@ describe('zoneFormat', () => {
   });
 });
 
+// dayKey and localHour remember their answers by instant (FD2). Intl is asked
+// once for an instant, the answer is right for every instant (a zone that is
+// not a whole hour from UTC makes the hour a poor key), each zone keeps its own,
+// and the memory stays bounded.
+describe('the memory of dayKey and localHour', () => {
+  // Kathmandu is 5:45 ahead of UTC. A zone no other test uses, so nothing in it
+  // is remembered yet.
+  const KTM = 'Asia/Kathmandu';
+  const fKtmKey = new Intl.DateTimeFormat('en-CA', { timeZone: KTM, year: 'numeric', month: '2-digit', day: '2-digit' });
+  const fKtmHour = new Intl.DateTimeFormat('en-US', { timeZone: KTM, hour: 'numeric', hourCycle: 'h23' });
+  const keyAt = t => fKtmKey.format(new Date(t));
+  const hourAt = t => parseInt(fKtmHour.format(new Date(t)), 10) % 24;
+  // Counts the reads of Intl's `format`, one for each formatted instant.
+  const asks = () => vi.spyOn(Intl.DateTimeFormat.prototype, 'format', 'get');
+
+  it('asks Intl once for an instant and gives the same answer after', () => {
+    const z = zoneFormat(KTM);
+    const spy = asks();
+    const t = Date.UTC(2026, 5, 15, 18, 20); // 12:05 AM on the 16th in Kathmandu: the hour is 0
+    expect([z.dayKey(t), z.localHour(t)]).toEqual(['2026-06-16', 0]);
+    expect(spy).toHaveBeenCalledTimes(2);
+    for (let i = 0; i < 20; i++) expect([z.dayKey(t), z.localHour(t)]).toEqual(['2026-06-16', 0]);
+    expect(spy).toHaveBeenCalledTimes(2);
+    spy.mockRestore();
+  });
+
+  it('is right at every quarter hour across three days, the first time and the second', () => {
+    const z = zoneFormat(KTM);
+    const start = Date.UTC(2026, 5, 14, 12);
+    const ts = Array.from({ length: 3 * 96 }, (_, i) => start + i * 15 * MIN);
+    for (let pass = 0; pass < 2; pass++) {
+      for (const t of ts) {
+        expect(z.dayKey(t), `dayKey at ${new Date(t).toISOString()}`).toBe(keyAt(t));
+        expect(z.localHour(t), `localHour at ${new Date(t).toISOString()}`).toBe(hourAt(t));
+      }
+    }
+    // The last second of the 15th and the first of the 16th share a UTC hour.
+    const last = Date.UTC(2026, 5, 15, 18, 14, 59), first = Date.UTC(2026, 5, 15, 18, 15, 0);
+    expect([z.dayKey(last), z.localHour(last), z.dayKey(first), z.localHour(first)]).toEqual(['2026-06-15', 23, '2026-06-16', 0]);
+  });
+
+  it('keeps one memory for each zone', () => {
+    const t = Date.UTC(2026, 5, 15, 12, 30);
+    const [k, a, n] = [zoneFormat(KTM), zoneFormat('Pacific/Auckland'), zoneFormat(NY)];
+    for (let pass = 0; pass < 2; pass++) {
+      expect([k.dayKey(t), a.dayKey(t), n.dayKey(t)]).toEqual(['2026-06-15', '2026-06-16', '2026-06-15']);
+      expect([k.localHour(t), a.localHour(t), n.localHour(t)]).toEqual([18, 0, 8]);
+    }
+  });
+
+  it('stays bounded: an instant asked 12,000 instants ago is asked of Intl again', () => {
+    const z = zoneFormat('Asia/Kolkata');
+    const first = Date.UTC(2026, 0, 1);
+    const at = i => first + i * 15 * MIN;
+    for (let i = 0; i < 12000; i++) z.dayKey(at(i));
+    const spy = asks();
+    for (let i = 11900; i < 12000; i++) z.dayKey(at(i)); // the latest are still remembered
+    expect(spy).toHaveBeenCalledTimes(0);
+    for (let i = 0; i < 100; i++) expect(z.dayKey(at(i))).toBe(new Date(at(i) + 5.5 * HOUR).toISOString().slice(0, 10));
+    expect(spy).toHaveBeenCalledTimes(100);
+    spy.mockRestore();
+  });
+});
+
 describe('localMinutes', () => {
   it('is the minutes after local midnight in a zone that is not a whole hour from UTC', () => {
     expect(zoneFormat('Asia/Kolkata').localMinutes(Date.UTC(2026, 5, 14, 19, 0))).toBe(30); // 00:30 on 15 June

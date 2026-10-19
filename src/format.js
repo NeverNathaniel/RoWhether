@@ -2,6 +2,24 @@
 // setZone() picks another zone.
 import { HOUR, MIN } from './config.js';
 
+// Remembers fn's answer for each instant. dayKey and localHour are asked for
+// the same few hundred hourly instants thousands of times in one draw (each
+// model, period, run and view filters every hour by day), and each answer is an
+// Intl call. That was most of the time a test run or a draw took (FD2). The
+// cap stops the callers that pass Date.now() from growing it for good.
+const remember = fn => {
+  const seen = new Map();
+  return t => {
+    let v = seen.get(t);
+    if (v === undefined) {
+      v = fn(t);
+      if (seen.size >= 5000) seen.clear();
+      seen.set(t, v);
+    }
+    return v;
+  };
+};
+
 // Formatters for one IANA zone, cached per zone. Only the 12 hour clock exists
 // in phase 0.
 const zones = new Map();
@@ -18,10 +36,10 @@ export function zoneFormat(tz, { clock = '12' } = {}) {
   const fH24 = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hourCycle: 'h23' });
   const fClock = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
 
-  const dayKey = t => fKey.format(new Date(t));
+  const dayKey = remember(t => fKey.format(new Date(t)));
   const weekday = t => fWeekday.format(new Date(t));
   const monthDay = t => fMonthDay.format(new Date(t));
-  const localHour = t => parseInt(fH24.format(new Date(t)), 10) % 24;
+  const localHour = remember(t => parseInt(fH24.format(new Date(t)), 10) % 24);
   // Minutes after local midnight, read from the zone's own clock: some zones
   // (India, Nepal) are not a whole hour from UTC, so UTC minutes would be wrong.
   const localMinutes = t => {
