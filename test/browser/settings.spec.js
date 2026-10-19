@@ -81,6 +81,73 @@ test.describe('settings', () => {
     expect(await values(page)).toEqual(DEFAULT_VALUES);
   });
 
+  // The test above changes four fields, and a field that holds its default reads
+  // back the same whether or not its own value got through (FC9). The next two
+  // change all 13, and the order rules on Save.
+  const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem('rowhether-settings-v2'))['putney-landing'].values);
+  const asNumbers = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Number(v)]));
+  const fillAll = async (page, changes) => {
+    for (const [k, v] of Object.entries(changes)) await field(page, k).fill(v);
+  };
+  const save = async page => {
+    await page.locator('#setForm button[value="save"]').click();
+    await expect(page.locator('#settings')).toBeHidden();
+  };
+  const readBack = async (page, expected) => {
+    await openSettings(page);
+    expect(await values(page)).toEqual(FIELDS.map(k => expected[k]));
+    await page.keyboard.press('Escape');
+  };
+
+  test('every field changed is saved, applied and read back after a reload', async ({ page }) => {
+    // Each value differs from the default and passes the dialog's rules.
+    const CHANGED = { heading: '40', windCaution: '8', windOff: '20', gustCaution: '15', gustOff: '30', rainCaution: '50', rainOff: '85', coldCombined: '120', waterOverride: '55', flowCaution: '15000', flowOff: '35000', aqiCaution: '101', aqiOff: '180' };
+    expect(Object.keys(CHANGED).sort()).toEqual([...FIELDS].sort());
+    FIELDS.forEach((k, i) => expect(CHANGED[k], k).not.toBe(DEFAULT_VALUES[i]));
+    await page.goto('/');
+    await ready(page);
+    await openSettings(page);
+    await fillAll(page, CHANGED);
+    await save(page);
+
+    // Applied at once, and every field kept as a number.
+    await expect(page.locator('#compassCap')).toContainText('upstream heading 40°');
+    await expect(page.locator('#why')).toContainText('55°F water');
+    await readBack(page, CHANGED);
+    expect(await stored(page)).toEqual(asNumbers(CHANGED));
+
+    // After a reload the page reads all 13 again, and the views quote them.
+    await page.reload();
+    await ready(page);
+    await expect(page.locator('#compassCap')).toContainText('upstream heading 40°');
+    await readBack(page, CHANGED);
+    expect(await stored(page)).toEqual(asNumbers(CHANGED));
+    const view = async hash => {
+      await page.evaluate(h => { location.hash = h; }, hash);
+      return page.locator('#detail').textContent();
+    };
+    await expect.poll(() => view('#wind')).toContain('Caution at 8 mph wind or 15 mph gusts, stay off at 20 or 30.');
+    await expect.poll(() => view('#rain')).toMatch(/Caution 50%[\s\S]*Stay off 85%/);
+    await expect.poll(() => view('#air')).toMatch(/Caution 101[\s\S]*Stay off 180/);
+    await expect.poll(() => view('#temperature')).toContain('120');
+  });
+
+  test('Save raises a stay off level that is under its caution, for every pair', async ({ page }) => {
+    await page.goto('/');
+    await ready(page);
+    await openSettings(page);
+    // Each stay off level is below its caution: wind, gusts, rain chance, flow and air quality.
+    await fillAll(page, { windCaution: '30', windOff: '20', gustCaution: '30', gustOff: '20', rainCaution: '80', rainOff: '70', flowCaution: '30000', flowOff: '25000', aqiCaution: '200', aqiOff: '120' });
+    await save(page);
+    const raised = { windCaution: '30', windOff: '30', gustCaution: '30', gustOff: '30', rainCaution: '80', rainOff: '80', flowCaution: '30000', flowOff: '30000', aqiCaution: '200', aqiOff: '200' };
+    const expected = Object.fromEntries(FIELDS.map((k, i) => [k, raised[k] ?? DEFAULT_VALUES[i]]));
+    await readBack(page, expected);
+    expect(await stored(page)).toEqual(asNumbers(raised));
+    await page.reload();
+    await ready(page);
+    await readBack(page, expected);
+  });
+
   test('Plan a row keeps the length and the time of day across a reload', async ({ page }) => {
     await page.goto('/#week');
     await ready(page);

@@ -140,3 +140,47 @@ describe('Settings at another place', () => {
     expect(p.shown()).toMatchObject({ heading: '15', windCaution: '10', flowCaution: '20000', flowOff: '28000' });
   });
 });
+
+// What Save does to what was typed (FC9): a stay off level under its caution is
+// raised to it, rain chance and air quality levels are whole numbers inside
+// their range and can be blank, the heading wraps, and a field with no number
+// keeps what it had. Each row types into the fields at Putney, saves, and gives
+// the values kept, which are the ones that differ from Putney's defaults.
+describe("Settings' rules on Save", () => {
+  const saveWith = typed => {
+    show(PUTNEY, effectiveSettings(PUTNEY), PUTNEY_DEFAULTS);
+    const p = page();
+    initSettings(() => {});
+    p.open();
+    for (const [k, v] of Object.entries(typed)) p.form[k].value = v;
+    p.save();
+    return saved()['putney-landing'].values;
+  };
+
+  it.each([
+    ['wind: stay off under caution is raised to it', { windCaution: '30', windOff: '20' }, { windCaution: 30, windOff: 30 }],
+    ['gusts: stay off under caution is raised to it', { gustCaution: '30', gustOff: '20' }, { gustCaution: 30, gustOff: 30 }],
+    ['flow: stay off under caution is raised to it', { flowCaution: '30000', flowOff: '25000' }, { flowCaution: 30000, flowOff: 30000 }],
+    ['rain chance: stay off under caution is raised to it', { rainCaution: '80', rainOff: '70' }, { rainCaution: 80, rainOff: 80 }],
+    ['air quality: stay off under caution is raised to it', { aqiCaution: '200', aqiOff: '120' }, { aqiCaution: 200, aqiOff: 200 }],
+    ['wind: stay off at its caution is kept', { windCaution: '12', windOff: '12' }, { windCaution: 12, windOff: 12 }],
+    ['rain chance: no order to keep when caution is blank', { rainCaution: '', rainOff: '70' }, { rainCaution: '', rainOff: 70 }],
+    ['rain chance: no order to keep when stay off is blank', { rainCaution: '80', rainOff: '' }, { rainCaution: 80, rainOff: '' }],
+    ['air quality: no order to keep when caution is blank', { aqiCaution: '', aqiOff: '120' }, { aqiCaution: '', aqiOff: 120 }],
+    ['air quality: no order to keep when stay off is blank', { aqiCaution: '200', aqiOff: '' }, { aqiCaution: 200, aqiOff: '' }],
+    ['rain chance: over 100 is 100', { rainOff: '150' }, { rainOff: 100 }],
+    ['rain chance: under 0 is 0', { rainCaution: '-5' }, { rainCaution: 0 }],
+    ['rain chance: rounded to a whole number', { rainCaution: '62.4' }, { rainCaution: 62 }],
+    ['air quality: over 500 is 500', { aqiOff: '900' }, { aqiOff: 500 }],
+    ['air quality: under 0 is 0', { aqiCaution: '-1' }, { aqiCaution: 0 }],
+    ['heading: wraps past 359', { heading: '400' }, { heading: 40 }],
+    ['heading: wraps under 0', { heading: '-20' }, { heading: 340 }],
+    ['heading: rounds, and 359.6 is 0', { heading: '359.6' }, { heading: 0 }],
+    ['a required field with no number keeps its value', { windCaution: '', gustOff: 'abc' }, {}],
+    ['the dock reading is a number', { waterOverride: '55.5' }, { waterOverride: 55.5 }],
+    ['the dock reading left blank uses the gauge', { waterOverride: '' }, {}],
+    ['the dock reading that is not a number uses the gauge', { waterOverride: 'cold' }, {}]
+  ])('%s', (_, typed, kept) => {
+    expect(saveWith(typed)).toEqual(kept);
+  });
+});

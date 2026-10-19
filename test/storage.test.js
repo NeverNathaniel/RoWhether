@@ -7,13 +7,14 @@
 // written out as a string literal, never read from KEYS or OLD_KEYS, so a typo
 // in src/config.js disagrees with this file and fails. One test compares the
 // two tables to the same literals.
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
 import { KEYS, OLD_KEYS } from '../src/config.js';
 import {
   migrateStorage, loadOverrides, saveOverrides, hasSavedSettings, nudgeDismissed, dismissNudge,
   loadCache, saveCache, loadPlan, savePlan, loadInstall, saveInstall
 } from '../src/storage.js';
 import { overridesOf } from '../src/location.js';
+import { PUTNEY_DEFAULTS } from '../src/putney.js';
 
 const NOW = 1760700000000;
 
@@ -562,5 +563,71 @@ describe('the state the app starts from', () => {
     applyOverrides({});
     expect(app.loc.course.heading).toBe(15);
     expect(app.settings).toEqual(LIMITS);
+  });
+});
+
+// Every saved key reaches the page (FC9). A key that holds its default reads
+// back the same whether or not its own value got through, so the tests above,
+// which change a few keys, cannot see one that is dropped. Each row changes one
+// key to a value that is not Putney's and passes the dialog's rules, written as
+// a literal, and follows it through the three steps that are each a loop over
+// the keys: the move from the old file, the comparison with Putney's defaults,
+// and the limits in force. A last test changes all 13 together.
+describe('every saved key reaches the page', () => {
+  // The key, the value on the page, and what an old file held when that was typed text.
+  const CHANGED = [
+    ['heading', 40], ['windCaution', 8], ['windOff', 20], ['gustCaution', 15], ['gustOff', 30],
+    ['rainCaution', 50], ['rainOff', 85], ['coldCombined', 120], ['waterOverride', 55, '55'],
+    ['flowCaution', 15000], ['flowOff', 35000], ['aqiCaution', 101], ['aqiOff', 180]
+  ];
+  const rows = CHANGED.map(([key, value, old = value]) => ({ key, value, old }));
+  const oldFile = rows => ({ 'putney-rowing-settings-v1': JSON.stringify({ ...OLD_DEFAULTS, ...Object.fromEntries(rows.map(r => [r.key, r.old])) }) });
+  const storedValues = () => JSON.parse(ls.map.get('rowhether-settings-v2'))['putney-landing'].values;
+  // What the page reads: the limits in force, and the heading from the course.
+  const onPage = app => ({ ...app.settings, heading: app.loc.course.heading });
+  const fresh = async () => { vi.resetModules(); return import('../src/state.js'); };
+  let state;
+  beforeAll(async () => { state = await import('../src/state.js'); });
+
+  it('has a row for each of the 13 keys, none at its default', () => {
+    expect(rows).toHaveLength(13);
+    expect(rows.map(r => r.key).sort()).toEqual(Object.keys(OLD_DEFAULTS).sort());
+    expect(Object.keys(PUTNEY_DEFAULTS).sort()).toEqual(Object.keys(OLD_DEFAULTS).sort());
+    for (const { key, value } of rows) {
+      expect(PUTNEY_DEFAULTS[key], key).toBe(OLD_DEFAULTS[key]);
+      expect(value, key).not.toBe(OLD_DEFAULTS[key]);
+    }
+  });
+
+  it.each(rows)('$key: the move from the old file keeps it', row => {
+    use(oldFile([row]));
+    migrateStorage();
+    expect(storedValues()).toEqual({ [row.key]: row.value });
+  });
+
+  it.each(rows)('$key: overridesOf keeps it against Putney, and nothing else', ({ key, value }) => {
+    expect(overridesOf({ ...PUTNEY_DEFAULTS, [key]: value }, PUTNEY_DEFAULTS)).toEqual({ [key]: value });
+  });
+
+  it.each(rows)('$key: the limits in force carry it, and the others stay at the defaults', ({ key, value }) => {
+    state.applyOverrides({ [key]: value });
+    expect(onPage(state.app)).toEqual({ ...OLD_DEFAULTS, [key]: value });
+    state.applyOverrides({});
+  });
+
+  it.each(rows)('$key: someone upgrading from the old file has it on the page', async row => {
+    use(oldFile([row]));
+    const { app } = await fresh();
+    expect(onPage(app)).toEqual({ ...OLD_DEFAULTS, [row.key]: row.value });
+  });
+
+  it('carries all 13 changed together, from the old file and from a saved copy', async () => {
+    const all = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    use(oldFile(rows));
+    const { app } = await fresh();
+    expect(storedValues()).toEqual(all);
+    expect(onPage(app)).toEqual(all);
+    use({ 'rowhether-migrated-v1': '1', 'rowhether-settings-v2': putneySettings(all) });
+    expect(onPage((await fresh()).app)).toEqual(all);
   });
 });
