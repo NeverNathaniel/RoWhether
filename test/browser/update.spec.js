@@ -34,6 +34,9 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 const mainOf = dist => readFileSync(join(dist, 'index.html'), 'utf8').match(/assets\/(index-[^"']+\.js)/)[1];
 
 let tmp, OLD_DIST, OLD_MAIN, NEW_MAIN, server, origin, serving;
+// Requests for /sw.js, which is how the browser checks for a new worker, and the
+// count when the older build was last reloaded.
+let swChecks = 0, swChecksAtReload = 0;
 
 test.setTimeout(90000);
 
@@ -53,6 +56,7 @@ test.beforeAll(async () => {
   // public/_headers, as Cloudflare applies it: the worker is always revalidated.
   server = http.createServer((req, res) => {
     const path = new URL(req.url, 'http://x').pathname;
+    if (path === '/sw.js') swChecks++;
     const file = join(serving, path === '/' ? 'index.html' : path);
     if (!existsSync(file) || !statSync(file).isFile()) { res.writeHead(404); res.end('Not found'); return; }
     const cache = path.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache';
@@ -92,6 +96,7 @@ async function visitOlderBuild(page) {
   serving = OLD_DIST;
   const loads = countLoads(page);
   await open(page);
+  swChecksAtReload = swChecks;
   await page.reload(); // the second visit
   await ready(page);
   expect(await page.evaluate(() => !!navigator.serviceWorker.controller), 'the worker controls the page').toBe(true);
@@ -141,6 +146,19 @@ test('a reload brings in the new build without closing the browser', async ({ pa
 
 test('the update check the page makes on coming back brings in the new build, with one reload', async ({ page }) => {
   const loads = await visitOlderBuild(page);
-  // src/main.js calls registration.update() on coming back to the foreground after 5 minutes.
-  await expectTakeover(page, loads, () => page.evaluate(() => navigator.serviceWorker.getRegistration().then(r => r.update())), 1);
+  // Chromium checks the worker once more about a second after a page load, and that
+  // check would find the deploy by itself. Wait for it (up to 5 s) to be answered by
+  // the older build, so that after the deploy only the page's own check can.
+  const until = Date.now() + 5000;
+  while (swChecks <= swChecksAtReload && Date.now() < until) await page.waitForTimeout(100);
+  // An installed app often resumes without a reload, so src/main.js checks for a new
+  // version each time the page comes back to the foreground, at most every 5
+  // minutes. The visitor comes back 5 minutes later, and the page's own check runs.
+  // The clock then goes back, so the new build's first refresh saves the forecast
+  // at the same time as before and the saved copy can be compared as it was.
+  await expectTakeover(page, loads, async () => {
+    await page.clock.setFixedTime(clock + 5 * 60 * 1000);
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.clock.setFixedTime(clock);
+  }, 1);
 });
