@@ -135,7 +135,7 @@ Exit criteria:
 2. 03 section 20 holds: the unit and Worker tests (20.2), including the deletion test that fails when a table references `users` without an `ON DELETE` action; the browser checks (20.3), including that the first hero render does not wait for `/api/me`; and the manual device checks (20.4) on iPhone in Safari and installed, Android Chrome, macOS Safari, Windows Chrome and real code emails in Gmail, iCloud and Outlook.
 3. The browser checks in 07 13 (phase 2) pass: the header at 360 px with Sign in and with a name; favorites signed out; compare; limit sets; units for `en-GB` and for an existing install pinned to US; `/privacy` online and offline.
 4. Budget row for phase 2: main JS 45,200 B, CSS 7,600 B, HTML 3,900 B, precache under 400 KiB (08 11.2). The first hero stays within 20% of the baseline.
-5. The checks in 08 17.3 marked "before phase 2" are done: Preview secrets, the dev host name, Turnstile's testing secret and `action`, `crypto.subtle.timingSafeEqual` in workerd, `node:sqlite` from Node 22.13, and D1's foreign keys and `RETURNING`.
+5. The checks in 08 17.3 marked "before phase 2" are done: Preview secrets, the dev host name, `crypto.subtle.timingSafeEqual` in workerd, `node:sqlite` from Node 22.13, and D1's foreign keys and `RETURNING`. The Turnstile action check skips a testing key's answer as 08 10.8 says, with a test on the recorded answer (the testing secret's answer carries no `action`, settled 2026-10-19).
 6. The lawyer has answered item A, a Time Travel bookmark is recorded, the migrations are on production, and production has `REPORTS_ENABLED` of `"0"`.
 
 Main risks:

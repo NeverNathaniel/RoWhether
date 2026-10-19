@@ -1693,7 +1693,7 @@ Flags are strings `"1"` (on) and `"0"` (off), compared with `=== '1'`, so an uns
 | `PUBLIC_ORIGIN` | `https://rowhether.com` | the `dev` Preview URL | 3 | absolute links in mail and push (`navigate`) | 05 6.3 |
 | `VAPID_SUBJECT` | `mailto:` plus the owner's address, or `https://rowhether.com/` | same | 4 | push JWT | 05 6.2 |
 | `CLUBS_ENABLED` | `"0"` until the owner turns clubs on | `"1"` | 5 | `/api/info` `clubs`, club routes | 06 22.6 |
-| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | secrets (6.5) | Turnstile's published testing keys as plain vars | 2 on Previews | sign-in, report and status link checks on dev. The suggestion form stays off on Previews, because it also needs `ANTHROPIC_API_KEY` and `GITHUB_TOKEN` (`configured()` in `worker/suggest.js`) | 03 6.3, 04 8.3 |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | secrets (6.5) | Turnstile's published testing keys as plain vars | 2 on Previews | sign-in, report and status link checks on dev, with the action check skipping a testing key's answer (10.8). The suggestion form stays off on Previews, because it also needs `ANTHROPIC_API_KEY` and `GITHUB_TOKEN` (`configured()` in `worker/suggest.js`) | 03 6.3, 04 8.3 |
 
 `/api/info` grows field by field, and every field is false or null on a host without the feature:
 
@@ -2378,7 +2378,8 @@ Rules for the content:
 - `verifyTurnstile(env, token, ip, action = 'suggest')` checks `success` and that `action` matches (phase 0 adds the parameter with today's value as the default, so no caller changes; 14 step P0.13).
 - The browser loader moves from `src/suggest.js` to `src/turnstile.js` in phase 2. The script loads only when a form that needs it is first opened, never on page load. The site key comes from `/api/info` `turnstileKey` from phase 2; `GET /api/suggest` keeps returning it for the suggestion form.
 - CLAUDE.md's exception sentence ("It loads only when the suggestion form is first opened") becomes, with the phase 2 merge and the owner's approval: "It loads only when a form that needs it is first opened: suggestions, sign in, changing your email, inviting a guardian, a report sent while signed out, and the status link's safe button."
-- Previews use Turnstile's published testing keys (6.3). Whether the testing secret's answer carries the `action` is unverified; if it does not, the phase 2 test on dev will show it, and the action check is then skipped only when `APP_ENV` is not `production`.
+- Previews use Turnstile's published testing keys (6.3). Settled 2026-10-19 (final correctness review, FC8): siteverify's answer for a testing secret carries no `action`. One call with the always-pass testing secret `1x0000000000000000000000000000000AA` and the dummy token `XXXX.DUMMY.TOKEN.XXXX` answered `{"challenge_ts":"2026-10-19T08:17:32.440Z","error-codes":[],"hostname":"example.com","metadata":{"result_with_testing_key":true},"success":true}`, and a second call gave the same. So `verifyTurnstile` returns false for every token checked with a testing secret, and a route that checks an action answers 403 `verification_failed` before Claude or GitHub is reached. That is true today of the suggestion form, and it was true at `2b7ef06`.
+- Phase 2 rule, definite: `verifyTurnstile` skips the action comparison only when the answer says it came from a testing key, `result.metadata?.result_with_testing_key === true`. A testing secret passes any token, so the action check guards nothing there, and a real secret never returns that field. The rule is not keyed on `APP_ENV`: local `wrangler dev` reads the top-level `APP_ENV` of `"production"` from `wrangler.jsonc` unless `.dev.vars` sets it, so a rule on `APP_ENV` alone would not reach local work. Phase 2 adds the rule with a test on the recorded answer above. Until then the form cannot be sent with testing keys, and the README says so.
 
 ### 10.9 Analytics
 
@@ -2951,6 +2952,10 @@ Decision: Keep `safeguarding` audit rows 7 years, subject to legal review. (10.7
 Decision: Map tile, style, sprite and glyph requests to `tiles.openfreemap.org` count as data, not as a third-party CDN load, from phase 3, with the CLAUDE.md sentence in 17.2. (2.2, 10.11, 02 Map tiles)
 - Alternative: self-host the style, sprites and glyphs in `public/` and fetch only tiles.
 
+Decision: From phase 2, `verifyTurnstile` skips the action comparison only when siteverify's answer has `metadata.result_with_testing_key` true. A testing secret's answer carries no `action` (verified 2026-10-19). (10.8, final correctness review FC8)
+- Alternative: skip the check when `APP_ENV` is not `production`, which does not reach local `wrangler dev`, since it reads `"production"` from `wrangler.jsonc`.
+- Alternative: Previews and local work use a real widget's keys, which needs Preview secrets (6.5).
+
 ### 17.2 Waiting on the owner
 
 The items this document needs. `README.md` holds the full list across 01 to 09, ordered by the phase that needs each answer.
@@ -2980,7 +2985,6 @@ The items this document needs. `README.md` holds the full list across 01 to 09, 
 | Whether Preview deployments run cron triggers or queue consumers | Deploy a test branch with both and watch the logs | phase 3 |
 | Whether `wrangler d1 migrations apply --remote` runs each file in one transaction | Read the wrangler source or test on a scratch database | before `0005` on dev |
 | The `dev` Preview host name (`AUTH_HOSTS`, `PUBLIC_ORIGIN`) | The Preview URL in the Cloudflare dashboard | phase 2 |
-| Whether Turnstile's testing secret returns an `action` | One siteverify call with the testing keys | phase 2 |
 | Vite 8.3.1's lazy chunk names | `scripts/budget.mjs` reports missing names on the first build that adds a chunk | phase 1 |
 | MapLibre's need for `blob:` in `img-src` and `worker-src` | The phase 3 browser test with the map open | phase 3 |
 | `crypto.subtle.timingSafeEqual` in Workers | The workerd test run | phase 2 |
