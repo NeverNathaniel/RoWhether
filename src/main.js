@@ -23,7 +23,10 @@ import { initInstall } from './install.js';
 // An app installed to the home screen often resumes without reloading, so
 // it would only find a new version after a full restart. Check again each
 // time it comes back to the foreground (at most every 5 minutes). When a new
-// version is found, autoUpdate installs it and reloads the page.
+// version is found, its worker installs, skips waiting and takes over the open
+// page (skipWaiting and clientsClaim in vite.config.js). The register code then
+// reloads the page once, onto the new build. Settings and the saved forecast
+// are in localStorage, so the reload loses nothing.
 const UPDATE_CHECK_MS = 5 * 60 * 1000;
 registerSW({
   immediate: true,

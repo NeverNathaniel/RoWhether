@@ -56,8 +56,8 @@ test.describe('timing', () => {
         await routeAll(page, scenario, clock);
         await page.goto('/');
         await ready(page);
-        // Active means installed, so the shell is precached. The worker does not
-        // claim this first page (no clientsClaim), but it serves the reload.
+        // Active means installed, so the shell is precached. The worker claims
+        // this first page (clientsClaim) and serves the reload.
         await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
 
         // Offline for real: no fixtures, so the upstream fetches fail and the

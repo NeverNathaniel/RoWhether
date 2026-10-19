@@ -37,7 +37,14 @@ export default defineConfig({
         globIgnores: ['**/*vietnamese*', '**/*latin-ext*'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],
-        cleanupOutdatedCaches: true
+        cleanupOutdatedCaches: true,
+        // With registerType 'autoUpdate' the plugin adds these two only when it
+        // also injects the register script. Here injectRegister is false, so
+        // without them a new worker waits until every tab and the installed app
+        // are closed. With them it activates at once and takes the open page,
+        // and the register code in src/main.js reloads the page once.
+        skipWaiting: true,
+        clientsClaim: true
       }
     })
   ],
