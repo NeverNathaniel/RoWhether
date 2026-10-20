@@ -1047,3 +1047,127 @@ Golden: `saved`.
 Mutations: `zoneDiff` using the machine's zone in place of `deviceTz` (a header test fails under `TZ=Pacific/Auckland`); `linkText` passing a `javascript:` link (fails); the manifest without `id` (the browser check fails); `renderPlace()` called from `render()` (the capture would see it: a golden path outside `saved` moves, and `check` fails).
 
 Done when: the net passes, `check` shows only `saved` moved, and the browser checks pass at 360, 390 and 1280 px.
+
+### Batch 2: choosing a location, and Putney's own phase 1 changes (P1.6 to P1.10)
+
+Proves at its end: a visitor can pick, search and switch locations, a first visit at `/` behaves as the owner decided, every source request is the phase 1 one, stale and missing sources are said plainly, and Settings is built from the location. Putney's output has moved only by the ids `saved`, `alerts-zones`, `usgs-v1`, `marine-alerts`, `flowdays-noon`, `not-checked` and `stale-sources`. Still one location; the picker lists Putney alone.
+
+#### P1.6 Picking a location
+
+Files: new `src/picker.js`, new `src/copy/picker.js`, new `src/styles/picker.css`, `index.html`, `src/route.js`, `src/config.js`, `src/main.js`, `src/settings.js`, `src/render/header.js`, `src/styles/app.css`, `scripts/budget.mjs`, new `test/picker.test.js`, `test/route.test.js`, `test/browser/picker.spec.js`, `test/browser/smoke.spec.js`.
+
+Changes:
+
+1. `src/config.js`: `FIRST_VISIT_PUTNEY_UNTIL = Date.UTC(2027, 2, 1)` with the placeholder comment of section 2, row 4.
+2. `homeTarget({ last, now })` (07 5.1): a last slug opens it; nothing stored and `now` before `FIRST_VISIT_PUTNEY_UNTIL` gives `{ slug: 'putney-landing', keepAddress: true, note: true }`; otherwise `{ page: 'picker' }`. `?open=picker` opens the sheet over the last location, or the picker page when there is none, and is removed with `history.replaceState`.
+3. `index.html`: `<dialog id="picker" class="sheet" aria-labelledby="pickTitle"></dialog>`, a note `div.set-nudge#pickNote` (hidden) with "Not your water? Pick a location." and the buttons "Pick a location" and "Dismiss", and `div.vh#pageAnnounce` with `aria-live="polite"`.
+4. Notes above the hero (07 4.6): one at a time, `#pickNote` before `#setNudge`. Dismiss calls `dismissPickHint()` and `saveLast('putney-landing')`: the viewer has accepted Putney, so `/` opens it from then on, also after the window. Showing Putney under the window writes nothing, so the note returns on each visit to `/` until it is answered.
+5. `src/picker.js`, loaded with `import()` on the first tap of `#locBtn`, for `?open=picker`, on the picker page and on the not-found view. Vite names the chunk `picker-<hash>.js` after the file (08 8.4); it stays in the precache. It imports `src/styles/picker.css`, so its styles load with it and stay out of the main CSS. Exports:
+   - pure: `fold(s)` (NFKD, accents stripped, lower case), `matchRank(entry, q)` (07 5.2.1: the name starts with the query, then a word in the name starts with it, then the locality or waterway matches; ties by recent, then alphabetical), `groupList(entries)` (by country, then region name; a country heading only when there is more than one country), `regionName(code)`.
+   - `openPicker({ mode: 'sheet' | 'page' | 'notfound', query })`.
+6. The sheet (07 5.2, 11.6, 11.7, 12.1, 12.2): heading "Change location" (`tabindex="-1"`, focused on open); the current location first with the badge "Showing now"; the search box (label "Find a location", placeholder "Boathouse, lake, river or town", `type="search"`, `autocomplete="off"`, `enterkeyhint="search"`); Recent (up to 8, without the current one); All locations, grouped; "Suggest a location" when the suggestion form is configured (it closes the sheet and opens `#suggest`); Close in the top corner and at the bottom. Rows are `<a href="/<slug>" data-nav>` with the name and a second line "<locality>. <waterway>." (each left out when it repeats the name). Escape closes and returns focus to `#locBtn`.
+7. Search, phase 1: the precached `locations/index.json`, filtered on each keystroke from 2 characters, at most 8 rows. No network request while typing. With no match: "Nothing matches "<query>". Check the spelling, or search for a town." P1.7 adds towns.
+8. Choosing a row: `navigate()` to `/<slug>`, `saveLast`, `pushRecent`; focus moves to `#title` and `#pageAnnounce` says "Showing <name>." (07 12.2); the page scrolls to the top.
+9. The picker page at `/` (07 5.1): `#home` shows "Where do you row?", 5.1's lead sentence, the search, and the grouped list; no tab bar, no Refresh or Settings, the footer without credits, `document.title` "RoWhether: pick a location", `#locName` "RoWhether".
+10. The not-found view (07 4.7): under P1.4's text, the picker search prefilled with the path's words ("lake quinsigamund" for `/lake-quinsigamund`).
+11. `scripts/budget.mjs` gains a lazy chunk list, `[{ name: 'picker', precache: true }]` here: each must exist in `dist/assets/` as `<name>-*.js` (exit criterion 6, 08 17.3); `dist/index.html` must not reference it as a script or `modulepreload` (07 10.6 item 3); one marked `precache: false` must not be in `dist/sw.js`. It prints each chunk's gzip size.
+
+Tests: `test/picker.test.js`: `fold("Montréal")`; the rank order for "lak", "putney", "connecticut"; `groupList` with one country (no country heading) and with two; `regionName('US-NH')` "New Hampshire", `'US-DC'` "District of Columbia". `test/route.test.js`: `homeTarget` for a last slug, inside the window, after it, and after Dismiss (last written).
+
+Browser checks (`picker.spec.js`): inside the window (clock pinned to 2026-10-20): `/` shows Putney with the note; "Pick a location" opens the sheet; a reload without answering shows the note again; Dismiss, then a reload: no note, and the address becomes `/putney-landing`. After the window (clock pinned to 2027-04-01) with nothing stored: the picker page. The picker page at 360 px: no horizontal scroll; typing "put" lists Putney with no network request (`page.on('request')` sees none from the first key to the last); Enter on the result opens it; the address and `document.title` change; Back returns to the picker. The switcher: Enter on the location name opens the sheet with focus on "Change location"; Escape closes it with focus back on the name. `/lake-quinsigamund` shows the not-found view with the search prefilled. No request for a `picker-*` chunk before the first tap on a location page. Smoke: the specs that load `/` with empty storage and expect the Settings reminder load `/putney-landing` instead.
+
+Golden: none.
+
+Mutations: `homeTarget` ignoring the window end (the after-window check fails); the note and the reminder both showing (fails); the picker chunk imported statically from `main.js` (the budget's lazy chunk check fails); a search that fetches per keystroke (the no-request check fails).
+
+Done when: the net passes, with the picker chunk named in the budget report.
+
+#### P1.7 Near me, town search, and the picker offline
+
+Files: `src/picker.js`, `src/copy/picker.js`, `src/render/hero.js`, `src/main.js`, `test/picker.test.js`, `test/browser/picker.spec.js`, `test/browser/fixtures.js`, new `test/fixtures/sources/geocode-worcester.json`.
+
+Changes:
+
+1. Near me (07 5.2.2): a button under the search. On tap only: `navigator.permissions.query({ name: 'geolocation' })` where it exists (`denied` shows the help line at once and asks nothing); then `getCurrentPosition` with `{ enableHighAccuracy: false, maximumAge: 600000, timeout: 10000 }`; the position is rounded to 2 decimals before use and never stored; the index sorted by distance under "Near you" with each row's distance in miles (US units, one decimal under 10); the polite announcement "<n> locations near you." Copy for waiting ("Finding you", the button disabled), none within 100 km, denied and timeout: 07 5.2.2's table.
+2. Town search (07 5.2.1, 02): after 300 ms with no typing, or on Enter, at most once per 300 ms, `https://geocoding-api.open-meteo.com/v1/search?name=<q>&count=5&language=en&format=json` (no country filter). Up to 5 places under "Places", as "<name>, <admin1>, <country>". Choosing one lists our locations within 50 km of it under "Near <name>, <admin1>", nearest first, or "No locations within 50 km of <name>, <admin1>." with "Suggest a location". A failed request: "Town search is not available right now. Location names still work." The host answers with `access-control-allow-origin: *` (verified live 2026-10-20; it timed out on two of four tries from this container, so the failure path is real).
+3. Offline (07 9.4): with no connection the picker searches the precached index ("Offline. Search covers places saved on this phone." is phase 3's copy and is not used here). Opening a location whose forecast was never saved, offline, shows its header and tabs from the precached record, and the hero says "No forecast saved for this location on this phone yet. Connect to load it." (`renderNoData()` gains that case, chosen when `navigator.onLine` is false and nothing is cached).
+4. `test/browser/fixtures.js` answers `geocoding-api.open-meteo.com/v1/search` from the recorded fixture.
+
+Tests: `test/picker.test.js`: distance sort and rounding (a position is rounded to 2 decimals before any use); the 50 km filter; the Places line format; the throttle allows one request per 300 ms (fake timers).
+
+Browser checks (`picker.spec.js`): Near me granted at 42.96, -72.52 (`context.grantPermissions`, `setGeolocation`): "Near you" lists Putney first with its distance. Denied (`addInitScript` replacing `navigator.permissions.query` to answer `denied`): the help line shows and `getCurrentPosition` is never called. Timeout (a stubbed `getCurrentPosition` that calls its error callback with `TIMEOUT`): the timeout line. A town ("Worcester") from the fixture lists places; picking it shows "No locations within 50 km" until P1.13 adds Lake Quinsigamond. Offline, in a context with service workers allowed (as `timing.spec.js` does): after one online visit, `context.setOffline(true)`, the picker still finds Putney; the chunk loads from the precache.
+
+Golden: none.
+
+Mutations: no rounding of the position (the unit test fails); calling geolocation on open of the sheet (the denied check, which counts calls, fails); no throttle (fails).
+
+Done when: the net passes.
+
+#### P1.8 Source requests for every location
+
+Files: `src/sources/nws.js`, `src/sources/usgs.js`, `src/sources/index.js`, `src/location.js`, `data/locations/putney-landing.json`, `test/sources.test.js`, `test/logic.test.js`, `test/location.test.js`, `test/browser/fixtures.js`, `test/golden/changes.js`, the golden files the four ids move, new fixtures (4.10).
+
+Four commits, one per golden id, in this order:
+
+1. `alerts-zones`. `alerts.bind` (`nws.js` line 37) reads a `zones:` ref into `{ zones }` and a `point:` ref into `{ point }`; the URL is `https://api.weather.gov/alerts/active?zone=<list>` or `?point=<lat>,<lon>`. `validateLocation` refuses an alerts ref in any other form (`format`). The "a `point:` alerts ref until phase 1" check in `test/sources.test.js` (line 503) becomes "a `point:` or `zones:` ref". Putney's alerts row becomes `zones:VTZ015,VTC025,NHZ011,NHC005`. The browser fixtures answer `/alerts/active` for any query.
+2. `marine-alerts`. `alertLevel()` (`nws.js`) also gives level 2 to `Small Craft Advisory`, `Gale Warning`, `Storm Warning` and `Special Marine Warning` (README row 11). "Winter Storm Warning", "Ice Storm Warning" and "Tropical Storm Warning" are level 2 either way.
+3. `usgs-v1`. `USGS_OGC` (`usgs.js` line 3) becomes `/ogcapi/v1` (v0 and v1 gave the same answer for Putney's request, verified live 2026-10-20). The latest request lists each gauge once (the same gauge for flow and water temperature, as at Boathouse Row and Thompson Boat Center, would repeat its id) and adds `&limit=50`: without it the service returns at most 10 items (verified live 2026-10-20: 10 without, 16 with). `parseRiver` keeps the newest reading per gauge and parameter: USGS-01646500 lists five 00010 series, four of them ended in 2019, and today's loop keeps whichever comes last. The browser fixtures map `/ogcapi/v1/...`.
+4. `flowdays-noon`. `parseFlowDays(d, b)` places each day at local noon in the flow row's `tz` (the binding passes it; the location's zone when the row has none), in place of `T16:00:00Z` (line 31). Noon is found in two passes: the zone's offset at 12:00 UTC that day, then the offset at the first result, so a zone east of UTC is right on its change days.
+
+Tests (`test/sources.test.js`): Putney's alerts URL exactly `https://api.weather.gov/alerts/active?zone=VTZ015,VTC025,NHZ011,NHC005`; a `point:` row still builds the point URL; a ref `station:KEEN` is refused; the four marine names give 2, "Marine Weather Statement" gives 1, and the existing level names keep theirs; Putney's three USGS URLs on v1, the latest one with `&limit=50`; a binding whose flow and temperature rows name one gauge lists it once; `parseRiver` on the recorded USGS-01646500 answer keeps the 2026 temperature, not a 2019 one; `parseFlowDays` puts `2026-07-01` at 16:00 UTC and `2026-12-01` at 17:00 UTC for `America/New_York`, `2026-07-01` at 19:00 UTC for `America/Los_Angeles`, 11:00 UTC for `Europe/London` in summer, and the day of a change right in `Pacific/Auckland` (2026-09-27).
+
+Browser checks: the smoke check "every source is read from the fixtures" passes with the v1 paths and the zone query; parity passes against the rewritten files.
+
+Golden: `alerts-zones`, `marine-alerts`, `usgs-v1`, `flowdays-noon`, one commit each.
+
+Mutations: the alerts URL keeping `point` for a zones ref (a test fails); `parseRiver` keeping the last series (fails); `flowDays` at 16:00 UTC for a December date (fails); `limit=50` dropped (fails).
+
+Done when: the net passes and `check` passes with the four ids.
+
+#### P1.9 Stale sources, and what is not checked
+
+Files: `src/sources/*.js`, `src/sources/index.js`, `src/logic.js`, `src/render/index.js`, `src/render/hero.js`, `src/render/now.js`, `src/render/detail/temperature.js`, `src/render/detail/fog.js`, `src/render/detail/week.js`, `src/share.js`, `src/main.js`, `src/storage.js`, `index.html`, `data/locations/putney-landing.json`, `test/logic.test.js`, `test/storage.test.js`, `test/render-location.test.js`, `test/golden/changes.js`, the golden files of `not-checked` and `stale-sources`, `test/browser/smoke.spec.js`.
+
+Changes:
+
+1. Each adapter's `staleMs` from 02's catalog: obs 3 hours, alerts 1 hour, forecast, air quality, models, the latest gauge reading, the 48-hour series and the river forecast 24 hours, the daily means 7 days. `refreshMs` stays null: every slot still refreshes every 10 minutes (pacing is deferred, section 9).
+2. The time of each slot's last good fetch, `app.fetched[slot]`, is kept with the saved forecast: `rowhether-cache-v2:<slug>` holds `{ data, updated, fetched }`. An entry without `fetched` (every saved forecast from before this step) counts each slot as fetched at `updated`.
+3. `render()` passes `stale: staleSlots(bindingsFor(loc), app.fetched, now)` to `buildModel(..., { units, stale })`. In the model, a stale slot reads as missing, except: `alerts` keeps every entry still in force by its own end time and is named in the not-checked line; `river` and `flow` follow the rules in item 4. The observation also uses its own reading time: an `obs.t` over 3 hours old hides the "Measured at" fact. The capture passes no `stale`, so the golden cases see no fetch-time staleness.
+4. Flow (01 15.7): `flowForCall(m)` is the latest reading when its time is within `loc.flow.maxAgeH`, else null. `assess()`, `windVsCourse()`, `chopWind()` and `debrisLikely()` read `flowForCall()`. `flowNow()` stays the shown value, so the fact keeps the number with the note "Last reading 2 days ago, not used for Go, Caution or Stay off."
+5. Water temperature (01 11.4, 08 K1): `waterTemp(m)` is the Settings reading, else a gauge reading within `loc.waterTemp.maxAgeH`, else null. `waterTemp(m, { forCold: true })` also returns the location's monthly typical value when it has one, flagged `typical`; steam fog never uses it. `waterSource(m)` says which (`you`, `gauge`, `typical` or none).
+6. `notChecked(m)` (01 8.4) lists `{ key, why, since }`: `flow`/`none` at a river, tidal or canal location with no flow binding; `flow`/`old` when the latest reading is past `maxAgeH`; `alerts`/`none` with no alerts binding; `alerts`/`old` when the alerts slot is stale. `notCheckedText(items, now)`: the `none` items as one sentence, "Not checked here: river flow, official alerts."; each `old` item as its own, "River flow not checked: the gauge has not reported for 2 days." and "Official alerts not checked: no answer from NWS for 2 hours." Ages under 48 hours are in hours, then in days.
+7. `index.html`: `<p class="status-note" id="notChecked" hidden></p>` after `#holds` (07 11.2). `renderHero()` and the overnight hero fill or hide it. Share includes it when shown (07 6.2).
+8. Facts and views when a source is absent, never shown at Putney while its sources answer (07 6.7): no River flow fact without a flow binding (a bound gauge that fails keeps "--" and "USGS gauge unavailable."); the Water fact "No water temperature here. Add a dock reading in Settings." without a water temperature binding (a bound gauge that fails keeps "Gauge unavailable. Add a dock reading in Settings."), or "Typical for October, about 52°F. No live reading." with a typical value; Temperature tab "No water temperature here. Add a dock reading in Settings to turn on the cold-water check."; Fog, How this works "Steam fog needs a water temperature. Add a dock reading in Settings."; Week, an opened day: the River row says "No river gauge here, so flow is not checked." at a river and "This is a lake. Flow is not checked." (or "This is a reservoir.") on still water, and the Alerts row says "Not available here" with no alerts binding.
+9. Putney's record: `flow.maxAgeH` 24, `waterTemp.maxAgeH` 72 (01 6.3).
+
+Tests (`test/logic.test.js`, with Putney and with records edited in the test): a flow reading 23 hours old is used and 25 hours old is not (no flow reason, no debris, no wind against current text or multiplier); water 71 and 73 hours old; a monthly typical value used for the cold reason and never for fog; `notChecked` empty for Putney with fresh sources, `flow`/`none` for a river record with no flow row, empty for a lake, `alerts`/`none` with no alerts row, `alerts`/`old` with a stale slot; the text for each; `staleSlots` at each `staleMs` edge. `test/storage.test.js`: the cache keeps `fetched`, and an old entry without it loads. `test/render-location.test.js`: a record with no water temperature draws the new Water fact; Putney's facts are unchanged.
+
+Browser checks (smoke): a gauge that has not reported for 2 days (the fixture's reading time moved back 48 hours): the hero shows "River flow not checked: the gauge has not reported for 2 days.", the flow fact keeps the number with the note, and the verdict ignores flow. With fresh fixtures Putney shows no line (parity).
+
+Golden: `not-checked`, then `stale-sources`, one commit each.
+
+Mutations: `assess()` reading `flowNow()` in place of `flowForCall()` (the 25-hour test fails); the typical value reaching steam fog (fails); `notChecked` listing flow at a lake (fails); dropping alerts that are still in force when the slot is stale (fails).
+
+Done when: the net passes and `check` passes with the two ids.
+
+#### P1.10 Settings for the location shown
+
+Files: `index.html`, `src/settings.js`, `src/location.js`, `src/state.js`, `src/storage.js`, `src/render/detail/river.js`, `data/locations/putney-landing.json`, `test/settings.test.js`, `test/location.test.js`, `test/storage.test.js`, `test/browser/settings.spec.js`.
+
+Changes (01 11.1, 11.5, 11.6; 07 5.13 phase 1 part, 6.7):
+
+1. The Course fieldset gets `id="setCourse"` and shows only for a heading course. The River flow fieldset becomes `fieldset#setFlow`, filled when the dialog opens and shown only with a flow binding: legend "River flow at <flow label>, <unit>" ("River flow at North Walpole, cfs" for Putney, as today); the two inputs are no longer `required` (blank turns a level off, as rain and air quality do, and `OPTIONAL` in `settings.js` line 8 gains them); the note is `copy.flowStats`.
+2. Each input's placeholder is "Location default <value>". Under a changed field, a small line: "Your setting. Location default <value>." The intro note: "Match these to your program, boat class and coach coverage. Saved in this browser for <name>." Reset becomes "Use location defaults".
+3. The Settings reminder's sentence is built from the location's limit keys (07 6.7): without flow, "... starting values for wind, gusts, rain and cold water." With flow it stays today's sentence.
+4. Limit basis (01 11.1, review P7): `thresholds.basis` is a map of `adapter:ref:unit` strings. `validateLocation` allows it and refuses a flow limit with no flow binding, or a `basis.flow` naming another binding. `effectiveSettings(loc, { overrides })` applies a flow limit only while its basis equals the location's primary flow binding: the location's own limits by `thresholds.basis`, the viewer's by `overrides.limitBasis`. A viewer's flow limit saved before this step has no `limitBasis`; it is read as made for the current binding and saved with it on the next Save. An ignored personal limit is kept, and Settings and the River view's How this works say "Your flow limits were for the <old label> gauge. Set them again for this gauge."
+5. Putney's record gets `thresholds.basis: { "flow": "usgs-ogc:USGS-01154500:cfs" }`.
+
+Tests: `test/location.test.js`: basis match, mismatch (location and personal limits ignored, the personal one kept), a flow limit with no flow binding refused, a basis naming another gauge refused; `effectiveSettings` for Putney unchanged. `test/settings.test.js`: Putney's dialog has the 13 fields as today; a record without flow has no flow fields and Saves; a record with a `none` course has no Course field; placeholders and the "Your setting" line; Reset to the location's defaults. `test/storage.test.js`: `limitBasis` saved with a flow override.
+
+Browser checks: `settings.spec.js` passes unchanged for Putney (all 13 fields, the reload, Reset, the order rule on Save), with "Use location defaults" as the Reset label. The dialog at 360 px fits with the new lines.
+
+Golden: none. If the reminder's text is written by a captured render function, stop (rule 13): it should be set by `src/settings.js`, which the capture does not run.
+
+Mutations: `effectiveSettings` ignoring the basis (a test fails); the flow inputs still `required` (the no-flow Save test fails); the Course field shown for a `none` course (fails).
+
+Done when: the net passes; the lake records of P1.13 will open this dialog with no flow fields.
