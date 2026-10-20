@@ -1171,3 +1171,112 @@ Golden: none. If the reminder's text is written by a captured render function, s
 Mutations: `effectiveSettings` ignoring the basis (a test fails); the flow inputs still `required` (the no-flow Save test fails); the Course field shown for a `none` course (fails).
 
 Done when: the net passes; the lake records of P1.13 will open this dialog with no flow fields.
+
+### Batch 3: the test locations, by water type (P1.11 to P1.15)
+
+Proves at its end: all seven locations work end to end from their own addresses and the picker, each with the tabs 01 9.7 gives its water type; a source that fails at one place is named and isolated; lakes, a reservoir and tidal water get their own water state and compass; Putney's last two listed changes (the share link and the bank labels) are in. Putney's output moves only by `banks`.
+
+#### P1.11 The share link, bank labels that turn, and generated banks
+
+Files: `src/share.js`, `src/render/parts.js`, `src/location.js`, `test/golden/capture.js`, `test/golden/changes.js`, the golden files `banks` moves, `test/location.test.js`, `test/render-location.test.js`, `test/browser/smoke.spec.js`.
+
+Changes:
+
+1. Commit (a), test code only: the capture sets `app.deviceTz = loc.tz` before it draws, so a device in another zone never reaches the golden share text. It passes against the unchanged `src/`.
+2. `src/share.js` (07 6.2): the link is `SITE_URL + loc.slug` on production (`https://rowhether.com/putney-landing`) and `location.origin + location.pathname` on dev, as today's rule (line 22). The text is `${loc.name} rowing, ${hm(now)}${zoneSuffix}: ...`, where `zoneSuffix` is " Eastern" (the zone name of P1.5) only when `app.deviceTz`'s offset differs from the location's at `now`. The text includes `#notChecked` when it shows. The title is "<name> rowing forecast" as today.
+3. `compassSVG()` (`src/render/parts.js` lines 27 to 30): each bank label is placed at its offset, (-30, -24) and (30, -24), rotated by the heading (`x' = x cos h - y sin h`, `y' = x sin h + y cos h`), rounded to one decimal, with the text upright (01 10.5). At Putney's 15°: VT at (-22.8, -30.9), NH at (35.2, -15.4).
+4. `autoBanks(heading, word)` in `src/location.js` (01 10.4): the right side faces `heading + 90`, named by its 8-point compass name (`north` ... `northwest`, short `N` ... `NW`), the left side the opposite. `resolveLocation()` uses it when the record's `banks` is null and the course is a heading, after the viewer's heading override, with the word `bank` for river, tidal and canal water and `shore` for lake, reservoir and harbor.
+
+Tests: `test/location.test.js`: `autoBanks(15)` gives left west and right east, `autoBanks(270)` left south and right north (01 16.1), `autoBanks(330)` right northeast, `autoBanks(166, 'shore')` right west shore; a record with banks keeps them. `test/render-location.test.js`: Putney's label positions at 15° and at a 200° override; the labels' text is never rotated.
+
+Browser checks (smoke, with `timezoneId: 'America/New_York'`): Share gives the share sheet "Putney Landing rowing forecast", the text without a zone suffix, and `https://rowhether.com/putney-landing`; with `America/Chicago` the text reads "Putney Landing rowing, 11:57 AM Eastern: ..."; on a dev host (`/api/info` stubbed as `{ env: 'dev' }`) the link is the page's address. The compass at 390 and 1280 px shows VT and NH beside the turned river, not over it.
+
+Golden: `banks`.
+
+Mutations: labels at the fixed offsets (the `banks` files fail to match); `zoneSuffix` from the machine's zone (the capture would see it under `TZ=Pacific/Auckland`, and a `share` path outside `banks` moves, so `check` fails); `autoBanks` with left and right swapped (fails).
+
+Done when: the net passes and `check` passes with `banks`. With this step, Putney's phase 1 changes are complete.
+
+#### P1.12 River test locations: Hanover boathouse and Boathouse Row
+
+Files: `data/locations/hanover-boathouse.json`, `data/waterways/connecticut-river-wilder-pool.json`, `data/locations/boathouse-row.json`, `data/waterways/schuylkill-river-fairmount-pool.json` (all four exactly as 4.4 and 4.5), `test/browser/fixtures.js`, new `test/browser/locations.spec.js`, `test/browser/picker.spec.js`, `test/locations-data.test.js`, `test/fixtures/sources/hanover-boathouse/`, `test/fixtures/sources/boathouse-row/`.
+
+Changes:
+
+1. The four files. Before writing them, the builder rechecks each gauge's latest reading and each station's latest observation with 4.2's requests, and records any change in the progress entry (a station gone quiet, as KMHR was, is switched by 02's step 5 rule).
+2. `test/browser/fixtures.js` answers every location from the golden scenarios with the ids the request asks for: `/alerts/active` for any query; `/stations/<any>/observations/latest`; the USGS latest request builds one item per requested gauge and parameter from the scenario's flow and temperature items, with the requested `monitoring_location_id`; the continuous and daily requests return the scenario's series for any gauge; `/nwps/v1/gauges/<any flow lid>/stageflow/forecast` returns the scenario's forecast. Unknown paths still land in `seen.missing`.
+3. `test/browser/locations.spec.js`: for each slug in the built `dist/locations/index.json`, at 390 px with the `june-calm` scenario at noon: the console is clean; the tab bar holds the tabs 4.1 lists for it; the header shows its name and subtitle; every tab fits the width; the hero shows a verdict; the River flow fact shows only where there is a flow binding; aborting one source names only that source under the hero.
+
+Tests: `test/locations-data.test.js`: the summaries list the three river locations, by slug, with their regions; each record resolves its flow from its waterway (`inherited: true`) and its own observation.
+
+Browser checks: `locations.spec.js` for Putney, Hanover and Boathouse Row. Hanover: the River tab is present, the flow fact names West Lebanon, the Water fact reads "No water temperature here. Add a dock reading in Settings.", the compass shows VT and NH. Boathouse Row: the compass shows NE and SW, and wind across the course reads "Crosswind off the northeast bank." or "... southwest bank." The picker lists Vermont, New Hampshire and Pennsylvania groups, and every curated name takes at most two lines in the header at 360 px (07 13).
+
+Golden: none.
+
+Mutations: Boathouse Row's water temperature row naming another gauge (the fixture builder answers it, but the record test that flow and temperature share one id at that gauge fails); the fixtures answering only KEEN (the Hanover check fails with a missing request).
+
+Done when: the net passes, and the main JS and precache budget lines are unchanged except the two records in the precache.
+
+#### P1.13 Lakes and reservoirs: Lake Quinsigamond, Lake Natoma and Lake Carnegie
+
+Files: `src/location.js`, `src/logic.js`, `src/units.js`, `src/render/parts.js`, `src/render/now.js`, `src/render/forecast.js`, `src/render/header.js`, `src/render/detail/wind.js`, `src/styles/app.css`, `data/locations/lake-quinsigamond.json`, `data/waterways/lake-quinsigamond.json`, `data/locations/lake-natoma.json`, `data/waterways/lake-natoma.json`, `data/locations/lake-carnegie.json`, `data/waterways/lake-carnegie.json` (exactly as 4.6, 4.7 and 4.9), `test/location.test.js`, `test/logic.test.js`, `test/units.test.js`, `test/render-location.test.js`, `test/browser/locations.spec.js`, `test/browser/settings.spec.js`, fixtures (4.10).
+
+Changes:
+
+1. Validation: a `none` course is allowed for lake, reservoir and harbor water and still refused (`unsupported`) for river, tidal and canal water; a `polyline` course stays refused, with the message saying phase 3 (section 9). `water.lake` is `{ axis: 0 to 179, lengthM: 50 to 50,000, widthM: 10 to lengthM }`; `water.fetchM` is one number (the same in every direction) or 16 numbers (N, NNE, ... NNW); `water.refFetchM` defaults to 2,000.
+2. `fetchAt(water, dirFrom)` (01 9.3): the ellipse chord `F = 1 / sqrt((cos φ / L)² + (sin φ / W)²)`, with φ the angle between the wind and the axis; one number, or the nearest of the 16; with neither, the reference fetch.
+3. `chopWind()` in `fetch` mode: `e = U × clamp(sqrt(F / refFetchM), 0.25, 2.0)`, no current, no multiplier; the water state keeps `fetchM` and the wind direction. `waterWhy(ws, loc)` in `fetch` mode: "Wind from the SW has about 1.5 mi of open water to build waves." when F is 1,000 m or more, otherwise "Wind from the NW crosses only about 0.4 mi of water, so chop stays small." Distances go through a new `m.u.waterDist(metres)` in `src/units.js` (miles, one decimal; 01 9.3's copy is metric, and US units are the only system until phase 2). The levels stay 5, 9 and 13 mph of chop wind, information only (README row 8).
+4. `windVsCourse()`: a `none` course gives no sentence, so the Wind fact note is "From SW."; on a fetch-mode water with a heading course it gives the head or crosswind sentence without "Chop builds along the ...", which the water state covers.
+5. The compass (01 10.5): a `none` course with `water.lake` draws the lake as an ellipse, `rx` 50 and `ry` 50 × W / L (at least 6), rotated to the axis, with no bank labels; with a single `fetchM`, a circle of radius 50; the wind arrow as today. The caption: "Wind from SW across about 1.5 mi of open water.", or "Wind from SW." with only a size. The compass `aria-label` comes from the location: "Wind direction relative to the river" at Putney as today, "... relative to the lake" on still water.
+6. The Wind tab, How this works, with a `none` course: "Head and crosswind are not shown because no course is set here."
+
+Tests: `test/location.test.js`: the ellipse chords for 3,000 by 600 m are 3,000, 1,412, 832, 647 and 600 m at 0, 22.5, 45, 67.5 and 90°; a single `fetchM`; the nearest of 16; the validation cases of item 1. `test/logic.test.js`: the factors 0.27, 1.0 and 2.0 at 150 m, 2 km and 10 km (01 16.1); fetch-mode chop along and across Lake Quinsigamond's axis; "open water" in the text (01 16.2); no flow reason, no debris, no River tab (`viewsFor`) for the three lakes; Putney's chop numbers unchanged. `test/units.test.js`: `waterDist` rounding. `test/render-location.test.js`: the ellipse at Carnegie's axis; no labels.
+
+Browser checks (`locations.spec.js`): the three lakes have no River tab; `/lake-carnegie#river` falls back to Now with the address's hash removed (01 16.5); Carnegie's compass draws the lake and its Wind fact says only the direction; the Week view's opened day says "This is a lake. Flow is not checked." (and "This is a reservoir." at Natoma); Settings at a lake has no flow fields and no Course field at Carnegie, and Save works; Natoma, from a `timezoneId: 'America/New_York'` context, reads "All times Pacific, 3 hours behind you." with every time in Pacific; the town search for "Worcester" now lists Lake Quinsigamond within 50 km.
+
+Golden: none.
+
+Mutations: the fetch factor without the 0.25 floor (a test fails); a `none` course on a river accepted (fails); the compass drawing bank labels on a `none` course (fails).
+
+Done when: the net passes with six locations listed.
+
+#### P1.14 Tidal water: Thompson Boat Center
+
+Files: `src/sources/nwps.js`, `src/sources/index.js`, `src/logic.js`, new `src/render/detail/tide.js`, `src/render/detail/index.js`, `src/render/now.js`, `src/route.js`, `src/styles/app.css`, `scripts/budget.mjs`, `data/locations/thompson-boat-center.json`, `data/waterways/potomac-river-tidal.json` (exactly as 4.8), `test/sources.test.js`, `test/logic.test.js`, `test/browser/fixtures.js`, new `test/fixtures/tide.js`, `test/browser/locations.spec.js`, fixtures (4.10).
+
+Changes:
+
+1. The tide fetcher on the `nwps` provider: key `nwps-tide`, slot `tide`, URL `https://api.water.noaa.gov/nwps/v1/gauges/<lid>/stageflow/forecast`, label "the NWS tide forecast", `staleMs` 24 hours. `parseTide(d, b)` refuses an answer whose `primaryName` is not a tide height, drops -999 and null values, and returns `{ station, unit, issued, series: [{ t, h }], events: [{ t, h, type }] }`, with the highs and lows taken as the local maxima and minima of the hourly series. `SLOT_ORDER` gains `tide` after `flowFcst`; the `tide` role already fills the `tide` slot (`ROLE_SLOTS` in `src/location.js`).
+2. `src/logic.js`: `tideAt(m, t)` (the height between hourly points, and whether it is rising); `tideEvents(m, from, to)`. In `tidal` mode, `chopWind()` uses the river formula with the crosswind weight and no multiplier: the location has no current data (4.8), and a river multiplier would point the wrong way on a flood. `waterWhy(ws, loc)` adds "Flood tide, rising until about 7 AM." or "Ebb tide, falling until about 1 PM." No `tide` reason in `assess()` (README row 10).
+3. The Tide view, `src/render/detail/tide.js`, loaded with `import()` the first time the tab opens: `VIEWS` gains `{ key: 'tide', name: 'Tide', when: loc => !!loc.sources.tide, load: () => import('./tide.js') }` after Wind (01 9.7), and `renderDetail()` shows "Loading." until the module is in, then draws. Vite names the chunk `tide-<hash>.js`; `scripts/budget.mjs` adds `{ name: 'tide', precache: true }`. The view (01 9.4, without the stream parts): its opening line names the next high and low; a week strip of the days with tide data, each with "High 5.9 ft" and no status color, and "No tide forecast" for the rest; a chart of the rowing window with the height lane and the highs and lows labeled "about 7 AM, 5.2 ft"; the readout; an "Hour by hour" table (Time, Height, Tide: Rising or Falling); How this works: "Tide heights are the National Weather Service forecast for the Potomac at Georgetown, in feet, hourly for 3 days. Highs and lows are the highest and lowest hourly values, so their times are right to about half an hour. Tide is shown for information. It does not change Go, Caution or Stay off." The station's name in that text comes from the binding's `label` and `note`.
+4. A Tide fact on Now, linking to `#tide`: "High about 7 AM, 5.2 ft. Low about 1 PM, 2.4 ft."
+5. `test/fixtures/tide.js`: a repeatable tide answer for the browser fixtures, 72 hourly heights from the scenario's clock, `h = 4.0 + 1.6 sin(2π t / 12.42 h)` in feet, `primaryName` "Tide Height"; `test/browser/fixtures.js` answers `GTND2` with it.
+
+Tests: `test/sources.test.js`: `parseTide` on the recorded GTND2 answer (72 points, the first high and low at the hours section 4.8 found), on a flow gauge's answer (refused), and with -999 values; Thompson's bindings: the tide, the flow from the waterway, the river forecast BRKM2, and one latest request for USGS-01646500 with 00060 and 00010. `test/logic.test.js`: tidal chop with no multiplier at any flow; rising and falling text; no `tide` reason; Small Craft Advisory in force at Thompson gives Stay off.
+
+Browser checks (`locations.spec.js`): Thompson's tabs are Now, Week, Wind, Tide, River, Storms, Fog, Temperature, Rain, Light, Air; tapping the Tide chart fills the readout; no request for a `tide-*` chunk at Putney; with an alerts fixture holding a Small Craft Advisory for ANZ535, the hero says Stay off and names it; the compass shows VA and DC.
+
+Golden: none.
+
+Mutations: a `tide` reason added to `assess()` (a test fails); the Tide view imported statically (the budget's lazy chunk check fails); `parseTide` accepting a flow gauge (fails).
+
+Done when: the net passes with all seven locations listed.
+
+#### P1.15 Day words across a clock change, and the other water modes
+
+Files: `src/format.js`, `src/render/now.js`, `src/logic.js`, `test/format.test.js`, `test/logic.test.js`.
+
+Changes:
+
+1. `addDays(dayKey, n)`, a date string step in `src/format.js`. `dayWord()` finds "Tomorrow" as `addDays(dayKey(now), 1)`, not `dayKey(Date.now() + 24 * HOUR)` (`format.js` line 60; 08 9.3). The "Daylight tomorrow" fact (`now.js`) does the same.
+2. `canal` mode (01 9.5): the river formula with the crosswind weight and no wind against current multiplier, even with a flow binding; the water state text says "the canal". `harbor` mode (01 9.6): fetch mode, with the tide text when a tide binding exists. No curated location uses either yet.
+
+Tests: `test/format.test.js`: `dayWord` at 23:30 local on 2026-10-31 and 2026-11-01 (the 25-hour day) and on 2026-03-08 (the 23-hour day), in New York, against the next local date; `addDays` across a month and a year. `test/logic.test.js`: canal chop with no multiplier at 30,000 cfs; harbor chop from fetch.
+
+Browser checks: none new.
+
+Golden: none. 08 9.3 says the change is invisible at the golden times; if a case moves, stop (rule 13).
+
+Mutations: `addDays` by adding 24 hours to a time (the 25-hour day test fails); a canal multiplier (fails).
+
+Done when: the net passes.
