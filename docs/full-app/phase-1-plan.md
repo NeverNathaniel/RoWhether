@@ -66,8 +66,8 @@ Phase 0 proved "no visible change" with golden files that could not be written a
 
 ### 3.1 What P1.1 changes
 
-- The comparison. `test/golden/harness.js` compares each case's formatted text with its file using Vitest's `expect(text).toMatchFileSnapshot(file)`, where `text` is what the harness writes today: `format(MAIN.has(c) ? have : trimmed(have), c.run ? 4 : 3)`. The digest step for variants and probes stays and runs before the comparison. The write mode (`GOLDEN_WRITE`, the "is not in write mode" guard, and the refusal "exists and differs. Not rewritten." at `harness.js` line 60) goes. P1.1 proves the swap is neutral: all 107 golden files (19 main cases, 77 variants and 11 probes) pass unchanged.
-- The guard. Vitest writes no snapshot when `CI` is set: a missing or different file fails. Locally, `-u` rewrites the files of the tests that ran, so `-t` limits it to named cases.
+- The comparison stays as it is: per key, with `toEqual`, and by digest for the large keys of the variants and probes. 08 14.1 preferred Vitest's `toMatchFileSnapshot`, which compares the file's text. That does not work on these files: in the 19 main cases and `p-config` the key order of the settings, the course and the water objects differs from what the capture produces today (phase 0 moved the flow keys after the AQI keys; `toEqual` ignores order), so a text comparison fails all 20 with no value changed (checked 2026-10-20 in a worktree of `622c2ef`: 20 of 107 files differ as text, 0 by value).
+- The write mode becomes an update mode. `GOLDEN_UPDATE=1` rewrites the file of a case whose comparison fails, or writes a missing one, for the cases that run (so `-t` limits it to named cases), and the run then fails on purpose so an update never passes unnoticed, as the write mode did. The rewrite keeps the old file's key order and appends new keys, so `git diff` shows only the values that changed. The harness refuses to update when `CI` is set. The refusal "exists and differs. Not rewritten." (`harness.js` line 60) and the "is not in write mode" guard become the update mode's checks. P1.1 proves the change is neutral: all 107 golden files (19 main cases, 77 variants and 11 probes) pass unchanged, and an update run with nothing failing rewrites nothing.
 - The CI step. `git diff --exit-code --diff-filter=MD c7967a6... HEAD -- 'test/golden/*.json'` is replaced by `node scripts/golden.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab`, described in 3.2.
 - The phase 0 scaffolding goes, as 08 14.1 says: the copied old parsers and the "equal the old ones" tests in `test/sources.test.js` (the copy starts at line 16; the re-export test is at line 316), the pasted reference formatters and their two tests in `test/format.test.js` (line 5 onward), and the re-exports in `src/data.js`. Importers move to `src/sources/*.js`: `test/golden/capture.js` (`alertLevel`), `test/golden/probes.js`, `test/logic.test.js` and `test/sources.test.js`.
 
@@ -77,7 +77,7 @@ Phase 0 proved "no visible change" with golden files that could not be written a
 
 | Command | What it does |
 | --- | --- |
-| `node scripts/golden.mjs update [<case> ...]` | Runs `npx vitest run test/golden.test.js test/golden-variants.test.js -u -t '<pattern>'`, where the pattern is `^golden outputs (<case>|<case>)$` built from the names, escaped. With no names it updates every case that fails. Refuses to run when `CI` is set |
+| `node scripts/golden.mjs update [<case> ...]` | Runs `npx vitest run test/golden.test.js test/golden-variants.test.js -t '<pattern>'` with `GOLDEN_UPDATE=1`, where the pattern is `^golden outputs (<case>|<case>)$` built from the names, escaped. With no names it updates every case that fails. Treats the run's planned failure as success, as `write` does today. Refuses to run when `CI` is set |
 | `node scripts/golden.mjs diff [<rev>]` | For each `test/golden/*.json` that differs between `<rev>` (default `HEAD`) and the working tree, prints the case name and every key path whose value changed, added or removed, one per line |
 | `node scripts/golden.mjs check <base>` | For each commit in `git rev-list --reverse --no-merges <base>..HEAD -- 'test/golden/*.json'`: a deleted golden file fails. A modified file needs the commit's `Golden:` trailer (`git log -1 --format='%(trailers:key=Golden,valueonly)'`) to name change ids from `test/golden/changes.js`, and every changed path in it must match a path pattern of one of those ids, within that id's files. A new file passes (14.1's rule for additions still holds) |
 | `node scripts/golden.mjs dump <case> [dir]` | As today: every captured value in full, for `diff -r` against a dump made in a worktree of the parent commit |
@@ -906,7 +906,7 @@ Files: `test/golden/harness.js`, `test/golden.test.js`, `test/golden-variants.te
 
 Changes:
 
-1. The harness compares with `toMatchFileSnapshot` and loses its write mode, as 3.1 says. The FC5 checks in `test/golden.test.js` (case names equal file names, both ways) and the scenario claims stay.
+1. The harness keeps its per-key comparison and trades its write mode for the update mode of 3.1 (`GOLDEN_UPDATE=1`, refused under `CI`, keeping each file's key order). The FC5 checks in `test/golden.test.js` (case names equal file names, both ways) and the scenario claims stay.
 2. `scripts/golden.mjs` gets `update`, `diff` and `check` (3.2) and loses `write`. The pure parts (the path diff between two parsed JSON values, the glob matcher over dot paths, reading a `Golden:` trailer) go in `test/golden/paths.js`.
 3. `test/golden/changes.js` starts as `export const CHANGES = {}` with the comment block of 3.2.
 4. CI: line 22 of `.github/workflows/ci.yml` becomes `- run: node scripts/golden.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab`, with a comment that the phase 0 rule ended here (08 14.1).
@@ -920,7 +920,7 @@ Browser checks: none new. The parity spec passes unchanged.
 
 Golden: none. `git diff c7967a6 HEAD -- 'test/golden/*.json'` is still empty.
 
-Mutations for the gate: change one character of `test/golden/june-calm-1200-default.json` (its case fails); edit a sentence in `src/logic.js` and run `node scripts/golden.mjs update june-calm-1200-default` (only that file is rewritten, `git status` shows one golden file); `CI=1 node scripts/golden.mjs update` (refused); delete a golden file and run `CI=1 npx vitest run test/golden.test.js` (fails, writes nothing); in a scratch worktree, commit a golden change with no trailer, then with a wrong id, then with the right id (`check` fails, fails, passes).
+Mutations for the gate: change one character of `test/golden/june-calm-1200-default.json` (its case fails); edit a sentence in `src/logic.js` and run `node scripts/golden.mjs update june-calm-1200-default` (only that file is rewritten, `git status` shows one golden file); the same update keeps the file's key order (`git diff` shows only the changed values, not moved keys); `CI=1 node scripts/golden.mjs update` and `CI=1 GOLDEN_UPDATE=1 npx vitest run test/golden.test.js` (both refused); delete a golden file and run `npm test` (fails, writes nothing); in a scratch worktree, commit a golden change with no trailer, then with a wrong id, then with the right id (`check` fails, fails, passes).
 
 Done when: the net passes with no golden file changed, `check` passes on HEAD, CI is green, and the progress entry records the test count (lower than 700 by the scaffolding tests removed, each named).
 
@@ -1514,6 +1514,7 @@ Things the checks of 2026-10-20 found that change or sharpen 01 to 08. Each is a
 10. GTND2's forecast highs (5.2 to 5.9 ft) come close to its flood action stage (5.5 ft) and minor flood stage (6 ft). Tide stays information only, but the Tide view's high labels show the number, which is what a rower at Thompson would want.
 11. Open-Meteo's geocoding host timed out on two of four tries from this container; the picker's failure line (P1.7) is a real path.
 12. The Analytics SQL binding (`analytics`) is in wrangler 4.149.0's schema; its `query()` API is from Cloudflare's docs. Whether the account can read the dataset through it is checked when the owner opens the Metrics tab.
+13. The golden files cannot be compared as text. In the 19 main cases and `p-config` the key order no longer matches what the capture produces (phase 0 moved keys; the per-key `toEqual` never noticed, correctly, since no value changed). A text snapshot, 08 14.1's preferred tool, would fail 20 files with no value changed. P1.1 keeps the per-key comparison and adds an update mode that keeps each file's key order (3.1).
 
 ## 11. Placeholders and what waits on the owner
 
