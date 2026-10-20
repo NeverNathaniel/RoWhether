@@ -872,3 +872,178 @@ CI never calls a live API. Each step that adds a parser or a location records wh
 - P1.14: `gtnd2-forecast.json` and `brkm2-forecast.json`.
 
 The browser fixtures do not use these files. They answer every location from the golden scenarios with the ids filled in (P1.12), so the page tests stay repeatable at any clock.
+
+## 5. Rules for every step
+
+These hold for every builder and every gate, on top of `CLAUDE.md` and HANDOFF's standing instructions.
+
+1. Before a step: `git pull --no-rebase origin dev-full-app`, read `CLAUDE.md`, this step, sections 3 and 5, and every file the step names. Read the 01 to 08 sections a step cites only for the copy or rule it points at.
+2. Work on `dev-full-app` only. Never touch `master` or `dev`. Never force push, rebase or amend. Never `git add -A`: commit by path (`git add <paths> && git commit -m "..." -- <paths>`). Never `git stash`, `git reset`, `git clean` or `git checkout` on a directory. Experiments go in a worktree under the scratchpad, with `node_modules` linked, removed at the end.
+3. The net, at the end of every step and before every push: `npm test`, `npm run build`, `node scripts/budget.mjs`, `npx playwright test --grep-invert @visual`, `npx wrangler deploy --dry-run --outdir <scratchpad>/worker`, and from P1.1 on `node scripts/golden.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab`. All pass. A step of several commits keeps `npm test` and `npm run build` passing at each commit.
+4. Golden files change only by section 3.3, with a planned id from 3.4. Anything else that moves a golden file stops the step (rule 13).
+5. Budgets: section 7. A step sets `budget.json` to its row in the commit that adds the code, and the message says why. A step whose measured size is over its row first finds the saving in its own code, then uses the levers in 7.3. It never raises above its row. An overrun it cannot remove is a finding (rule 13).
+6. Tests: every new rule in `src/logic.js`, parser in `src/sources/`, function in `src/location.js`, `src/storage.js`, `src/route.js` or `src/units.js` gets a unit test (CLAUDE.md). A test that depends on time pins the clock (`vi.setSystemTime`, `page.clock`) and passes the zone; none reads the machine's zone. `npm test` runs with `TZ=Pacific/Auckland`.
+7. No test calls a live API. Fixtures are recorded with the requests in 4.2 and committed under `test/fixtures/sources/` (4.10). Recording sends no personal data.
+8. Storage: every `localStorage` access in try/catch, through `src/storage.js` or the lazy module that owns the key. A step that adds a key adds a "storage blocked" case to its unit tests, and the smoke test "storage that throws on access" keeps passing.
+9. Copy: direct, calm, short sentences, sentence case, no em or en dashes, no emojis, never "call" for the verdict in the UI. Run `grep -n -e $'\xe2\x80\x94' -e $'\xe2\x80\x93'` on each changed file. New screens keep their words in `src/copy/<screen>.js` (07 7.8).
+10. Commit messages: subject `Phase 1 P1.<n>: <what changed>`, a blank line, then the trailer block: `Golden: <id>[, <id>]` when golden files changed, then the session attribution lines the builder's own system reminder gives. Pull, then push after each commit or small group; retry a failed push up to 4 times after 2, 4, 8 and 16 seconds.
+11. Progress: one entry per step in `docs/full-app/phase-1-progress.md` (P1.1 creates it), newest first: date and time UTC, step, commits, test count, the budget line (main JS, CSS, HTML, precache, and each lazy chunk), golden ids moved, what was proven and by which mutations, and any deviation from this plan with its reason.
+12. The gate: an independent agent, after the builder pushes. It reruns the net on a clean checkout, reads the diff against the step text, checks the budget row and every golden id (`node scripts/golden.mjs diff <first commit>^`, one dump diff), runs the step's listed mutations in a worktree (each must make a check fail), runs the step's browser checks, and writes its verdict in the progress entry. A mutation that passes is a finding the builder closes with a new check before the step counts as done.
+13. Stop and report, with the finding in the progress file, pushed: a golden path outside the planned ids; a budget overrun with no saving in the step; a contradiction between this plan, 01 to 08 and the code; a live fact that disagrees with section 4; anything that would change Putney's look beyond 07 3.2's list.
+14. HANDOFF: one log line per batch (newest first: date and time UTC, batch, session, steps and the head commit), and the first unchecked item of its plan list stays accurate.
+
+## 6. The steps, in batches
+
+Five batches, at most five steps each, run as one build workflow per batch. Every step lists its files, what changes, its tests, its browser checks, the golden ids it moves, the mutations its gate runs, and when it is done. File paths are repository paths. Line numbers are at `30fef7a` and move as steps land; the function names are the anchor.
+
+### Batch 1: structure (P1.1 to P1.5)
+
+Proves at its end: the golden tools let Putney's output change on purpose and nothing else; location records come from files built into `dist/` and precached; storage is per location; the app opens a location by its address and keeps an existing install's settings and saved forecast; the header, footer and app name come from the location. Putney is the only location. Putney's visible changes so far: the chevron, the "Saved" label, the footer credits, the app name in the manifest, the install copy.
+
+#### P1.1 The golden tools for phase 1, and the end of the phase 0 scaffolding
+
+Files: `test/golden/harness.js`, `test/golden.test.js`, `test/golden-variants.test.js`, `scripts/golden.mjs`, new `test/golden/changes.js`, new `test/golden/paths.js`, new `test/golden-check.test.js`, `.github/workflows/ci.yml`, `src/data.js`, `test/golden/capture.js`, `test/golden/probes.js`, `test/logic.test.js`, `test/sources.test.js`, `test/format.test.js`, `budget.json`, new `docs/full-app/phase-1-progress.md`.
+
+Changes:
+
+1. The harness compares with `toMatchFileSnapshot` and loses its write mode, as 3.1 says. The FC5 checks in `test/golden.test.js` (case names equal file names, both ways) and the scenario claims stay.
+2. `scripts/golden.mjs` gets `update`, `diff` and `check` (3.2) and loses `write`. The pure parts (the path diff between two parsed JSON values, the glob matcher over dot paths, reading a `Golden:` trailer) go in `test/golden/paths.js`.
+3. `test/golden/changes.js` starts as `export const CHANGES = {}` with the comment block of 3.2.
+4. CI: line 22 of `.github/workflows/ci.yml` becomes `- run: node scripts/golden.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab`, with a comment that the phase 0 rule ended here (08 14.1).
+5. The phase 0 scaffolding goes (3.1): the parser copies and the "equal the old ones" and "are re-exported by src/data.js" tests in `test/sources.test.js`, the reference formatters and their two tests in `test/format.test.js`, the re-exports in `src/data.js`. Importers move to `src/sources/nws.js`, `usgs.js`, `nwps.js` and `openmeteo.js`.
+6. `budget.json` gets `"phase": 1`, numbers unchanged.
+7. `docs/full-app/phase-1-progress.md`: the header of `phase-0-progress.md`, adapted, and the first entry.
+
+Tests: `test/golden-check.test.js`: the path diff finds a changed leaf, an added and a removed key, and an array item by index; `*` matches one segment and `**` many; a trailer `Golden: saved, banks` reads as two ids; `check` logic on a list of fake commits (pure function over `{ files, changed paths, trailer }`): fails with no trailer, fails with an unknown id, fails when a path is outside the id's patterns or files, fails on a deleted file, passes a covered change and an added file.
+
+Browser checks: none new. The parity spec passes unchanged.
+
+Golden: none. `git diff c7967a6 HEAD -- 'test/golden/*.json'` is still empty.
+
+Mutations for the gate: change one character of `test/golden/june-calm-1200-default.json` (its case fails); edit a sentence in `src/logic.js` and run `node scripts/golden.mjs update june-calm-1200-default` (only that file is rewritten, `git status` shows one golden file); `CI=1 node scripts/golden.mjs update` (refused); delete a golden file and run `CI=1 npx vitest run test/golden.test.js` (fails, writes nothing); in a scratch worktree, commit a golden change with no trailer, then with a wrong id, then with the right id (`check` fails, fails, passes).
+
+Done when: the net passes with no golden file changed, `check` passes on HEAD, CI is green, and the progress entry records the test count (lower than 700 by the scaffolding tests removed, each named).
+
+#### P1.2 Location files in the build
+
+Files: new `scripts/locations/plugin.mjs`, `vite.config.js`, `wrangler.jsonc`, `public/_headers`, `src/location.js`, `data/locations/putney-landing.json`, `scripts/budget.mjs`, new `test/locations-data.test.js`.
+
+Changes:
+
+1. `scripts/locations/plugin.mjs` exports `collectLocations(root)`, `summaries(list)`, `recordFile(rec, waterway)`, `shellHtml(indexHtml, rec, waterway)` and `locationsPlugin()`.
+   - `collectLocations` reads every `data/locations/*.json` and `data/waterways/*.json`, validates each with `validateLocation` and `validateWaterway`, and also checks: the file name is the slug (or the waterway id); the waterway exists; no two records share a slug; the slug is not a name the build writes at the top of `dist/` or a file in `public/` (`assets`, `locations`, `sw`, `workbox-*`, `registerSW`, `manifest`, `privacy`, `index`, `favicon`, `icon-*`, `apple-touch-icon`); every record has `copy.credits` and `copy.description`, and a record with a flow binding has `copy.flowStats`. It throws one error whose message lists `<file>: <field> <code> <message>` per problem.
+   - `summaries` returns 01 7.2's index entries (`slug`, `name`, `shortName`, `locality`, `waterway` name, `lat`, `lon`, `tz`, `country`, `region`, `waterType`, `status`, `revision` default 1) for `published` and `verified` records, sorted by slug. No `generated` field, so the build is repeatable.
+   - `recordFile` is the record plus `waterwayRecord`, the whole waterway record. The app resolves sources itself with `resolveLocation(record, { waterway: record.waterwayRecord })`, one code path.
+   - `shellHtml` replaces, in the built `index.html`, the `<title>`, `meta[name=description]`, `link[rel=canonical]`, `og:url`, `og:title` and `og:description`: title `${name} rowing conditions`, description `copy.description`, URL `https://rowhether.com/<slug>` (from `SITE_URL`). Nothing else in the file changes.
+   - `locationsPlugin()`: `buildStart` runs `collectLocations` (an error fails the build); `generateBundle`, with `enforce: 'post'`, emits `locations/index.json`, `locations/<slug>.json` and `<slug>.html` from the bundle's `index.html` asset; `configureServer` serves the two JSON paths from memory under `vite dev`.
+2. `vite.config.js`: the plugin; Workbox `globPatterns` gains `'locations/*.json'`; `globIgnores` gains `<slug>.html` for each record, computed from `data/` when the config loads (01 7.3, 08 8.4).
+3. `wrangler.jsonc`: `"not_found_handling": "single-page-application"` in `assets` (08 6.7). A missing path is answered with `index.html`, also for a `fetch()` of a missing JSON file (from docs, https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/, read 2026-10-20), so the app never trusts a 200 for a location file without a JSON content type (P1.4).
+4. `public/_headers`: `/locations/*` with `Cache-Control: public, max-age=3600` (01 7.2).
+5. `src/location.js`: `COPY_KEYS` gains `description` (up to 160 characters).
+6. Putney's record gains `copy.description` (4.3).
+7. `scripts/budget.mjs` also fails when a `<slug>.html` shell is in the precache list, or a record in `dist/locations/index.json` has no `locations/<slug>.json` in it.
+
+Tests (`test/locations-data.test.js`): every file under `data/` passes `collectLocations`; `collectLocations` on a temporary folder fails, naming the file and field, for: a bad field, a file name that is not the slug, a missing waterway, the slugs `assets` and `icon-192`, two records with one slug, a record with no `copy.credits`; `summaries` leaves out a draft and an archived record; `recordFile` carries the waterway; `shellHtml` for Putney equals today's `dist/index.html` except canonical and `og:url` (`https://rowhether.com/putney-landing`), with title, description and Open Graph texts unchanged (01 16.4).
+
+Browser checks: after `npm run build && npx vite preview`, `curl -sI http://localhost:4173/putney-landing` is 200 with no redirect and serves the shell (title "Putney Landing rowing conditions", canonical `/putney-landing`); Vite preview serves `<path>.html` for `<path>` (`htmlFallbackMiddleware` in `node_modules/vite/dist/node/chunks/node.js` line 16940, read 2026-10-20), as Workers assets do. The app at `/putney-landing` draws Putney exactly as at `/` (it still ignores the path). `dist/sw.js` lists `locations/index.json` and `locations/putney-landing.json` and not `putney-landing.html`.
+
+Golden: none.
+
+Mutations: a record with `slug` different from its file name (the build fails); the plugin emitting the shell into the precache (budget fails); `shellHtml` leaving the canonical at `/` (test fails).
+
+Done when: the net and `npx wrangler deploy --dry-run` pass, and the three files are in `dist/`.
+
+#### P1.3 Storage for many locations
+
+Files: `src/config.js`, `src/storage.js`, `test/storage.test.js`.
+
+Changes:
+
+1. `KEYS` gains `loc: slug => 'rowhether-loc-v1:' + slug`, `cacheIndex: 'rowhether-cache-index-v1'`, `recent: 'rowhether-recent-v1'`, `pickhint: 'rowhether-pickhint-v1'` (08 8.2). `CACHE_MAX = 10`, `RECENT_MAX = 8`.
+2. `src/storage.js` gains, all guarded: `loadRecord(slug)` and `saveRecord(slug, record)` (`{ record, fetchedAt }`); `loadLast()` and `saveLast(slug)`; `touchCache(slug, now)` (the index of last opened times); `trimCaches(current, protect = [])`: while more than 10 slugs are in the index, delete the cache and record of the least recently opened slug that is neither current nor protected (favorites are phase 2), then its index entry (07 9.2); `saveCache` retries after a `QuotaExceededError` by trimming one more entry by the same rule, at most 3 times, then gives up silently; `loadRecent()`, `pushRecent(slug)` (newest first, no repeats, at most 8); `pickHintDismissed()`, `dismissPickHint()`.
+3. `migrateStorage()` stops importing `src/putney.js`. It compares old settings with a frozen constant `OLD_PUTNEY_DEFAULTS`, the 13 values Putney had before phase 1 (wind 10 and 15, gusts 18 and 25, rain 60 and 90, cold line 100, water reading `''`, flow 20,000 and 28,000, AQI 151 and 201, heading 15). The old settings were made against those values, which is why they are frozen, not read from the record.
+
+Tests (added to `test/storage.test.js`): record round trip, unreadable JSON gives null, blocked storage gives null and throws nothing; the cap: 11 slugs opened one after another evicts the oldest with its record and index entry, never the current slug or a protected one; the quota path with a stub that throws `QuotaExceededError` twice evicts two and then saves; recent order, no repeats, at most 8, blocked storage; the pick hint; `OLD_PUTNEY_DEFAULTS` equals `PUTNEY_DEFAULTS` from `src/putney.js` today (a guard that the freeze matches, so the existing migration tests keep their meaning). The existing migration tests pass unchanged.
+
+Browser checks: none new; the smoke suite passes.
+
+Golden: none.
+
+Mutations: `trimCaches` evicting the current slug (a test fails); `pushRecent` keeping a repeat (fails); `OLD_PUTNEY_DEFAULTS` with heading 20 (the guard and a migration test fail).
+
+Done when: the net passes; nothing calls the new functions yet except their tests.
+
+#### P1.4 Path routes and opening a location by its address
+
+The riskiest step. It changes how every page load starts. It may be built as several commits, each keeping the net green: (a) the capture edit, (b) `src/route.js` with its tests, (c) the loading and state changes, (d) the browser spec changes.
+
+Files: `src/route.js`, `src/state.js`, new `src/locations.js`, `src/main.js`, `src/render/detail/index.js`, `src/settings.js`, `src/reports.js`, `src/suggest.js`, `src/config.js`, `index.html`, `src/styles/app.css`, `test/golden/capture.js`, new `test/route.test.js`, new `test/locations-load.test.js`, `test/settings.test.js`, `test/suggest-context.test.js`, `test/browser/parity.spec.js`, `test/browser/smoke.spec.js`, `test/browser/settings.spec.js`.
+
+Changes:
+
+1. Commit (a), test code only: `capture.js` draws the views in `VIEWS.filter(v => !v.when || v.when(loc))`. It passes against the unchanged `src/`, since no view has `when` yet.
+2. `src/route.js` (07 4.2):
+   - `parseRoute({ pathname, hash, search })` returns `{ page, slug, view, day, open }`. `/` (and `/index.html`) is `home`. `/<segment>`, where the segment passes `validateSlug`, is `location`. `/admin` is `admin` from P1.18 (`notfound` until then). Anything else, including a slug with capitals or a second path segment, is `notfound` with the path's words kept for the search. `open` is `picker` for `?open=picker`.
+   - `parseHash(hash, keys)` is today's `parseRoute(hash)` (line 6) with the tab keys passed in, so a hash for a tab the location does not have returns null.
+   - `homeTarget({ last, now })`: a stored last slug gives `{ slug: last, replace: true }`; otherwise `{ slug: 'putney-landing', keepAddress: true }`. P1.6 adds the window and the picker.
+   - `navigate(href)`: `history.pushState`, then `show()`. One click handler on `document` for same-origin `a[data-nav]`, letting modifier and middle clicks through. `popstate` and `hashchange` both call `show()`.
+   - `show()`: when the route's slug differs from `app.loc?.slug`, it opens that location (item 4); then it shows the tab from the hash as today. A hash for a hidden tab is replaced with no hash (`history.replaceState`), showing Now. Picking a day stays `history.replaceState` (`setDay()`).
+   - `initRoutes()` builds the tab bar from `viewsFor(app.loc)`, and rebuilds it when the location changes.
+3. `src/locations.js` (new):
+   - `cachedRecord(slug)`: from `loadRecord()`, the record if its `v` is 1, else null.
+   - `fetchRecord(slug)`: `fetch('/locations/<slug>.json')`. A 200 with a JSON content type is `{ record }`. Anything else (404, a 200 with HTML from the single-page fallback, a parse error) checks the index: a slug not in `locations/index.json` is `{ missing: true }`; otherwise, or on a network error, `{ failed: true }`.
+   - `fetchIndex()`: `/locations/index.json`, kept in memory once loaded.
+4. `src/state.js`: nothing is resolved at import time (line 32 goes). `openLocation(record, overrides)` sets `app.record`, `app.loc` (`resolveLocation(record, { waterway: record.waterwayRecord, overrides })`), `app.defaults` (`{ ...effectiveSettings(loc), heading }`, with `heading` only for a heading course), `app.settings`, and `setZone(loc.tz)`; resets `app.data`, `app.errors`, `app.updated`, `app.fromCache`, `app.model`, `app.openPeriods`, `app.detailDay`, `app.homeScroll`; and increments `app.token`. `applyOverrides(values)` resolves again from `app.record`.
+5. `src/main.js`, the start sequence:
+   1. `migrateStorage()`.
+   2. `parseRoute(location)`. For `home`: `homeTarget({ last: loadLast(), now })`. With `replace`, `history.replaceState` to `/<slug>` plus the hash (an old link `rowhether.com/#wind` becomes `/putney-landing#wind` with no reload).
+   3. The record: `cachedRecord(slug)`, else `await fetchRecord(slug)`. The service worker answers that file from its precache, so an installed copy that has just updated reads it without the network. `missing` shows the not-found view (item 9) and makes no upstream request. `failed` with nothing cached shows "Could not load this location" with "Try again".
+   4. `openLocation()`, `saveRecord()` when fetched, `touchCache()`, `saveLast(slug)` unless `keepAddress` (07 5.1 step 3: Putney shown at `/` to a first visitor does not become their location), `pushRecent(slug)`.
+   5. The saved forecast (`loadCache(slug)`) renders at once, as today. Then `refresh()`.
+   6. A record fetched more than 24 hours ago is fetched again in the background. A changed `revision` saves it, reopens the location with the same overrides and renders again.
+   - `refresh()` keeps `app.token` from its start and drops its result if the location changed meanwhile, so a slow answer for one place never lands in another. After `saveCache()` it calls `trimCaches(app.loc.slug)`.
+6. `src/render/detail/index.js`: a view may export `when(loc)`. `river.js` gets `when: loc => !!loc.sources.flow`. `viewsFor(loc)` filters `VIEWS`; `VIEW_KEYS` goes, and `parseHash` gets the keys from `viewsFor(app.loc)`.
+7. `src/settings.js`: `FIELDS` (line 10) becomes the fixed list of the 13 fields, not `Object.keys(app.defaults)` at import time. `fill`, Reset and Save read `app.defaults` when the dialog opens. The Settings reminder's visibility is set by `refreshNudge()`, called after each `openLocation()`.
+8. `src/reports.js`: dock reports show only where `app.loc.slug === REPORTS_SLUG` (`'putney-landing'`, in `src/config.js`). The `reports` table has no location until phase 3 (08 `0005`), so a report belongs to Putney.
+9. `index.html` gains `<section id="notFound" class="panel" hidden>`. Not found: the tab bar, `#home` and the Refresh and Settings buttons are hidden, and the section shows "No location here" and "No location at rowhether.com/<words>." P1.6 adds the picker search under it.
+10. `src/suggest.js`: the bug report context gains `location: app.loc?.slug ?? null`.
+11. `src/putney.js` stays, for the tests and scripts. The app no longer imports it (nor does `src/storage.js` since P1.3), so Putney's two records leave the main script (08 11.2 counts 1,191 B).
+12. `test/browser/parity.spec.js` loads `/putney-landing` (3.5). Its custom cases keep their saved settings; they set no last slug, which `/putney-landing` does not need.
+
+Tests: `test/route.test.js`: `parseRoute` for `/`, `/index.html`, `/putney-landing`, `/putney-landing#wind/2026-10-14`, `/Putney-Landing`, `/api`, `/assets`, `/ab`, `/putney-landing/extra`, `?open=picker`; `parseHash` with Putney's keys and with a location without flow (`#river` is null); `homeTarget` with and without a last slug. `test/locations-load.test.js` (fetch stubbed): `fetchRecord` for a JSON 200, an HTML 200 for a slug in the index (`failed`) and not in it (`missing`), a 404, a network error; `cachedRecord` with `v: 2` gives null. `test/settings.test.js`: the 13 fields fill from `app.defaults` after `openLocation()`. `test/suggest-context.test.js`: the context names the location.
+
+Browser checks (smoke and parity specs): parity passes for every case at `/putney-landing`. `/` with empty storage draws Putney and the address stays `/`; no `rowhether-last-v1` is written. With `rowhether-last-v1` set, `/#wind` becomes `/putney-landing#wind` without a reload (`history.length` stays 1). The upgrade check (old `putney-rowing-*` keys seeded, load `/`) draws the saved hero while every upstream host is held unanswered (a route that never fulfils until the hero is checked), the address becomes `/putney-landing`, Settings shows the seeded values, and no note shows above the hero (07 13, 01 16.5). `/no-such-place` shows the not-found section and makes no upstream request. `update.spec.js` passes. `timing.spec.js` passes in CI mode, and once by hand with `TIMING_BASELINE_MS=99` for `chromium-390-light` (within 20%).
+
+Golden: none. The capture edit is commit (a).
+
+Mutations: `saveLast` at `/` with nothing stored (the smoke check that no `rowhether-last-v1` is written fails); drop the token check in `refresh()` and switch location during a held refresh (a check in `test/locations-load.test.js` or the smoke spec shows the old data drawn at the new place); trust a 200 HTML answer as a record (the HTML case fails); keep `state.js` importing `src/putney.js` (the budget row fails); show dock reports at every location (a unit test with a second record fails).
+
+Done when: the net passes, parity passes at `/putney-landing`, the upgrade check passes with upstream held, and main JS is at or under its row.
+
+#### P1.5 The header, the footer and the app name
+
+Files: `index.html`, new `src/render/header.js`, `src/render/hero.js`, `src/render/index.js`, `src/main.js`, `src/state.js`, `src/install.js`, `src/format.js`, `src/location.js`, `vite.config.js`, `src/styles/app.css`, `data/locations/putney-landing.json`, `test/golden/changes.js`, the golden files `saved` moves, new `test/header.test.js`, `test/browser/fixtures.js`, `test/browser/smoke.spec.js`, `test/browser/timing.spec.js`, new `test/browser/picker.spec.js` (the header and manifest checks; P1.6 grows it).
+
+Changes:
+
+1. `index.html` header as 07 4.3, without the account button (phase 2): `div.title-row` holding `h1#title` with `button#locBtn.loc-btn` (`aria-haspopup="dialog"`, `aria-controls="picker"`, `aria-describedby="locHint"`) around `span#locName` and an `svg.loc-chev` (`aria-hidden="true"`), then `span#envBadge` as today, and `span.vh#locHint` "Change location"; `p.sub#sub`; `p.badges#locBadges` hidden. The static text stays Putney's, so the first paint before the script matches today. The footer's credit paragraph becomes an empty `p#credits`; the second paragraph stays. The install bar's `p` gets `id="installText"`. Icon links become absolute (`/apple-touch-icon.png`, `/icon-192.png`; 01 7.3). `apple-mobile-web-app-title` becomes "RoWhether". The `#setInstall` note and the `#install` dialog note take 07 6.4's text. The `<title>`, description and Open Graph tags of `index.html` stay Putney's during the 90-day window (07 6.5).
+2. `src/render/header.js`:
+   - `renderHeader()` moves here from `hero.js` (`hero.js` re-exports it, so the capture's import still works). Its label is "Saved" in place of "Saved data from" (`hero.js` line 12; 07 6.7).
+   - `renderPlace(loc)`, called after each `openLocation()` and not by `render()`: `#locName` text; the class `long` on `#title` for a name over 18 characters; `#sub` from `subtitleText(loc, Date.now(), app.deviceTz)`; `#credits` from `linkText(loc.copy.credits)`; `#installText` "Add RoWhether to your home screen. It opens on <name> in one tap."; `document.title` "<name> rowing conditions"; `#locBadges` "Not confirmed on site" for a `published` record, hidden for `verified`. `renderPlace(null)` for the not-found view: "RoWhether", no subtitle, no badges.
+   - `subtitleText(loc, now, deviceTz)` (07 6.1): `${loc.subtitle || generated} All times ${zoneName}${zoneDiff}.` `zoneName` is `tzLabel`, else the `longGeneric` zone name without " Time" ("Eastern", "Pacific"; Node 22 gives "Eastern Time" and "Pacific Time", verified live 2026-10-20). `zoneDiff` compares the two zones' offsets at `now` (`longOffset`, for example "GMT-04:00") and adds ", 1 hour ahead of you", ", 3 hours behind you", ", 30 minutes ahead of you" or ", 9 hours 30 minutes ahead of you" only when they differ. `generated` is "<waterway name> at <locality>." for a record with no subtitle.
+3. `app.deviceTz` is set once at start from `Intl.DateTimeFormat().resolvedOptions().timeZone`.
+4. `linkText(s)` in `src/format.js`: escapes the text and turns `[text](https://...)` into `<a href="..." target="_blank" rel="noopener">text</a>`; only `https://` links, anything else stays text. `src/location.js` lets `copy.credits` be up to 1,200 characters (Putney's new text is 721).
+5. Putney's `copy.credits` takes 4.3's text: Albany and Gray, with links.
+6. `src/install.js`: the bar text comes from `renderPlace()`; the dialog note is static (item 1).
+7. `vite.config.js` manifest (07 6.3): `name: 'RoWhether'`, `short_name: 'RoWhether'`, `description: 'Go, caution or stay off: rowing conditions for your launch site, hour by hour.'`, `id: '/'`, with `start_url` and `scope` `'./'` as today.
+8. `src/styles/app.css`: `.title-row`, `.loc-btn` (the title's size, weight and width, `--ink`, no pill border, underline on hover, visible focus), `.loc-chev` (0.6 rem, `--muted`), `#title.long` below 30 rem (1.25 rem), `.badges` and `.badge` (07 11.1). The button does nothing until P1.6 wires it.
+
+Tests: `test/header.test.js`: `subtitleText` for Putney with the device in New York (today's text exactly), Chicago (", 1 hour ahead of you."), Kolkata and Auckland at a pinned date, and Los Angeles with no `tzLabel` ("All times Pacific."); a record with no subtitle; `linkText` escapes `<`, makes https links, leaves `javascript:` and `http:` as text; the install sentence; the `long` threshold at 18 and 19 characters; the badge for `published` and `verified`.
+
+Browser checks (`picker.spec.js`, smoke): at 360 px the title row and the actions row each stay one row with "Updated" and with "Saved" (07 4.3 measured "Saved data from" wrapping); the chevron shows after the name, light and dark; `timezoneId: 'America/Chicago'` on Putney: the subtitle ends "All times Eastern, 1 hour ahead of you." and the hero, facts and a tab's times are still Eastern (07 13); the built `dist/manifest.webmanifest` has `name` and `short_name` "RoWhether" and `id` "/", `start_url` and `scope` "./"; the install bar (iPhone user agent) says "It opens on Putney Landing"; the footer shows the credits with the Albany and Gray links; `document.title` is "Putney Landing rowing conditions". `ready()` and the three "Saved data from" waits read "Saved" (3.5).
+
+Golden: `saved`.
+
+Mutations: `zoneDiff` using the machine's zone in place of `deviceTz` (a header test fails under `TZ=Pacific/Auckland`); `linkText` passing a `javascript:` link (fails); the manifest without `id` (the browser check fails); `renderPlace()` called from `render()` (the capture would see it: a golden path outside `saved` moves, and `check` fails).
+
+Done when: the net passes, `check` shows only `saved` moved, and the browser checks pass at 360, 390 and 1280 px.
