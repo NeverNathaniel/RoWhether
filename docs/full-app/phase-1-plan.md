@@ -1410,3 +1410,123 @@ Changes:
 Golden: none.
 
 Done when: every item of the proof is recorded and pushed.
+
+## 7. Budgets per step
+
+### 7.1 The numbers
+
+Gzip bytes at level 9, as `scripts/budget.mjs` measures them. The start is `30fef7a`, measured in this session: main JS 43,505 B, CSS 6,001 B, HTML 3,613 B, precache 275.59 KiB (17 entries, 12 distinct). 08 11.2's phase 1 row is main JS 46,700, CSS 7,100, HTML 3,700, precache 400 KiB.
+
+The plan below gives each step's planned growth and the size expected after it. `budget.json` after a step is that expected size rounded up to the next 100 B, never below phase 0's 44,000 for JS or 6,100 for CSS; P1.20 sets the phase row. The growth numbers are estimates from the size of similar code today (a detail view adds about 1.5 KB to the main script; `src/route.js` is about 0.7 KB alone), so a step may come in under; it never takes more than its row.
+
+| Step | Main JS growth | Main JS expected | `js` after | CSS expected | `css` after | HTML expected | Precache expected |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| start | | 43,505 | 44,000 | 6,001 | 6,100 | 3,613 | 275.6 KiB |
+| P1.1 | 0 | 43,505 | 44,000 | 6,001 | 6,100 | 3,613 | 275.6 |
+| P1.2 | 0 (build plugin only) | 43,505 | 44,000 | 6,001 | 6,100 | 3,613 | 281 |
+| P1.3 | +300 storage functions | 43,805 | 44,000 | 6,001 | 6,100 | 3,613 | 281 |
+| P1.4 | -300: Putney's records leave (-1,191, 08 11.2), routes, loading and the not-found view (+890) | 43,505 | 44,000 | 6,030 | 6,100 | 3,643 | 281 |
+| P1.5 | +450 header, subtitle, credits | 43,955 | 44,000 | 6,230 | 6,300 | 3,493 (header +159, credits paragraph -311, measured on a copy of today's `dist/index.html`) | 281 |
+| P1.6 | +250 home decisions, the note, the picker loader | 44,205 | 44,300 | 6,350 | 6,400 | 3,593 | 300 (picker chunk and its CSS) |
+| P1.7 | +50 the offline hero line | 44,255 | 44,300 | 6,350 | 6,400 | 3,593 | 302 |
+| P1.8 | +250 zones, marine levels, newest series, local noon | 44,505 | 44,600 | 6,350 | 6,400 | 3,593 | 302 |
+| P1.9 | +450 staleness, not checked, absent-source copy | 44,955 | 45,000 | 6,390 | 6,400 | 3,613 | 302 |
+| P1.10 | +450 Settings from the location, limit basis | 45,405 | 45,500 | 6,440 | 6,500 | 3,503 (the flow fieldset built in script, -110 measured) | 302 |
+| P1.11 | +200 share, label rotation, generated banks | 45,605 | 45,700 | 6,440 | 6,500 | 3,503 | 302 |
+| P1.12 | 0 (data and tests) | 45,605 | 45,700 | 6,440 | 6,500 | 3,503 | 311 |
+| P1.13 | +500 fetch mode, `none` course, the lake compass | 46,105 | 46,200 | 6,500 | 6,500 | 3,503 | 323 |
+| P1.14 | +400 the tide fetcher, tidal mode, lazy views | 46,505 | 46,600 | 6,550 | 6,600 | 3,503 | 341 (record and the tide chunk) |
+| P1.15 | +60 day words, canal and harbor modes | 46,565 | 46,600 | 6,550 | 6,600 | 3,503 | 341 |
+| P1.16 | +80 the counter parameters | 46,645 | 46,700 | 6,580 | 6,600 | 3,533 | 347 (privacy page) |
+| P1.17 | 0 | 46,645 | 46,700 | 6,580 | 6,600 | 3,533 | 347 |
+| P1.18 | +50 the admin route | 46,695 | 46,700 | 6,580 | 6,600 | 3,533 | 347 (the admin chunk is not precached) |
+| P1.19 | 0 | 46,695 | 46,700 | 6,580 | 6,600 | 3,533 | 347 |
+| P1.20 | 0 | 46,695 | 46,700 (phase row) | 6,580 | 7,100 (phase row) | 3,533 | 347 |
+
+`html` stays 3,700 throughout; `precacheKiB` stays 400.
+
+### 7.2 Lazy chunks
+
+| Chunk | Step | Loaded when | Precached | Expected size |
+| --- | --- | --- | --- | --- |
+| `picker` | P1.6 | first tap on the location name, `?open=picker`, the picker page, the not-found view | yes (the offline picker) | 6 to 10 KB gzip (07 10.3, estimate) |
+| `tide` | P1.14 | the Tide tab | yes | about 2.5 KB gzip (estimate) |
+| `admin` | P1.18 | `/admin` | no (07 10.5) | about 2 KB gzip (estimate) |
+
+They have no budget in CI (08 11.2: only the phase 3 map chunk does). `scripts/budget.mjs` prints each, checks each exists under its name, checks `index.html` does not load it, and checks the precache rule.
+
+### 7.3 When a step is over its row
+
+In this order: find the saving in the step's own code; move words the Now screen does not need at once into the lazy module that uses them (the picker page, the not-found view and the pick note's copy into `src/copy/picker.js`, loaded with the picker); load the Settings field builder of P1.10 with `import()` the first time the dialog opens, precached; drop the duplicate `isSet` copies in `rain.js`, `air.js` and `parts.js` (noted in phase 0) for the one in `src/logic.js`. If none of these is enough, stop (rule 13). A raise above 46,700 is the batch review's call, in a commit that says why and updates 08 11.2.
+
+The first hero from the saved copy stays within 20% of the phase 0 baseline (08 11.3): checked by hand after P1.4 and in P1.20.
+
+## 8. Exit criteria and what proves each
+
+09's phase 1 exit criteria, in order.
+
+| # | Criterion (09) | Proven by |
+| --- | --- | --- |
+| 1 | `npm test`, `npm run build` and `npx wrangler deploy --dry-run` pass. New test files `route.test.js`, `picker.test.js`, `csp.test.js`, `info.test.js`, `locations-data.test.js`, and `test/browser/picker.spec.js` (08 13.7). 01 16.1 to 16.4 and 02's source and discovery tests apply to what this phase builds | The net at every step (rule 3). `route.test.js` P1.4 and P1.6; `picker.test.js` P1.6 and P1.7; `csp.test.js` P1.17; `info.test.js` P1.16; `locations-data.test.js` P1.2 and P1.12 to P1.14; `picker.spec.js` P1.5 to P1.7, P1.12. Also `locations-load.test.js`, `header.test.js`, `golden-check.test.js`, `admin.test.js`, `flowstats.test.js` and `locations.spec.js`. 01 16.1: `validateLocation` cases (P1.2, P1.10, P1.13), `autoBanks` (P1.11), fetch (P1.13), `resolveSources` (unchanged), `effectiveSettings` (P1.10), `flowDefaults` (P1.19), `zoneFormat` (phase 0), storage (P1.3); `slugify` and `courseSegments` are deferred with polylines and the add flow (section 9). 01 16.2: lake (P1.13), canal (P1.15), tidal heights (P1.14), no gauge and stale flow (P1.9); high latitude is deferred (section 9); DST and half-hour zones were proven in phase 0 and P1.15. 01 16.3 is phase 3's (the Worker location API). 01 16.4: P1.2. 02 Tests: the sources tests (P1.8, P1.14) and `flowstats` (P1.19); discovery tests are deferred with discovery |
+| 2 | Putney looks as before except 07 3.2's phase 1 list. The golden tests pass with only those differences (08 14.1) | `node scripts/golden.mjs check` over the phase, with exactly the ids of 3.4 (P1.20 item 2); the dump diffs recorded per id; the `@visual` before and after (3.6, P1.20 item 3) for the chevron, bank labels and footer; the browser checks for the share link (P1.11) and "Saved" (P1.5) |
+| 3 | An existing install keeps its settings and cache, opens at `/putney-landing` with no note above the hero, and renders the cached hero before any request completes (07 13, 01 16.5) | The smoke upgrade check of P1.4, with every upstream host held; P1.20 item 7, the update from `30fef7a` in a persistent profile. The record file comes from the precache on that first start (P1.4, item 5); after it, from `rowhether-loc-v1` |
+| 4 | 07 13's phase 1 checks | First visit inside and after the window: P1.6. The picker at 360 px with no request while typing: P1.6. The switcher's focus: P1.6. Near me granted, denied, timed out: P1.7. The header at 360 px for every curated name: P1.6 and P1.12 (the loop over `index.json` covers each later record). A lake with no River tab and `#river` back to Now: P1.13. A tidal location with Tide after Wind: P1.14. Chicago on Putney: P1.5. An unknown slug: P1.6. `/putney-landing` from its shell with the old title and no redirect: P1.2 and P1.4. The offline picker and "No forecast saved": P1.7. The share link: P1.11. The manifest named RoWhether with id `/`, and the install bar naming the location: P1.5. All again by hand in P1.20 item 6 |
+| 5 | Budget row: 46,700, 7,100, 3,700, 400 KiB; the first hero from cache within 20%; a clean console everywhere | Section 7 at every step; `timing.spec.js` by hand after P1.4 and in P1.20; console checks in `smoke.spec.js`, `picker.spec.js` and `locations.spec.js` |
+| 6 | A lazy chunk's name checked by `scripts/budget.mjs` on the first build that adds one; the Workers Free limit checked against the pricing page (08 17.3) | P1.6 adds the check with `picker`; P1.14 and P1.18 add `tide` and `admin`. The pricing page in P1.20 item 8 |
+| 7 | The owner has confirmed the open counter, created the Access application, and approved the `CLAUDE.md` changes | The counter and the `CLAUDE.md` changes: accepted 2026-10-20 (section 2, rows 1 and 16). The Access application: still the owner's (section 11). The Metrics tab refuses everyone until then, so phase 1 can merge to `dev` without it; production needs it before the tab is useful, not before the merge |
+
+## 9. Left out of phase 1, or deferred
+
+| Item | Where 01 to 08 put it | Deferred to | Why |
+| --- | --- | --- | --- |
+| The discovery script, `scripts/locations/discover.mjs` over `worker/discover.js` | 08 5.6, 02 Discovery | Phase 3, built with `GET /api/discover`, which uses the same module | The seven phase 1 records are curated by hand with the live checks of section 4. Discovery is the largest piece of phase 1 tooling (about 21 requests per run at Putney, NLDI, NWPS and scoring) and its first real user is phase 3's add flow. 08 5.6 lists "no discovery tool in phase 1" as the alternative; the owner finds gauges with `scripts/check-sources.mjs` and `flowstats.mjs` until then |
+| CO-OPS adapters (tide predictions, water level, currents, water temperature) | 02 phase 1 | The first tidal location with no NWPS tide point, phase 3 at the latest | The one tidal test location has an NWPS tide forecast 866 m away; the nearest CO-OPS stations are on other water (4.8). A second tide source would also need fallback switching (below) |
+| Tidal streams: the stream lane, `streamCaution`, `streamOff`, the against multipliers, slack, `minLaunch` | 01 9.4 | With the CO-OPS currents adapter | No current data at Thompson Boat Center; tide is information only (README row 10), so the limits would draw lines with nothing behind them |
+| The NWPS tide forecast as a fallback to CO-OPS, and fallback bindings in general (`mode: 'fallback'`, `staleSwitchH`) | 01 4.2, 15.7 | Phase 3, or the first curated location with a spare gauge | No phase 1 location has a second gauge for a role |
+| GloFAS (`om-flood`) and Open-Meteo marine water temperature (`om-marine`) | 02 phase 1 | Phase 7, or the first location on a large river with no gauge | Every phase 1 river has a gauge; no phase 1 location is coastal |
+| The `level` role and the Level tab | 01 9.3, 9.7 | The first reservoir with a level gauge | Lake Natoma has none bound; none of the six needs it |
+| Polyline courses and `courseSegments()` | 01 10.1 to 10.3 | Phase 3, with the map that draws them | No test location needs one, and phase 1 has no map to draw or check one. The validator keeps refusing it, now naming phase 3 |
+| High-latitude rules: polar days, white nights, sunset after midnight (01 15.4) and their copy (07 6.7) | 09 phase 1 (01 section 15) | The first curated location above 55° N, or phase 7 | The northernmost phase 1 location is 43.7° N. The rules cost main script bytes the phase 1 row does not have (7.1) |
+| `attributionFor(loc)`, credits generated from the bindings | 02 Attribution, 07 6.6 | Phase 3, with community locations | Every curated record carries `copy.credits` (checked by P1.2) |
+| The generated flow note (01 11.3) | 01 11.3, 11.6 | Phase 3 | Every curated record with flow carries `copy.flowStats` (checked by P1.2) |
+| The Info tab, launch notes, traffic pattern, emergency information | 07 4.4, 5.5 | Phase 3 | No test record has launch notes or a traffic pattern; Lake Natoma's release warning is in its subtitle |
+| `slugify()` and slug aliases | 01 2.2, 15.10 | Phase 3 | Curated slugs are written by hand and never renamed in phase 1 |
+| Recomputing a waterway binding's distance for each member location | 01 6.2 | Phase 3 | Each phase 1 waterway has one location |
+| Per-slot refresh pacing (`refreshMs`, `due()`: air quality and models hourly) | 02 fetchAll | Phase 4, with server-side forecasts | It changes CLAUDE.md's "Refresh every 10 minutes" rule and is an optimization, not something the prototype needs. Staleness ships in P1.9 |
+| Favorites, compare, the account button, units and clock | 07 5.2.3, 5.3, 7 | Phase 2 | As planned in 09 |
+| The picker map, the add flow, quick look `/at/` | 07 5.2.5, 5.4, 5.6 | Phase 3 | As planned in 09 |
+| Removing the old `putney-rowing-*` keys | 01 8.6 step 7 | Phase 2 | As planned |
+| What `/` shows after the window, in `index.html`'s title and Open Graph tags (07 6.5, "RoWhether rowing conditions") | 07 6.5 | The commit that sets the window end, when phase 1 reaches production | During the window `/` must keep previewing as Putney |
+
+## 10. Findings from the live checks
+
+Things the checks of 2026-10-20 found that change or sharpen 01 to 08. Each is applied in the step named.
+
+1. USGS `latest-continuous` returns at most 10 items without `limit`, and a gauge can list several series for one parameter: USGS-01646500 lists five 00010 series, four ended in 2019. Today's request has no `limit` and today's parser keeps the last match. P1.8 adds `limit=50`, lists each gauge once, and keeps the newest reading.
+2. Putney's flow statistics move with the window. With data to 2026-10-18 (3,942 days) p95 is 27,995 cfs, which 01 11.3's rule rounds down to 27,000, not 28,000; with data to 2026-10-15 (3,939 days, 01 6.1) it was 28,010. Putney keeps 20,000 and 28,000 as curated values (02, step 8), and `flowstats.test.js` uses a fixed fixture. The rule sits on a rounding edge at Putney; that is worth knowing before phase 3 recomputes defaults yearly (02, step 7).
+3. The NWS `/points` endpoint answers 301 for a point with more than 4 decimals. Records store 5 decimals (01 2.1), and no phase 1 code requests `/points` at run time (alerts use zone lists), so nothing breaks; discovery (phase 3) and the scripts round to 4.
+4. The Hanover boathouse resolves to Vermont zones (VTZ021, VTC027) although Nominatim puts the building in New Hampshire, as Putney's point resolves to New Hampshire. Binding both banks' zones, as P1.8 does for Putney, covers it.
+5. At Thompson Boat Center the dock point misses marine zone ANZ535, and a Small Craft Advisory was active there during the check. 02's finding 7 holds; the record binds ANZ535, and README row 11 makes it Stay off.
+6. KMHR (Mather, 10 km from Lake Natoma) had not reported for over 8 hours; KSAC is bound by 02's step 5 rule. P1.12's recheck rule covers stations that go quiet.
+7. CO-OPS's nearest stations to Georgetown are in the Washington Channel, 4.4 km away on other water, while NWPS has a tide forecast point 866 m upstream. 02's step 10 already offers an NWPS "Tide Height" point within 5 km for tidal water; the check confirms it is the better source here.
+8. The NHDPlus snap at the Thompson Boat Center dock point lands on Rock Creek, which runs north, and gives an upstream bearing of 3 to 34°, not the Potomac's 285°. Discovery's heading suggestion (02, step 13; phase 3) should check that the snapped line's name or mainstem matches the waterway.
+9. With `not_found_handling: "single-page-application"`, a `fetch()` of a missing file is answered with `index.html` and 200, not 404 (Cloudflare's routing diagram, from docs). `fetchRecord()` checks the content type and the index (P1.4).
+10. GTND2's forecast highs (5.2 to 5.9 ft) come close to its flood action stage (5.5 ft) and minor flood stage (6 ft). Tide stays information only, but the Tide view's high labels show the number, which is what a rower at Thompson would want.
+11. Open-Meteo's geocoding host timed out on two of four tries from this container; the picker's failure line (P1.7) is a real path.
+12. The Analytics SQL binding (`analytics`) is in wrangler 4.149.0's schema; its `query()` API is from Cloudflare's docs. Whether the account can read the dataset through it is checked when the owner opens the Metrics tab.
+
+## 11. Placeholders and what waits on the owner
+
+Each placeholder is marked in the code with the word `OWNER-SETS` or a `PLACEHOLDER:` comment, so `grep -rn "OWNER-SETS\|PLACEHOLDER:" src worker scripts wrangler.jsonc` lists them all.
+
+| Placeholder | Where | Step | What the owner supplies |
+| --- | --- | --- | --- |
+| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` | `wrangler.jsonc`, both blocks | P1.18 | The Zero Trust Access application for `/admin*` and `/api/admin/*`, production and Previews, and its team domain and AUD values (03 3.7). Also whether the free Zero Trust plan's seat count fits (unverified) |
+| `USER_AGENT` contact | `scripts/locations/agent.mjs` | P1.19 | The contact address for NWS, Nominatim and aviationweather.gov requests (02) |
+| `FIRST_VISIT_PUTNEY_UNTIL` | `src/config.js` | P1.6 | The date 90 days after phase 1 reaches production, set with that merge |
+| "Not confirmed on site" on six records, `course.confirmed: false` | `data/locations/*.json` | P1.12 to P1.14 | Which clubs confirm each dock point and course (README row 13). A confirmed record becomes `verified`, with `verifiedVia`, and loses the badge |
+| Putney's heading of 15, the "Bellows Falls dam to Vernon dam" reach, and "about 19 mi downstream" for Northfield (straight line; 24.8 river miles) | Putney's two files | none | The on-site checks (README row 17) |
+| Tidal stream limits and multipliers | 01 9.4 only | none | Local knowledge, when a location with current data is added (README row 18) |
+| The Wilder Dam pool's upstream end, and whether Little Falls is the head of tide | the Hanover waterway's `reach`; Thompson's copy avoids the claim | P1.12, P1.14 | A check, if the owner wants the text to say more |
+| The Analytics Engine read through the `analytics` binding | `worker/metrics.js` | P1.18 | Opening the Metrics tab once Access is set up |
+| Running `node scripts/check-sources.mjs` before phase 1 ships (09 phase 1 owner tasks) | | P1.19 | A run from the owner's machine |
