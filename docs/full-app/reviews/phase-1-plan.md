@@ -8,7 +8,7 @@ How the evidence was made: a git worktree of `d625fa9` in the scratchpad with `n
 
 Status: in progress
 
-Count so far: 1 blocker, 12 major, 2 minor.
+Count so far: 1 blocker, 14 major, 6 minor.
 
 ## Blockers
 
@@ -66,7 +66,7 @@ Count so far: 1 blocker, 12 major, 2 minor.
 
 - Severity: major.
 - Where: 7.1, 7.3, P1.9 (+450 B); 08 11.2 (46,700 B).
-- Problem: 7.1 ends at 46,695 of 46,700 B, 5 B of room after 18 estimated steps. One estimate checked by prototype comes out near double. 7.3's levers are small next to that (the Settings field builder, the copy of three screens, about 30 B of duplicate `isSet`). The plan's first saving holds: the records leave the main script.
+- Problem: 7.1 ends at 46,695 of 46,700 B, 5 B of room after 18 estimated steps. One estimate checked by prototype comes out near double. 7.3's levers are small next to that (the Settings field builder, the copy of three screens, and three copies of the one-line `isSet`). The plan's first saving holds: the records leave the main script.
 - Evidence: `npm run build && node scripts/budget.mjs` at `d625fa9`: main JS 43,505 B. With `src/putney.js` importing nothing (the records out): 42,325 B, 1,180 B less (the plan says 1,191). A terse prototype of part of P1.9 (`staleSlots` with the nine limits, `flowForCall`, `waterSource` with the typical value, `notChecked`, `notCheckedText` with its ages, and item 8's nine sentences, wired from `render()`): 44,360 B, 855 B more, against 450 planned, and without the `fetched` cache, the `stale` model input, the alerts still in force, the hero, overnight hero and share wiring, or the view branches that use the sentences. A structural lever the plan does not list: with the nine detail views out of the main script, it is 26,617 B, 16,888 B less.
 - Fix: Before batch 2, prototype P1.9, P1.13 and P1.14 and replace their estimates. Add to 7.3, as the lever before a stop: load the detail views with `import()` and precache them, as P1.14 already does for Tide (`load`, "Loading." in `renderDetail()`), starting with the views least used at first paint. If the owner prefers a raise, set it now in 08 11.2 rather than at a stop.
 
@@ -118,6 +118,22 @@ Count so far: 1 blocker, 12 major, 2 minor.
 - Evidence: 09 lines 70 to 74; HANDOFF "Phase 1 decisions (owner, 2026-10-20): build with the recommendation of every Phase 1 row in `README.md`"; README rows 87 to 104 list none of the deferred items.
 - Fix: Before batch 3, put the deferral list to the owner as one decision (a README row or a HANDOFF line), and on acceptance move each item into 09's later phase sections so the phase 2 and 3 plans pick them up.
 
+#### R16. A record saved in the browser is never replaced unless its `revision` changes, and the plan never changes one
+
+- Severity: major.
+- Where: P1.4 items 3 and 5 (`cachedRecord(slug)` first; "A record fetched more than 24 hours ago is fetched again in the background. A changed `revision` saves it"); P1.2 (`summaries`, "`revision` default 1"); P1.5, P1.8, P1.9 and P1.10, which edit Putney's record.
+- Problem: From P1.4 the app reads a location from `rowhether-loc-v1:<slug>` before the precached file, and replaces it only when a background fetch finds a different `revision`. No record has a `revision` (it defaults to 1), and no step or rule bumps it when a record or its waterway changes. A browser that saved Putney's record at P1.4 keeps the old credits after P1.5, the point alerts after P1.8, `maxAgeH` null after P1.9 and no flow basis after P1.10, for good. After phase 1 ships, an owner's fix to a curated record (a gauge id, an alert zone, a limit) never reaches an installed phone, although the new file is in its precache.
+- Evidence: `data/locations/putney-landing.json` has no `revision` key; P1.2 item 1 gives `revision` default 1; P1.4 item 3 accepts a stored record whenever its `v` is 1; P1.4 item 5.6 saves a refetched record only on a changed `revision`.
+- Fix: The build stamps each record file and its index entry with a hash of the record and its waterway. After the first render the app compares the stored record's hash with the precached `locations/index.json` (and later with a fetch) and reopens the location when they differ. Add a unit test for a stored record with an old hash, and a browser check that a rebuilt record with new credits shows them after one reload.
+
+#### R17. Binding county codes applies a storm-based warning to the whole county
+
+- Severity: major.
+- Where: P1.8 commit 1 (`zones:` refs to `alerts/active?zone=`), the alert zones in 4.1 and 4.3 to 4.9, README row 6; `src/sources/nws.js` `alerts`.
+- Problem: Severe thunderstorm, tornado, flash flood and special marine warnings are drawn as polygons, but their `affectedZones` are the whole county or marine zone. `?point=` returns such a warning only when its polygon covers the point; `?zone=` returns it for every spot in the county. From P1.8, a severe thunderstorm warning for a storm 30 miles away in northern Windham County or western Cheshire County makes Putney Stay off, which is a change to Putney's verdict that 07 3.2 does not list. 01 6.1, 02 and README row 6 chose the zones to cover both banks and never weigh this. The same holds for the six test locations and ANZ535.
+- Evidence: `https://api.weather.gov/alerts?event=Severe%20Thunderstorm%20Warning&limit=3`, read 2026-10-20: the warning sent 2026-10-19 20:11 UTC for Doña Ana County, NM has `affectedZones` `["NMC013"]`, the whole county, and a polygon spanning about 0.24° of longitude by 0.14° of latitude.
+- Fix: Keep the zone list, and for an alert that has a geometry, apply it to the location only when the polygon contains the dock point (or comes within a set distance of it); zone-only products apply as listed. Put the rule in P1.8 with a test on a recorded polygon alert, and tell the owner, since row 6 was accepted without it.
+
 ## Minor
 
 #### R8. P1.11's share check expects the wrong time
@@ -135,3 +151,35 @@ Count so far: 1 blocker, 12 major, 2 minor.
 - Problem: (1) Every variant is lean, and only the 19 main cases record `sources` (`if (!lean) out.sources = ...` in `capture.js`), so the files list is the 19 main cases. (2) `not-checked` writes `#notChecked` from `renderHero()` and the overnight hero only. `renderNoData()` must hide it too, or a line from the last model stays on screen when the forecast goes missing; then `status.noDataAll`, `status.noDataForecast`, `status.noDataQuiet` and the no-model files' `home` move as well, outside the planned paths.
 - Evidence: `VARIANT_CASES` in `test/golden/capture.js` builds every variant with `lean: true`; no `v-*` file has a `sources` key. `renderNoData()` (`src/render/hero.js`) writes `#verdict`, `#why` and `#holds` and leaves the other hero lines.
 - Fix: Name the 19 main cases for both ids. Add to P1.9 that `renderNoData()` hides `#notChecked`, and add those paths to `not-checked`.
+
+#### R18. P1.8's marine level rule misstates today's levels and leaves stronger warnings below a Small Craft Advisory
+
+- Severity: minor.
+- Where: P1.8 commit 2 ("'Winter Storm Warning', 'Ice Storm Warning' and 'Tropical Storm Warning' are level 2 either way"); `src/sources/nws.js` `alertLevel`.
+- Problem: Today "Tropical Storm Warning" is level 1, so a match on "Storm Warning" moves it to 2, a Putney change the plan says does not happen. With exactly the four names of README row 11, "Hurricane Force Wind Warning" (a marine warning above Storm Warning), "Hurricane Warning" and "Storm Surge Warning" stay at 1, below a Small Craft Advisory at 2, at the one tidal location.
+- Evidence: `alertLevel()` at `d625fa9`: Tropical Storm Warning 1, Winter Storm Warning 2, Ice Storm Warning 2, Storm Warning 1, Gale Warning 1, Small Craft Advisory 1, Special Marine Warning 1, Hurricane Warning 1, Storm Surge Warning 1, Hurricane Force Wind Warning 1.
+- Fix: Match whole event names from a list in `nws.js`. Ask the owner whether the hurricane and storm surge warnings join the list; if "Tropical Storm Warning" moves to 2, name it in `marine-alerts` and in the probe.
+
+#### R19. One P1.5 mutation cannot fail any check
+
+- Severity: minor.
+- Where: P1.5 mutations ("`renderPlace()` called from `render()` (the capture would see it ...)").
+- Problem: The capture never calls `render()`. It imports `renderHeader`, `renderHero`, `renderAlerts`, `renderNow`, `renderDays` and the views and calls them itself, and the parity spec compares only the elements the golden files list, which do not include `#locName` or `#sub`. The mutation survives, and rule 12 then asks the builder for a new check that the plan does not describe.
+- Evidence: the imports at the top of `test/golden/capture.js` (no import from `src/render/index.js`).
+- Fix: Mutate `renderHeader()` to call `renderPlace()` instead (the capture does call it, so `status.header` and `home` move outside `saved`), or count `renderPlace()` calls in a browser check across a refresh.
+
+#### R20. CLAUDE.md stays at phase 0 until P1.20, but every builder reads it first
+
+- Severity: minor.
+- Where: rule 1 ("read `CLAUDE.md`"), P1.20 item 1; CLAUDE.md "Hard constraints" and "Location and endpoints".
+- Problem: The owner approved the phase 1 edits to CLAUDE.md (README row 16), but the plan applies them all in P1.20. Until then a builder reads "The service worker precaches the app shell only" while P1.2 precaches the location files, the point alerts URL and the v0 USGS URLs while P1.8 changes them, and "Putney" as the app's subject. A builder that treats CLAUDE.md as overriding may stop on the conflict, as rule 13 tells it to.
+- Evidence: CLAUDE.md: "The service worker precaches the app shell only. It does not cache API responses."; "NWS alerts: `https://api.weather.gov/alerts/active?point=42.9607,-72.5219`".
+- Fix: Apply each approved CLAUDE.md sentence in the step that makes it true (the service worker sentence in P1.2, the app name and "Saved" in P1.5, the endpoints in P1.8), and keep P1.20 for the code map and the test list.
+
+#### R21. Putney changes outside 07 3.2's list are not collected anywhere
+
+- Severity: minor.
+- Where: exit criterion 2 ("Putney looks as before except for the changes 07 3.2 lists"); P1.5 items 1 and 6 (install bar, dialog and `#setInstall` copy from 07 6.4), P1.10 items 1 to 3 (placeholders, "Your setting" lines, the intro note and "Use location defaults" from 01 11.6), P1.16 item 6 (the Privacy link); R1, R3 and R17.
+- Problem: Each of these follows a spec section, but 07 3.2's phase 1 row lists five changes, and 07 3.2 even puts "Saved in this browser for Putney Landing" in phase 2 while 01 11.6 puts it in phase 1. The plan never lists the extra changes in one place, so the owner cannot see what a Putney regular will notice, and the final proof checks only the five.
+- Evidence: 07 3.2's phase 1 row; 01 11.6 ("The intro note: ... Saved in this browser for Putney Landing."; "Reset defaults becomes "Use location defaults""); 07 6.4's install copy table.
+- Fix: Add a table to section 3 of every Putney-visible change by step, including those with no golden file, and update 07 3.2's phase 1 row from it with the owner's approval, so exit criterion 2 names the real list.
