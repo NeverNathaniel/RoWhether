@@ -1280,3 +1280,133 @@ Golden: none. 08 9.3 says the change is invisible at the golden times; if a case
 Mutations: `addDays` by adding 24 hours to a time (the 25-hour day test fails); a canal multiplier (fails).
 
 Done when: the net passes.
+
+### Batch 4: the Worker, privacy and the owner's tools (P1.16 to P1.19)
+
+Proves at its end: the open counter writes one point per start with no identifiers, and `/privacy` says so, online and offline; the static headers carry a content security policy that every source fits; the owner's Metrics tab is behind Cloudflare Access and refuses everyone until the owner sets it up; the owner has scripts to compute flow limits, bearings and to check every source live. No golden file moves in this batch.
+
+#### P1.16 The open counter and the privacy page
+
+Files: new `src/info.js`, `src/reports.js`, `src/main.js`, `src/route.js`, `worker/index.js`, `wrangler.jsonc`, new `privacy.html`, `vite.config.js`, `index.html`, `src/styles/app.css`, new `test/info.test.js`, `test/reports.test.js`, `test/browser/smoke.spec.js`.
+
+Changes:
+
+1. `src/info.js` takes `loadInfo()` from `src/reports.js` (08 3.2) and sends `GET /api/info?loc=<slug>&k=<first|return>&m=<standalone|browser>` (07 14.3). `loc` is the slug shown, or `none` on the picker page and the not-found view. `k` is `first` when no `rowhether-last-v1` existed when this start began (`main.js` reads `loadLast()` before anything writes it), else `return`. `m` is `standalone` when `isStandalone()` (`src/install.js`) is true. Nothing else is sent.
+2. `worker/index.js`: `info(env, url)` answers as today (`{ env, reports }`, `Cache-Control: no-store`) and, when `env.OPENS` exists and all three parameters are valid (`loc` a slug by `validateSlug` or `none`; `k` and `m` from their two words), writes one Analytics Engine point: `{ indexes: [loc], blobs: [env.APP_ENV || 'production', k, m], doubles: [1] }`. No IP address, user agent, country or account. A missing or bad parameter writes nothing. A throw from `writeDataPoint` is caught; the answer is the same.
+3. `wrangler.jsonc` (08 6.7): `analytics_engine_datasets` with `OPENS` on `rowhether_opens` at the top level and `rowhether_opens_dev` in `previews`, and `"analytics": { "binding": "ANALYTICS_SQL" }` in both (wrangler 4.149.0's schema has both keys, read in `node_modules/wrangler/config-schema.json` on 2026-10-20).
+4. `privacy.html`, a second Vite input (`build.rolldownOptions.input`, 07 5.15), with the app's styles and fonts and no script needed to read it. Header "RoWhether" with a link "Back to the forecast" (`/`). Text: "RoWhether works without an account." Then 07 14.3's sentence, word for word: "We count how many times the app is opened at each location each day, and whether it was opened from the home screen. The count has no address, device or account attached, and it is deleted after three months." Then what the app keeps in this browser (each location's settings, the last forecast for up to 10 locations, the locations opened recently, the Plan a row and install bar choices), kept on this device and never sent to RoWhether. Then one paragraph on requests the browser makes to other services: forecasts and air quality from Open-Meteo, alerts and observations from the National Weather Service, river and tide data from USGS and NOAA, town search text to Open-Meteo's place search, and Near me's position used once in the browser and not stored or sent. "Last changed <the commit's date>." Phase 2 completes the notice (03 13.3).
+5. `vite.config.js`: the input, and `navigateFallbackDenylist` gains `/^\/(privacy|terms|about)$/` (07 9.6). The page is precached with the shell. Workbox's precache route tries `<url>.html` by default (`cleanURLs`, true in `node_modules/workbox-precaching/PrecacheRoute.js` line 33, read 2026-10-20), so `/privacy` is served offline from the precache.
+6. `index.html` footer: a "Privacy" link (`/privacy`) after the second paragraph. `src/route.js` treats `/privacy` as a server page: the app never routes it.
+
+Tests (`test/info.test.js`): one point with the exact shape for valid parameters; production and dev `env` values in the blob; no point for a missing parameter, a bad slug (`Putney`), a third `k` value, or no `OPENS` binding; a throwing `writeDataPoint` still answers 200 with the same body; POST is 405 with `Allow: GET`. `test/reports.test.js` keeps its `/api/info` checks.
+
+Browser checks: smoke: the page requests `/api/info` once per start with the three parameters (a route records the URL): `loc=putney-landing&k=first&m=browser` on a first visit to `/putney-landing`, `k=return` on the reload; `loc=none` on the picker page. `/privacy` at 360 px shows the privacy page with no horizontal scroll; offline in a context with service workers allowed, after one online visit, `/privacy` still shows the privacy page, not the app (07 4.2).
+
+Golden: none.
+
+Mutations: the Worker writing the raw `User-Agent` into a blob (a test that pins the blobs fails); `k` computed after `saveLast()` (the first-visit check reads `return` and fails); `/privacy` missing from the denylist with the precache off (the offline check fails).
+
+Done when: the net passes, and `npx wrangler deploy --dry-run` lists `OPENS` and `ANALYTICS_SQL`.
+
+#### P1.17 Security headers
+
+Files: `public/_headers`, `src/sources/*.js`, new `test/csp.test.js`.
+
+Changes:
+
+1. `public/_headers` gains 08 10.11's block, as written:
+
+```
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://api.open-meteo.com https://air-quality-api.open-meteo.com https://flood-api.open-meteo.com https://marine-api.open-meteo.com https://api.weather.gov https://api.waterdata.usgs.gov https://api.water.noaa.gov https://api.tidesandcurrents.noaa.gov https://geocoding-api.open-meteo.com; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Content-Type-Options: nosniff
+  Permissions-Policy: geolocation=(self), camera=(), microphone=()
+```
+
+   The flood, marine and tides hosts serve adapters deferred to later phases (section 9). They stay, as 08 decided the list, so the header does not change again when those adapters arrive.
+2. Every browser adapter exports `hosts` (all do at 30fef7a; the tide fetcher of P1.14 uses the NWPS host).
+
+Tests (`test/csp.test.js`, 08 10.11): every host of every browser adapter in `ADAPTERS` is in `connect-src`; so is `https://geocoding-api.open-meteo.com`; `script-src` has no `'unsafe-inline'`; `frame-ancestors 'none'`; the Turnstile host is in `script-src` and `frame-src`; the `/locations/*` cache rule of P1.2 is still there.
+
+Browser checks, by hand (`vite preview` does not apply `_headers`): `npm run build`, then `npx wrangler dev` (with the app built), `curl -sI http://localhost:8787/putney-landing` shows the policy, and the console shows no CSP violation on Now, every tab, the picker with a town search, Near me, and `/lake-natoma` and `/thompson-boat-center`. After the phase 1 merge to production, open the suggestion form and confirm no violation (08 10.11; Turnstile's entries are from Cloudflare's docs, unverified here).
+
+Golden: none.
+
+Mutations: remove `https://api.water.noaa.gov` from `connect-src` (the test fails); add `'unsafe-inline'` to `script-src` (fails).
+
+Done when: the net passes and the hand check finds no violation.
+
+#### P1.18 The Metrics tab behind Cloudflare Access
+
+Files: `package.json`, `package-lock.json`, new `worker/auth/access.js`, new `worker/admin.js`, new `worker/metrics.js`, `worker/index.js`, `wrangler.jsonc`, `src/route.js`, `src/main.js`, new `src/admin/admin.js`, new `src/copy/admin.js`, `vite.config.js`, `scripts/budget.mjs`, new `test/admin.test.js`, `test/browser/smoke.spec.js`.
+
+Changes (03 3.7, 07 14.5, 08 6.3 and 7.3):
+
+1. `jose` pinned at `6.2.12` in `dependencies` (published 2026-09-05, the latest; verified live 2026-10-20 with `npm view jose time`). Worker only; the app never imports it.
+2. `wrangler.jsonc`: `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` in `vars` and in `previews.vars`, with the values `OWNER-SETS-team.cloudflareaccess.com` and `OWNER-SETS-aud` (production) and `OWNER-SETS-preview-aud` (Previews), and a comment that the owner replaces them after creating the Access application for `/admin*` and `/api/admin/*`.
+3. `worker/auth/access.js`: `accessConfigured(env)` is false when either value is empty or starts with `OWNER-SETS`. `verifyAccess(request, env)` reads `Cf-Access-Jwt-Assertion` and checks it with `jwtVerify` against `createRemoteJWKSet(new URL('https://<team>/cdn-cgi/access/certs'))`, issuer `https://<team>`, audience `ACCESS_AUD` (03 3.7).
+4. `worker/admin.js`, dispatched from `worker/index.js` for paths under `/api/admin/` before the 404: 503 `{ "error": "not_configured", "message": "The metrics page is not set up here." }` when Access is not configured; 403 `not_allowed` with no token or a token that fails; then `GET /api/admin/metrics?days=7` (days clamped to 1 to 30). JSON errors follow 08 7.2. `Cache-Control: no-store`.
+5. `worker/metrics.js`: the queries through `env.ANALYTICS_SQL.query({ query, params })` (from docs, https://developers.cloudflare.com/analytics/sql-api/workers-binding/, read 2026-10-20: the binding queries Analytics Engine datasets as `events.analyticsEngine."<dataset>"`, counts use `SUM(_sample_interval)`). Opens per day and per location for the window and the window before it, first visits, and the share from the installed app; the dataset name follows `APP_ENV` (`rowhether_opens` or `rowhether_opens_dev`). The answer: `{ days, totals: { opens, firsts, standalone }, prior: { ... }, locations: [{ slug, opens, series }] }`, top 20. Whether the account's Analytics Engine entitlement lets the binding read the dataset is unverified until the owner runs it.
+6. `src/route.js`: `/admin` is the `admin` page; `src/main.js` loads `src/admin/admin.js` with `import()` for it. The page: header "Admin", one text tab "Metrics", "Last 7 days" with opens, new devices and the share from the installed app, each beside the week before, and the top 20 locations with a sparkline each (`sparkline()` from `src/render/parts.js`). A 503 answer shows "The metrics page is not set up here."; 403 shows "Sign in through Cloudflare Access to see this page."; offline, "This page needs a connection." (07 9.5).
+7. `vite.config.js` `globIgnores` gains `**/assets/admin-*`; `scripts/budget.mjs` adds `{ name: 'admin', precache: false }` (07 10.5).
+
+Tests (`test/admin.test.js`, with the verifier and the SQL binding injected): placeholders give 503; no header gives 403; a failing verifier gives 403; a passing one gives 200 with the shaped body; `days=0` and `days=99` clamp; the SQL text names the dataset for `production` and for `dev`; a thrown query gives 502 `unavailable`; POST is 405.
+
+Browser checks (smoke): `/admin` with `/api/admin/metrics` stubbed draws the numbers at 360 px with no horizontal scroll; with a 503 stub it says the page is not set up; no `admin-*` request on `/putney-landing`; the admin chunk is not in `dist/sw.js`.
+
+Golden: none.
+
+Mutations: `accessConfigured` true for a placeholder (a test fails); the route answering before the Access check (fails); `admin` imported statically (the budget's lazy chunk check fails).
+
+Done when: the net and `npx wrangler deploy --dry-run` pass.
+
+#### P1.19 Curation scripts
+
+Files: new `scripts/locations/agent.mjs`, new `scripts/locations/flowstats.mjs`, new `scripts/locations/bearing.mjs`, new `scripts/check-sources.mjs`, `src/location.js`, new `test/flowstats.test.js`, `test/location.test.js`, new `test/fixtures/usgs-01154500-daily.json`.
+
+Changes:
+
+1. `scripts/locations/agent.mjs`: `USER_AGENT = 'RoWhether/1.0 (+https://rowhether.com; OWNER-SETS-contact)'`, the placeholder of section 2, row 14, and a `get(url)` with a 20-second timeout that sends it.
+2. `flowDefaults(stats)` in `src/location.js` (01 11.3, 08 K7): with at least 1,095 days, `{ flowCaution: p88, flowOff: p95, against: [[p88, 1.4], [p65, 1.25]] }`, each rounded down to two significant figures; otherwise null. Not used by the app, so not in the bundle.
+3. `scripts/locations/flowstats.mjs <USGS id>`: the daily means from January 1 ten years back to yesterday (02, step 1), one request with `limit=10000`, following a `next` link up to 5 pages; percentiles by linear interpolation; prints `stats` for the binding, `flowDefaults(stats)`, and the share of days above each suggested limit for the `copy.flowStats` sentence.
+4. `scripts/locations/bearing.mjs <lat1> <lon1> <lat2> <lon2>`: initial bearing and distance, for headings and `distanceM`.
+5. `scripts/check-sources.mjs` (02 Tests): for every record in `data/`, every binding's URL from `bindingsFor()`, requested with `Origin: https://rowhether.com` and the User-Agent: prints the status, the `access-control-allow-origin` header and whether the parser accepts the answer. By hand, never in CI. The owner runs it before shipping (09 phase 1 owner tasks).
+
+Tests: `test/flowstats.test.js`: on a committed fixture of daily means for USGS-01154500 (2016-01-01 to 2026-10-15, recorded with step 3's request), p50, p90 and p95 equal 6,910, 21,820 and 28,010 to the nearest cfs (02 Tests; the builder confirms the fixture reproduces 01 6.1's figures, and if it does not, records the fixture's own figures and why); `flowDefaults` gives 20,000, 28,000 and the steps `[[20000, 1.4], [10000, 1.25]]` on it; fewer than 1,095 days gives null; rounding down: 21,820 to 21,000, 28,010 to 28,000, 950 to 950, 1,049 to 1,000. `test/location.test.js`: `flowDefaults` on stats objects directly.
+
+Browser checks: none.
+
+Golden: none.
+
+Mutations: percentiles by nearest rank (the fixture test fails); rounding to nearest (fails).
+
+Done when: the net passes and `node scripts/check-sources.mjs` runs from this container, listing every binding of the seven locations (Open-Meteo's forecast host may time out here; the script reports it as a failure and carries on).
+
+### Batch 5: docs and the proof (P1.20)
+
+Proves at its end: everything in section 8.
+
+#### P1.20 CLAUDE.md, the docs, and the phase 1 proof
+
+Files: `CLAUDE.md`, `README.md` (the repository's), `package.json` (`description`), `budget.json`, `docs/full-app/phase-1-progress.md`, `docs/full-app/HANDOFF.md`, and `docs/full-app/08-architecture.md` 11.2 only if a budget changed from section 7.
+
+Changes:
+
+1. `CLAUDE.md`, the phase 1 edits the owner approved (README row 16; 08 17.2): the app is RoWhether; the navigation sentence "Within a location, the tab bar under the header is the only navigation. The location name in the header opens the switcher; the account button opens Account. Pages outside a location use the same text tabs."; the "Saved" header label in the offline description; the service worker sentence "The service worker precaches the app shell and the curated location files; it never caches API responses."; the NWS facts (the dock point resolves to GYX, grid 3,13, zone NHZ011, county NHC005; alerts use VTZ015, VTC025 from Albany and NHZ011, NHC005 from Gray); the alerts URL in "Location and endpoints" by zone; the USGS URLs on `/ogcapi/v1`; the code map for every new file (`scripts/locations/plugin.mjs`, `src/locations.js`, `src/render/header.js`, `src/picker.js`, `src/copy/`, `src/info.js`, `src/render/detail/tide.js`, `src/admin/admin.js`, `worker/admin.js`, `worker/metrics.js`, `worker/auth/access.js`, the curation scripts); the six test locations and their files; the new storage keys; the test list (route, picker, csp, info, locations-data, locations-load, header, admin, golden-check, flowstats, and the browser specs `picker.spec.js` and `locations.spec.js`); the golden rules of section 3 in place of the phase 0 ones; and that `src/putney.js` is for tests and scripts only.
+2. `README.md` and `package.json` describe RoWhether for many locations, Putney first.
+3. `budget.json` holds the phase 1 row (08 11.2): `js` 46,700, `css` 7,100, `html` 3,700, `precacheKiB` 400, with the measured numbers in the commit message.
+4. The final proof, recorded in `phase-1-progress.md`:
+   1. The net passes; the test count.
+   2. `node scripts/golden.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab` passes, and `git log --format='%h %s %(trailers:key=Golden,valueonly)' c7967a6..HEAD -- 'test/golden/*.json'` lists exactly the ids of 3.4.
+   3. The `@visual` screenshots against the `30fef7a` baseline of 3.6: each difference is the chevron, the bank labels or the footer credits.
+   4. `timing.spec.js` by hand on a quiet machine, `TIMING_BASELINE_MS=99` for `chromium-390-light` and `104` for `chromium-1280-dark`: the median of 5 within 20%. A miss is rerun as the middle of three (phase 0's rule).
+   5. The budget passes; each lazy chunk's size is listed.
+   6. `CLAUDE.md`'s browser checklist by hand, and 07 13's phase 1 list (section 8, criterion 4), at 360, 390 and 1280 px, light and dark, midday and 9 PM.
+   7. An installed copy of `30fef7a`, updated to HEAD at one address in a persistent profile, keeps its settings, its saved forecast (shown offline at once) and its install bar choice, opens at `/putney-landing` with no note, and reads "Saved" offline.
+   8. The Workers Free limit of 100,000 requests a day, checked against the pricing page (08 17.3), with the date.
+5. `HANDOFF.md`: step 12's build part ticked when the proof holds, a log line, and "Waiting on the owner" updated from section 11. The Opus review of phase 1 follows as its own step.
+
+Golden: none.
+
+Done when: every item of the proof is recorded and pushed.
