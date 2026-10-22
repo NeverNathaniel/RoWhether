@@ -383,7 +383,7 @@ function configProbe() {
   };
   return {
     config: Object.fromEntries(names.map(k => [k, k in moved ? moved[k] : C[k] === undefined ? '(missing)' : C[k]])),
-    views: VIEWS.map(v => [v.key, v.name]),
+    views: VIEWS.filter(v => !v.when || v.when(PUTNEY)).map(v => [v.key, v.name]),
     routes: Object.fromEntries(['', '#', '#now', '#wind', '#wind/2026-10-14', '#/wind', '#/wind/2026-10-14', '#wind/bad', '#wind/2026-10-14/extra', '#nope', '#week/2026-1-1', '#air/2026-12-31', '#WIND', 'wind', '#fog/', '#river/2026-02-30'].map(h => [h, parseRoute(h)])),
     noRoute: [parseRoute(undefined), parseRoute(null)]
   };

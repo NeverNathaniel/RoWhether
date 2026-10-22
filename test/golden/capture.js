@@ -269,7 +269,8 @@ export function capture(scenario, clock, settings, { loc = PUTNEY, width = 390, 
     // A lean case draws each view once, for the day it opens on.
     const days = lean ? [] : week;
     out.views = {};
-    for (const { key } of VIEWS) {
+    // The tabs this location has: a view with a `when` that says no is not drawn (P1.4).
+    for (const { key } of VIEWS.filter(v => !v.when || v.when(loc))) {
       const v = MODULES[key];
       const entry = { summary: v.summary(m), days: {} };
       for (const k of [null, ...extraDays, ...days]) {
