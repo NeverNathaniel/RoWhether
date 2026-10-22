@@ -8,19 +8,20 @@
 //   full forecasts    each Day by day row, opened, against forecastPanel()
 //   the tabs          each view, for its default day and every other day
 //
-// The capture runs here in Node through Vite's own module loader. Playwright's
-// loader cannot import the JSON files that src/putney.js reads, so a plain
-// import of the capture would stop working when state.js starts to use them
-// (P0.7). Its HTML is parsed by the page and compared as text with the white
+// The page is loaded at /putney-landing, Putney's own address (P1.4). "/" is for
+// the smoke spec: with nothing stored it shows Putney, and from P1.6 the note
+// "Not your water?" too.
+//
+// The capture runs here in Node through Vite's own module loader (fixtures.js).
+// Its HTML is parsed by the page and compared as text with the white
 // space collapsed, so a change in how the browser serializes a tag cannot fail it.
 //
 // Date is pinned to each case's clock, and the zone and locale are not the
 // machine's (review Z11), so a line that reads the screen's zone fails here.
 import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { createServer } from 'vite';
 import { test, expect } from '@playwright/test';
-import { SCENARIOS, routeAll, ready, tabDrawn } from './fixtures.js';
+import { SCENARIOS, routeAll, ready, tabDrawn, loadCapture } from './fixtures.js';
 
 test.use({ timezoneId: 'Pacific/Auckland', locale: 'de-DE' });
 
@@ -38,16 +39,6 @@ const files = readdirSync(GOLDEN).map(f => f.replace(/\.json$/, ''));
 const NARROW = files.filter(n => /^(june-calm|october-fog|april-high-water|fall-back)-\d{4}-(default|custom)$/.test(n));
 const WIDE = ['june-calm-1200-wide'];
 const TABS = ['week', 'wind', 'river', 'storms', 'fog', 'temperature', 'rain', 'light', 'air'];
-
-// The capture, loaded once per worker.
-let loaded;
-function loadCapture() {
-  loaded ??= (async () => {
-    const vite = await createServer({ configFile: false, logLevel: 'silent', appType: 'custom', server: { middlewareMode: true, hmr: false, watch: null } });
-    try { return await vite.ssrLoadModule('/test/golden/capture.js'); } finally { await vite.close(); }
-  })();
-  return loaded;
-}
 
 // Every string the capture wrote for one case at one page width, by name.
 async function drawn(name, width) {
@@ -97,7 +88,7 @@ function parity(name, hr, scenarioName) {
     if (name.endsWith('-custom')) {
       await page.addInitScript(items => { for (const [k, v] of Object.entries(items)) localStorage.setItem(k, v); }, await savedFor());
     }
-    await page.goto('/');
+    await page.goto('/putney-landing');
     await ready(page);
     expect(seen.missing).toEqual([]);
     const want = golden(name);

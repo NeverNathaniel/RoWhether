@@ -4,6 +4,7 @@
 // The responses come from test/fixtures/golden.js, the same ones the golden
 // cases use, so a screenshot and a golden file describe the same data. The
 // app's own parsers run on them in the browser.
+import { createServer } from 'vite';
 import { SCENARIOS } from '../fixtures/golden.js';
 
 export { SCENARIOS };
@@ -84,4 +85,30 @@ export async function ready(page) {
 // once the module for that view has drawn it.
 export function tabDrawn(page, key) {
   return page.waitForSelector(`#detailBody[data-view="${key}"]`, { state: 'attached' });
+}
+
+// The golden capture, loaded in Node through Vite's own module loader, once per
+// worker. Playwright's loader cannot import the JSON files that src/putney.js
+// reads. It gives the specs the golden inputs and what the code computes from them.
+let loaded;
+export function loadCapture() {
+  loaded ??= (async () => {
+    const vite = await createServer({ configFile: false, logLevel: 'silent', appType: 'custom', server: { middlewareMode: true, hmr: false, watch: null } });
+    try { return await vite.ssrLoadModule('/test/golden/capture.js'); } finally { await vite.close(); }
+  })();
+  return loaded;
+}
+
+// Every upstream request left unanswered, until release() aborts them. Registered
+// after routeAll(), so it takes the request first. With `only`, it holds the first
+// `only` requests and lets the rest on to the fixtures, so a second location's
+// answers can arrive while the first one's are still out.
+const UPSTREAM_HOSTS = Object.keys(UPSTREAM);
+export async function hold(page, only = Infinity) {
+  const held = [];
+  await page.route(url => UPSTREAM_HOSTS.includes(url.hostname), route => {
+    if (held.length < only) held.push(route); else route.fallback();
+  });
+  // release(n) aborts the first n held requests, or all of them.
+  return { held, release: (n = held.length) => Promise.all(held.splice(0, n).map(r => r.abort('failed').catch(() => {}))) };
 }

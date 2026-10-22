@@ -31,7 +31,7 @@ test.describe('settings', () => {
   });
 
   test('a saved change applies at once, survives a reload, and Reset goes back to the defaults', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/putney-landing');
     await ready(page);
     await expect(page.locator('#setNudge')).toBeVisible();
     await expect(page.locator('#compassCap')).toContainText('upstream heading 15°');
@@ -104,7 +104,7 @@ test.describe('settings', () => {
     const CHANGED = { heading: '40', windCaution: '8', windOff: '20', gustCaution: '15', gustOff: '30', rainCaution: '50', rainOff: '85', coldCombined: '120', waterOverride: '55', flowCaution: '15000', flowOff: '35000', aqiCaution: '101', aqiOff: '180' };
     expect(Object.keys(CHANGED).sort()).toEqual([...FIELDS].sort());
     FIELDS.forEach((k, i) => expect(CHANGED[k], k).not.toBe(DEFAULT_VALUES[i]));
-    await page.goto('/');
+    await page.goto('/putney-landing');
     await ready(page);
     await openSettings(page);
     await fillAll(page, CHANGED);
@@ -133,7 +133,7 @@ test.describe('settings', () => {
   });
 
   test('Save raises a stay off level that is under its caution, for every pair', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/putney-landing');
     await ready(page);
     await openSettings(page);
     // Each stay off level is below its caution: wind, gusts, rain chance, flow and air quality.
@@ -149,7 +149,7 @@ test.describe('settings', () => {
   });
 
   test('Plan a row keeps the length and the time of day across a reload', async ({ page }) => {
-    await page.goto('/#week');
+    await page.goto('/putney-landing#week');
     await ready(page);
     const pick = (attr, val) => page.locator(`#detail button[data-${attr}="${val}"]`);
     await pick('plan-min', '120').click();

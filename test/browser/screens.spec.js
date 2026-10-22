@@ -18,6 +18,10 @@
 //
 // A run with no baseline fails and writes nothing. Only --update-snapshots writes.
 //
+// The pages load at /putney-landing and /putney-landing#<tab> (P1.4), so the note
+// that "/" shows a first visit from P1.6 never reaches a screenshot. A baseline
+// made at "/" from before P1.4 draws the same page.
+//
 // Make it from another commit, the one before a change you want to compare, in a
 // worktree so your own tree stays as it is. A commit before this file needs this
 // spec and playwright.config.js copied in, so that it reads VISUAL_BASELINE:
@@ -63,13 +67,13 @@ test.describe('screens', { tag: '@visual' }, () => {
         });
 
         test('home', async ({ page }) => {
-          await page.goto('/');
+          await page.goto('/putney-landing');
           await settle(page);
           await expect(page).toHaveScreenshot(`${tag}-home.png`, shot);
         });
 
         test('a day by day row opened', async ({ page }) => {
-          await page.goto('/');
+          await page.goto('/putney-landing');
           await ready(page);
           const row = page.locator('#days details.period').first();
           await row.locator('summary').click();
@@ -80,7 +84,7 @@ test.describe('screens', { tag: '@visual' }, () => {
 
         for (const tab of TABS) {
           test(`#${tab}`, async ({ page }) => {
-            await page.goto(`/#${tab}`);
+            await page.goto(`/putney-landing#${tab}`);
             await tabDrawn(page, tab);
             await settle(page);
             await expect(page.locator('#detail')).toBeVisible();

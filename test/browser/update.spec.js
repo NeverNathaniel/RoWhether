@@ -28,7 +28,7 @@ const clock = scenario.clock(12);
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const NEW_DIST = join(ROOT, 'dist');
 const CACHE_KEY = 'rowhether-cache-v2:putney-landing';
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
 
 // The page's own build, from the script tag in its index.html.
 const mainOf = dist => readFileSync(join(dist, 'index.html'), 'utf8').match(/assets\/(index-[^"']+\.js)/)[1];

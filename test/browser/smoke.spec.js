@@ -4,7 +4,7 @@
 // screen, which is too short to test the tab bar. Timers stay real.
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
-import { SCENARIOS, routeAll, ready, tabDrawn } from './fixtures.js';
+import { SCENARIOS, routeAll, ready, tabDrawn, hold, loadCapture } from './fixtures.js';
 
 // Not the machine's zone or language, so a line that reads the screen's instead
 // of the location's fails here and not only on someone else's laptop (review Z11).
@@ -16,6 +16,14 @@ const clock = scenario.clock(12);
 // exactly these, not only for something the fixtures answer on the same path.
 const GOLDEN = JSON.parse(readFileSync(new URL('../golden/june-calm-1200-default.json', import.meta.url), 'utf8'));
 const TABS = ['now', 'week', 'wind', 'river', 'storms', 'fog', 'temperature', 'rain', 'light', 'air'];
+// The record the build wrote for Putney, which the page fetches from /locations/putney-landing.json.
+const PUTNEY_FILE = JSON.parse(readFileSync(new URL('../../dist/locations/putney-landing.json', import.meta.url), 'utf8'));
+// Another location, which the page can open: Putney's record at another address, with the
+// course turned east. Its sources are Putney's, so the fixtures answer it.
+const LAKE_FILE = { ...PUTNEY_FILE, slug: 'lake-test', name: 'Lake Test', course: { ...PUTNEY_FILE.course, heading: 90 } };
+const seedStorage = (page, items) => page.addInitScript(entries => { for (const [k, v] of Object.entries(entries)) localStorage.setItem(k, v); }, items);
+// A move inside the page, as the picker will make it: the address changes and popstate follows.
+const moveTo = (page, path) => page.evaluate(p => { history.pushState(null, '', p); dispatchEvent(new PopStateEvent('popstate')); }, path);
 // An iPhone in Safari: the user agent that gets the install bar and its written steps.
 const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1';
 
@@ -305,6 +313,327 @@ test.describe('smoke', () => {
     await expect(page.locator('#setForm [name="windCaution"]')).toHaveValue('10');
   });
 
+  // P1.4: addresses. A location is at /<slug>, and "/" opens the last one (07 5.1).
+  test.describe('addresses and locations', () => {
+    const stored = page => page.evaluate(() => Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)])));
+
+    test('"/" with nothing stored draws Putney and keeps the address, and the last location is not stored', async ({ page }) => {
+      const bad = watchConsole(page);
+      await routeAll(page, scenario, clock);
+      await page.goto('/');
+      await ready(page);
+      await expect(page.locator('#verdict')).toHaveText('Go.');
+      expect(new URL(page.url()).pathname).toBe('/');
+      const keys = Object.keys(await stored(page));
+      // Putney at "/" is not the visitor's choice yet (07 5.1 step 3). What the page loaded is kept.
+      expect(keys).not.toContain('rowhether-last-v1');
+      expect(keys).toEqual(expect.arrayContaining(['rowhether-loc-v1:putney-landing', 'rowhether-cache-v2:putney-landing', 'rowhether-cache-index-v1', 'rowhether-recent-v1']));
+      expect(bad).toEqual([]);
+    });
+
+    test('/putney-landing draws Putney, and stores it as the last location, the record, the index and the recent list', async ({ page }) => {
+      const bad = watchConsole(page);
+      await routeAll(page, scenario, clock);
+      await page.goto('/putney-landing');
+      await ready(page);
+      await expect(page.locator('#verdict')).toHaveText('Go.');
+      expect(new URL(page.url()).pathname).toBe('/putney-landing');
+      const all = await stored(page);
+      expect(all['rowhether-last-v1']).toBe('putney-landing');
+      expect(JSON.parse(all['rowhether-loc-v1:putney-landing']).record).toEqual(PUTNEY_FILE);
+      expect(Object.keys(JSON.parse(all['rowhether-cache-index-v1']))).toEqual(['putney-landing']);
+      expect(JSON.parse(all['rowhether-recent-v1'])).toEqual(['putney-landing']);
+      expect(bad).toEqual([]);
+    });
+
+    // An old link, rowhether.com/#wind, with a location stored: the address is replaced, in
+    // the same history entry and with no reload. A counter in sessionStorage sees a reload.
+    test('"/#wind" with a last location becomes /putney-landing#wind, with no reload and no new history entry', async ({ page }) => {
+      await seedStorage(page, { 'rowhether-last-v1': 'putney-landing', 'rowhether-migrated-v1': '1' });
+      await page.addInitScript(() => {
+        sessionStorage.loads = String(Number(sessionStorage.loads || 0) + 1);
+        sessionStorage.length0 = String(history.length); // before the page's own script has run
+      });
+      await routeAll(page, scenario, clock);
+      await page.goto('/#wind');
+      await ready(page);
+      await tabDrawn(page, 'wind');
+      const at = new URL(page.url());
+      expect(at.pathname + at.hash).toBe('/putney-landing#wind');
+      const [now, before, loads] = await page.evaluate(() => [history.length, Number(sessionStorage.length0), sessionStorage.loads]);
+      expect(loads, 'page loads').toBe('1');
+      expect(now, 'history entries: the address was replaced, not added').toBe(before);
+      await expect(page.locator('#tabs a[data-tab="wind"]')).toHaveAttribute('aria-current', 'page');
+    });
+
+    test('a tab address under /putney-landing opens the tab, and a tab link keeps the location in the address', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.goto('/putney-landing#fog/2026-06-16');
+      await ready(page);
+      await tabDrawn(page, 'fog');
+      await page.locator('#tabs a[data-tab="wind"]').click();
+      await tabDrawn(page, 'wind');
+      const at = new URL(page.url());
+      expect(at.pathname + at.hash).toBe('/putney-landing#wind');
+      await page.locator('#tabs a[data-tab="now"]').click();
+      await expect(page.locator('#home')).toBeVisible();
+      expect(new URL(page.url()).pathname).toBe('/putney-landing');
+    });
+
+    // R1 (owner, 2026-10-21): the saved forecast stays on screen at start, whatever its age. A
+    // copy two days old still holds the hour the clock is at, so the hero says what buildModel()
+    // gives for it, and not "No data.", while every upstream request is out.
+    test('a saved forecast two days older than the clock draws its hero, with every upstream request held', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.goto('/putney-landing');
+      await ready(page);
+      const later = clock + 48 * 3600e3;
+      // What the code says for that copy at the later clock, from the same fixtures.
+      const { buildModel, dataFrom, BASE, locWith } = await loadCapture();
+      // Putney with the course at its own heading, 15, which is Putney.
+      const m = buildModel(locWith(15), dataFrom(scenario.raw(clock)), BASE, later);
+      expect(m.daytime, 'the later clock is in daylight').toBe(true);
+      const word = ['Go.', 'Caution.', 'Stay off.'][m.cur.a.lvl];
+
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await page.clock.setFixedTime(later);
+      await routeAll(page, scenario, later);
+      const out = await hold(page);
+      await page.reload();
+      await expect(page.locator('#verdict')).toHaveText(word);
+      await expect(page.locator('#verdict')).not.toHaveText('No data.');
+      await expect(page.locator('#updated')).toHaveText('Refreshing');
+      expect(out.held.length, 'the refresh is out').toBeGreaterThan(0);
+      await out.release();
+    });
+
+    // 07 13, 01 16.5: an install that has only the old keys opens on Putney, and the saved
+    // hero is there before any upstream request is answered.
+    test('an old install opens at /putney-landing and draws its saved hero while every upstream request is held', async ({ page }) => {
+      const bad = [];
+      page.on('pageerror', e => bad.push(e.message));
+      await routeAll(page, scenario, clock);
+      await page.goto('/putney-landing');
+      await ready(page);
+      const cache = await page.evaluate(() => localStorage.getItem('rowhether-cache-v2:putney-landing'));
+      const old = {
+        'putney-rowing-settings-v1': JSON.stringify({ heading: 20, windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25, rainCaution: '', rainOff: 90, coldCombined: 100, flowCaution: 20000, flowOff: 28000, waterOverride: '55', aqiCaution: 151, aqiOff: 201 }),
+        'putney-rowing-cache-v1': cache
+      };
+      await page.evaluate(seed => { localStorage.clear(); for (const [k, v] of Object.entries(seed)) localStorage.setItem(k, v); }, old);
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await routeAll(page, scenario, clock);
+      const out = await hold(page);
+      await page.goto('/');
+      await expect(page.locator('#verdict')).toHaveText('Go.');
+      await expect(page.locator('#updated')).toHaveText('Refreshing');
+      expect(out.held.length, 'the refresh is out').toBeGreaterThan(0);
+      expect(new URL(page.url()).pathname).toBe('/putney-landing');
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 20°');
+      await expect(page.locator('#setNudge')).toBeHidden();
+      await page.locator('#settingsBtn').click();
+      await expect(page.locator('#setForm [name="heading"]')).toHaveValue('20');
+      await expect(page.locator('#setForm [name="rainCaution"]')).toHaveValue('');
+      await expect(page.locator('#setForm [name="waterOverride"]')).toHaveValue('55');
+      await page.keyboard.press('Escape');
+      await out.release();
+      expect(bad).toEqual([]);
+    });
+
+    // A saved record is used at once, and the precached index decides after the first draw whether it is
+    // still the current one (R14). The index is held so that the first draw is seen.
+    test.describe('a saved record and the index', () => {
+      const seedRecord = (page, record, fetchedAt = clock) => seedStorage(page, { 'rowhether-migrated-v1': '1', 'rowhether-loc-v1:putney-landing': JSON.stringify({ record, fetchedAt }) });
+      const OLD = { ...PUTNEY_FILE, revision: 1, course: { ...PUTNEY_FILE.course, heading: 40 } };
+      const savedRecord = page => page.evaluate(() => JSON.parse(localStorage.getItem('rowhether-loc-v1:putney-landing')));
+
+      test('is replaced when the index lists a newer revision, after the first draw', async ({ page }) => {
+        await seedRecord(page, OLD);
+        await routeAll(page, scenario, clock);
+        let release;
+        const gate = new Promise(done => { release = done; });
+        await page.route('**/locations/index.json', async route => { await gate; await route.fallback(); });
+        await page.goto('/putney-landing');
+        await ready(page);
+        // The saved record drew the page: its heading, though the file the build wrote has another.
+        await expect(page.locator('#compassCap')).toContainText('upstream heading 40°');
+        release();
+        await expect(page.locator('#compassCap')).toContainText('upstream heading 15°');
+        await ready(page);
+        const record = await savedRecord(page);
+        expect(record.record.revision).toBe(PUTNEY_FILE.revision);
+        expect(record.record.course.heading).toBe(15);
+        expect(record.fetchedAt).toBe(clock);
+      });
+
+      test('is kept when its revision is the index revision', async ({ page }) => {
+        await seedRecord(page, { ...OLD, revision: PUTNEY_FILE.revision });
+        await routeAll(page, scenario, clock);
+        const indexed = page.waitForResponse(r => r.url().endsWith('/locations/index.json'));
+        await page.goto('/putney-landing');
+        await ready(page);
+        await indexed;
+        await page.waitForLoadState('networkidle');
+        await expect(page.locator('#compassCap')).toContainText('upstream heading 40°');
+        expect((await savedRecord(page)).record.course.heading).toBe(40);
+      });
+
+      test('is fetched again once it is over a day old, even with the index revision', async ({ page }) => {
+        await seedRecord(page, { ...OLD, revision: PUTNEY_FILE.revision }, clock - 25 * 3600e3);
+        await routeAll(page, scenario, clock);
+        await page.goto('/putney-landing');
+        await ready(page);
+        await page.waitForLoadState('networkidle');
+        // The file has the same revision, so the page keeps what it drew, and the copy is dated again.
+        await expect(page.locator('#compassCap')).toContainText('upstream heading 40°');
+        const record = await savedRecord(page);
+        expect(record.fetchedAt).toBe(clock);
+        expect(record.record.course.heading).toBe(15);
+      });
+    });
+
+    // R4: the record is judged by its body. A host may send .json as text/plain or octet-stream.
+    for (const type of ['text/plain', 'application/octet-stream']) {
+      test(`a record served as ${type} still opens the location`, async ({ page }) => {
+        await routeAll(page, scenario, clock);
+        await page.route('**/locations/putney-landing.json', route => route.fulfill({ status: 200, contentType: type, body: JSON.stringify(PUTNEY_FILE) }));
+        await page.goto('/putney-landing');
+        await ready(page);
+        await expect(page.locator('#verdict')).toHaveText('Go.');
+      });
+    }
+
+    test('an HTML page where the record should be, as a single-page fallback gives, is not taken for one', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.route('**/locations/putney-landing.json', route => route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>RoWhether</title>' }));
+      await page.goto('/putney-landing');
+      await expect(page.locator('#notFound')).toContainText('Could not load this location');
+    });
+
+    test('a location that does not load says so, with a button that tries again', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.route('**/locations/putney-landing.json', route => route.abort('failed'));
+      await page.goto('/putney-landing');
+      await expect(page.locator('#notFound')).toBeVisible();
+      await expect(page.locator('#notFound')).toContainText('Could not load this location');
+      for (const id of ['tabs', 'home', 'detail', 'actions']) await expect(page.locator(`#${id}`), id).toBeHidden();
+      await page.unroute('**/locations/putney-landing.json');
+      await page.getByRole('button', { name: 'Try again' }).click();
+      await ready(page);
+      await expect(page.locator('#verdict')).toHaveText('Go.');
+      await expect(page.locator('#notFound')).toBeHidden();
+      await expect(page.locator('#tabs')).toBeVisible();
+    });
+
+    // R9: a slow answer for one place never lands in another, and a switch starts its own refresh.
+    test('opening another location while the first one\'s answers are out draws the second, and drops the first\'s late answers', async ({ page }) => {
+      const bad = watchConsole(page);
+      await routeAll(page, scenario, clock);
+      await page.route('**/locations/lake-test.json', route => route.fulfill({ json: LAKE_FILE }));
+      // Putney's nine requests are held. Everything after them is answered.
+      const out = await hold(page, 9);
+      await page.goto('/putney-landing');
+      await expect.poll(() => out.held.length).toBe(9);
+      await moveTo(page, '/lake-test');
+      await ready(page);
+      await expect(page.locator('#verdict')).toHaveText('Go.');
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 90°');
+      expect(new URL(page.url()).pathname).toBe('/lake-test');
+      const mine = await stored(page);
+      expect(mine['rowhether-last-v1']).toBe('lake-test');
+      expect(JSON.parse(mine['rowhether-recent-v1'])).toEqual(['lake-test', 'putney-landing']);
+      expect(Object.keys(JSON.parse(mine['rowhether-cache-index-v1'])).sort()).toEqual(['lake-test', 'putney-landing']);
+      expect(bad, 'the console before the late answers').toEqual([]);
+      // Now Putney's answers come, all failed. They are for a place that is no longer open.
+      // The app warns about each failed source, so only a page error is a bug from here.
+      const errors = [];
+      page.on('pageerror', e => errors.push(e.message));
+      await out.release();
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('#statusNote')).toBeHidden();
+      await expect(page.locator('#updated')).toHaveText(/^Updated/);
+      await expect(page.locator('#refreshBtn')).toBeEnabled();
+      expect((await stored(page))['rowhether-cache-v2:putney-landing'], 'a dropped answer is not saved').toBeUndefined();
+      expect(errors).toEqual([]);
+    });
+
+    // The first location's refresh and the second's are both out. The first one's answers come
+    // while the second's are still out: the Refresh button stays off for the second one's.
+    test('a late answer for the first location does not free the Refresh button of the second', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.route('**/locations/lake-test.json', route => route.fulfill({ json: LAKE_FILE }));
+      const warnings = [];
+      page.on('console', m => { if (m.type() === 'warning' && m.text().includes('Failed to fetch')) warnings.push(m.text()); });
+      const out = await hold(page, 18);
+      await page.goto('/putney-landing');
+      await expect.poll(() => out.held.length).toBe(9);
+      await moveTo(page, '/lake-test');
+      await expect.poll(() => out.held.length).toBe(18);
+      await expect(page.locator('#refreshBtn')).toBeDisabled();
+      // Putney's nine fail. Each one is warned about when it fails.
+      await out.release(9);
+      await expect.poll(() => warnings.length).toBe(9);
+      await expect(page.locator('#refreshBtn'), 'the second location is still refreshing').toBeDisabled();
+      await expect(page.locator('#updated')).toHaveText('Refreshing');
+      await out.release();
+      await expect(page.locator('#refreshBtn')).toBeEnabled();
+    });
+
+    // A record that comes after another address was asked for is not opened.
+    test('a record that arrives after another location was asked for is not opened', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      let release;
+      const gate = new Promise(done => { release = done; });
+      await page.route('**/locations/lake-test.json', async route => { await gate; await route.fulfill({ json: LAKE_FILE }); });
+      await page.goto('/putney-landing');
+      await ready(page);
+      await moveTo(page, '/lake-test');
+      await moveTo(page, '/putney-landing');
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 15°');
+      release();
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 15°');
+      expect(new URL(page.url()).pathname).toBe('/putney-landing');
+      expect((await stored(page))['rowhether-last-v1']).toBe('putney-landing');
+    });
+
+    // A saved record is checked against the index after the first draw. If another location
+    // is open by then, the answer is not for it.
+    test('a newer record that arrives after the location was left is not opened', async ({ page }) => {
+      await seedStorage(page, { 'rowhether-migrated-v1': '1', 'rowhether-loc-v1:putney-landing': JSON.stringify({ record: { ...PUTNEY_FILE, revision: 1, course: { ...PUTNEY_FILE.course, heading: 40 } }, fetchedAt: clock }) });
+      await routeAll(page, scenario, clock);
+      await page.route('**/locations/lake-test.json', route => route.fulfill({ json: LAKE_FILE }));
+      let release;
+      const gate = new Promise(done => { release = done; });
+      await page.route('**/locations/index.json', async route => { await gate; await route.fallback(); });
+      await page.goto('/putney-landing');
+      await ready(page);
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 40°');
+      await moveTo(page, '/lake-test');
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 90°');
+      release();
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 90°');
+      expect(new URL(page.url()).pathname).toBe('/lake-test');
+    });
+
+    test('back to the first location after another draws it again from the record and the saved forecast', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.route('**/locations/lake-test.json', route => route.fulfill({ json: LAKE_FILE }));
+      await page.goto('/putney-landing');
+      await ready(page);
+      await moveTo(page, '/lake-test');
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 90°');
+      await ready(page);
+      await moveTo(page, '/putney-landing#wind');
+      await tabDrawn(page, 'wind');
+      await ready(page);
+      await page.locator('#tabs a[data-tab="now"]').click();
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 15°');
+      expect((await stored(page))['rowhether-last-v1']).toBe('putney-landing');
+    });
+  });
+
   test('every upstream aborted: the page says every source was blocked', async ({ page }) => {
     const seen = await routeAll(page, scenario, clock, { abort: true });
     await page.goto('/');
@@ -510,5 +839,109 @@ test.describe('smoke', () => {
       await expect.poll(async () => (await measure(page)).height, { message: 'the bar grew' }).toBeGreaterThan(wide.height + 20);
       await expect.poll(clearance(page), { message: 'the last footer line ends above the taller bar' }).toBeGreaterThanOrEqual(0);
     });
+  });
+});
+
+// A page with no location: nothing is fetched from any weather or river service, for as long as
+// no location is open (R9). The fake clock runs the page's own timers, the 10 minute refresh
+// among them, and tells the page the tab is visible again.
+test.describe('an address with no location', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.install({ time: clock });
+  });
+
+  // Requests to anything but the preview server itself.
+  const outside = page => { const urls = []; page.on('request', r => { if (!['localhost', '127.0.0.1'].includes(new URL(r.url()).hostname)) urls.push(r.url()); }); return urls; };
+
+  test('/no-such-place says there is no location, asks nothing, and opens Putney when the history moves there', async ({ page }) => {
+    const bad = watchConsole(page);
+    const urls = outside(page);
+    const seen = await routeAll(page, scenario, clock);
+    await page.goto('/no-such-place');
+    await expect(page.locator('#notFound')).toBeVisible();
+    await expect(page.locator('#notFound h2')).toHaveText('No location here');
+    await expect(page.locator('#notFound')).toContainText('No location at rowhether.com/no-such-place.');
+    for (const id of ['tabs', 'home', 'detail', 'actions']) await expect(page.locator(`#${id}`), id).toBeHidden();
+    await expect(page.locator('#refreshBtn')).toBeHidden();
+    await expect(page.locator('#settingsBtn')).toBeHidden();
+
+    // The tab comes back, the clock runs past the 10 minute refresh: still nothing asked.
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.clock.runFor(11 * 60e3);
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.clock.runFor(11 * 60e3);
+    expect(urls, 'requests to other hosts').toEqual([]);
+    expect(seen.served).toEqual([]);
+    expect(bad).toEqual([]);
+
+    // Back to a location by the history: its requests go out and its hero draws.
+    await moveTo(page, '/putney-landing');
+    await ready(page);
+    await expect(page.locator('#verdict')).toHaveText('Go.');
+    await expect(page.locator('#notFound')).toBeHidden();
+    await expect(page.locator('#tabs')).toBeVisible();
+    expect(seen.served).toHaveLength(9);
+    expect(bad).toEqual([]);
+  });
+
+  // Leaving a location for one that is not there: the one that was open stops refreshing.
+  test('leaving Putney for a location that does not exist asks nothing more, though the page stays open for 10 minutes', async ({ page }) => {
+    const bad = watchConsole(page);
+    const seen = await routeAll(page, scenario, clock);
+    await page.goto('/putney-landing');
+    await ready(page);
+    expect(seen.served).toHaveLength(9);
+    await moveTo(page, '/nowhere-land');
+    await expect(page.locator('#notFound')).toContainText('No location at rowhether.com/nowhere-land.');
+    await page.clock.runFor(11 * 60e3);
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.clock.runFor(11 * 60e3);
+    expect(seen.served, 'no request after the move').toHaveLength(9);
+    expect(bad).toEqual([]);
+  });
+
+  test('an address that is not a slug is not looked up either: /Putney-Landing/extra', async ({ page }) => {
+    const bad = watchConsole(page);
+    const seen = await routeAll(page, scenario, clock);
+    const files = [];
+    page.on('request', r => { if (new URL(r.url()).pathname.startsWith('/locations/')) files.push(new URL(r.url()).pathname); });
+    await page.goto('/Putney-Landing/extra');
+    await expect(page.locator('#notFound')).toContainText('No location at rowhether.com/Putney-Landing/extra.');
+    expect(files).toEqual([]);
+    expect(seen.served).toEqual([]);
+    expect(bad).toEqual([]);
+  });
+
+  // The form is offered here and on the picker, where no location is open (R9). The page's own
+  // code builds the context, so a line that reads the location without a guard throws on send.
+  async function sendSuggestion(page, path) {
+    const posted = [];
+    await routeAll(page, scenario, clock);
+    await page.route('https://challenges.cloudflare.com/**', route => route.fulfill({ contentType: 'text/javascript', body: 'window.turnstile = { render() { return "w"; }, getResponse() { return "token"; }, reset() {} };' }));
+    await page.route('**/api/suggest', route => {
+      if (route.request().method() === 'GET') return route.fulfill({ json: { enabled: true, siteKey: 'test-key' } });
+      posted.push(route.request().postDataJSON());
+      return route.fulfill({ json: { ok: true } });
+    });
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(path);
+    await page.locator('#suggestBtn').click();
+    await page.locator('#sugText').fill('Please add Lake Quinsigamond to the list of places.');
+    await page.locator('#sugSend').click();
+    await expect(page.locator('#sugDone')).toBeVisible();
+    expect(errors).toEqual([]);
+    return posted;
+  }
+
+  test('the suggestion form sends no settings and no location from a page with none', async ({ page }) => {
+    const [post] = await sendSuggestion(page, '/no-such-place');
+    expect(post.context).toMatchObject({ location: null, settings: null });
+  });
+
+  test('the suggestion form names the location, and sends its settings, from a location', async ({ page }) => {
+    const [post] = await sendSuggestion(page, '/putney-landing');
+    expect(post.context.location).toBe('putney-landing');
+    expect(post.context.settings).toMatchObject({ heading: 15, windCaution: 10, flowOff: 28000 });
   });
 });
