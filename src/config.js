@@ -63,6 +63,8 @@ export const INSTALL_VISIT_GAP_MS = 30 * 60e3;
 export const MAX_TEXT = 2000;
 export const REFRESH_MS = 10 * 60 * 1000;
 export const HOUR = 3600e3, MIN = 60e3;
+// A saved location record is fetched again in the background after this long (01 7.4).
+export const RECORD_MAX_AGE = 24 * HOUR;
 export const LIGHT_KEYS = ['dark', 'twilight'];
 
 // Parts of the day. Edges are first light, sunset, or a local clock hour.

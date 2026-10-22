@@ -5,14 +5,15 @@ import './styles/app.css';
 import { registerSW } from 'virtual:pwa-register';
 
 import { REFRESH_MS, MIN } from './config.js';
-import { app, $ } from './state.js';
+import { app, $, openLocation, takeRefresh, canRefresh } from './state.js';
 import { fetchAll } from './data.js';
-import { loadCache, saveCache, loadPlan, savePlan } from './storage.js';
+import { loadCache, saveCache, loadPlan, savePlan, loadOverrides, saveRecord, touchCache, trimCaches, saveLast, pushRecent } from './storage.js';
+import { cachedRecord, fetchRecord, newerRecord } from './locations.js';
 import { render } from './render/index.js';
 import { fillPeriod } from './render/days.js';
 import { renderDetail } from './render/detail/index.js';
-import { initRoutes, setDay } from './route.js';
-import { initSettings } from './settings.js';
+import { initRoutes, renderTabs, showTab, showMissing, showFailed, setDay } from './route.js';
+import { initSettings, refreshNudge } from './settings.js';
 import { initSuggest } from './suggest.js';
 import { initShare } from './share.js';
 import { initReports, loadInfo, loadReports } from './reports.js';
@@ -42,22 +43,70 @@ registerSW({
 });
 
 // ---------- Refresh ----------
-let busy = false;
+// A refresh is for the location open when it began. One for a location opened
+// since is dropped, and the new one starts its own (takeRefresh, canRefresh).
 async function refresh() {
-  if (busy) return;
-  busy = true;
-  const btn = $('refreshBtn');
+  if (!canRefresh()) return;
+  const token = app.refreshing = app.token, btn = $('refreshBtn');
   btn.disabled = true;
   $('updated').textContent = 'Refreshing';
-  const { data, errors } = await fetchAll(app.loc);
-  app.errors = errors;
-  Object.assign(app.data, data);
-  if (!errors.wx) { app.updated = Date.now(); app.fromCache = false; }
-  saveCache(app.loc.slug, app.data, app.updated);
-  render();
-  loadReports();
-  btn.disabled = false;
-  busy = false;
+  try {
+    if (takeRefresh(token, await fetchAll(app.loc))) {
+      saveCache(app.loc.slug, app.data, app.updated);
+      trimCaches(app.loc.slug);
+      render();
+      loadReports();
+    }
+  } finally {
+    if (app.refreshing === token) app.refreshing = null;
+    btn.disabled = app.refreshing !== null;
+  }
+}
+
+// ---------- Open a location ----------
+// Draws a location from its record: its saved forecast at once, whatever its
+// age, then a refresh.
+function enter(record, keepAddress) {
+  const slug = record.slug;
+  openLocation(record, loadOverrides(slug));
+  touchCache(slug);
+  // "/" shown to a first visit is Putney, but not the visitor's choice yet.
+  if (!keepAddress) saveLast(slug);
+  pushRecent(slug);
+  renderTabs();
+  refreshNudge();
+  showTab();
+  const cached = loadCache(slug);
+  if (cached) {
+    Object.assign(app, { data: cached.data, updated: cached.updated, fromCache: true });
+    render();
+  }
+  refresh();
+}
+
+let asked = 0; // counts the addresses asked for: an answer for an older one is dropped
+// Opens the location at `slug`, or none when it is null. The record comes from
+// this browser, else from the file the build wrote.
+async function open(slug, keepAddress) {
+  const mine = ++asked;
+  if (!slug) { openLocation(null); return; }
+  if (app.loc?.slug === slug) { showTab(); return; }
+  const stored = cachedRecord(slug);
+  let record = stored?.record;
+  if (!record) {
+    const got = await fetchRecord(slug);
+    if (mine !== asked) return;
+    if (!got.record) {
+      openLocation(null);
+      if (got.missing) showMissing(slug); else showFailed();
+      return;
+    }
+    record = got.record;
+    saveRecord(slug, record);
+  }
+  enter(record, keepAddress);
+  // After the first draw: a record that changed since it was saved replaces it.
+  if (stored) newerRecord(stored).then(next => { if (next && app.loc?.slug === slug) enter(next, true); });
 }
 
 // ---------- Events ----------
@@ -125,15 +174,5 @@ initSuggest();
 initShare();
 initReports();
 initInstall();
-initRoutes();
+initRoutes(open);
 loadInfo().then(loadReports);
-
-// ---------- Start ----------
-const cached = loadCache(app.loc.slug);
-if (cached) {
-  app.data = cached.data;
-  app.updated = cached.updated;
-  app.fromCache = true;
-  render();
-}
-refresh();

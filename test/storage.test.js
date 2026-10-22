@@ -18,6 +18,7 @@ import {
 } from '../src/storage.js';
 import { overridesOf } from '../src/location.js';
 import { PUTNEY_DEFAULTS } from '../src/putney.js';
+import { PUTNEY_FILE } from './helpers/putney-file.js';
 
 const NOW = 1760700000000;
 
@@ -957,8 +958,11 @@ describe('storage that throws', () => {
       expect(() => { fresh.saveOverrides('putney-landing', {}); fresh.saveCache('putney-landing', {}, 1); fresh.savePlan({}); fresh.saveInstall({}); fresh.dismissNudge(); }).not.toThrow();
       expect(() => { fresh.saveRecord('putney-landing', {}); fresh.saveLast('putney-landing'); fresh.touchCache('putney-landing', 1); fresh.pushRecent('putney-landing'); fresh.dismissPickHint(); }).not.toThrow();
       expect(fresh.trimCaches('putney-landing')).toEqual([]);
-      // The state module reads storage while it loads, and still builds Putney.
-      const { app } = await import('../src/state.js');
+      // The state module reads no storage while it loads. Putney opened from it, with the
+      // overrides that blocked storage gives (none), has its own limits.
+      const { app, openLocation } = await import('../src/state.js');
+      expect(app.loc).toBeNull();
+      openLocation(PUTNEY_FILE, fresh.loadOverrides('putney-landing'));
       expect(app.loc.slug).toBe('putney-landing');
       expect(app.loc.course.heading).toBe(15);
       expect(app.settings.windCaution).toBe(10);
@@ -969,11 +973,27 @@ describe('storage that throws', () => {
   });
 });
 
-describe('the state the app starts from', () => {
-  const fresh = async () => { vi.resetModules(); return import('../src/state.js'); };
+describe('the state a location opens with', () => {
+  // The state module, with Putney opened from this browser's stored settings, as main.js opens it.
+  const fresh = async () => {
+    vi.resetModules();
+    const state = await import('../src/state.js');
+    const { loadOverrides } = await import('../src/storage.js');
+    state.openLocation(PUTNEY_FILE, loadOverrides('putney-landing'));
+    return state;
+  };
   // The limits: the 13 keys of a saved settings object, less the heading, which is in app.loc.course.
   const KEYS12 = ['aqiCaution', 'aqiOff', 'coldCombined', 'flowCaution', 'flowOff', 'gustCaution', 'gustOff', 'rainCaution', 'rainOff', 'waterOverride', 'windCaution', 'windOff'];
   const { heading: _h, ...LIMITS } = OLD_DEFAULTS;
+
+  it('is no location until one is opened, and reads no storage while the module loads', async () => {
+    use({});
+    vi.resetModules();
+    const { app } = await import('../src/state.js');
+    expect(app.loc).toBeNull();
+    expect(app.record).toBeNull();
+    expect(ls.log).toEqual([]);
+  });
 
   it('is Putney with its own limits when nothing is stored', async () => {
     use({});
@@ -1035,9 +1055,15 @@ describe('every saved key reaches the page', () => {
   const storedValues = () => JSON.parse(ls.map.get('rowhether-settings-v2'))['putney-landing'].values;
   // What the page reads: the limits in force, and the heading from the course.
   const onPage = app => ({ ...app.settings, heading: app.loc.course.heading });
-  const fresh = async () => { vi.resetModules(); return import('../src/state.js'); };
+  const fresh = async () => {
+    vi.resetModules();
+    const next = await import('../src/state.js');
+    const { loadOverrides } = await import('../src/storage.js');
+    next.openLocation(PUTNEY_FILE, loadOverrides('putney-landing'));
+    return next;
+  };
   let state;
-  beforeAll(async () => { state = await import('../src/state.js'); });
+  beforeAll(async () => { state = await import('../src/state.js'); state.openLocation(PUTNEY_FILE, {}); });
 
   it('has a row for each of the 13 keys, none at its default', () => {
     expect(rows).toHaveLength(13);

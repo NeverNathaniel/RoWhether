@@ -234,6 +234,7 @@ fieldset input{font:inherit; font-size:1rem; width:7rem; padding:.4rem .5rem; bo
    places and the pill buttons stay actions. Pinned to the top on scroll. */
 .tabs{position:sticky; top:0; z-index:5; display:flex; gap:1.25rem; overflow-x:auto; scrollbar-width:none; background:var(--bg); border-bottom:1px solid var(--line); margin:0 -1.25rem 1.25rem; padding:0 1.25rem}
 .tabs::-webkit-scrollbar{display:none}
+.tabs[hidden],.actions[hidden]{display:none}
 .tabs a{flex:none; color:var(--muted); text-decoration:none; font-size:.9375rem; font-weight:600; padding:.7rem 0 .55rem; border-bottom:3px solid transparent; margin-bottom:-1px}
 .tabs a:hover{color:var(--ink)}
 .tabs a[aria-current="page"]{color:var(--ink); border-bottom-color:var(--river)}

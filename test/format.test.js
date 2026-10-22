@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { zoneFormat, setZone, hm, dayKey, localMinutes, fmtFlow, fmtInt } from '../src/format.js';
+import { PUTNEY_FILE } from './helpers/putney-file.js';
 
 const NY = 'America/New_York';
 const HOUR = 3600e3;
@@ -194,23 +195,17 @@ describe('setZone', () => {
 });
 
 describe('the zone of the app', () => {
-  // src/state.js sets it from the location it resolves, so the screens and the
+  // src/state.js sets it from the location it opens, so the screens and the
   // location agree. Putney is on New York time, so a record in another zone shows it.
-  it('follows the location the app starts with', async () => {
+  it('follows the location that is opened, and changes with the next one', async () => {
     vi.resetModules();
-    vi.doMock('../src/putney.js', async importOriginal => {
-      const real = await importOriginal();
-      return { ...real, PUTNEY_RECORD: { ...real.PUTNEY_RECORD, tz: 'Asia/Kolkata' } };
-    });
-    try {
-      const { app } = await import('../src/state.js');
-      const fresh = await import('../src/format.js');
-      expect(app.loc.tz).toBe('Asia/Kolkata');
-      expect(fresh.hm(Date.UTC(2026, 5, 15, 12, 0))).toBe('5:30\u00a0PM');
-    } finally {
-      vi.doUnmock('../src/putney.js');
-      vi.resetModules();
-    }
+    const { app, openLocation } = await import('../src/state.js');
+    const fresh = await import('../src/format.js');
+    openLocation({ ...PUTNEY_FILE, tz: 'Asia/Kolkata' }, {});
+    expect(app.loc.tz).toBe('Asia/Kolkata');
+    expect(fresh.hm(Date.UTC(2026, 5, 15, 12, 0))).toBe('5:30\u00a0PM');
+    openLocation(PUTNEY_FILE, {});
+    expect(fresh.hm(Date.UTC(2026, 5, 15, 12, 0))).toBe('8\u00a0AM');
   });
 });
 

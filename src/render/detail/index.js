@@ -1,6 +1,8 @@
 // The detail views behind the tabs: the registry and the view renderer.
 // The views are one lazy chunk (views.js, P1.2a), so the registry holds what the
-// tab bar needs and a load for each. A view module exports key, name,
+// tab bar needs and a load for each. An entry may have when(loc), which says
+// whether a location has the tab; it is here, not in the view module, so the tab
+// bar can filter before any view has loaded. A view module exports key, name,
 // summary(m) (its opening line), and render(m, day) returning { day, html } for
 // the day it chose.
 import { app, $ } from '../../state.js';
@@ -10,10 +12,11 @@ const lazy = key => () => import('./views.js').then(x => x.MODULES[key]);
 
 // Tab order, most to least important for deciding whether to row.
 export const VIEWS = [
-  ['week', 'Week'], ['wind', 'Wind'], ['river', 'River'], ['storms', 'Storms'], ['fog', 'Fog'],
+  ['week', 'Week'], ['wind', 'Wind'], ['river', 'River', loc => loc.sources.flow], ['storms', 'Storms'], ['fog', 'Fog'],
   ['temperature', 'Temperature'], ['rain', 'Rain'], ['light', 'Light'], ['air', 'Air']
-].map(([key, name]) => ({ key, name, load: lazy(key) }));
-export const VIEW_KEYS = VIEWS.map(v => v.key);
+].map(([key, name, when]) => ({ key, name, when, load: lazy(key) }));
+// The tabs a location has.
+export const viewsFor = loc => VIEWS.filter(v => !v.when || v.when(loc));
 
 const mods = {};    // view key to its module, once loaded
 const loading = {}; // view keys with an import in flight

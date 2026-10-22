@@ -3,11 +3,18 @@
 // the hero points to it.
 import { app, $, applyOverrides } from './state.js';
 import { overridesOf } from './location.js';
+import { GLOBAL_DEFAULTS } from './config.js';
 import { saveOverrides, hasSavedSettings, nudgeDismissed, dismissNudge } from './storage.js';
 
 const OPTIONAL = ['rainCaution', 'rainOff', 'aqiCaution', 'aqiOff'];
-// The dialog's fields: the limits, and the course heading.
-const FIELDS = Object.keys(app.defaults);
+// The dialog's fields: the course heading, and the 12 limits.
+const FIELDS = ['heading', ...Object.keys(GLOBAL_DEFAULTS), 'flowCaution', 'flowOff'];
+
+// Shows the reminder when the open location's Settings were never saved here.
+// Called each time a location opens.
+export function refreshNudge() {
+  $('setNudge').hidden = hasSavedSettings(app.loc.slug) || nudgeDismissed();
+}
 
 export function initSettings(onSave) {
   const dlg = $('settings'), form = $('setForm');
@@ -19,7 +26,6 @@ export function initSettings(onSave) {
   const open = () => { fill(current()); dlg.showModal(); };
   $('settingsBtn').addEventListener('click', open);
   $('setNudgeBtn').addEventListener('click', open);
-  $('setNudge').hidden = hasSavedSettings(app.loc.slug) || nudgeDismissed();
   $('setNudgeLater').addEventListener('click', () => { dismissNudge(); $('setNudge').hidden = true; });
   $('resetSet').addEventListener('click', () => fill(app.defaults));
   dlg.addEventListener('close', () => {

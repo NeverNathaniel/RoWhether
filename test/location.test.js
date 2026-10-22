@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
-import { validateLocation, validateWaterway, validateSlug, RESERVED_SLUGS, resolveSources, resolveLocation, effectiveSettings, overridesOf } from '../src/location.js';
+import { validateLocation, validateWaterway, validateSlug, isSlug, RESERVED_SLUGS, resolveSources, resolveLocation, effectiveSettings, overridesOf } from '../src/location.js';
 import { GLOBAL_DEFAULTS, PERIODS, WATER, FOG } from '../src/config.js';
 import { zoneFormat } from '../src/format.js';
 
@@ -83,6 +83,29 @@ describe('validateSlug', () => {
     expect(validateSlug('x'.repeat(64), { field: 'id', max: 64, reserved: false })).toEqual([]);
     expect(validateSlug('x'.repeat(65), { field: 'id', max: 64, reserved: false })[0]).toMatchObject({ field: 'id', code: 'length' });
     expect(validateSlug('api', { field: 'id', reserved: false })).toEqual([]);
+  });
+});
+
+// The page asks isSlug() of an address and of a stored slug, and does not carry
+// validateSlug's words. The two give the same answer.
+describe('isSlug', () => {
+  const CASES = ['putney-landing', 'abc', 'a1b2', 'x'.repeat(48), 'x'.repeat(49), 'at', '', 'api', 'index', 'index-2', 'sw', '-abc', 'abc-', 'a--b', 'Abc', 'a_b', 'ab.c', 'café', 'a/b', '../x', null, undefined, 42, {}, ['abc']];
+
+  it('says yes for a slug and no for everything validateSlug refuses, with the default limits', () => {
+    for (const s of CASES) expect(isSlug(s), String(s)).toBe(validateSlug(s).length === 0);
+    expect(['putney-landing', 'abc', 'a1b2'].every(s => isSlug(s))).toBe(true);
+    expect(['api', 'at', 'Abc', 'a--b', null, 42].some(s => isSlug(s))).toBe(false);
+  });
+
+  it('takes the limits and the reserved words the way validateSlug does', () => {
+    expect(isSlug('x'.repeat(64), 3, 64, false)).toBe(true);
+    expect(isSlug('x'.repeat(65), 3, 64, false)).toBe(false);
+    expect(isSlug('api', 3, 48, false)).toBe(true);
+    expect(isSlug('api')).toBe(false);
+    expect(isSlug('ab', 2)).toBe(true);
+    for (const s of CASES) {
+      expect(isSlug(s, 2, 10, false), String(s)).toBe(validateSlug(s, { min: 2, max: 10, reserved: false }).length === 0);
+    }
   });
 });
 

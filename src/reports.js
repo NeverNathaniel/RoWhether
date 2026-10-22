@@ -2,7 +2,7 @@
 // production or a Preview such as dev, and whether dock reports are on. Dock
 // reports are what someone saw at the dock, shown to everyone for 3 hours.
 // On a static host there is no /api, so both quietly stay off.
-import { WATER } from './config.js';
+import { WATER, REPORTS_SLUG } from './config.js';
 import { app, $ } from './state.js';
 import { esc, ago, hm } from './format.js';
 
@@ -24,8 +24,11 @@ export async function loadInfo() {
   badge.textContent = env ? env[0].toUpperCase() + env.slice(1) : '';
 }
 
+// Reports belong to Putney until the table has a location (08, phase 3).
+const reportsHere = () => app.info?.reports && app.loc?.slug === REPORTS_SLUG;
+
 export async function loadReports() {
-  if (!app.info || !app.info.reports) return;
+  if (!reportsHere()) return;
   try {
     const d = await getJSON('/api/reports');
     app.reports = d.enabled ? d : null;
@@ -45,7 +48,7 @@ export function reportText(r) {
 
 export function renderReports() {
   const box = $('dockReports');
-  const on = !!(app.info && app.info.reports);
+  const on = reportsHere();
   box.hidden = !on;
   if (!on) return;
   const list = (app.reports && app.reports.reports) || [];

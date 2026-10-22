@@ -1,17 +1,19 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { suggestContext } from '../src/suggest.js';
-import { app, applyOverrides } from '../src/state.js';
+import { app, openLocation } from '../src/state.js';
 import { effectiveSettings } from '../src/location.js';
 import { cleanContext } from '../worker/suggest.js';
+import { PUTNEY_FILE } from './helpers/putney-file.js';
 
 // What a bug report says about the app (review Z13). The Worker keeps these
 // setting keys and no others (worker/suggest.js, SETTING_KEYS), written out here.
 const KEYS = ['heading', 'windCaution', 'windOff', 'gustCaution', 'gustOff', 'rainCaution', 'rainOff', 'coldCombined', 'flowCaution', 'flowOff', 'waterOverride', 'aqiCaution', 'aqiOff'];
 
 describe('the context the suggestion form sends', () => {
+  beforeEach(() => openLocation(PUTNEY_FILE, {}));
   afterEach(() => {
     vi.unstubAllGlobals();
-    applyOverrides({});
+    openLocation(null);
   });
   // The page the form is on, and the settings the app holds.
   function context(settings) {
@@ -37,7 +39,7 @@ describe('the context the suggestion form sends', () => {
   });
 
   it("takes the viewer's own heading from the location, with the settings the app builds", () => {
-    applyOverrides({ heading: 20, windCaution: 8 });
+    openLocation(PUTNEY_FILE, { heading: 20, windCaution: 8 });
     // From P0.10 the settings the app builds have no heading, so it can only come from the location.
     expect(app.settings).not.toHaveProperty('heading');
     const c = context(app.settings);
@@ -48,5 +50,19 @@ describe('the context the suggestion form sends', () => {
   it('is kept whole by the Worker', () => {
     const c = context(effectiveSettings(app.loc));
     expect(cleanContext(c).settings).toEqual(c.settings);
+  });
+
+  it('names the location the viewer is on', () => {
+    expect(context(effectiveSettings(app.loc)).location).toBe('putney-landing');
+  });
+
+  // The form is offered on the not found page and the picker, where no location is open.
+  it('gives no location and no settings, and does not throw, when none is open', () => {
+    openLocation(null);
+    const c = context(null);
+    expect(c).toMatchObject({ screen: '390x844', browser: 'a test browser', location: null, settings: null });
+    expect(() => JSON.stringify(c)).not.toThrow();
+    // The Worker takes a context with no settings: it keeps an empty set of them.
+    expect(cleanContext(c).settings).toEqual({});
   });
 });

@@ -92,11 +92,16 @@ function point(p, field, v) {
   if (!Array.isArray(v) || v.length !== 2 || !isNum(v[0]) || Math.abs(v[0]) > 90 || !isNum(v[1]) || v[1] < -180 || v[1] >= 180) fail(p, field, 'range', 'Use [lat, lon].');
 }
 
+// Whether a string can be a slug. The page asks this of an address and of a stored
+// slug, and carries none of validateSlug's words, which are for the build and a form.
+export function isSlug(slug, min = 3, max = 48, reserved = true) {
+  return typeof slug === 'string' && slug.length >= min && slug.length <= max && SLUG.test(slug) && !(reserved && RESERVED_SLUGS.includes(slug));
+}
 export function validateSlug(slug, { field = 'slug', min = 3, max = 48, reserved = true } = {}) {
+  if (isSlug(slug, min, max, reserved)) return [];
   if (typeof slug !== 'string' || slug.length < min || slug.length > max) return [bad(field, 'length', `Use ${min} to ${max} characters.`)];
   if (!SLUG.test(slug)) return [bad(field, 'format', 'Use lowercase letters, numbers and hyphens, with none at the start or end and none doubled.')];
-  if (reserved && RESERVED_SLUGS.includes(slug)) return [bad(field, 'reserved', 'That address is reserved.')];
-  return [];
+  return [bad(field, 'reserved', 'That address is reserved.')];
 }
 
 function checkCourse(p, c) {

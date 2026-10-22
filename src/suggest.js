@@ -28,14 +28,16 @@ function loadTurnstile() {
 function status(text) { $('sugStatus').textContent = text; }
 
 // What the bug reports carry about the app. The Worker lists the course heading
-// among the setting keys, and it lives in the location.
+// among the setting keys, and it lives in the location. A page with no location
+// (not found, or one that did not load) has neither settings nor a place to name.
 export function suggestContext() {
   return {
     version: __APP_VERSION__,
     screen: `${window.innerWidth}x${window.innerHeight}`,
     browser: navigator.userAgent,
     installed: isStandalone(),
-    settings: { ...app.settings, heading: app.loc.course.heading }
+    location: app.loc?.slug ?? null,
+    settings: app.loc ? { ...app.settings, heading: app.loc.course.heading } : null
   };
 }
 

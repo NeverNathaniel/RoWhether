@@ -1,5 +1,6 @@
 // Small HTML and SVG builders shared by the sections.
 import { esc, hm, hShort, ago } from '../format.js';
+import { isSet } from '../logic.js';
 
 // A small chevron after a label that opens a detail view.
 export const CHEV = '<svg class="chev" viewBox="0 0 8 12" aria-hidden="true"><path d="M2 2l4 4-4 4"/></svg>';
@@ -54,8 +55,6 @@ export function sparkline(ser) {
 // are drawn as labeled dashed lines. Only the peak is labeled; each column has
 // a hit area carrying its hour's text for the tap readout (data-text), and the
 // hour table below holds every value.
-const isSet = v => v !== '' && v != null && !isNaN(v);
-
 export function precipChart(hs, S, from, describe) {
   const n = hs.length, W = 320, H = 140, top = 22, bottom = 24, left = 2, right = 38;
   const plotW = W - left - right, plotH = H - top - bottom, base = top + plotH;
