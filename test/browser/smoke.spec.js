@@ -665,6 +665,77 @@ test.describe('smoke', () => {
       await expect(page.locator('#compassCap')).toContainText('upstream heading 15°');
       expect((await stored(page))['rowhether-last-v1']).toBe('putney-landing');
     });
+
+    // Every key a location reads carries its slug. Putney is the only location the build has, so the
+    // second one is Putney's record at another address, with a saved forecast and settings of its own
+    // and none of Putney's forecast. A location that read Putney's keys would draw nothing while its
+    // requests are held, show Putney's limit, or hide its reminder because Putney's settings were saved.
+    test('a second location reads its own saved forecast, settings and reminder, and not Putney\'s', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.goto('/putney-landing');
+      await ready(page);
+      const cache = await page.evaluate(() => localStorage.getItem('rowhether-cache-v2:putney-landing'));
+      const seed = settings => page.evaluate(items => {
+        localStorage.clear();
+        for (const [k, v] of Object.entries(items)) localStorage.setItem(k, v);
+      }, {
+        'rowhether-migrated-v1': '1',
+        'rowhether-loc-v1:lake-test': JSON.stringify({ record: LAKE_FILE, fetchedAt: clock }),
+        'rowhether-cache-v2:lake-test': cache,
+        'rowhether-settings-v2': JSON.stringify({ 'putney-landing': { saved: clock, values: { windCaution: 8 } }, ...settings })
+      });
+      await seed({ 'lake-test': { saved: clock, values: { windCaution: 12 } } });
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await routeAll(page, scenario, clock);
+      const out = await hold(page);
+      await page.goto('/lake-test');
+      await expect(page.locator('#verdict')).toHaveText('Go.');
+      await expect(page.locator('#updated')).toHaveText('Refreshing');
+      await expect(page.locator('#setNudge')).toBeHidden();
+      await page.locator('#settingsBtn').click();
+      await expect(page.locator('#setForm [name="windCaution"]')).toHaveValue('12');
+      await page.keyboard.press('Escape');
+      // Nothing saved for this location: Putney's saved settings do not hide its reminder or set its limits.
+      await seed({});
+      await page.reload();
+      await expect(page.locator('#verdict')).toHaveText('Go.');
+      await expect(page.locator('#setNudge')).toBeVisible();
+      await page.locator('#settingsBtn').click();
+      await expect(page.locator('#setForm [name="windCaution"]')).toHaveValue('10');
+      await page.keyboard.press('Escape');
+      await out.release();
+    });
+
+    // The first start of a new build, with nothing saved here: the record is in the worker's precache,
+    // so a phone that has just updated opens its location with no network (07 13, 01 16.5).
+    test.describe('with the service worker and no network', () => {
+      test.use({ serviceWorkers: 'allow' });
+
+      for (const [what, first, then] of [['at its address', '/putney-landing', '/putney-landing#wind'], ['at "/"', '/', '/']]) {
+        test(`the record comes from the precache when none is saved: ${what}`, async ({ page, context }) => {
+          const bad = [];
+          page.on('pageerror', e => bad.push(e.message));
+          await routeAll(page, scenario, clock);
+          await page.goto(first);
+          await ready(page);
+          await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+          await page.reload();
+          await ready(page);
+          expect(await page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+          await page.evaluate(() => localStorage.clear());
+          await page.unrouteAll({ behavior: 'ignoreErrors' });
+          await context.setOffline(true);
+          await page.goto('about:blank'); // a new document, also for an address that differs by its hash
+          await page.goto(then);
+          await expect(page.locator('#tabs')).toBeVisible();
+          await expect(page.locator('#notFound')).toBeHidden();
+          await expect(page.locator(`#tabs a[data-tab="${then.includes('#') ? 'wind' : 'now'}"]`)).toHaveAttribute('aria-current', 'page');
+          expect(new URL(page.url()).pathname).toBe(new URL(then, page.url()).pathname);
+          expect((await stored(page))['rowhether-loc-v1:putney-landing'], 'the record is saved').toBeTruthy();
+          expect(bad).toEqual([]);
+        });
+      }
+    });
   });
 
   test('every upstream aborted: the page says every source was blocked', async ({ page }) => {
@@ -943,6 +1014,22 @@ test.describe('an address with no location', () => {
     expect(files).toEqual([]);
     expect(seen.served).toEqual([]);
     expect(bad).toEqual([]);
+  });
+
+  // An address with a long word in it, such as a mistyped one, wraps inside the panel.
+  test.describe('at 360 px', () => {
+    test.use({ viewport: { width: 360, height: 700 } });
+
+    for (const path of [`/${'a'.repeat(300)}`, `/${'x'.repeat(40)}/${'y'.repeat(40)}.html`]) {
+      test(`a long address does not scroll the page sideways: ${path.slice(0, 12)}`, async ({ page }) => {
+        await routeAll(page, scenario, clock);
+        await page.goto(path);
+        await expect(page.locator('#notFound')).toBeVisible();
+        const [page_, panel] = await page.evaluate(() => [document.documentElement, document.getElementById('notFound')].map(e => e.scrollWidth - e.clientWidth));
+        expect(page_, 'the page').toBeLessThanOrEqual(0);
+        expect(panel, 'the panel').toBeLessThanOrEqual(0);
+      });
+    }
   });
 
   // The form is offered here and on the picker, where no location is open (R9). The page's own

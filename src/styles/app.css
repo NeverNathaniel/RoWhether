@@ -76,6 +76,7 @@ section{margin-top:3rem}
 h2{margin:0 0 .75rem; font-size:1.375rem; font-weight:750; font-stretch:110%; letter-spacing:-.01em}
 .panel{background:var(--surface); border-radius:1.25rem; padding:1.25rem 1rem 1rem}
 @media (min-width:46rem){ .panel{padding:1.5rem 1.5rem 1.25rem} }
+#notFound{overflow-wrap:anywhere}
 .lede{margin:-.4rem 0 .9rem; color:var(--muted); font-size:.9375rem; max-width:62ch}
 
 /* Now */
