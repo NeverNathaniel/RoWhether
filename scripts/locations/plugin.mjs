@@ -59,7 +59,7 @@ export function collectLocations(root = ROOT) {
   for (const { file, name, value } of read('waterways')) {
     validateWaterway(value).forEach(p => note(file, p));
     if (!isObj(value)) continue;
-    if (value.id !== name) note(file, problem('id', 'file_name', `The file is ${name}.json, so the id must be ${name}.`));
+    if (value.id !== name) note(file, problem('id', 'file_name', `The file is ${name}.json, but the id is ${value.id}. They must match.`));
     waterways.set(value.id, value);
   }
 
@@ -74,7 +74,7 @@ export function collectLocations(root = ROOT) {
     if (!isObj(rec)) continue;
     // The app refuses a record that is not version 1 (P1.4), so the build does too.
     if (rec.v !== 1) note(file, problem('v', 'required', 'Use "v": 1. The app does not read a record without it.'));
-    if (rec.slug !== name) note(file, problem('slug', 'file_name', `The file is ${name}.json, so the slug must be ${name}.`));
+    if (rec.slug !== name) note(file, problem('slug', 'file_name', `The file is ${name}.json, but the slug is ${rec.slug}. They must match.`));
     if (typeof rec.slug === 'string') {
       if (taken(rec.slug)) note(file, problem('slug', 'build_name', 'That address is a file the build or public/ writes.'));
       if (slugs.has(rec.slug)) note(file, problem('slug', 'duplicate', `Also the slug of ${slugs.get(rec.slug)}.`));

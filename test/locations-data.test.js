@@ -141,6 +141,9 @@ describe('collectLocations', () => {
     const list = collectLocations(scratch({ locations: { 'putney-landing': PUTNEY, 'lake-test': lake('lake-test') }, waterways: BOTH }));
     expect(list.map(x => x.rec.slug)).toEqual(['lake-test', 'putney-landing']);
     expect(list.map(x => x.waterway.id)).toEqual(['test-lake', WATERWAY.id]);
+    // File names sort 'abc-lake.json' before 'abc.json', and slugs the other way.
+    const close = collectLocations(scratch({ locations: { 'abc-lake': lake('abc-lake'), abc: lake('abc') }, waterways: BOTH }));
+    expect(close.map(x => x.rec.slug)).toEqual(['abc', 'abc-lake']);
   });
 
   it('accepts a draft with no waterway', () => {
@@ -296,7 +299,27 @@ describe('the plugin', () => {
     expect(index.res.headers['Content-Type']).toBe('application/json');
     expect(JSON.parse(index.res.body).locations[0].slug).toBe('putney-landing');
     expect(JSON.parse(get('/locations/putney-landing.json').res.body).waterwayRecord.id).toBe(WATERWAY.id);
-    for (const url of ['/locations/nope.json', '/index.html', '/', '/locations/constructor', '/putney-landing']) expect(get(url).next, url).toHaveBeenCalled();
+    // A name every object has is not a file.
+    for (const url of ['/locations/nope.json', '/index.html', '/', '/putney-landing', '/constructor', '/toString', '/__proto__']) expect(get(url).next, url).toHaveBeenCalled();
+  });
+});
+
+// Settings of the host that nothing else checks: the build and the budget never
+// see wrangler.jsonc or _headers, and a deploy that lost either would still pass.
+describe('the host settings for the location files', () => {
+  const wrangler = JSON.parse(readFileSync(join(ROOT, 'wrangler.jsonc'), 'utf8').replace(/^\s*\/\/.*$/gm, ''));
+  const headers = readFileSync(join(ROOT, 'public/_headers'), 'utf8');
+
+  it('answers a path with no file with index.html, and still sends /api/* to the Worker first', () => {
+    expect(wrangler.assets.not_found_handling).toBe('single-page-application');
+    expect(wrangler.assets.run_worker_first).toEqual(['/api/*']);
+    expect(wrangler.assets.directory).toBe('./dist');
+  });
+
+  it('lets a browser keep a location file for an hour, and keeps the other rules', () => {
+    expect(headers).toMatch(/^\/locations\/\*\n {2}Cache-Control: public, max-age=3600$/m);
+    expect(headers).toMatch(/^\/assets\/\*\n {2}Cache-Control: public, max-age=31536000, immutable$/m);
+    expect(headers).toMatch(/^\/sw\.js\n {2}Cache-Control: no-cache$/m);
   });
 });
 
