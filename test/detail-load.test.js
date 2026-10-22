@@ -167,6 +167,31 @@ describe('renderDetail with a lazy module', () => {
     expect(body().dataset.view).toBe('wind');
   });
 
+  it('clears data-view when it goes from a drawn view to one whose module has not arrived', async () => {
+    const loads = hold();
+    open('wind');
+    loads.wind.ok();
+    await flush();
+    expect(body().dataset.view).toBe('wind');
+    open('river');
+    expect(body().textContent).toContain('Loading.');
+    expect(body().dataset.view).toBeUndefined();
+    loads.river.ok();
+    await flush();
+    expect(body().dataset.view).toBe('river');
+  });
+
+  it('records the width the view was drawn at, on the Loading. state and after the draw', async () => {
+    const loads = hold();
+    app.detailWidth = 0;
+    open('wind');
+    expect(app.detailWidth).toBe(390);
+    app.detailWidth = 0;
+    loads.wind.ok();
+    await flush();
+    expect(app.detailWidth).toBe(390);
+  });
+
   it('says there is no data, as it did, when the forecast failed and the module has not arrived', () => {
     const loads = hold();
     Object.assign(app, { model: null, errors: { wx: true } });

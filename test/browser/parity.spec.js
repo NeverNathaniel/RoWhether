@@ -91,6 +91,9 @@ function parity(name, hr, scenarioName) {
     const scenario = SCENARIOS[scenarioName], clock = scenario.clock(hr);
     await page.clock.setFixedTime(clock);
     const seen = await routeAll(page, scenario, clock);
+    // The views chunk comes late, as over a phone's network, so a read that does
+    // not wait for its tab reads "Loading." (P1.2a). A later route is tried first.
+    await page.route(/\/assets\/views-[^/]+\.js$/, async route => { await new Promise(done => setTimeout(done, 150)); await route.continue(); });
     if (name.endsWith('-custom')) {
       await page.addInitScript(items => { for (const [k, v] of Object.entries(items)) localStorage.setItem(k, v); }, await savedFor());
     }
