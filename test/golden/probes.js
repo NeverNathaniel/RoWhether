@@ -23,7 +23,7 @@ import { parseAQ, parseModels } from '../../src/sources/openmeteo.js';
 import * as F from '../../src/format.js';
 import * as L from '../../src/logic.js';
 import { VIEWS } from '../../src/render/detail/index.js';
-import { parseRoute } from '../../src/route.js';
+import { parseHash } from '../../src/route.js';
 import { PUTNEY, PUTNEY_DEFAULTS } from '../../src/putney.js';
 import { bindingsFor, labelFor } from '../../src/sources/index.js';
 import { SCENARIOS } from '../fixtures/golden.js';
@@ -374,6 +374,8 @@ function nullProbe() {
 function configProbe() {
   const names = ['SITE_URL', 'LOC', 'DEFAULTS', 'PERIODS', 'FOG', 'WATER', 'GAUGE_FLOW', 'GAUGE_TEMP', 'NWS_GAUGE', 'MODELS', 'CONFIDENCE', 'AQI', 'SOURCE_NAMES', 'FACTORS', 'THEN', 'WORD', 'WORD_PLAIN', 'LIGHT_KEYS', 'REFRESH_MS', 'HOUR', 'MIN', 'MAX_TEXT'];
   const slot = s => BINDINGS.find(b => b.slot === s);
+  // The tabs Putney has, and their keys, which the routes are read against.
+  const tabs = VIEWS.filter(v => !v.when || v.when(PUTNEY)), keys = tabs.map(v => v.key);
   const moved = {
     GAUGE_FLOW: slot('river').params.flow, GAUGE_TEMP: slot('river').params.temp, NWS_GAUGE: slot('flowFcst').params.lid,
     SOURCE_NAMES: Object.fromEntries(BINDINGS.map(b => [b.slot, labelFor(b.slot, b)])),
@@ -383,9 +385,9 @@ function configProbe() {
   };
   return {
     config: Object.fromEntries(names.map(k => [k, k in moved ? moved[k] : C[k] === undefined ? '(missing)' : C[k]])),
-    views: VIEWS.filter(v => !v.when || v.when(PUTNEY)).map(v => [v.key, v.name]),
-    routes: Object.fromEntries(['', '#', '#now', '#wind', '#wind/2026-10-14', '#/wind', '#/wind/2026-10-14', '#wind/bad', '#wind/2026-10-14/extra', '#nope', '#week/2026-1-1', '#air/2026-12-31', '#WIND', 'wind', '#fog/', '#river/2026-02-30'].map(h => [h, parseRoute(h)])),
-    noRoute: [parseRoute(undefined), parseRoute(null)]
+    views: tabs.map(v => [v.key, v.name]),
+    routes: Object.fromEntries(['', '#', '#now', '#wind', '#wind/2026-10-14', '#/wind', '#/wind/2026-10-14', '#wind/bad', '#wind/2026-10-14/extra', '#nope', '#week/2026-1-1', '#air/2026-12-31', '#WIND', 'wind', '#fog/', '#river/2026-02-30'].map(h => [h, parseHash(h, keys)])),
+    noRoute: [parseHash(undefined, keys), parseHash(null, keys)]
   };
 }
 

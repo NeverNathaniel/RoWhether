@@ -2,6 +2,9 @@
 
 // The production address, for shared links and link previews.
 export const SITE_URL = 'https://rowhether.com/';
+// The location "/" opens for someone with none stored, and the only one that has dock reports.
+export const DEFAULT_SLUG = 'putney-landing';
+export const REPORTS_SLUG = 'putney-landing';
 
 // What every location starts from, before its own thresholds and the viewer's
 // changes (01 11.5). No heading (it lives in the course) and no flow limits

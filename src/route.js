@@ -1,12 +1,45 @@
-// Tabs and hash routes. Now is the home screen (no hash, or #now). The other
-// tabs are the detail views: #wind, or #wind/2026-10-14 for one day.
+// Addresses, tabs and the day. A location is at /<slug>; Now is its home screen
+// (no hash, or #now) and the other tabs are the detail views: #wind, or
+// #wind/2026-10-14 for one day. The pure parts come first.
 import { app, $ } from './state.js';
+import { validateSlug } from './location.js';
+import { DEFAULT_SLUG } from './config.js';
 import { VIEWS, VIEW_KEYS, renderDetail } from './render/detail/index.js';
 
-export function parseRoute(hash) {
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const split = hash => {
   const [name, day] = (hash || '').replace(/^#\/?/, '').split('/');
-  if (!VIEW_KEYS.includes(name)) return null;
-  return { name, day: /^\d{4}-\d{2}-\d{2}$/.test(day || '') ? day : null };
+  return { name, day: DAY.test(day || '') ? day : null };
+};
+
+// The tab and day a hash names, when the tab is one of `keys` (the location's).
+export function parseHash(hash, keys) {
+  const r = split(hash);
+  return keys.includes(r.name) ? r : null;
+}
+
+// What an address asks for: { page, slug, view, day, open, path, words }. `page` is
+// home (/), location (/<slug>) or notfound (anything else, with the path and its
+// words kept for the search). `view` is the hash's tab, not yet checked against
+// the location's tabs.
+export function parseRoute({ pathname = '/', hash = '', search = '' } = {}) {
+  const { name, day } = split(hash);
+  const r = { page: 'home', slug: null, view: name && name !== 'now' ? name : null, day, open: new URLSearchParams(search).get('open') === 'picker' ? 'picker' : null, path: '', words: '' };
+  if (pathname === '/' || pathname === '/index.html') return r;
+  const seg = pathname.slice(1);
+  if (!seg.includes('/') && !validateSlug(seg).length) return { ...r, page: 'location', slug: seg, path: seg, words: seg.replace(/-/g, ' ') };
+  let path = pathname.slice(1);
+  try { path = decodeURIComponent(path); } catch (e) { /* keep it as typed */ }
+  return { ...r, page: 'notfound', path, words: path.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean).join(' ') };
+}
+
+// Where "/" goes: the location opened last, or Putney Landing, whose address
+// stays "/" so a link shared as rowhether.com keeps meaning Putney. What is
+// stored is checked before it becomes an address or a request. P1.6 adds the
+// window of a first visit, which reads the time.
+export function homeTarget({ last }) {
+  if (last && !validateSlug(last).length) return { slug: last, replace: true };
+  return { slug: DEFAULT_SLUG, keepAddress: true };
 }
 
 // Mark the current tab, and scroll the bar sideways if it is out of view.
@@ -22,7 +55,7 @@ function markTab() {
 }
 
 function show() {
-  const route = parseRoute(location.hash);
+  const route = parseHash(location.hash, VIEW_KEYS);
   const wasHome = !app.view;
   if (wasHome && route) app.homeScroll = window.scrollY;
   app.view = route;
