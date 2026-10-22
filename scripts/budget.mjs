@@ -17,6 +17,12 @@
 // built index.html with six tags swapped, so it links the same hashed script
 // and stylesheet; any other difference would leave a shared link blank.
 //
+// And the lazy chunks (P1.2a; 07 10.5 and 10.6 item 3, 08 17.3): each one in
+// LAZY is built from a dynamic import(), so it is dist/assets/<name>-<hash>.js.
+// It must exist, the page must not load or preload it, and the service worker
+// precaches it or not as LAZY says. Each chunk's gzip size is printed. It has
+// no size budget (08 11.2).
+//
 // The report is written even when the check fails, so CI can upload it.
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { gzipSync, constants } from 'node:zlib';
@@ -124,6 +130,38 @@ function locationProblems(distinct) {
   return { records: slugs, problems };
 }
 
+// The lazy chunks. P1.6, P1.14 and P1.18 add picker, tide and admin.
+const LAZY = [{ name: 'views', precache: true }];
+
+// The files the page loads or preloads: its scripts, and its modulepreload and
+// preload links. A lazy chunk is read with import() and is in none of them.
+function pageFiles(html) {
+  const urls = [...html.matchAll(/<script\b[^>]*>/gi)].map((m) => attr(m[0], 'src'));
+  for (const m of html.matchAll(/<link\b[^>]*>/gi)) {
+    if (/(^|\s)(module)?preload(\s|$)/i.test(attr(m[0], 'rel') || '')) urls.push(attr(m[0], 'href'));
+  }
+  return urls.filter(Boolean).map((u) => posix.basename(distPath(u)));
+}
+
+// Each lazy chunk's files, and what is wrong with them as a list of sentences.
+function lazyChunks(assets, html, distinct) {
+  const loaded = pageFiles(html);
+  const chunks = [];
+  const problems = [];
+  for (const { name, precache } of LAZY) {
+    const files = assets.filter((a) => new RegExp(`^assets/${name}-[^/]+\\.js$`).test(a.file));
+    if (!files.length) problems.push(`dist/assets has no ${name}-*.js. The ${name} chunk is missing, or is not named after its file.`);
+    for (const f of loaded.filter((x) => x.startsWith(`${name}-`))) problems.push(`dist/index.html loads ${f}. A lazy chunk is read with import(), never as a script or a preload.`);
+    for (const f of files) {
+      const cached = distinct.includes(f.file);
+      if (precache && !cached) problems.push(`The service worker does not precache ${f.file}.`);
+      if (!precache && cached) problems.push(`The service worker precaches ${f.file}, a chunk that is not precached.`);
+      chunks.push({ name, file: f.file, raw: f.raw, gzip: f.gzip, precache, precached: cached });
+    }
+  }
+  return { chunks, problems };
+}
+
 const budget = JSON.parse(readText(join(ROOT, 'budget.json')));
 for (const key of ['js', 'css', 'html', 'precacheKiB']) {
   if (typeof budget[key] !== 'number') fail(`budget.json has no number for "${key}".`);
@@ -154,6 +192,7 @@ const checks = [
 ].map((c) => ({ ...c, over: c.value > c.limit }));
 
 const places = locationProblems(distinct);
+const lazy = lazyChunks(assets, htmlBuf.toString('utf8'), distinct);
 
 console.log(`Budget for phase ${budget.phase} (budget.json). Main files are gzip at level 9.\n`);
 for (const c of checks) {
@@ -165,19 +204,22 @@ for (const c of checks) {
 console.log('\nPrecache is the raw size of each distinct URL in dist/sw.js.');
 console.log(`${places.problems.length ? 'OVER' : 'ok  '}  Locations ${places.records.length} in the index: ${places.records.join(', ') || 'none'}`);
 for (const line of places.problems) console.log(`      ${line}`);
+console.log(`${lazy.problems.length ? 'OVER' : 'ok  '}  Lazy chunks ${LAZY.map((l) => l.name).join(', ')}`);
+for (const c of lazy.chunks) console.log(`      ${c.name.padEnd(8)} ${fmt(c.gzip)} B gzip, ${fmt(c.raw)} B raw, ${c.precached ? 'precached' : 'not precached'}  (${c.file})`);
+for (const line of lazy.problems) console.log(`      ${line}`);
 
 const width = Math.max(...assets.map((a) => a.file.length));
 console.log(`\nFiles in dist/assets (${assets.length}):`);
 console.log(`${'file'.padEnd(width)}  ${'raw B'.padStart(9)}  ${'gzip B'.padStart(9)}`);
 for (const a of assets) {
-  const tag = a.file === main.js || a.file === main.css ? '  main' : '';
+  const tag = a.file === main.js || a.file === main.css ? '  main' : lazy.chunks.some((c) => c.file === a.file) ? '  lazy' : '';
   console.log(`${a.file.padEnd(width)}  ${fmt(a.raw).padStart(9)}  ${fmt(a.gzip).padStart(9)}${tag}`);
 }
 
 const over = checks.filter((c) => c.over);
 const report = {
   phase: budget.phase,
-  ok: over.length === 0 && places.problems.length === 0,
+  ok: over.length === 0 && places.problems.length === 0 && lazy.problems.length === 0,
   budget: { js: budget.js, css: budget.css, html: budget.html, precacheKiB: budget.precacheKiB },
   main: {
     js: { file: main.js, raw: checks[0].raw, gzip: checks[0].value },
@@ -193,7 +235,8 @@ const report = {
   },
   assets,
   locations: { records: places.records, problems: places.problems },
-  over: [...over.map((c) => c.name), ...(places.problems.length ? ['Locations'] : [])]
+  lazy: { chunks: lazy.chunks, problems: lazy.problems },
+  over: [...over.map((c) => c.name), ...(places.problems.length ? ['Locations'] : []), ...(lazy.problems.length ? ['Lazy chunks'] : [])]
 };
 writeFileSync(join(DIST, 'budget-report.json'), `${JSON.stringify(report, null, 2)}\n`);
 

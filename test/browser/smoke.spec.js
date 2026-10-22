@@ -86,6 +86,101 @@ test.describe('smoke', () => {
     }
   });
 
+  // P1.2a: the nine views are one lazy chunk, views-<hash>.js. The first hero
+  // needs none of it, so a page with no tab in its address never asks for it;
+  // the first tab opened does, once; and a start at a tab address draws the tab.
+  test.describe('the views chunk', () => {
+    const chunk = u => /\/assets\/views-[^/]+\.js$/.test(new URL(u).pathname);
+    const requests = page => { const seen = []; page.on('request', r => { if (chunk(r.url())) seen.push(r.url()); }); return seen; };
+
+    test('is not requested before the first tab opens, and is requested once after', async ({ page }) => {
+      const seen = requests(page);
+      await routeAll(page, scenario, clock);
+      await page.goto('/');
+      await ready(page);
+      // Open a Day by day row too: nothing on the home screen reads a view.
+      const row = page.locator('#days details.period').first();
+      await row.locator('summary').click();
+      await row.locator('.forecast').waitFor();
+      await page.waitForLoadState('networkidle');
+      expect(seen, 'requests for the views chunk on the home screen').toEqual([]);
+      await page.locator('#tabs a[data-tab="wind"]').click();
+      await tabDrawn(page, 'wind');
+      expect(seen).toHaveLength(1);
+      await page.locator('#tabs a[data-tab="fog"]').click();
+      await tabDrawn(page, 'fog');
+      await page.locator('#tabs a[data-tab="week"]').click();
+      await tabDrawn(page, 'week');
+      expect(seen, 'one request serves every tab').toHaveLength(1);
+    });
+
+    test('a start at a tab address draws the tab, with one request for the chunk', async ({ page }) => {
+      const seen = requests(page);
+      await routeAll(page, scenario, clock);
+      await page.goto('/#wind');
+      await ready(page);
+      await tabDrawn(page, 'wind');
+      await expect(page.locator('#tabs a[data-tab="wind"]')).toHaveAttribute('aria-current', 'page');
+      await expect(page.locator('#detailBody')).not.toContainText('Loading.');
+      await expect(page.locator('#detailBody .strip')).toBeVisible();
+      expect(seen).toHaveLength(1);
+    });
+
+    // The import fails: the tab says Loading. and nothing else breaks. Chromium
+    // remembers a failed import for the life of the page (checked on 141), so the
+    // retry that a refresh makes cannot draw the tab here; a reload does. Chromium
+    // logs the failed request, so only a page error is a bug.
+    test('a failed load keeps Loading., leaves the home screen working, and a reload draws the tab', async ({ page }) => {
+      const bad = [];
+      page.on('pageerror', e => bad.push(e.message));
+      await routeAll(page, scenario, clock);
+      const blocked = url => chunk(url.href), abort = r => r.abort('failed');
+      await page.route(blocked, abort);
+      await page.goto('/#wind');
+      await ready(page);
+      await expect(page.locator('#detailBody')).toContainText('Loading.');
+      await expect(page.locator('#detailBody')).not.toHaveAttribute('data-view', /.*/);
+      await page.locator('#refreshBtn').click();
+      await ready(page);
+      await expect(page.locator('#detailBody')).toContainText('Loading.');
+      await page.locator('#tabs a[data-tab="now"]').click();
+      await expect(page.locator('#verdict')).toHaveText('Go.');
+      await page.unroute(blocked, abort);
+      await page.goto('/#wind');
+      await page.reload();
+      await ready(page);
+      await tabDrawn(page, 'wind');
+      await expect(page.locator('#detailBody')).not.toContainText('Loading.');
+      expect(bad).toEqual([]);
+    });
+
+    // After one online visit the worker has the chunk, so a tab opens with no network.
+    test.describe('offline', () => {
+      test.use({ serviceWorkers: 'allow' });
+
+      test('after one online visit, a tab opens from the precache', async ({ page, context }) => {
+        const bad = [];
+        page.on('pageerror', e => bad.push(e.message));
+        await routeAll(page, scenario, clock);
+        await page.goto('/');
+        await ready(page);
+        await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+        // No fixtures and no network: only the worker and the saved copy answer.
+        await page.unrouteAll({ behavior: 'ignoreErrors' });
+        await context.setOffline(true);
+        await page.reload();
+        await ready(page);
+        expect(await page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+        await page.locator('#tabs a[data-tab="river"]').click();
+        await tabDrawn(page, 'river');
+        await expect(page.locator('#detailBody')).not.toContainText('Loading.');
+        await page.locator('#tabs a[data-tab="week"]').click();
+        await tabDrawn(page, 'week');
+        expect(bad).toEqual([]);
+      });
+    });
+  });
+
   // Some browsers throw from the localStorage property itself (site data
   // blocked), not from getItem. A guard that reads it at import, or checks
   // `typeof localStorage` outside a try, passes in Node and in a normal browser
