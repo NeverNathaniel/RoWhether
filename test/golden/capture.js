@@ -6,8 +6,8 @@
 // not change what is recorded; a field recorded here must keep its value.
 //
 // Written against the code as it stood in P0.1. Later steps may change how
-// this file reaches a value (a new import path, bindingsFor(PUTNEY) for SRC),
-// never what it produces.
+// this file reaches a value (a new import path, bindingsFor(PUTNEY) for SRC).
+// What it produces changes only with a planned golden id (test/golden/changes.js).
 import { createHash } from 'node:crypto';
 import { FACTORS, MIN } from '../../src/config.js';
 import { alertLevel } from '../../src/sources/nws.js';

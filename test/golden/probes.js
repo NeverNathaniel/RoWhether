@@ -10,9 +10,10 @@
 // Texts are masked (numbers become #), so a row changes when a line is crossed,
 // not on every step. The cases already hold the exact words.
 //
-// Like capture.js this file may change how it reaches a function, never what
-// it produces. Each probe has a name (the file is test/golden/<name>.json) and
-// the clock the test pins while it runs.
+// Like capture.js this file may change how it reaches a function. What it
+// produces changes only with a planned golden id (test/golden/changes.js). Each
+// probe has a name (the file is test/golden/<name>.json) and the clock the test
+// pins while it runs.
 import * as C from '../../src/config.js';
 import { FOG, WATER } from '../../src/config.js';
 import { parseAlerts, parseObs, alertLevel, speedToMph } from '../../src/sources/nws.js';

@@ -16,14 +16,16 @@ jobs:
         with:
           # The whole history, so the checks below can reach the base commits.
           fetch-depth: 0
-      # The golden outputs are never edited after P0.1 (08 14.1). A modified or
-      # deleted file fails the run; a new one does not. The screenshots had the
-      # same rule until P0.14 deleted them (FD3). They are no longer committed.
-      - run: git diff --exit-code --diff-filter=MD c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab HEAD -- 'test/golden/*.json'
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      # The phase 0 rule that no golden file changes ended with phase 1's first
+      # commit (08 14.1). A commit that changes Putney's output on purpose names
+      # its change ids in a Golden trailer (test/golden/changes.js). This fails a
+      # deleted file, a modified file with no trailer, and a changed path outside
+      # the ids named. A new file passes. It needs no install, so it runs before npm ci.
+      - run: node scripts/golden.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab
       - run: npm ci
       - run: npm test
       - run: npm run build
