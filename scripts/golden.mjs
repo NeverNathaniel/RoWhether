@@ -65,8 +65,9 @@ if (cmd === 'update') {
   if (process.env.CI) fail('Refused: CI is set. Golden files are updated by hand, never in CI.', 2);
   const dir = tempDir(), result = join(dir, 'result.json'), log = join(dir, 'written.txt');
   const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // The guard test is in the pattern, so the run fails on purpose when cases are named too.
-  const only = args.length ? ['-t', `^golden outputs (${[...args, 'is not in update mode'].map(escape).join('|')})$`] : [];
+  // Vitest matches the pattern against the suite and test names joined with " > ". The guard
+  // test is in it, so the run fails on purpose when cases are named too.
+  const only = args.length ? ['-t', `^golden outputs > (${[...args, 'is not in update mode'].map(escape).join('|')})$`] : [];
   const r = vitest(['--reporter=json', '--outputFile', result, ...only], { GOLDEN_UPDATE: '1', GOLDEN_UPDATE_LOG: log });
   let tests;
   try {
