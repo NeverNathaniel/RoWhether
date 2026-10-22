@@ -10,6 +10,8 @@ Status: complete (finished Tue Oct 20 03:47 UTC 2026)
 
 Count: 7 blockers, 8 major, 6 minor.
 
+Applied on 2026-10-22 (session 015Sq3rx, Opus), with the owner's decisions of 2026-10-21 on R1, R6, R13, R15 and R18: 21 applied, 0 skipped. Each finding has its line below. The plan gained one step, P1.2a, and a section, 3.7.
+
 When to apply, by the batch each one guards: before batch 1, R2, R3, R4, R6, R9, R14, R19, R20 and R21; before batch 2, R1, R5, R8, R10, R15, R17 and R18; before batch 3, R11, R13 and R16; before batch 4, R12; before P1.20, R7. The plan's code claims are accurate, and its six records hold up live (see the last section), so most fixes are a sentence or a test added to a step.
 
 ## Blockers
@@ -176,6 +178,8 @@ Applied (owner decision, 2026-10-21): P1.8 commit 1 carries the dock point in th
 - Evidence: `test/golden/june-calm-1200-default.json` `share`: "Putney Landing rowing, 12 PM: Go. Wind 7 mph from SSW, gusts 13. ..."; `status.header.fresh`: "Updated 11:57 AM".
 - Fix: Expect "Putney Landing rowing, 12 PM Eastern: " followed by the rest of the golden `share` text.
 
+Applied: P1.11's Chicago check expects "Putney Landing rowing, 12 PM Eastern: " and the rest of the golden `share` text, and says why 11:57 AM is the fetch time.
+
 #### R17. Two small claims about the golden files are wrong
 
 - Severity: minor.
@@ -183,6 +187,8 @@ Applied (owner decision, 2026-10-21): P1.8 commit 1 carries the dock point in th
 - Problem: (1) Every variant is lean, and only the 19 main cases record `sources` (`if (!lean) out.sources = ...` in `capture.js`), so the files list is the 19 main cases. (2) `not-checked` writes `#notChecked` from `renderHero()` and the overnight hero only. `renderNoData()` must hide it too, or a line from the last model stays on screen when the forecast goes missing; then `status.noDataAll`, `status.noDataForecast`, `status.noDataQuiet` and the no-model files' `home` move as well, outside the planned paths.
 - Evidence: `VARIANT_CASES` in `test/golden/capture.js` builds every variant with `lean: true`; no `v-*` file has a `sources` key. `renderNoData()` (`src/render/hero.js`) writes `#verdict`, `#why` and `#holds` and leaves the other hero lines.
 - Fix: Name the 19 main cases for both ids. Add to P1.9 that `renderNoData()` hides `#notChecked`, and add those paths to `not-checked`.
+
+Applied: 3.4 names the 19 main cases for `alerts-zones` (and so `usgs-v1`), and `not-checked` covers every case with `status.noDataAll`, `noDataForecast` and `noDataQuiet` paths; P1.9 item 7 has `renderNoData()` hide the line.
 
 #### R18. P1.8's marine level rule misstates today's levels and leaves stronger warnings below a Small Craft Advisory
 
@@ -192,6 +198,8 @@ Applied (owner decision, 2026-10-21): P1.8 commit 1 carries the dock point in th
 - Evidence: `alertLevel()` at `d625fa9`: Tropical Storm Warning 1, Winter Storm Warning 2, Ice Storm Warning 2, Storm Warning 1, Gale Warning 1, Small Craft Advisory 1, Special Marine Warning 1, Hurricane Warning 1, Storm Surge Warning 1, Hurricane Force Wind Warning 1.
 - Fix: Match whole event names from a list in `nws.js`. Ask the owner whether the hurricane and storm surge warnings join the list; if "Tropical Storm Warning" moves to 2, name it in `marine-alerts` and in the probe.
 
+Applied (owner decision, 2026-10-21): P1.8 commit 2 adds `STAY_OFF_EVENTS`, eight whole names matched ignoring case (all eight in NWS's 111 event types, checked live 2026-10-22), keeps today's pattern for the rest, and adds the seven missing names to the probe's list; `marine-alerts` in 3.4 names Tropical Storm Warning and the added paths; section 2 row 11 and 3.7 name the change; a test and a mutation use the real "Dust Storm Warning".
+
 #### R19. One P1.5 mutation cannot fail any check
 
 - Severity: minor.
@@ -199,6 +207,8 @@ Applied (owner decision, 2026-10-21): P1.8 commit 1 carries the dock point in th
 - Problem: The capture never calls `render()`. It imports `renderHeader`, `renderHero`, `renderAlerts`, `renderNow`, `renderDays` and the views and calls them itself, and the parity spec compares only the elements the golden files list, which do not include `#locName` or `#sub`. The mutation survives, and rule 12 then asks the builder for a new check that the plan does not describe.
 - Evidence: the imports at the top of `test/golden/capture.js` (no import from `src/render/index.js`).
 - Fix: Mutate `renderHeader()` to call `renderPlace()` instead (the capture does call it, so `status.header` and `home` move outside `saved`), or count `renderPlace()` calls in a browser check across a refresh.
+
+Applied: P1.5's mutation is now `renderHeader()` calling `renderPlace()`. Checked in `test/golden/capture.js` and `test/helpers/fakedom.js`: the capture records every element written, so `home` gains `locName`, `sub` and `credits` and `check` fails.
 
 #### R20. CLAUDE.md stays at phase 0 until P1.20, but every builder reads it first
 
@@ -208,6 +218,8 @@ Applied (owner decision, 2026-10-21): P1.8 commit 1 carries the dock point in th
 - Evidence: CLAUDE.md: "The service worker precaches the app shell only. It does not cache API responses."; "NWS alerts: `https://api.weather.gov/alerts/active?point=42.9607,-72.5219`".
 - Fix: Apply each approved CLAUDE.md sentence in the step that makes it true (the service worker sentence in P1.2, the app name and "Saved" in P1.5, the endpoints in P1.8), and keep P1.20 for the code map and the test list.
 
+Applied: `CLAUDE.md` is in the files and changes of P1.1 (the golden rules), P1.2 (the service worker sentence, revisions), P1.4 (routes, `src/putney.js`), P1.5 (the app name, "Saved"), P1.6 (the navigation sentence), P1.8 (the NWS facts, alert levels and endpoints, one commit each) and P1.9 (staleness). P1.20 item 1 checks they are there and writes the code map, the storage keys, the test locations and the test list. Section 2 row 16 says so.
+
 #### R21. Putney changes outside 07 3.2's list are not collected anywhere
 
 - Severity: minor.
@@ -215,6 +227,8 @@ Applied (owner decision, 2026-10-21): P1.8 commit 1 carries the dock point in th
 - Problem: Each of these follows a spec section, but 07 3.2's phase 1 row lists five changes, and 07 3.2 even puts "Saved in this browser for Putney Landing" in phase 2 while 01 11.6 puts it in phase 1. The plan never lists the extra changes in one place, so the owner cannot see what a Putney regular will notice, and the final proof checks only the five.
 - Evidence: 07 3.2's phase 1 row; 01 11.6 ("The intro note: ... Saved in this browser for Putney Landing."; "Reset defaults becomes "Use location defaults""); 07 6.4's install copy table.
 - Fix: Add a table to section 3 of every Putney-visible change by step, including those with no golden file, and update 07 3.2's phase 1 row from it with the owner's approval, so exit criterion 2 names the real list.
+
+Applied: new 3.7 lists 17 changes by step with the source, golden id and proof of each, including R1's dated label and "No data." after a failed refresh, R15's alert zones and R18's Tropical Storm Warning. Every row comes from an accepted README row, a 2026-10-21 decision or a cited spec section, so 07 3.2's phase 1 row, 09's exit criterion 2 and section 8 row 2 now point to 3.7 rather than restating it. The owner may still want to read the list once.
 
 ## Checked and well covered
 
