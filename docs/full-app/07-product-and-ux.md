@@ -1158,6 +1158,7 @@ Each is a dynamic `import()` with a stable file name, so Workbox patterns can in
 
 | Module | Loaded when | Precached | Size |
 | --- | --- | --- | --- |
+| `src/render/detail/views.js` (the nine detail views) | The first tab opened in a visit, or a start whose address has a tab hash | Yes (every tab offline) | 17 KB gzip (measured, P1.2a) |
 | `src/picker.js` with `src/compare.js` | First tap on the location name; the picker page | Yes (offline places) | 6 to 10 KB gzip (estimate) |
 | `src/map.js` with MapLibre | "Show map", the add flow's map steps, a hazard's "Show on map" or "Drop a pin" | No | 430 KB gzip (measured, 10.4) |
 | `src/add/` | `/add` | No | 10 to 15 KB gzip (estimate), plus the map |

@@ -75,8 +75,6 @@ export function hourTable(caption, heads, rows) {
   </table></div></details>`;
 }
 
-// The tab already names the view, so the heading is for screen readers and
-// the opening line leads.
-export function head(title, lede) {
-  return `<h2 id="detailTitle" class="vh">${esc(title)}</h2>${lede ? `<p class="lede">${esc(lede)}</p>` : ''}`;
-}
+// head() is in parts.js, in the main script, so that renderDetail() can draw
+// "Loading." without this module (P1.2a). The views import it from here.
+export { head } from '../parts.js';

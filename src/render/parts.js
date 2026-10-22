@@ -14,6 +14,12 @@ export function fact(label, val, note, lvl, href) {
 // A row with no note gives the age alone.
 export const readNote = (row, t) => `${row?.note ? row.note + ' ' : ''}${ago(t)}.`;
 
+// The tab already names the view, so the heading is for screen readers and
+// the opening line leads.
+export function head(title, lede) {
+  return `<h2 id="detailTitle" class="vh">${esc(title)}</h2>${lede ? `<p class="lede">${esc(lede)}</p>` : ''}`;
+}
+
 export function compassSVG(heading, banks, dir, speed) {
   let s = '<circle class="c-ring" r="62"/>';
   s += '<text class="c-card" x="0" y="-48" text-anchor="middle">N</text>';
