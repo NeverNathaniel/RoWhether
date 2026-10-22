@@ -1,12 +1,6 @@
 // Fetch from the keyless public APIs. The parsers live with their adapters in
-// src/sources/ and are re-exported here under their old names.
+// src/sources/.
 import { bindingsFor } from './sources/index.js';
-import { alertLevel, speedToMph, parseAlerts, parseObs } from './sources/nws.js';
-import { parseRiver, parseFlow, parseFlowDays } from './sources/usgs.js';
-import { parseFlowForecast } from './sources/nwps.js';
-import { parseAQ, parseModels } from './sources/openmeteo.js';
-
-export { alertLevel, speedToMph, parseAlerts, parseObs, parseRiver, parseFlow, parseFlowDays, parseFlowForecast, parseAQ, parseModels };
 
 export async function fetchJSON(url, ms = 15000) {
   const ctl = new AbortController();
