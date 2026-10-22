@@ -8,10 +8,13 @@
 // in src/config.js disagrees with this file and fails. One test compares the
 // two tables to the same literals.
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
-import { KEYS, OLD_KEYS } from '../src/config.js';
+import { readFileSync } from 'node:fs';
+import { KEYS, OLD_KEYS, OLD_PUTNEY_DEFAULTS, CACHE_MAX, RECENT_MAX } from '../src/config.js';
 import {
   migrateStorage, loadOverrides, saveOverrides, hasSavedSettings, nudgeDismissed, dismissNudge,
-  loadCache, saveCache, loadPlan, savePlan, loadInstall, saveInstall
+  loadCache, saveCache, loadPlan, savePlan, loadInstall, saveInstall,
+  loadRecord, saveRecord, loadLast, saveLast, touchCache, trimCaches, loadRecent, pushRecent,
+  pickHintDismissed, dismissPickHint
 } from '../src/storage.js';
 import { overridesOf } from '../src/location.js';
 import { PUTNEY_DEFAULTS } from '../src/putney.js';
@@ -19,13 +22,19 @@ import { PUTNEY_DEFAULTS } from '../src/putney.js';
 const NOW = 1760700000000;
 
 // A Storage that works like the browser's. `fail(op, key)` makes an operation
-// throw (op is 'get', 'set', 'key'); `log` lists every get and set as [op, key].
+// throw (op is 'get', 'set', 'key'): a set throws QuotaExceededError, or the
+// Error that `fail` returns; `log` lists every get and set as [op, key].
 function makeStorage(seed = {}, fail = () => false) {
   const map = new Map(Object.entries(seed).map(([k, v]) => [k, String(v)]));
   const log = [];
   const api = {
     getItem(k) { log.push(['get', String(k)]); if (fail('get', String(k))) throw new Error('read failed'); return map.has(String(k)) ? map.get(String(k)) : null; },
-    setItem(k, v) { log.push(['set', String(k)]); if (fail('set', String(k))) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError'); map.set(String(k), String(v)); },
+    setItem(k, v) {
+      log.push(['set', String(k)]);
+      const f = fail('set', String(k));
+      if (f) throw f instanceof Error ? f : new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+      map.set(String(k), String(v));
+    },
     removeItem(k) { map.delete(String(k)); },
     clear() { map.clear(); },
     key(i) { if (fail('key', String(i))) throw new Error('key failed'); return [...map.keys()][i] ?? null; }
@@ -46,6 +55,8 @@ function brokenStorage() {
 
 // A failure for the first matching call only.
 const once = match => { let spent = false; return (op, key) => { if (spent || !match(op, key)) return false; return (spent = true); }; };
+// A failure for the first n matching calls, with the error to throw (a set throws QuotaExceededError when none).
+const times = (n, match, err = true) => { let left = n; return (op, key) => { if (left <= 0 || !match(op, key)) return false; left--; return err; }; };
 
 let ls;
 const use = (seed, fail) => { ls = makeStorage(seed, fail); vi.stubGlobal('localStorage', ls.store); return ls; };
@@ -72,16 +83,24 @@ const putneySettings = values => JSON.stringify({ 'putney-landing': { saved: NOW
 
 describe('the key tables', () => {
   it('name the keys 08 8.2 and 8.3 list', () => {
-    expect({ ...KEYS, cache: KEYS.cache('putney-landing') }).toEqual({
+    expect({ ...KEYS, cache: KEYS.cache('putney-landing'), loc: KEYS.loc('putney-landing') }).toEqual({
       settings: 'rowhether-settings-v2',
       cache: 'rowhether-cache-v2:putney-landing',
       plan: 'rowhether-plan-v1',
       install: 'rowhether-install-v1',
       nudge: 'rowhether-nudge-v1',
       migrated: 'rowhether-migrated-v1',
-      last: 'rowhether-last-v1'
+      last: 'rowhether-last-v1',
+      loc: 'rowhether-loc-v1:putney-landing',
+      cacheIndex: 'rowhether-cache-index-v1',
+      recent: 'rowhether-recent-v1',
+      pickhint: 'rowhether-pickhint-v1'
     });
     expect(KEYS.cache('at:42.961,-72.522')).toBe('rowhether-cache-v2:at:42.961,-72.522');
+    expect(KEYS.loc('lake-natoma')).toBe('rowhether-loc-v1:lake-natoma');
+    // 07 9.2 keeps 10 locations and 01 8.6 keeps 8 recent ones. The tests below write the numbers out.
+    expect(CACHE_MAX).toBe(10);
+    expect(RECENT_MAX).toBe(8);
     expect(OLD_KEYS).toEqual({
       settings: 'putney-rowing-settings-v1',
       cache: 'putney-rowing-cache-v1',
@@ -328,7 +347,11 @@ describe('migrateStorage', () => {
       nudgeDismissed: () => nudgeDismissed(),
       loadCache: () => loadCache('putney-landing'),
       loadPlan: () => loadPlan(),
-      loadInstall: () => loadInstall()
+      loadInstall: () => loadInstall(),
+      loadRecord: () => loadRecord('putney-landing'),
+      loadLast: () => loadLast(),
+      loadRecent: () => loadRecent(),
+      pickHintDismissed: () => pickHintDismissed()
     };
     for (const [name, load] of Object.entries(loaders)) {
       use(oldKeys());
@@ -453,6 +476,416 @@ describe('cache, plan, install and the reminder', () => {
   });
 });
 
+// Many locations (P1.3, 07 9.2, 01 8.6). Keys are written out, as above.
+const cacheKey = s => 'rowhether-cache-v2:' + s;
+const recordKey = s => 'rowhether-loc-v1:' + s;
+const INDEX = 'rowhether-cache-index-v1';
+const recordOf = slug => ({ v: 1, slug, name: slug.toUpperCase(), revision: 2 });
+const index = () => JSON.parse(ls.map.get(INDEX));
+const slugs = n => Array.from({ length: n }, (_, i) => 'lake-' + String.fromCharCode(97 + i)); // lake-a, lake-b, ...
+// Opens one location as the app will: its data, its record, its place in the index, then the cap.
+const visit = (s, t) => { saveCache(s, { n: s }, t); saveRecord(s, recordOf(s)); touchCache(s, t); return trimCaches(s); };
+// Opens each in turn, the first at 1000 and the rest 10 later each. Returns what each opening dropped.
+const visitAll = list => list.map((s, i) => visit(s, 1000 + i * 10));
+// Every slug in the index with a cache or a record still stored.
+const held = () => Object.keys(index()).filter(s => ls.map.has(cacheKey(s)) || ls.map.has(recordKey(s))).sort();
+const gone = s => !ls.map.has(cacheKey(s)) && !ls.map.has(recordKey(s));
+
+describe('location records', () => {
+  const REC = { v: 1, slug: 'lake-natoma', name: 'Lake Natoma', revision: 3 };
+  beforeEach(() => use({ 'rowhether-migrated-v1': '1' }));
+
+  it('keeps each record under its own key, with the time it was saved', () => {
+    saveRecord('lake-natoma', REC);
+    expect(JSON.parse(ls.map.get('rowhether-loc-v1:lake-natoma'))).toEqual({ record: REC, fetchedAt: NOW });
+    expect(loadRecord('lake-natoma')).toEqual({ record: REC, fetchedAt: NOW });
+    expect(loadRecord('putney-landing')).toBeNull();
+    saveRecord('putney-landing', { ...REC, slug: 'putney-landing' });
+    expect(loadRecord('lake-natoma').record.slug).toBe('lake-natoma');
+    expect(loadRecord('putney-landing').record.slug).toBe('putney-landing');
+  });
+
+  it('writes only its own key', () => {
+    saveRecord('lake-natoma', REC);
+    expect(Object.keys(ls.dump()).sort()).toEqual(['rowhether-loc-v1:lake-natoma', 'rowhether-migrated-v1']);
+  });
+
+  it('gives null for anything that is not a saved record', () => {
+    for (const raw of ['not json', '', 'null', '[]', '"x"', '{}', '{"fetchedAt":1}', '{"record":null,"fetchedAt":1}', '{"record":"x","fetchedAt":1}']) {
+      ls.map.set('rowhether-loc-v1:bad', raw);
+      expect(loadRecord('bad'), raw).toBeNull();
+    }
+  });
+
+  it('reads a record with no usable time as saved at 0, so it counts as old', () => {
+    for (const raw of ['{"record":{"v":1}}', '{"record":{"v":1},"fetchedAt":"soon"}', '{"record":{"v":1},"fetchedAt":null}']) {
+      ls.map.set('rowhether-loc-v1:odd', raw);
+      expect(loadRecord('odd'), raw).toEqual({ record: { v: 1 }, fetchedAt: 0 });
+    }
+  });
+});
+
+describe('the last location', () => {
+  it('is none until one is saved, then the slug as written', () => {
+    use({ 'rowhether-migrated-v1': '1' });
+    expect(loadLast()).toBeNull();
+    saveLast('lake-natoma');
+    expect(ls.map.get('rowhether-last-v1')).toBe('lake-natoma');
+    expect(loadLast()).toBe('lake-natoma');
+    saveLast('putney-landing');
+    expect(loadLast()).toBe('putney-landing');
+    ls.map.set('rowhether-last-v1', '');
+    expect(loadLast()).toBeNull();
+  });
+
+  it('is Putney for an old install, which the move wrote', () => {
+    use(oldKeys());
+    expect(loadLast()).toBe('putney-landing');
+  });
+
+  it('is none for a browser with no old keys', () => {
+    use({ 'other-app-key': '1' });
+    expect(loadLast()).toBeNull();
+  });
+});
+
+describe('the index of cached locations', () => {
+  beforeEach(() => use({ 'rowhether-migrated-v1': '1' }));
+
+  it('records when each location was opened, and keeps the others', () => {
+    touchCache('lake-a', 1000);
+    touchCache('lake-b', 2000);
+    expect(index()).toEqual({ 'lake-a': 1000, 'lake-b': 2000 });
+    touchCache('lake-a', 3000);
+    expect(index()).toEqual({ 'lake-a': 3000, 'lake-b': 2000 });
+  });
+
+  it('uses the time now when none is given', () => {
+    touchCache('lake-a');
+    expect(index()).toEqual({ 'lake-a': NOW });
+  });
+
+  it('reads a damaged index as empty, and drops entries with no time', () => {
+    for (const [raw, kept] of [['not json', {}], ['[1,2]', {}], ['"x"', {}], ['null', {}], ['{"x":"soon","y":null,"z":5}', { z: 5 }]]) {
+      ls.map.set(INDEX, raw);
+      touchCache('lake-a', 1000);
+      expect(index(), raw).toEqual({ ...kept, 'lake-a': 1000 });
+    }
+  });
+});
+
+describe('the cap on cached locations', () => {
+  beforeEach(() => use({ 'rowhether-migrated-v1': '1' }));
+
+  it('keeps 10, and an 11th drops the least recently opened with its data, record and index entry', () => {
+    const all = slugs(11);
+    const dropped = visitAll(all);
+    expect(dropped.slice(0, 10)).toEqual(Array(10).fill([]));
+    expect(dropped[10]).toEqual(['lake-a']);
+    expect(gone('lake-a')).toBe(true);
+    expect(Object.keys(index()).sort()).toEqual(all.slice(1));
+    expect(held()).toEqual(all.slice(1));
+    for (const s of all.slice(1)) expect([ls.map.has(cacheKey(s)), ls.map.has(recordKey(s))], s).toEqual([true, true]);
+  });
+
+  it('drops one more for each one opened after that', () => {
+    expect(visitAll(slugs(12)).slice(10)).toEqual([['lake-a'], ['lake-b']]);
+    expect(Object.keys(index()).sort()).toEqual(slugs(12).slice(2));
+  });
+
+  it('drops as many as it takes to get back to 10, oldest first', () => {
+    slugs(13).forEach((s, i) => { saveCache(s, {}, i); touchCache(s, 1000 + i * 10); });
+    expect(trimCaches('lake-m')).toEqual(['lake-a', 'lake-b', 'lake-c']);
+    expect(Object.keys(index())).toHaveLength(10);
+  });
+
+  it('counts a location opened again as recent', () => {
+    visitAll(slugs(10));
+    touchCache('lake-a', 5000);
+    expect(visit('lake-k', 6000)).toEqual(['lake-b']);
+    expect(held()).toContain('lake-a');
+  });
+
+  it('never drops the current location, even when it is the oldest', () => {
+    slugs(11).forEach((s, i) => touchCache(s, 1000 + i * 10));
+    expect(trimCaches('lake-a')).toEqual(['lake-b']);
+    expect(Object.keys(index())).toContain('lake-a');
+  });
+
+  it('never drops a protected location', () => {
+    slugs(11).forEach((s, i) => touchCache(s, 1000 + i * 10));
+    expect(trimCaches('lake-k', ['lake-a', 'lake-b'])).toEqual(['lake-c']);
+    expect(Object.keys(index())).toEqual(expect.arrayContaining(['lake-a', 'lake-b', 'lake-k']));
+  });
+
+  it('stops when everything over 10 is current or protected', () => {
+    const all = slugs(11);
+    all.forEach((s, i) => touchCache(s, 1000 + i * 10));
+    expect(trimCaches('lake-a', all.slice(1))).toEqual([]);
+    expect(Object.keys(index())).toHaveLength(11);
+  });
+
+  it('drops what it can before it stops', () => {
+    const all = slugs(12);
+    all.forEach((s, i) => touchCache(s, 1000 + i * 10));
+    expect(trimCaches('lake-a', all.slice(1, 11))).toEqual(['lake-l']);
+    expect(Object.keys(index())).toHaveLength(11);
+  });
+
+  it('takes the first by name when two were opened at the same time', () => {
+    slugs(11).reverse().forEach(s => touchCache(s, 1000));
+    expect(trimCaches('lake-z')).toEqual(['lake-a']);
+  });
+
+  it('leaves settings, the last location, the recent list and everything else alone', () => {
+    use({ 'rowhether-migrated-v1': '1', 'other-app-key': 'x' });
+    saveOverrides('lake-a', { windCaution: 8 });
+    savePlan({ minutes: 120, when: 'any' });
+    saveInstall({ dismissed: 2, never: false });
+    dismissNudge();
+    dismissPickHint();
+    pushRecent('lake-a');
+    saveLast('lake-a');
+    visitAll(slugs(11));
+    expect(gone('lake-a')).toBe(true);
+    expect(loadOverrides('lake-a')).toEqual({ windCaution: 8 });
+    expect(loadPlan()).toEqual({ minutes: 120, when: 'any' });
+    expect(loadInstall()).toEqual({ dismissed: 2, never: false });
+    expect(nudgeDismissed()).toBe(true);
+    expect(pickHintDismissed()).toBe(true);
+    expect(loadRecent()).toEqual(['lake-a']);
+    expect(loadLast()).toBe('lake-a');
+    expect(ls.map.get('other-app-key')).toBe('x');
+  });
+
+  it('counts only the index: a cache with no entry there is kept', () => {
+    saveCache('putney-landing', { n: 'old' }, 1);
+    visitAll(slugs(11));
+    expect(loadCache('putney-landing')).toEqual({ data: { n: 'old' }, updated: 1 });
+    expect(gone('lake-a')).toBe(true);
+  });
+
+  it('does nothing, without an error, when the index cannot be read', () => {
+    slugs(11).forEach((s, i) => { saveCache(s, {}, i); touchCache(s, 1000 + i * 10); });
+    use(ls.dump(), (op, key) => key === INDEX);
+    expect(trimCaches('lake-k')).toEqual([]);
+    expect([...ls.map.keys()].filter(k => k.startsWith('rowhether-cache-v2:'))).toHaveLength(11);
+  });
+
+  it('stops, without an error, when the index cannot be written', () => {
+    slugs(11).forEach((s, i) => { saveCache(s, {}, i); touchCache(s, 1000 + i * 10); });
+    use(ls.dump(), (op, key) => op === 'set' && key === INDEX);
+    expect(() => trimCaches('lake-k')).not.toThrow();
+  });
+
+  it('ends after dropping what is over, even when the store ignores a write of the index', () => {
+    slugs(12).forEach((s, i) => { saveCache(s, {}, i); touchCache(s, 1000 + i * 10); });
+    // The index never shrinks, so the same location is the oldest every time. A loop that waits for the index
+    // to shrink would not end. The removals are counted and cut off, so that it fails here and does not hang.
+    const set = ls.store.setItem.bind(ls.store);
+    const remove = ls.store.removeItem.bind(ls.store);
+    let removals = 0;
+    ls.store.setItem = (k, v) => { if (k !== INDEX) set(k, v); };
+    ls.store.removeItem = k => { if (++removals > 100) throw new Error('too many removals'); remove(k); };
+    expect(trimCaches('lake-z')).toHaveLength(2);
+    expect(removals).toBe(4);
+  });
+});
+
+describe('saveCache with a full store', () => {
+  const onTarget = (op, key) => op === 'set' && key === 'rowhether-cache-v2:lake-z';
+  const cacheSets = s => ls.log.filter(([op, k]) => op === 'set' && k === cacheKey(s)).length;
+  const error = name => (name === 'Error' ? new Error('boom') : new DOMException('The store refused it.', name));
+
+  it('drops the two oldest locations when the store is full twice, then saves', () => {
+    use({ 'rowhether-migrated-v1': '1' }, times(2, onTarget));
+    visitAll(slugs(6));
+    touchCache('lake-z', 9000);
+    saveCache('lake-z', { n: 'z' }, 9);
+    expect(JSON.parse(ls.map.get('rowhether-cache-v2:lake-z'))).toEqual({ data: { n: 'z' }, updated: 9 });
+    expect(cacheSets('lake-z')).toBe(3);
+    expect(gone('lake-a') && gone('lake-b')).toBe(true);
+    expect(Object.keys(index()).sort()).toEqual(['lake-c', 'lake-d', 'lake-e', 'lake-f', 'lake-z']);
+    expect(held()).toEqual(['lake-c', 'lake-d', 'lake-e', 'lake-f', 'lake-z']);
+  });
+
+  it('gives up after three drops, without an error', () => {
+    use({ 'rowhether-migrated-v1': '1' }, times(99, onTarget));
+    visitAll(slugs(6));
+    touchCache('lake-z', 9000);
+    expect(() => saveCache('lake-z', {}, 9)).not.toThrow();
+    expect(cacheSets('lake-z')).toBe(4);
+    expect(Object.keys(index()).sort()).toEqual(['lake-d', 'lake-e', 'lake-f', 'lake-z']);
+    expect(ls.map.has('rowhether-cache-v2:lake-z')).toBe(false);
+  });
+
+  it('drops others, not the location being saved, even when it is the oldest', () => {
+    use({ 'rowhether-migrated-v1': '1' }, times(1, onTarget));
+    touchCache('lake-z', 1);
+    visitAll(slugs(3));
+    saveCache('lake-z', { n: 'z' }, 9);
+    expect(Object.keys(index()).sort()).toEqual(['lake-b', 'lake-c', 'lake-z']);
+    expect(loadCache('lake-z')).toEqual({ data: { n: 'z' }, updated: 9 });
+  });
+
+  it('stops at once when there is nothing else to drop', () => {
+    use({ 'rowhether-migrated-v1': '1' }, times(99, onTarget));
+    touchCache('lake-z', 1);
+    expect(() => saveCache('lake-z', {}, 9)).not.toThrow();
+    expect(cacheSets('lake-z')).toBe(1);
+    expect(index()).toEqual({ 'lake-z': 1 });
+  });
+
+  it('leaves protected locations alone', () => {
+    use({ 'rowhether-migrated-v1': '1' }, times(1, onTarget));
+    visitAll(slugs(3));
+    touchCache('lake-z', 9000);
+    saveCache('lake-z', {}, 9, ['lake-a']);
+    expect(Object.keys(index()).sort()).toEqual(['lake-a', 'lake-c', 'lake-z']);
+  });
+
+  it.each([
+    ['QuotaExceededError', true],
+    ['NS_ERROR_DOM_QUOTA_REACHED', true],
+    ['SecurityError', false],
+    ['Error', false]
+  ])('%s: drops a location is %s', (name, drops) => {
+    use({ 'rowhether-migrated-v1': '1' }, times(1, onTarget, error(name)));
+    visitAll(slugs(3));
+    touchCache('lake-z', 9000);
+    saveCache('lake-z', {}, 9);
+    expect(Object.keys(index())).toHaveLength(drops ? 3 : 4);
+    expect(ls.map.has('rowhether-cache-v2:lake-z')).toBe(drops);
+  });
+
+  it('gives up quietly when it cannot make room, because the index cannot be written', () => {
+    let armed = false;
+    use({ 'rowhether-migrated-v1': '1' }, (op, key) => armed && op === 'set' && (key === INDEX || onTarget(op, key)));
+    visitAll(slugs(3));
+    touchCache('lake-z', 9000);
+    armed = true;
+    expect(() => saveCache('lake-z', {}, 9)).not.toThrow();
+    expect(cacheSets('lake-z')).toBe(1);
+    expect(ls.map.has('rowhether-cache-v2:lake-z')).toBe(false);
+  });
+
+  it('gives up quietly on data that cannot be written as text', () => {
+    use({ 'rowhether-migrated-v1': '1' });
+    const loop = {};
+    loop.self = loop;
+    expect(() => saveCache('lake-z', loop, 9)).not.toThrow();
+    expect(ls.map.has('rowhether-cache-v2:lake-z')).toBe(false);
+  });
+
+  it('drops nothing when the save works, even with more than 10 in the index', () => {
+    use({ 'rowhether-migrated-v1': '1' });
+    slugs(11).forEach((s, i) => touchCache(s, 1000 + i * 10));
+    saveCache('lake-k', { n: 'k' }, 1);
+    expect(Object.keys(index())).toHaveLength(11);
+    expect(loadCache('lake-k')).toEqual({ data: { n: 'k' }, updated: 1 });
+  });
+});
+
+describe('recent locations', () => {
+  beforeEach(() => use({ 'rowhether-migrated-v1': '1' }));
+
+  it('lists the newest first, with no repeats', () => {
+    expect(loadRecent()).toEqual([]);
+    pushRecent('lake-a');
+    pushRecent('lake-b');
+    pushRecent('lake-c');
+    expect(ls.map.get('rowhether-recent-v1')).toBe('["lake-c","lake-b","lake-a"]');
+    pushRecent('lake-a');
+    expect(loadRecent()).toEqual(['lake-a', 'lake-c', 'lake-b']);
+    pushRecent('lake-a');
+    expect(loadRecent()).toEqual(['lake-a', 'lake-c', 'lake-b']);
+  });
+
+  it('keeps 8', () => {
+    for (const s of slugs(10)) pushRecent(s);
+    expect(loadRecent()).toEqual(['lake-j', 'lake-i', 'lake-h', 'lake-g', 'lake-f', 'lake-e', 'lake-d', 'lake-c']);
+    ls.map.set('rowhether-recent-v1', JSON.stringify(slugs(12)));
+    pushRecent('lake-z');
+    expect(loadRecent()).toEqual(['lake-z', 'lake-a', 'lake-b', 'lake-c', 'lake-d', 'lake-e', 'lake-f', 'lake-g']);
+  });
+
+  it('reads what is not a list as no list, and drops entries that are not text', () => {
+    for (const [raw, want] of [['not json', []], ['{"a":1}', []], ['"x"', []], ['[1,"lake-a",null,"lake-b"]', ['lake-a', 'lake-b']]]) {
+      ls.map.set('rowhether-recent-v1', raw);
+      expect(loadRecent(), raw).toEqual(want);
+    }
+  });
+
+  it('writes a clean list over a damaged one', () => {
+    ls.map.set('rowhether-recent-v1', '[1,2,null]');
+    pushRecent('lake-a');
+    expect(ls.map.get('rowhether-recent-v1')).toBe('["lake-a"]');
+  });
+});
+
+describe('the pick hint', () => {
+  beforeEach(() => use({ 'rowhether-migrated-v1': '1' }));
+
+  it('is dismissed once, in this browser', () => {
+    expect(pickHintDismissed()).toBe(false);
+    dismissPickHint();
+    expect(ls.map.get('rowhether-pickhint-v1')).toBe('1');
+    expect(pickHintDismissed()).toBe(true);
+  });
+
+  it('is separate from the Settings reminder', () => {
+    dismissPickHint();
+    expect(nudgeDismissed()).toBe(false);
+    use({ 'rowhether-migrated-v1': '1' });
+    dismissNudge();
+    expect(pickHintDismissed()).toBe(false);
+  });
+});
+
+describe('an old install and the new loaders', () => {
+  it('opens on Putney with its cache, and has no record, recent list or hint yet', () => {
+    use(oldKeys());
+    expect(loadLast()).toBe('putney-landing');
+    expect(loadCache('putney-landing')).toEqual({ data: JSON.parse(OLD_CACHE).data, updated: 1760690000000 });
+    expect(loadRecord('putney-landing')).toBeNull();
+    expect(loadRecent()).toEqual([]);
+    expect(pickHintDismissed()).toBe(false);
+  });
+});
+
+describe('the old settings, read against the values Putney had before phase 1', () => {
+  it('OLD_PUTNEY_DEFAULTS is those 13 values, frozen', () => {
+    expect(OLD_PUTNEY_DEFAULTS).toEqual(OLD_DEFAULTS);
+    expect(Object.isFrozen(OLD_PUTNEY_DEFAULTS)).toBe(true);
+  });
+
+  // The guard that the freeze was copied right. If Putney's record changes on
+  // purpose, this fails: keep OLD_PUTNEY_DEFAULTS as it is, since the old
+  // settings were made against it, and change this comparison to say so.
+  it("equals Putney's defaults today", () => {
+    expect(OLD_PUTNEY_DEFAULTS).toEqual(PUTNEY_DEFAULTS);
+  });
+
+  it('does not depend on src/putney.js: not imported, and not read when its values differ', async () => {
+    const source = readFileSync(new URL('../src/storage.js', import.meta.url), 'utf8');
+    const imports = source.split('\n').filter(l => /^\s*import\b/.test(l));
+    expect(imports.length).toBeGreaterThan(0);
+    expect(imports.filter(l => /putney/.test(l))).toEqual([]);
+    // Old settings that equal the old defaults must store no values, even if Putney's record gave other defaults.
+    vi.doMock('../src/putney.js', () => ({ PUTNEY_DEFAULTS: { ...OLD_DEFAULTS, windCaution: 99, heading: 99 } }));
+    try {
+      vi.resetModules();
+      const fresh = await import('../src/storage.js');
+      use({ 'putney-rowing-settings-v1': JSON.stringify(OLD_DEFAULTS) });
+      fresh.migrateStorage();
+      expect(JSON.parse(ls.map.get('rowhether-settings-v2'))['putney-landing'].values).toEqual({});
+    } finally {
+      vi.doUnmock('../src/putney.js');
+      vi.resetModules();
+    }
+  });
+});
+
 describe('storage that throws', () => {
   const everyLoader = () => ({
     overrides: loadOverrides('putney-landing'),
@@ -460,10 +893,15 @@ describe('storage that throws', () => {
     nudge: nudgeDismissed(),
     cache: loadCache('putney-landing'),
     plan: loadPlan(),
-    install: loadInstall()
+    install: loadInstall(),
+    record: loadRecord('putney-landing'),
+    last: loadLast(),
+    recent: loadRecent(),
+    pickHint: pickHintDismissed()
   });
   const defaults = {
-    overrides: {}, saved: false, nudge: false, cache: null, plan: { minutes: 90, when: 'any' }, install: { dismissed: 0, never: false }
+    overrides: {}, saved: false, nudge: false, cache: null, plan: { minutes: 90, when: 'any' }, install: { dismissed: 0, never: false },
+    record: null, last: null, recent: [], pickHint: false
   };
 
   it('gives every loader its default, and no saver throws', () => {
@@ -476,7 +914,13 @@ describe('storage that throws', () => {
       savePlan({ minutes: 60, when: 'any' });
       saveInstall({ dismissed: 1, never: false });
       dismissNudge();
+      saveRecord('putney-landing', { v: 1 });
+      saveLast('putney-landing');
+      touchCache('putney-landing', 1);
+      pushRecent('putney-landing');
+      dismissPickHint();
     }).not.toThrow();
+    expect(trimCaches('putney-landing')).toEqual([]);
   });
 
   it('gives defaults when only some calls throw', () => {
@@ -506,7 +950,13 @@ describe('storage that throws', () => {
       expect(fresh.loadCache('putney-landing')).toBeNull();
       expect(fresh.loadPlan()).toEqual({ minutes: 90, when: 'any' });
       expect(fresh.loadInstall()).toEqual({ dismissed: 0, never: false });
+      expect(fresh.loadRecord('putney-landing')).toBeNull();
+      expect(fresh.loadLast()).toBeNull();
+      expect(fresh.loadRecent()).toEqual([]);
+      expect(fresh.pickHintDismissed()).toBe(false);
       expect(() => { fresh.saveOverrides('putney-landing', {}); fresh.saveCache('putney-landing', {}, 1); fresh.savePlan({}); fresh.saveInstall({}); fresh.dismissNudge(); }).not.toThrow();
+      expect(() => { fresh.saveRecord('putney-landing', {}); fresh.saveLast('putney-landing'); fresh.touchCache('putney-landing', 1); fresh.pushRecent('putney-landing'); fresh.dismissPickHint(); }).not.toThrow();
+      expect(fresh.trimCaches('putney-landing')).toEqual([]);
       // The state module reads storage while it loads, and still builds Putney.
       const { app } = await import('../src/state.js');
       expect(app.loc.slug).toBe('putney-landing');

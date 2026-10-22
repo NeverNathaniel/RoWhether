@@ -1,9 +1,9 @@
-// Settings overrides, last-good-data cache, Plan a row choices, install bar
-// state and the Settings reminder in localStorage (08 section 8). Every access
-// is guarded. Every loader first calls migrateStorage(), which moves the old
-// putney-rowing-* keys to the new ones once.
-import { KEYS, OLD_KEYS } from './config.js';
-import { PUTNEY_DEFAULTS } from './putney.js';
+// Settings overrides, last-good-data cache, location records, the last and
+// recent locations, Plan a row choices, install bar state and the Settings
+// reminder in localStorage (08 section 8). Every access is guarded. Every
+// loader first calls migrateStorage(), which moves the old putney-rowing-* keys
+// to the new ones once.
+import { KEYS, OLD_KEYS, OLD_PUTNEY_DEFAULTS, CACHE_MAX, RECENT_MAX } from './config.js';
 import { overridesOf } from './location.js';
 
 // The one location the old keys held.
@@ -33,16 +33,16 @@ export function migrateStorage() {
     if (v !== null && absent(to)) localStorage.setItem(to, v);
   });
 
-  // Settings: only what differs from Putney's defaults. `saved` keeps the
-  // reminder hidden for people who saved before.
+  // Settings: only what differs from Putney's defaults before phase 1. `saved`
+  // keeps the reminder hidden for people who saved before.
   step(() => {
     const raw = localStorage.getItem(OLD_KEYS.settings);
     if (raw === null || !absent(KEYS.settings)) return;
     let old = {};
     try { const s = JSON.parse(raw); if (s && typeof s === 'object') old = s; } catch (e) { /* unreadable, as it was before */ }
-    const S = { ...PUTNEY_DEFAULTS };
+    const S = { ...OLD_PUTNEY_DEFAULTS };
     for (const k of Object.keys(S)) { const v = oldValue(k, old[k]); if (v !== undefined) S[k] = v; }
-    localStorage.setItem(KEYS.settings, JSON.stringify({ [OLD_SLUG]: { saved: Date.now(), values: overridesOf(S, PUTNEY_DEFAULTS) } }));
+    localStorage.setItem(KEYS.settings, JSON.stringify({ [OLD_SLUG]: { saved: Date.now(), values: overridesOf(S, OLD_PUTNEY_DEFAULTS) } }));
   });
   copy(OLD_KEYS.cache, KEYS.cache(OLD_SLUG));
   copy(OLD_KEYS.plan, KEYS.plan);
@@ -94,6 +94,49 @@ export function dismissNudge() {
   try { localStorage.setItem(KEYS.nudge, '1'); } catch (e) { /* storage blocked */ }
 }
 
+// The slugs with a cache and a record, as { slug: last opened ms } (07 9.2).
+// Entries with no time are dropped.
+function cacheIndex() {
+  try {
+    const x = JSON.parse(localStorage.getItem(KEYS.cacheIndex) || 'null');
+    if (x && typeof x === 'object' && !Array.isArray(x)) return Object.fromEntries(Object.entries(x).filter(([, t]) => Number.isFinite(t)));
+  } catch (e) { /* storage blocked */ }
+  return {};
+}
+export function touchCache(slug, now = Date.now()) {
+  try { localStorage.setItem(KEYS.cacheIndex, JSON.stringify({ ...cacheIndex(), [slug]: now })); } catch (e) { /* storage blocked */ }
+}
+// Drops the cache and the record of the least recently opened location that is
+// not `current` or in `protect`, then its index entry. Returns its slug, or null
+// when there is none to drop. Throws when storage does.
+function dropOldest(current, protect) {
+  const index = cacheIndex();
+  const [slug] = Object.keys(index)
+    .filter(s => s !== current && !protect.includes(s))
+    .sort((a, b) => index[a] - index[b] || (a < b ? -1 : 1));
+  if (slug === undefined) return null;
+  localStorage.removeItem(KEYS.cache(slug));
+  localStorage.removeItem(KEYS.loc(slug));
+  delete index[slug];
+  localStorage.setItem(KEYS.cacheIndex, JSON.stringify(index));
+  return slug;
+}
+// While more than CACHE_MAX locations are in the index, drops the least recently
+// opened one that is neither `current` nor protected (favorites, from phase 2).
+// Returns the slugs dropped, oldest first. It runs at most as many times as the
+// index is over, so a store that ignores a write cannot make it loop.
+export function trimCaches(current, protect = []) {
+  const dropped = [];
+  try {
+    for (let over = Object.keys(cacheIndex()).length - CACHE_MAX; over > 0; over--) {
+      const slug = dropOldest(current, protect);
+      if (slug === null) break;
+      dropped.push(slug);
+    }
+  } catch (e) { /* storage blocked */ }
+  return dropped;
+}
+
 export function loadCache(slug) {
   migrateStorage();
   try {
@@ -102,8 +145,64 @@ export function loadCache(slug) {
   } catch (e) { /* ignore */ }
   return null;
 }
-export function saveCache(slug, data, updated) {
-  try { localStorage.setItem(KEYS.cache(slug), JSON.stringify({ data, updated })); } catch (e) { /* quota or blocked */ }
+// When the store is full, drops the least recently opened location and tries
+// again, up to 3 times, then gives up quietly. `slug` itself is never dropped.
+const QUOTA_RETRIES = 3;
+const isQuota = e => e?.name === 'QuotaExceededError' || e?.name === 'NS_ERROR_DOM_QUOTA_REACHED';
+export function saveCache(slug, data, updated, protect = []) {
+  try {
+    const json = JSON.stringify({ data, updated });
+    for (let tries = 0; tries <= QUOTA_RETRIES; tries++) {
+      try { localStorage.setItem(KEYS.cache(slug), json); return; } catch (e) {
+        if (!isQuota(e) || tries === QUOTA_RETRIES || dropOldest(slug, protect) === null) return;
+      }
+    }
+  } catch (e) { /* storage blocked */ }
+}
+
+// A location's record, as { record, fetchedAt }. The reader of the record checks
+// its version and slug.
+export function loadRecord(slug) {
+  migrateStorage();
+  try {
+    const c = JSON.parse(localStorage.getItem(KEYS.loc(slug)) || 'null');
+    if (c && c.record && typeof c.record === 'object') return { record: c.record, fetchedAt: Number.isFinite(c.fetchedAt) ? c.fetchedAt : 0 };
+  } catch (e) { /* ignore */ }
+  return null;
+}
+export function saveRecord(slug, record) {
+  try { localStorage.setItem(KEYS.loc(slug), JSON.stringify({ record, fetchedAt: Date.now() })); } catch (e) { /* quota or blocked */ }
+}
+
+// The slug of the location opened last, or null.
+export function loadLast() {
+  migrateStorage();
+  try { return localStorage.getItem(KEYS.last) || null; } catch (e) { return null; }
+}
+export function saveLast(slug) {
+  try { localStorage.setItem(KEYS.last, slug); } catch (e) { /* storage blocked */ }
+}
+
+// The last RECENT_MAX locations opened, newest first.
+export function loadRecent() {
+  migrateStorage();
+  try {
+    const r = JSON.parse(localStorage.getItem(KEYS.recent) || 'null');
+    if (Array.isArray(r)) return r.filter(s => typeof s === 'string');
+  } catch (e) { /* storage blocked */ }
+  return [];
+}
+export function pushRecent(slug) {
+  try { localStorage.setItem(KEYS.recent, JSON.stringify([slug, ...loadRecent().filter(s => s !== slug)].slice(0, RECENT_MAX))); } catch (e) { /* storage blocked */ }
+}
+
+// True once "Not your water?" has been dismissed in this browser.
+export function pickHintDismissed() {
+  migrateStorage();
+  try { return localStorage.getItem(KEYS.pickhint) !== null; } catch (e) { return false; }
+}
+export function dismissPickHint() {
+  try { localStorage.setItem(KEYS.pickhint, '1'); } catch (e) { /* storage blocked */ }
 }
 
 // Plan a row choices: session length in minutes and time of day.

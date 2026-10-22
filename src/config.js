@@ -22,8 +22,16 @@ export const KEYS = {
   install: 'rowhether-install-v1',
   nudge: 'rowhether-nudge-v1',
   migrated: 'rowhether-migrated-v1',
-  last: 'rowhether-last-v1'
+  last: 'rowhether-last-v1',
+  loc: slug => 'rowhether-loc-v1:' + slug, // the cached location record
+  cacheIndex: 'rowhether-cache-index-v1', // { slug: last opened ms }
+  recent: 'rowhether-recent-v1',
+  pickhint: 'rowhether-pickhint-v1'
 };
+// How many locations keep a cache and a record (07 9.2), and how many recent
+// ones are listed.
+export const CACHE_MAX = 10;
+export const RECENT_MAX = 8;
 // The keys the app used before locations (08 8.3). migrateStorage() copies them
 // to KEYS and leaves them in place. The install key was v2 then: it counts
 // dismissals, and the v1 key held a 30-day snooze that is ignored.
@@ -34,6 +42,15 @@ export const OLD_KEYS = {
   install: 'putney-rowing-install-v2',
   nudge: 'putney-rowing-nudge-v1'
 };
+// Putney's limits and course heading before phase 1: the values the old settings
+// were made against. migrateStorage() keeps only what differs from them. They
+// are frozen here and not read from Putney's record, so a later edit of the
+// record cannot change what an old setting meant.
+export const OLD_PUTNEY_DEFAULTS = Object.freeze({
+  windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25,
+  rainCaution: 60, rainOff: 90, coldCombined: 100, waterOverride: '',
+  aqiCaution: 151, aqiOff: 201, flowCaution: 20000, flowOff: 28000, heading: 15
+});
 // Install bar: Not now hides it until the next visit. After this many
 // dismissals it also offers Don't show again. Coming back to the tab after
 // INSTALL_VISIT_GAP_MS away counts as a new visit.
