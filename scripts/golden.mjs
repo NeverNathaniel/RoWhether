@@ -161,7 +161,8 @@ if (cmd === 'update') {
   });
   const problems = checkProblems(commits, CHANGES);
   for (const p of problems) console.error(`${p.commit}: ${p.file ? `${p.file}: ` : ''}${p.message}`);
-  if (problems.length) fail(`golden check failed: ${problems.length} problem${problems.length === 1 ? '' : 's'} in ${new Set(problems.map(p => p.commit)).size} commit${new Set(problems.map(p => p.commit)).size === 1 ? '' : 's'} since ${base.slice(0, 7)}. Name the ids in a Golden trailer (test/golden/changes.js), or the change is not planned.`);
+  const commitsWith = new Set(problems.map(p => p.commit)).size;
+  if (problems.length) fail(`golden check failed: ${problems.length} problem${problems.length === 1 ? '' : 's'} in ${commitsWith} commit${commitsWith === 1 ? '' : 's'} since ${base.slice(0, 7)}. A golden file is never deleted. A change to one needs ids from test/golden/changes.js in a Golden trailer, and every changed path inside them.`);
   console.log(`golden check passed: ${commits.length} commit${commits.length === 1 ? '' : 's'} touched golden files since ${base.slice(0, 7)}, each covered.`);
 } else if (cmd === 'dump') {
   const [name, dir] = args;
@@ -172,7 +173,7 @@ if (cmd === 'update') {
   }
   const out = resolve(dir || 'test/golden/out');
   const r = vitest([], { GOLDEN_DUMP: name, GOLDEN_OUT: out }, { inherit: true });
-  if (r.status === 0) console.log(`Dumped ${name} to ${join(out, wanted[0])}`);
+  if (r.status === 0) console.log(`Dumped ${wanted.join(', ')} to ${out}`);
   process.exit(r.status ?? 1);
 } else {
   fail('Usage: node scripts/golden.mjs update [<case> ...] | diff [<rev>] | check <base> | dump [<case> [dir]]', 2);
