@@ -64,6 +64,12 @@ describe('collectLocations', () => {
     expect(msg).toMatch(/^data\/locations\/putney-landing\.json: lat range /m);
   });
 
+  it('names the file and the field of a bad value in a waterway file', () => {
+    const msg = failure(() => collectLocations(scratch({ waterways: { [WATERWAY.id]: { ...clone(WATERWAY), kind: 'pond' } } })));
+    expect(msg).toMatch(/^data\/waterways\/connecticut-river-vernon-pool\.json: kind value /m);
+    expect(msg.match(/^data\/waterways\//gm).length).toBe(1);
+  });
+
   it('fails a file whose name is not the slug, and a waterway file whose name is not its id', () => {
     const msg = failure(() => collectLocations(scratch({ locations: { putney: PUTNEY }, waterways: { 'a-river': WATERWAY } })));
     expect(msg).toMatch(/^data\/locations\/putney\.json: slug file_name /m);
@@ -276,6 +282,17 @@ describe('the plugin', () => {
     expect(JSON.parse(emitted['locations/index.json'].source).locations.map(l => l.slug)).toEqual(['putney-landing']);
   });
 
+  it("builds each shell from the page in the bundle, with its hashed script, not from index.html on disk", () => {
+    const built = INDEX_HTML.replace('/src/main.js', '/assets/index-abc123.js');
+    expect(built).not.toBe(INDEX_HTML);
+    const plugin = start(scratch());
+    const ctx = context();
+    plugin.generateBundle.call(ctx, {}, { 'index.html': { source: built } });
+    const shell = ctx.emitFile.mock.calls.find(([f]) => f.fileName === 'putney-landing.html')[0].source;
+    expect(shell).toContain('<script type="module" src="/assets/index-abc123.js"></script>');
+    expect(shell).not.toContain('/src/main.js');
+  });
+
   it("reads the page from bytes as well as text, and fails with no index.html in the bundle", () => {
     const plugin = start(scratch());
     const ctx = context();
@@ -304,6 +321,50 @@ describe('the plugin', () => {
   });
 });
 
+describe('the dev server', () => {
+  // The hook with the watcher's callback and the middleware both captured.
+  const serve = dir => {
+    const plugin = locationsPlugin();
+    plugin.configResolved({ root: dir });
+    plugin.buildStart();
+    const seen = { on: null, added: null, errors: [] };
+    let handler;
+    plugin.configureServer({
+      watcher: { add: p => { seen.added = p; }, on: (_event, fn) => { seen.on = fn; } },
+      middlewares: { use: fn => { handler = fn; } },
+      config: { logger: { error: m => seen.errors.push(m) } }
+    });
+    const names = () => {
+      const res = { setHeader() {}, end(body) { this.body = body; } };
+      handler({ url: '/locations/index.json' }, res, () => {});
+      return JSON.parse(res.body).locations.map(l => l.name);
+    };
+    return { seen, names };
+  };
+
+  it('watches data/, and reads the files again when one under it changes', () => {
+    const dir = scratch();
+    const { seen, names } = serve(dir);
+    expect(seen.added).toBe(join(dir, 'data'));
+    expect(names()).toEqual(['Putney Landing']);
+    writeFileSync(join(dir, 'data/locations/putney-landing.json'), JSON.stringify({ ...PUTNEY, name: 'Putney Docks' }));
+    seen.on('change', join(dir, 'data/locations/putney-landing.json'));
+    expect(names()).toEqual(['Putney Docks']);
+  });
+
+  it('ignores a change outside data/, and keeps serving the last good list when a file breaks', () => {
+    const dir = scratch();
+    const { seen, names } = serve(dir);
+    writeFileSync(join(dir, 'data/locations/putney-landing.json'), JSON.stringify({ ...PUTNEY, name: 'Putney Docks' }));
+    seen.on('change', join(dir, 'public/icon.svg'));
+    expect(names()).toEqual(['Putney Landing']);
+    writeFileSync(join(dir, 'data/locations/putney-landing.json'), '{ not json');
+    seen.on('change', join(dir, 'data/locations/putney-landing.json'));
+    expect(seen.errors.join('\n')).toMatch(/putney-landing\.json: \(file\) json /);
+    expect(names()).toEqual(['Putney Landing']);
+  });
+});
+
 // Settings of the host that nothing else checks: the build and the budget never
 // see wrangler.jsonc or _headers, and a deploy that lost either would still pass.
 describe('the host settings for the location files', () => {
@@ -314,6 +375,12 @@ describe('the host settings for the location files', () => {
     expect(wrangler.assets.not_found_handling).toBe('single-page-application');
     expect(wrangler.assets.run_worker_first).toEqual(['/api/*']);
     expect(wrangler.assets.directory).toBe('./dist');
+  });
+
+  it('runs the revisions check in CI from the base commit, on the whole history', () => {
+    const ci = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');
+    expect(ci).toMatch(/^\s+- run: node scripts\/locations\/revisions\.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab$/m);
+    expect(ci).toMatch(/^\s+fetch-depth: 0$/m);
   });
 
   it('lets a browser keep a location file for an hour, and keeps the other rules', () => {

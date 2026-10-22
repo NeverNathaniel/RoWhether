@@ -13,7 +13,9 @@
 // dist/locations/index.json has its locations/<slug>.json and its <slug>.html,
 // the service worker precaches the index and the record files, and it
 // precaches no <slug>.html shell (a shell is for a first visit and a link
-// preview; navigations fall back to the precached index.html).
+// preview; navigations fall back to the precached index.html). A shell is the
+// built index.html with six tags swapped, so it links the same hashed script
+// and stylesheet; any other difference would leave a shared link blank.
 //
 // The report is written even when the check fails, so CI can upload it.
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
@@ -83,10 +85,23 @@ function sizeOf(path) {
 // 08 8.4: while the list has this many records or fewer, each file is precached.
 const PRECACHE_RECORDS_MAX = 50;
 
+// The lines of index.html that a shell swaps (shellHtml in
+// scripts/locations/plugin.mjs). Every other line of a shell is the page's own.
+const SHELL_TAGS = ['<title>', '<meta name="description"', '<link rel="canonical"', '<meta property="og:url"', '<meta property="og:title"', '<meta property="og:description"'];
+
+// Why a shell is not index.html with the six tags swapped, or null.
+function shellDifference(page, shell) {
+  if (page.length !== shell.length) return `has ${shell.length} lines, and index.html has ${page.length}`;
+  const swapped = (a, b) => SHELL_TAGS.some((t) => a.startsWith(t) && b.startsWith(t));
+  const at = page.findIndex((line, i) => line !== shell[i] && !swapped(line, shell[i]));
+  return at < 0 ? null : `differs from index.html on line ${at + 1}, which is not a tag a shell swaps`;
+}
+
 // What is wrong with the location files in dist/, as a list of sentences.
 function locationProblems(distinct) {
   const index = JSON.parse(readText(join(DIST, 'locations/index.json')));
   const slugs = (index.locations || []).map((l) => l.slug);
+  const page = readText(join(DIST, 'index.html')).split('\n');
   // Every record file in dist/locations, not only the ones the index lists:
   // none of their shells may be precached either.
   const records = readdirSync(join(DIST, 'locations')).filter((f) => f.endsWith('.json') && f !== 'index.json').map((f) => f.slice(0, -'.json'.length));
@@ -94,6 +109,10 @@ function locationProblems(distinct) {
   for (const slug of slugs) {
     if (!existsSync(join(DIST, 'locations', `${slug}.json`))) problems.push(`locations/index.json lists ${slug}, and dist/locations/${slug}.json is missing.`);
     if (!existsSync(join(DIST, `${slug}.html`))) problems.push(`locations/index.json lists ${slug}, and dist/${slug}.html is missing.`);
+    else {
+      const why = shellDifference(page, readText(join(DIST, `${slug}.html`)).split('\n'));
+      if (why) problems.push(`dist/${slug}.html ${why}.`);
+    }
   }
   for (const slug of records) {
     if (distinct.includes(`${slug}.html`)) problems.push(`The service worker precaches ${slug}.html. A location's shell is not precached (globIgnores in vite.config.js).`);

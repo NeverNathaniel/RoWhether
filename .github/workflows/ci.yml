@@ -28,8 +28,9 @@ jobs:
       - run: node scripts/golden.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab
       # A commit that edits a location record, or the waterway file it uses,
       # raises that record's revision, so an installed copy reads the change
-      # (01 2.1, phase 1 plan R14). The one data/ commit since the base,
-      # d2b517b, added the files, which passes. It needs no install either.
+      # (01 2.1, phase 1 plan R14). The data/ commits since the base added the
+      # files (d2b517b) and raised Putney's revision with its edit (5981f58),
+      # which passes. It needs no install either.
       - run: node scripts/locations/revisions.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab
       - run: npm ci
       - run: npm test
