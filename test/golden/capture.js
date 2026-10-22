@@ -21,6 +21,7 @@ import { renderDays } from '../../src/render/days.js';
 import { forecastPanel } from '../../src/render/forecast.js';
 import { precipNote } from '../../src/render/precip.js';
 import { VIEWS } from '../../src/render/detail/index.js';
+import { MODULES } from '../../src/render/detail/views.js';
 import { weekDays } from '../../src/render/detail/common.js';
 import { shareText } from '../../src/share.js';
 import { app } from '../../src/state.js';
@@ -268,7 +269,8 @@ export function capture(scenario, clock, settings, { loc = PUTNEY, width = 390, 
     // A lean case draws each view once, for the day it opens on.
     const days = lean ? [] : week;
     out.views = {};
-    for (const v of VIEWS) {
+    for (const { key } of VIEWS) {
+      const v = MODULES[key];
       const entry = { summary: v.summary(m), days: {} };
       for (const k of [null, ...extraDays, ...days]) {
         const r = v.render(m, k);

@@ -34,7 +34,7 @@
 // own or predates this spec. Phase 0 changed no pixel, so a baseline made from
 // 743e8cd matches HEAD of phase 0 at maxDiffPixelRatio 0.
 import { test, expect } from '@playwright/test';
-import { SCENARIOS, routeAll, ready } from './fixtures.js';
+import { SCENARIOS, routeAll, ready, tabDrawn } from './fixtures.js';
 
 const DAYS = ['june-calm', 'october-fog'];
 const HOURS = [12, 21];
@@ -81,6 +81,7 @@ test.describe('screens', { tag: '@visual' }, () => {
         for (const tab of TABS) {
           test(`#${tab}`, async ({ page }) => {
             await page.goto(`/#${tab}`);
+            await tabDrawn(page, tab);
             await settle(page);
             await expect(page.locator('#detail')).toBeVisible();
             await expect(page).toHaveScreenshot(`${tag}-${tab}.png`, shot);

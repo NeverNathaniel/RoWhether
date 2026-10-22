@@ -4,7 +4,7 @@
 // screen, which is too short to test the tab bar. Timers stay real.
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
-import { SCENARIOS, routeAll, ready } from './fixtures.js';
+import { SCENARIOS, routeAll, ready, tabDrawn } from './fixtures.js';
 
 // Not the machine's zone or language, so a line that reads the screen's instead
 // of the location's fails here and not only on someone else's laptop (review Z11).
@@ -49,6 +49,7 @@ test.describe('smoke', () => {
     for (const tab of TABS.slice(1)) {
       await page.goto(`/#${tab}`);
       await expect(page.locator('#detail')).toBeVisible();
+      await tabDrawn(page, tab);
     }
     expect(bad).toEqual([]);
     // Exactly the nine golden requests, none aborted and none unmatched.
@@ -65,6 +66,7 @@ test.describe('smoke', () => {
       for (const tab of TABS) {
         await page.goto(tab === 'now' ? '/' : `/#${tab}`);
         await ready(page);
+        if (tab !== 'now') await tabDrawn(page, tab);
         const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         expect(over, `${tab} at ${width} px overflows by ${over} px`).toBeLessThanOrEqual(0);
       }
@@ -76,6 +78,7 @@ test.describe('smoke', () => {
     for (const hash of ['', '#wind']) {
       await page.goto(`/${hash}`);
       await ready(page);
+      if (hash) await tabDrawn(page, hash.slice(1));
       await page.evaluate(() => window.scrollTo(0, 700));
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
       const top = await page.evaluate(() => document.getElementById('tabs').getBoundingClientRect().top);

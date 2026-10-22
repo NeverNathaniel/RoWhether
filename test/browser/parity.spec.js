@@ -20,7 +20,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createServer } from 'vite';
 import { test, expect } from '@playwright/test';
-import { SCENARIOS, routeAll, ready } from './fixtures.js';
+import { SCENARIOS, routeAll, ready, tabDrawn } from './fixtures.js';
 
 test.use({ timezoneId: 'Pacific/Auckland', locale: 'de-DE' });
 
@@ -67,9 +67,12 @@ const textOf = (page, html) => page.evaluate(h => {
   return t.content.textContent.replace(/\s+/g, ' ').trim();
 }, html);
 
-// Go to a view and give back what the page drew in it.
+// Go to a view and give back what the page drew in it. The views load as a lazy
+// chunk (P1.2a), so wait until the page says the one asked for has drawn.
 async function view(page, hash) {
   await page.evaluate(h => new Promise(done => { location.hash = h; setTimeout(done, 0); }), hash);
+  const key = hash.split('/')[0];
+  if (key) await tabDrawn(page, key);
   return page.evaluate(() => document.getElementById('detailBody').textContent.replace(/\s+/g, ' ').trim());
 }
 

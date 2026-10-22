@@ -78,3 +78,10 @@ export async function ready(page) {
   });
   await page.evaluate(() => document.fonts.ready);
 }
+
+// Wait until a tab has drawn. The detail views are a lazy chunk (P1.2a), so a
+// page opened at #wind says "Loading." first. #detailBody takes data-view only
+// once the module for that view has drawn it.
+export function tabDrawn(page, key) {
+  return page.waitForSelector(`#detailBody[data-view="${key}"]`, { state: 'attached' });
+}
