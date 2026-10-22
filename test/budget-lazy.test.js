@@ -74,7 +74,9 @@ describe('the lazy chunk list in scripts/budget.mjs', () => {
     const r = run();
     expect(r.code).toBe(1);
     expect(r.out).toContain('dist/assets has no views-*.js');
-    expect(JSON.parse(readFileSync(join(dir, 'dist/budget-report.json'), 'utf8')).over).toEqual(['Lazy chunks']);
+    const report = JSON.parse(readFileSync(join(dir, 'dist/budget-report.json'), 'utf8'));
+    expect(report.over).toEqual(['Lazy chunks']);
+    expect(report.ok).toBe(false);
   });
 
   it('fails when a file is named for another chunk, since the name is what the checks look for', () => {
