@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { readFileSync } from 'node:fs';
+import { locationsPlugin, shellNames } from './scripts/locations/plugin.mjs';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 // Cloudflare Workers Builds sets WORKERS_CI_COMMIT_SHA. Locally there is none.
@@ -11,6 +12,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(sha ? `${pkg.version}+${sha}` : pkg.version)
   },
   plugins: [
+    locationsPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false, // registered in src/main.js
@@ -31,10 +33,13 @@ export default defineConfig({
         ]
       },
       workbox: {
-        // Precache the app shell only. API responses are not cached by the
-        // service worker; the app keeps its own last-good copy.
-        globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
-        globIgnores: ['**/*vietnamese*', '**/*latin-ext*'],
+        // Precache the app shell and the curated location files. API responses
+        // are not cached by the service worker; the app keeps its own last-good
+        // copy. A location's <slug>.html is for a first visit and link previews
+        // only (every navigation falls back to the precached index.html), so
+        // each one is ignored by name, from the files under data/locations.
+        globPatterns: ['**/*.{js,css,html,png,svg,woff2}', 'locations/*.json'],
+        globIgnores: ['**/*vietnamese*', '**/*latin-ext*', ...shellNames()],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,

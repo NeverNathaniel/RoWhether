@@ -128,6 +128,8 @@ describe('validateLocation', () => {
       ['day window backwards', r => { r.daylight = { dayWindow: [22, 5] }; }, 'daylight.dayWindow', 'value'],
       ['copy key not allowed', r => { r.copy.title = 'Hello'; }, 'copy.title', 'copy_key'],
       ['copy over 600', r => { r.copy.credits = 'x'.repeat(601); }, 'copy.credits', 'length'],
+      ['description over 160', r => { r.copy.description = 'x'.repeat(161); }, 'copy.description', 'length'],
+      ['description empty', r => { r.copy.description = ''; }, 'copy.description', 'length'],
       ['launch notes over 1000', r => { r.launchNotes = 'x'.repeat(1001); }, 'launchNotes', 'length'],
       ['status', r => { r.status = 'public'; }, 'status', 'value'],
       ['revision 0', r => { r.revision = 0; }, 'revision', 'range'],
@@ -156,7 +158,9 @@ describe('validateLocation', () => {
       ['a discharge in cubic metres a second', r => { r.flow.unit = 'm3s'; }],
       ['a second obs row as a fallback', r => { r.sources.push(row('obs', { mode: 'fallback', priority: 1 })); }],
       ['a retired row beside a primary', r => { r.sources.push(row('obs', { status: 'retired' })); }],
-      ['a day window', r => { r.daylight = { dayWindow: [6, 21] }; }]
+      ['a day window', r => { r.daylight = { dayWindow: [6, 21] }; }],
+      ['a description of 160', r => { r.copy.description = 'x'.repeat(160); }],
+      ['credits of 600, the limit of every other text', r => { r.copy.credits = 'x'.repeat(600); }]
     ];
     for (const [name, edit] of ok) expect(validateLocation(rec(edit)), name).toEqual([]);
   });

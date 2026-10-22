@@ -20,7 +20,7 @@ const UNITS = ['cfs', 'm3s', 'ft', 'm', 'degC', 'degF', 'kn', 'ms'];
 const FLOW_UNITS = ['cfs', 'm3s', 'ft', 'm'];
 const RELATIONS = ['at', 'upstream', 'downstream', 'nearby', 'other_water'];
 const SOURCE_STATUSES = ['active', 'suggested', 'offline', 'retired', 'rejected'];
-const COPY_KEYS = ['flowFact', 'flowStats', 'flowHow', 'waterTempFact', 'obsFact', 'credits'];
+const COPY_KEYS = ['flowFact', 'flowStats', 'flowHow', 'waterTempFact', 'obsFact', 'credits', 'description'];
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const REGION = /^[A-Z]{2}-[A-Z0-9]{1,3}$/;
@@ -170,7 +170,8 @@ function checkCopy(p, c) {
   if (c == null) return;
   if (!isObj(c)) return fail(p, 'copy', 'value', 'Use an object.');
   for (const [k, v] of Object.entries(c)) {
-    if (COPY_KEYS.includes(k)) text(p, `copy.${k}`, v, 1, 600);
+    // The description is the meta description of the location's page.
+    if (COPY_KEYS.includes(k)) text(p, `copy.${k}`, v, 1, k === 'description' ? 160 : 600);
     else fail(p, `copy.${k}`, 'copy_key', 'Not a text that can be set.');
   }
 }

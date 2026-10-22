@@ -26,6 +26,11 @@ jobs:
       # deleted file, a modified file with no trailer, and a changed path outside
       # the ids named. A new file passes. It needs no install, so it runs before npm ci.
       - run: node scripts/golden.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab
+      # A commit that edits a location record, or the waterway file it uses,
+      # raises that record's revision, so an installed copy reads the change
+      # (01 2.1, phase 1 plan R14). The one data/ commit since the base,
+      # d2b517b, added the files, which passes. It needs no install either.
+      - run: node scripts/locations/revisions.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab
       - run: npm ci
       - run: npm test
       - run: npm run build

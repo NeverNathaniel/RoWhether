@@ -9,6 +9,12 @@
 // writes dist/budget-report.json with the same numbers, and exits 1 when
 // anything is over or when a name it needs cannot be found.
 //
+// It also checks the location files (P1.2): every record in
+// dist/locations/index.json has its locations/<slug>.json and its <slug>.html,
+// the service worker precaches the index and the record files, and it
+// precaches no <slug>.html shell (a shell is for a first visit and a link
+// preview; navigations fall back to the precached index.html).
+//
 // The report is written even when the check fails, so CI can upload it.
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { gzipSync, constants } from 'node:zlib';
@@ -74,6 +80,31 @@ function sizeOf(path) {
   return statSync(file).size;
 }
 
+// 08 8.4: while the list has this many records or fewer, each file is precached.
+const PRECACHE_RECORDS_MAX = 50;
+
+// What is wrong with the location files in dist/, as a list of sentences.
+function locationProblems(distinct) {
+  const index = JSON.parse(readText(join(DIST, 'locations/index.json')));
+  const slugs = (index.locations || []).map((l) => l.slug);
+  // Every record file in dist/locations, not only the ones the index lists:
+  // none of their shells may be precached either.
+  const records = readdirSync(join(DIST, 'locations')).filter((f) => f.endsWith('.json') && f !== 'index.json').map((f) => f.slice(0, -'.json'.length));
+  const problems = [];
+  for (const slug of slugs) {
+    if (!existsSync(join(DIST, 'locations', `${slug}.json`))) problems.push(`locations/index.json lists ${slug}, and dist/locations/${slug}.json is missing.`);
+    if (!existsSync(join(DIST, `${slug}.html`))) problems.push(`locations/index.json lists ${slug}, and dist/${slug}.html is missing.`);
+  }
+  for (const slug of records) {
+    if (distinct.includes(`${slug}.html`)) problems.push(`The service worker precaches ${slug}.html. A location's shell is not precached (globIgnores in vite.config.js).`);
+  }
+  const wanted = ['locations/index.json', ...(records.length <= PRECACHE_RECORDS_MAX ? records.map((s) => `locations/${s}.json`) : [])];
+  for (const path of wanted) {
+    if (!distinct.includes(path)) problems.push(`The service worker does not precache ${path}.`);
+  }
+  return { records: slugs, problems };
+}
+
 const budget = JSON.parse(readText(join(ROOT, 'budget.json')));
 for (const key of ['js', 'css', 'html', 'precacheKiB']) {
   if (typeof budget[key] !== 'number') fail(`budget.json has no number for "${key}".`);
@@ -103,6 +134,8 @@ const checks = [
   { name: 'Precache', file: `${entries.length} entries, ${distinct.length} distinct`, raw: precacheBytes, value: precacheBytes / KIB, limit: budget.precacheKiB, unit: 'KiB' }
 ].map((c) => ({ ...c, over: c.value > c.limit }));
 
+const places = locationProblems(distinct);
+
 console.log(`Budget for phase ${budget.phase} (budget.json). Main files are gzip at level 9.\n`);
 for (const c of checks) {
   const value = c.unit === 'KiB' ? c.value.toFixed(2) : fmt(c.value);
@@ -111,6 +144,8 @@ for (const c of checks) {
   console.log(`${c.over ? 'OVER' : 'ok  '}  ${c.name.padEnd(8)} ${value} ${c.unit} of ${limit} ${c.unit}, ${c.over ? `${room.replace('-', '')} over` : `${room} to spare`}  (${c.file})`);
 }
 console.log('\nPrecache is the raw size of each distinct URL in dist/sw.js.');
+console.log(`${places.problems.length ? 'OVER' : 'ok  '}  Locations ${places.records.length} in the index: ${places.records.join(', ') || 'none'}`);
+for (const line of places.problems) console.log(`      ${line}`);
 
 const width = Math.max(...assets.map((a) => a.file.length));
 console.log(`\nFiles in dist/assets (${assets.length}):`);
@@ -123,7 +158,7 @@ for (const a of assets) {
 const over = checks.filter((c) => c.over);
 const report = {
   phase: budget.phase,
-  ok: over.length === 0,
+  ok: over.length === 0 && places.problems.length === 0,
   budget: { js: budget.js, css: budget.css, html: budget.html, precacheKiB: budget.precacheKiB },
   main: {
     js: { file: main.js, raw: checks[0].raw, gzip: checks[0].value },
@@ -138,12 +173,13 @@ const report = {
     files: distinct
   },
   assets,
-  over: over.map((c) => c.name)
+  locations: { records: places.records, problems: places.problems },
+  over: [...over.map((c) => c.name), ...(places.problems.length ? ['Locations'] : [])]
 };
 writeFileSync(join(DIST, 'budget-report.json'), `${JSON.stringify(report, null, 2)}\n`);
 
-if (over.length) {
-  console.error(`\nbudget: over for ${over.map((c) => c.name).join(', ')}. A budget changes only in a commit that says why (08 section 11.2).`);
+if (report.over.length) {
+  console.error(`\nbudget: over for ${report.over.join(', ')}. A budget changes only in a commit that says why (08 section 11.2).`);
   process.exit(1);
 }
 console.log('\nWithin budget. Report written to dist/budget-report.json.');

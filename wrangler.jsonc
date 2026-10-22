@@ -10,7 +10,12 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*"],
+    // A path with no file (a typo, or a location with no shell) is answered with
+    // index.html, and the app decides what to show. A fetch() of a missing JSON
+    // file gets index.html with a 200 too, so the app reads a location file by
+    // its body, never by its status.
+    "not_found_handling": "single-page-application"
   },
   "vars": {
     "GITHUB_REPO": "NeverNathaniel/RoWhether",
