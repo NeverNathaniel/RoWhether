@@ -65,8 +65,8 @@ What ships, by document and section:
 
 - Curated locations: 01 7.1 to 7.4 (JSON files in `data/`, validated by the build, emitted to `dist/`, precached, one shell per location); 08 3.4 and K24.
 - The candidate list: 01 7.5.
-- Water types and course: 01 section 9 (lakes, reservoirs, tidal rivers, canals, harbors, and which tabs show), section 10 (course geometry and the compass, with bank labels that turn), section 11 (per-location limits and the Settings dialog), section 15 (edge cases, including polar days and half-hour zones).
-- Data sources: 02 Phases (phase 1). A local discovery script (08 5.6), US tides, currents and the NWPS tide forecast, marine zones, GloFAS and marine fallbacks, place search, the attribution line, staleness per source, and USGS v1.
+- Water types and course: 01 section 9 (lakes, reservoirs, tidal rivers, canals, harbors, and which tabs show), section 10 (headings and the compass, with bank labels that turn; polyline courses moved to phase 3), section 11 (per-location limits and the Settings dialog), section 15 (edge cases, including half-hour zones; the high-latitude rules moved to phase 7).
+- Data sources: 02 Phases (phase 1), as cut by the owner on 2026-10-21 (`phase-1-plan.md` section 9): the NWPS tide forecast, marine zones, place search, staleness per source, and USGS v1. The discovery script, CO-OPS tides and currents, fallback bindings and the attribution line moved to phase 3, and GloFAS and marine water temperature to phase 7.
 - Putney's alerts move to the NWS zones and the footer is corrected: 01 6.1 and 17.
 - Product: 07 section 4 (routes, header, tab bar, notes and banners, not found), 5.1 and 5.2 (home, picker, switcher), section 6 (copy), section 9 (offline and caching, ten cached locations), 7.9 (the subtitle's zone name).
 - Open counter, short `/privacy` page, and the Metrics tab behind Cloudflare Access: 07 14.3, 14.5 and 5.15; 08 10.9; 03 3.7.
@@ -83,13 +83,13 @@ Owner tasks:
 - Create the Access application and give the `ACCESS_AUD` values for production and Previews.
 - Choose the candidate locations and the clubs that confirm dock points (01 7.5).
 - Confirm on site Putney's course heading, the Vernon pool limits and the temperature note.
-- Choose the contact address for the User-Agent that the discovery script uses.
+- Choose the contact address for the User-Agent that the curation scripts use (the discovery script uses it too, from phase 3).
 - Run `scripts/check-sources.mjs` for the curated locations before shipping (02 Tests).
 - Approve the `CLAUDE.md` changes for phase 1 (08 17.2).
 
 Exit criteria:
 
-1. Tests: `npm test`, `npm run build` and `npx wrangler deploy --dry-run` pass. The new test files are `route.test.js`, `picker.test.js`, `csp.test.js`, `info.test.js` and `locations-data.test.js`, plus `test/browser/picker.spec.js` (08 13.7). 01 16.1 to 16.4 and the source and discovery tests in 02 Tests apply to what this phase builds.
+1. Tests: `npm test`, `npm run build` and `npx wrangler deploy --dry-run` pass. The new test files are `route.test.js`, `picker.test.js`, `csp.test.js`, `info.test.js` and `locations-data.test.js`, plus `test/browser/picker.spec.js` (08 13.7). 01 16.1 to 16.4 and the source tests in 02 Tests apply to what this phase builds. The discovery tests moved to phase 3 with discovery.
 2. Putney looks as before except for the changes 07 3.2 lists for phase 1: the chevron after the title, the bank labels, the share link, the "Saved" label and the footer credit. The Putney golden tests pass with only those differences (01 16.2). 08 14.1 says how the cases that change are rewritten.
 3. An existing install keeps its settings and cache, opens at `/putney-landing` with no note above the hero, and renders the cached hero before any request completes (07 13 phase 1; 01 16.5).
 4. The browser checks in 07 13 (phase 1) pass: the first-visit note inside and after the 90-day window; the picker at 360 px with no network request while typing; the switcher's focus; Near me granted, denied and timed out; the header at 360 px for every curated name; a lake with no River tab; a tidal location with a Tide tab after Wind; a Chicago time zone on Putney with every time still Eastern; an unknown slug; `/putney-landing` served from its shell with the old title and no redirect; the offline picker; the share link; the built manifest named RoWhether with id `/`.
@@ -166,6 +166,16 @@ What ships, by document and section:
 - Product: 07 5.4 (quick look), 5.5 (Info tab, with the Safety section and emergency information from 06 8.7), 5.6 (add a location), 5.10 and 5.11 (report dialog, Start a row, the outing banner), 5.14 (moderation page), 10.4 (the map); 04 6.3 (the status page for contacts at `/o/<token>`).
 - Production turns reports on: `REPORTS_ENABLED` becomes `"1"` (08 6.3).
 - Config and files: 08 6.7 (phase 3) and 3.4.
+- Moved from phase 1 on 2026-10-21 (`phase-1-plan.md` section 9, accepted by the owner):
+  - The discovery script, `scripts/locations/discover.mjs` over `worker/discover.js` (08 5.6, 02 Discovery), built with `GET /api/discover`, and the discovery tests in 02 Tests.
+  - The CO-OPS adapters: tide predictions, water level, currents and water temperature (02), with the first tidal location that has no NWPS tide point, in this phase at the latest.
+  - Tidal streams, with the CO-OPS currents adapter: the stream lane, `streamCaution`, `streamOff`, the against multipliers, slack and `minLaunch` (01 9.4).
+  - Fallback bindings in general (`mode: 'fallback'`, `staleSwitchH`; 01 4.2 and 15.7), including the NWPS tide forecast as a fallback to CO-OPS.
+  - The `level` role and the Level tab (01 9.3 and 9.7), with the first reservoir that has a level gauge.
+  - Polyline courses and `courseSegments()` (01 10.1 to 10.3), with the map that draws them.
+  - `attributionFor(loc)`, credits generated from the bindings (02 Attribution, 07 6.6), and the generated flow note (01 11.3), for community locations.
+  - `slugify()` and slug aliases (01 2.2 and 15.10), and recomputing a waterway binding's distance for each member location (01 6.2).
+  - Launch notes, the traffic pattern and emergency information, with the Info tab this phase already ships (07 4.4 and 5.5).
 
 Depends on: phase 2 (users, sessions, email, the minors module, the production database, Workers Paid); phase 1's curated files as the seed; the widened Turnstile exception; the lawyer's answers to items 1 and 2.
 
@@ -218,6 +228,7 @@ What ships, by document and section:
 - 07 5.12 (notification settings) and 8.3 (alerts).
 - Server-side alert matching by NWS zone, from the `zones:` binding (01 4.4; review C40).
 - Config and files: 08 6.2 (`NOTIFY_LIMIT`), 6.7 and 3.4. `src/text.js` moves the period sentences to a pure module.
+- Moved from phase 1 on 2026-10-21 (`phase-1-plan.md` section 9, accepted by the owner): per-slot refresh pacing (`refreshMs` and `due()`, so air quality and the models refresh hourly; 02 fetchAll), with the server-side forecasts. It changes `CLAUDE.md`'s "Refresh every 10 minutes" rule, so the new sentence needs the owner's approval.
 
 Depends on: phase 3 (the tick, the queue, `notify_log`, email delivery) and phase 2 (alerts need an account); the Open-Meteo key; the VAPID keys.
 
@@ -349,6 +360,9 @@ What ships, by document and section:
 - Alerts outside the US from the Worker adapters, matched by polygon or region, with copy in the location's units (05 section 11).
 - Air quality scale by location and non-US locations (07 7.9; 01 8.1 rows 9 and 19).
 - Privacy and terms for GDPR, UK GDPR and PIPEDA, and the UK "Club Welfare Officer" label (03 section 18, phase 7).
+- Moved from phase 1 on 2026-10-21 (`phase-1-plan.md` section 9, accepted by the owner):
+  - GloFAS river discharge (`om-flood`) and Open-Meteo marine water temperature (`om-marine`) (02), or earlier with the first location on a large river with no gauge, or on the coast.
+  - The high-latitude rules: polar days, white nights and sunset after midnight (01 15.4), with their copy (07 6.7), or earlier with the first curated location above 55° N.
 
 Depends on: the adapter pattern from phase 0 and 1; the units and clock choice from phase 2; server-side alerts from phase 4; the legal review.
 
