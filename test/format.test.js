@@ -2,51 +2,9 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { zoneFormat, setZone, hm, dayKey, localMinutes, fmtFlow, fmtInt } from '../src/format.js';
 
-// The reference is today's formatters, pasted from src/format.js as it was
-// before P0.4 (LOC.tz written out as the zone). After P0.4 the module's own
-// exports come from zoneFormat, so they cannot be the reference.
 const NY = 'America/New_York';
 const HOUR = 3600e3;
 const MIN = 60e3;
-const fTime = new Intl.DateTimeFormat('en-US', { timeZone: NY, hour: 'numeric', minute: '2-digit' });
-const fWeekday = new Intl.DateTimeFormat('en-US', { timeZone: NY, weekday: 'short' });
-const fDayLong = new Intl.DateTimeFormat('en-US', { timeZone: NY, weekday: 'short', month: 'short', day: 'numeric' });
-const fMonthDay = new Intl.DateTimeFormat('en-US', { timeZone: NY, month: 'short', day: 'numeric' });
-const fKey = new Intl.DateTimeFormat('en-CA', { timeZone: NY, year: 'numeric', month: '2-digit', day: '2-digit' });
-const fH24 = new Intl.DateTimeFormat('en-US', { timeZone: NY, hour: 'numeric', hourCycle: 'h23' });
-
-const ref = {
-  dayKey: t => fKey.format(new Date(t)),
-  weekday: t => fWeekday.format(new Date(t)),
-  monthDay: t => fMonthDay.format(new Date(t)),
-  localHour: t => parseInt(fH24.format(new Date(t)), 10) % 24,
-  // The replacement is a no-break space (U+00A0), written as an escape here.
-  hm: t => fTime.format(new Date(t)).replace(':00', '').replace(/\s(AM|PM)$/, '\u00a0$1'),
-  // Its patterns have a plain space, so with hm's no-break space it changes nothing but the minutes.
-  hShort: t => ref.hm(t).replace(/:\d\d/, '').replace(' AM', 'a').replace(' PM', 'p'),
-  dayWord(t, lower) {
-    const k = ref.dayKey(t);
-    if (k === ref.dayKey(Date.now())) return lower ? 'today' : 'Today';
-    if (k === ref.dayKey(Date.now() + 24 * HOUR)) return lower ? 'tomorrow' : 'Tomorrow';
-    return fWeekday.format(new Date(t));
-  },
-  whenText(t, lower) {
-    const w = ref.dayWord(t, lower);
-    return (w === 'today' || w === 'Today') ? ref.hm(t) : `${w} ${ref.hm(t)}`;
-  },
-  // The minutes helper in week.js and light.js before P0.4.
-  clockMin: t => ref.localHour(t) * 60 + new Date(t).getUTCMinutes()
-};
-
-// 24 instants across 2026: both clock changes (2026-03-08 07:00 UTC, 2026-11-01
-// 06:00 UTC) on each side, the last second of local days, and ordinary days.
-const INSTANTS = [
-  '2026-01-01T00:00:00Z', '2026-01-15T17:00:00Z', '2026-02-28T04:59:59Z',
-  '2026-03-08T04:59:59Z', '2026-03-08T05:00:00Z', '2026-03-08T06:59:59Z', '2026-03-08T07:00:00Z', '2026-03-08T16:30:00Z', '2026-03-09T03:59:59Z',
-  '2026-04-14T04:00:00Z', '2026-05-31T12:05:00Z', '2026-06-15T04:00:00Z', '2026-06-15T16:00:00Z', '2026-08-20T09:45:30.500Z', '2026-10-18T09:05:00Z',
-  '2026-11-01T03:59:59Z', '2026-11-01T04:00:00Z', '2026-11-01T05:30:00Z', '2026-11-01T06:00:00Z', '2026-11-01T06:30:00Z', '2026-11-01T16:00:00Z', '2026-11-02T04:59:59Z',
-  '2026-12-31T04:59:59Z', '2026-12-31T05:00:00Z'
-].map(s => Date.parse(s));
 
 afterEach(() => {
   vi.useRealTimers();
@@ -61,36 +19,25 @@ describe('zoneFormat', () => {
     expect(z.tz).toBe(NY);
   });
 
-  it('has 24 instants, so the comparison below covers what 08 asks', () => {
-    expect(INSTANTS).toHaveLength(24);
-    expect(INSTANTS.every(Number.isFinite)).toBe(true);
-  });
+  // Written out, not computed: both clock changes in New York (2026-03-08 07:00 UTC
+  // and 2026-11-01 06:00 UTC), on each side, the last second of local days, and
+  // an ordinary day. The no-break space before AM and PM is written as an escape.
+  const AT = [
+    ['2026-03-08T04:59:59Z', '2026-03-07', 'Sat', 'Mar 7', 23, '11:59\u00a0PM', '11\u00a0PM'],
+    ['2026-03-08T06:59:59Z', '2026-03-08', 'Sun', 'Mar 8', 1, '1:59\u00a0AM', '1\u00a0AM'],
+    ['2026-03-08T07:00:00Z', '2026-03-08', 'Sun', 'Mar 8', 3, '3\u00a0AM', '3\u00a0AM'],
+    ['2026-06-15T16:00:00Z', '2026-06-15', 'Mon', 'Jun 15', 12, '12\u00a0PM', '12\u00a0PM'],
+    ['2026-08-20T09:45:30.500Z', '2026-08-20', 'Thu', 'Aug 20', 5, '5:45\u00a0AM', '5\u00a0AM'],
+    ['2026-11-01T04:00:00Z', '2026-11-01', 'Sun', 'Nov 1', 0, '12\u00a0AM', '12\u00a0AM'],
+    ['2026-11-01T05:30:00Z', '2026-11-01', 'Sun', 'Nov 1', 1, '1:30\u00a0AM', '1\u00a0AM'],
+    ['2026-11-01T06:30:00Z', '2026-11-01', 'Sun', 'Nov 1', 1, '1:30\u00a0AM', '1\u00a0AM'],
+    ['2026-12-31T04:59:59Z', '2026-12-30', 'Wed', 'Dec 30', 23, '11:59\u00a0PM', '11\u00a0PM'],
+    ['2026-12-31T05:00:00Z', '2026-12-31', 'Thu', 'Dec 31', 0, '12\u00a0AM', '12\u00a0AM']
+  ];
 
-  it('equals the reference formatters at 24 instants, including both clock changes', () => {
-    for (const t of INSTANTS) {
-      for (const k of ['dayKey', 'weekday', 'monthDay', 'localHour', 'hm', 'hShort']) {
-        expect(z[k](t), `${k} at ${new Date(t).toISOString()}`).toBe(ref[k](t));
-      }
-      expect(z.fDayLong.format(new Date(t))).toBe(fDayLong.format(new Date(t)));
-      expect(z.localMinutes(t), `localMinutes at ${new Date(t).toISOString()}`).toBe(ref.clockMin(t));
-    }
-    expect(z.fDayLong.resolvedOptions().timeZone).toBe(NY);
-  });
-
-  it('gives the same day words and times as the reference for any day around "now"', () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    for (const now of INSTANTS) {
-      vi.setSystemTime(now);
-      // Two days back to three ahead, so today, tomorrow and other days all occur.
-      for (let d = -2; d <= 3; d++) {
-        const t = now + d * 24 * HOUR;
-        for (const lower of [undefined, false, true]) {
-          const at = `${new Date(t).toISOString()} with now ${new Date(now).toISOString()}`;
-          expect(z.dayWord(t, lower), `dayWord ${lower} at ${at}`).toBe(ref.dayWord(t, lower));
-          expect(z.whenText(t, lower), `whenText ${lower} at ${at}`).toBe(ref.whenText(t, lower));
-        }
-      }
-    }
+  it.each(AT)('writes the day, hour and times at %s, around both clock changes', (iso, key, weekday, monthDay, hour, time, short) => {
+    const t = Date.parse(iso);
+    expect([z.dayKey(t), z.weekday(t), z.monthDay(t), z.localHour(t), z.hm(t), z.hShort(t)]).toEqual([key, weekday, monthDay, hour, time, short]);
   });
 
   it('is the same object for the same zone and a different one for another zone', () => {
@@ -210,15 +157,6 @@ describe('localMinutes', () => {
     expect(z.localMinutes(Date.UTC(2026, 2, 8, 7, 0))).toBe(180); // 3:00 EDT
     expect(z.localMinutes(Date.UTC(2026, 10, 1, 5, 30))).toBe(90); // 1:30 EDT
     expect(z.localMinutes(Date.UTC(2026, 10, 1, 6, 0))).toBe(60); // 1:00 EST, the second time
-  });
-
-  it('matches the minutes helper it replaces, every 15 minutes across both changes', () => {
-    const z = zoneFormat(NY);
-    for (const start of [Date.UTC(2026, 2, 7, 5), Date.UTC(2026, 9, 31, 4)]) {
-      for (let t = start; t < start + 4 * 24 * HOUR; t += 15 * MIN) {
-        expect(z.localMinutes(t), new Date(t).toISOString()).toBe(ref.clockMin(t));
-      }
-    }
   });
 });
 

@@ -10,7 +10,7 @@
 // never what it produces.
 import { createHash } from 'node:crypto';
 import { FACTORS, MIN } from '../../src/config.js';
-import { alertLevel } from '../../src/data.js';
+import { alertLevel } from '../../src/sources/nws.js';
 import { resolveLocation, effectiveSettings } from '../../src/location.js';
 import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../../src/putney.js';
 import { bindingsFor, labelFor } from '../../src/sources/index.js';

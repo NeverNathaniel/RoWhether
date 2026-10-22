@@ -15,7 +15,10 @@
 // the clock the test pins while it runs.
 import * as C from '../../src/config.js';
 import { FOG, WATER } from '../../src/config.js';
-import { parseAlerts, parseObs, parseRiver, parseFlow, parseFlowDays, parseFlowForecast, parseAQ, parseModels, alertLevel, speedToMph } from '../../src/data.js';
+import { parseAlerts, parseObs, alertLevel, speedToMph } from '../../src/sources/nws.js';
+import { parseRiver, parseFlow, parseFlowDays } from '../../src/sources/usgs.js';
+import { parseFlowForecast } from '../../src/sources/nwps.js';
+import { parseAQ, parseModels } from '../../src/sources/openmeteo.js';
 import * as F from '../../src/format.js';
 import * as L from '../../src/logic.js';
 import { VIEWS } from '../../src/render/detail/index.js';

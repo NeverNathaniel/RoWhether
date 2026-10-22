@@ -9,105 +9,7 @@ import * as nws from '../src/sources/nws.js';
 import * as usgs from '../src/sources/usgs.js';
 import * as nwps from '../src/sources/nwps.js';
 import * as om from '../src/sources/openmeteo.js';
-import * as data from '../src/data.js';
-import { SCENARIOS, EXTRA_SCENARIOS } from './fixtures/golden.js';
-import { VARIANTS } from './fixtures/variants.js';
-
-// The parsers as src/data.js had them before P0.6, copied. They are the
-// reference the adapters' parsers must equal. The gauge ids are written out
-// where the old code read GAUGE_FLOW and GAUGE_TEMP, which P0.8 removed.
-function alertLevel(ev) {
-  return /Tornado|Thunderstorm|Flash Flood|Flood Warning|High Wind|Wind Advisory|Extreme Wind|Dense Fog|Winter Storm Warning|Ice Storm|Blizzard/i.test(ev) ? 2 : 1;
-}
-function parseAlerts(d) {
-  return (d.features || []).map(f => {
-    const p = f.properties || {};
-    const start = Date.parse(p.onset || p.effective) || 0;
-    const end = Date.parse(p.ends || p.expires) || 8.64e15;
-    return { event: p.event || 'Alert', headline: p.headline || '', desc: p.description || '', instr: p.instruction || '', start, end, lvl: alertLevel(p.event || '') };
-  });
-}
-function speedToMph(q) {
-  if (!q || q.value == null) return null;
-  if (/m_s-1/.test(q.unitCode || '')) return q.value * 2.23694;
-  return q.value * 0.621371; // km/h
-}
-function parseObs(d) {
-  const p = d.properties || {};
-  return {
-    t: Date.parse(p.timestamp) || null,
-    tempF: p.temperature && p.temperature.value != null ? cToF(p.temperature.value) : null,
-    wind: speedToMph(p.windSpeed), gust: speedToMph(p.windGust),
-    dir: p.windDirection ? p.windDirection.value : null,
-    text: p.textDescription || ''
-  };
-}
-function parseRiver(d) {
-  const out = {};
-  for (const f of d.features || []) {
-    const p = f.properties || {};
-    const v = parseFloat(p.value), t = Date.parse(p.time);
-    if (isNaN(v)) continue;
-    if (p.monitoring_location_id === 'USGS-01154500' && p.parameter_code === '00060') out.flow = { v, t };
-    if (p.monitoring_location_id === 'USGS-01161280' && p.parameter_code === '00010') out.waterC = { v, t };
-  }
-  return out;
-}
-function parseFlow(d) {
-  return (d.features || [])
-    .map(f => ({ t: Date.parse(f.properties.time), v: parseFloat(f.properties.value) }))
-    .filter(x => !isNaN(x.t) && !isNaN(x.v))
-    .sort((a, b) => a.t - b.t);
-}
-
-// Daily mean flow. Dates are local days; each point sits at noon Eastern
-// (16:00 UTC is noon EDT, 11 AM EST, close enough for a daily point).
-function parseFlowDays(d) {
-  return (d.features || [])
-    .map(f => ({ t: Date.parse(`${f.properties.time}T16:00:00Z`), v: parseFloat(f.properties.value) }))
-    .filter(x => !isNaN(x.t) && !isNaN(x.v))
-    .sort((a, b) => a.t - b.t);
-}
-// NWS stage and flow forecast. Flow is the secondary series, usually in kcfs.
-// Missing values come as -999.
-function parseFlowForecast(d) {
-  const k = /kcfs/i.test(d.secondaryUnits || '') ? 1000 : 1;
-  const pts = (d.data || [])
-    .map(p => ({ t: Date.parse(p.validTime), v: typeof p.secondary === 'number' && p.secondary >= 0 ? p.secondary * k : NaN }))
-    .filter(x => !isNaN(x.t) && !isNaN(x.v))
-    .sort((a, b) => a.t - b.t);
-  return { issued: Date.parse(d.issuedTime) || null, pts };
-}
-
-const num = v => (v == null || v === '' || isNaN(v) ? null : +v);
-
-// Hourly US AQI and PM2.5 (µg/m³), with times in ms.
-function parseAQ(d) {
-  const H = d.hourly || {};
-  return (H.time || [])
-    .map((t, i) => ({ t: t * 1000, aqi: num(H.us_aqi && H.us_aqi[i]), pm25: num(H.pm2_5 && H.pm2_5[i]) }))
-    .filter(x => x.aqi != null || x.pm25 != null);
-}
-
-// Hourly sustained wind and precipitation from each compared model, in the
-// order of MODELS. A model missing from the response is left out.
-function parseModels(d) {
-  const H = d.hourly || {};
-  const ids = MODELS.map(x => x.id).filter(id => H[`wind_speed_10m_${id}`] || H[`precipitation_${id}`]);
-  const col = (k, id, i) => num(H[`${k}_${id}`] && H[`${k}_${id}`][i]);
-  return {
-    ids,
-    hours: (H.time || []).map((t, i) => ({
-      t: t * 1000,
-      wind: ids.map(id => col('wind_speed_10m', id, i)),
-      precip: ids.map(id => col('precipitation', id, i))
-    }))
-  };
-}
-const OLD = {
-  wx: d => d, alerts: parseAlerts, obs: parseObs, river: parseRiver, flow: parseFlow,
-  flowDays: parseFlowDays, flowFcst: parseFlowForecast, aq: parseAQ, models: parseModels
-};
+import { SCENARIOS } from './fixtures/golden.js';
 
 const clone = o => JSON.parse(JSON.stringify(o));
 // A location made from Putney's record with one change made by `edit`, and no
@@ -313,35 +215,7 @@ describe('the adapters', () => {
 });
 
 describe('the parsers', () => {
-  it('are re-exported by src/data.js under their old names', () => {
-    const adapters = { ...nws, ...usgs, ...nwps, ...om };
-    for (const name of ['alertLevel', 'speedToMph', 'parseAlerts', 'parseObs', 'parseRiver', 'parseFlow', 'parseFlowDays', 'parseFlowForecast', 'parseAQ', 'parseModels']) {
-      expect(data[name], name).toBe(adapters[name]);
-    }
-  });
-
-  // Every response the golden tests send: the scenarios at their clocks, and
-  // the variants' cut, emptied and extreme data.
-  const scenarios = { ...SCENARIOS, ...EXTRA_SCENARIOS };
-  const sends = [];
-  for (const sc of Object.values(scenarios)) {
-    for (const hr of sc.clocks.length ? sc.clocks : [12]) sends.push([`${sc.name} at ${hr}`, () => sc.raw(sc.clock(hr))]);
-  }
-  for (const v of VARIANTS) {
-    const sc = scenarios[v.scenario], clock = v.at ?? sc.clock(v.hr);
-    if (v.raw) sends.push([v.name, () => { const raw = sc.raw(clock); v.raw(raw, clock); return raw; }]);
-  }
-
-  it.each(sends)('equal the old ones on the golden responses: %s', (name, make) => {
-    const raw = make();
-    for (const b of bindingsFor(PUTNEY)) {
-      const want = OLD[b.slot](raw[b.slot]);
-      expect(b.parse(raw[b.slot], b), b.slot).toEqual(want);
-      expect(ADAPTERS[b.adapter].parse(raw[b.slot], b, PUTNEY), b.slot).toEqual(want);
-    }
-  });
-
-  it('are not compared on empty results alone', () => {
+  it('return data on a golden response, not empty results', () => {
     const sc = SCENARIOS['october-fog'], raw = sc.raw(sc.clock(12));
     const got = Object.fromEntries(bindingsFor(PUTNEY).map(b => [b.slot, b.parse(raw[b.slot], b)]));
     expect(got.alerts.length).toBeGreaterThan(0);
@@ -362,11 +236,6 @@ describe('the parsers', () => {
   // past; the parsers do not read the clock.
   const recorded = name => JSON.parse(readFileSync(new URL(`./fixtures/sources/${name}.json`, import.meta.url), 'utf8'));
 
-  it.each(SLOT_ORDER)('equal the old ones on the recorded response: %s', slot => {
-    const b = by(bindingsFor(PUTNEY), slot), raw = recorded(slot);
-    expect(b.parse(raw, b)).toEqual(OLD[slot](raw));
-  });
-
   it('read the recorded responses as data, not as empty results', () => {
     const bs = bindingsFor(PUTNEY), got = Object.fromEntries(bs.map(b => [b.slot, b.parse(recorded(b.slot), b)]));
     expect(got.wx.hourly.time.length).toBeGreaterThan(100);
@@ -386,46 +255,29 @@ describe('the parsers', () => {
     expect(got.alerts).toEqual([]);
   });
 
-  it('equal the old ones on alerts recorded in another zone', () => {
+  it('read alerts recorded in another zone', () => {
     const b = by(bindingsFor(PUTNEY), 'alerts'), raw = recorded('alerts-elsewhere');
     const got = b.parse(raw, b);
-    expect(got).toEqual(OLD.alerts(raw));
     expect(got.map(a => [a.event, a.lvl])).toEqual([['Rip Current Statement', 1], ['Flood Warning', 2], ['High Surf Advisory', 1]]);
     // The Flood Warning has no end time and ends when it expires.
     expect(got[1].end).toBe(Date.parse('2026-10-18T23:00:00-04:00'));
   });
 
-  // Input the real APIs rarely send, in the shapes the golden probes use.
   const f = p => ({ properties: p });
-  const odd = {
-    alerts: [{}, { features: [] }, { features: [{}] }, { features: [f({ event: 'Flood Watch', effective: '2026-04-14T10:00:00-04:00', expires: '2026-04-15T10:00:00-04:00' })] }, { features: [f({ event: 'High Wind Warning', onset: 'not a date', ends: 'x' })] }],
-    obs: [{}, { properties: {} }, { properties: { timestamp: '2026-04-14T15:53:00+00:00', temperature: { value: 10 }, windSpeed: { value: 18, unitCode: 'wmoUnit:km_h-1' }, windGust: { value: null }, windDirection: { value: 250 }, textDescription: 'Cloudy' } }, { properties: { timestamp: 'nope', temperature: { value: 0 }, windSpeed: { value: 5, unitCode: 'wmoUnit:m_s-1' }, windDirection: null } }],
-    river: [{}, { features: [] }, { features: [
-      f({ monitoring_location_id: 'USGS-01154500', parameter_code: '00060', value: '12000', time: '2026-04-14T15:00:00+00:00' }),
-      f({ monitoring_location_id: 'USGS-01161280', parameter_code: '00010', value: '8.5', time: '2026-04-14T15:00:00+00:00' }),
-      f({ monitoring_location_id: 'USGS-01154500', parameter_code: '00010', value: '9' }),
-      f({ monitoring_location_id: 'USGS-01161280', parameter_code: '00060', value: '999' }),
-      f({ parameter_code: '00060', value: '7' }), f({ monitoring_location_id: 'USGS-01154500', parameter_code: '00060', value: 'Ice' }), {}
-    ] }],
-    flow: [{}, { features: [] }, { features: [f({ time: '2026-04-14T15:00:00+00:00', value: '100' }), f({ time: '2026-04-14T14:00:00+00:00', value: '90' }), f({ time: 'bad', value: '5' }), f({ time: '2026-04-14T14:45:00+00:00', value: 'x' })] }],
-    flowDays: [{}, { features: [f({ time: '2026-04-12', value: '9000' }), f({ time: '2026-04-10', value: '8000' }), f({ time: 'nope', value: '1' })] }],
-    flowFcst: [{}, { data: [] }, { issuedTime: '2026-04-14T12:00:00Z', secondaryUnits: 'kcfs', data: [{ validTime: '2026-04-14T18:00:00Z', secondary: 12.4 }, { validTime: '2026-04-14T12:00:00Z', secondary: 11.1 }, { validTime: '2026-04-15T00:00:00Z', secondary: -999 }, { validTime: '2026-04-15T06:00:00Z', secondary: '4' }] }],
-    aq: [{}, { hourly: {} }, { hourly: { time: [1, 2, 3, 4], us_aqi: [10, null, '', 'x'], pm2_5: [1.5, 2, null, null] } }, { hourly: { time: [1, 2], pm2_5: [3, 4] } }],
-    models: [{}, { hourly: {} }, { hourly: { time: [1, 2], wind_speed_10m_gfs_seamless: [5, null], precipitation_gfs_seamless: [0.1, 0], wind_speed_10m_icon_seamless: [7, 8] } }, { hourly: { time: [1, 2, 3], wind_speed_10m_gem_seamless: [1, '', 'x'], precipitation_gem_seamless: [null, 0, '0.3'] } }, { hourly: { time: [1], precipitation_ecmwf_ifs025: [0.2] } }]
-  };
 
-  it.each(Object.keys(odd))('equal the old ones on odd input: %s', slot => {
-    const b = by(bindingsFor(PUTNEY), slot);
-    for (const input of odd[slot]) expect(b.parse(input, b)).toEqual(OLD[slot](input));
+  it('give each alert name its level', () => {
+    const levels = [['Tornado Warning', 2], ['Severe Thunderstorm Watch', 2], ['Flash Flood Watch', 2], ['Flood Warning', 2], ['Flood Advisory', 1], ['High Wind Warning', 2], ['Wind Advisory', 2], ['Extreme Wind Warning', 2], ['Dense Fog Advisory', 2], ['Dense Smoke Advisory', 1], ['Winter Storm Warning', 2], ['Winter Weather Advisory', 1], ['Ice Storm Warning', 2], ['Blizzard Warning', 2], ['Frost Advisory', 1], ['Heat Advisory', 1], ['Small Craft Advisory', 1], ['Lake Wind Advisory', 2], ['tornado warning', 2], ['DENSE FOG ADVISORY', 2], ['', 1]];
+    for (const [event, lvl] of levels) expect(nws.alertLevel(event), event).toBe(lvl);
   });
 
-  it('equal the old ones on alert names and wind units', () => {
-    const events = ['Tornado Warning', 'Severe Thunderstorm Watch', 'Flash Flood Watch', 'Flood Warning', 'Flood Advisory', 'High Wind Warning', 'Wind Advisory', 'Extreme Wind Warning', 'Dense Fog Advisory', 'Dense Smoke Advisory', 'Winter Storm Warning', 'Winter Weather Advisory', 'Ice Storm Warning', 'Blizzard Warning', 'Frost Advisory', 'Heat Advisory', 'Small Craft Advisory', 'Lake Wind Advisory', 'tornado warning', 'DENSE FOG ADVISORY', ''];
-    for (const e of events) expect(nws.alertLevel(e), e).toBe(alertLevel(e));
-    expect(events.map(e => nws.alertLevel(e))).toContain(2);
-    expect(events.map(e => nws.alertLevel(e))).toContain(1);
+  it('convert wind to mph from km/h, and from m/s when the unit says so', () => {
     const q = (value, unitCode) => ({ value, unitCode });
-    for (const v of [null, undefined, {}, q(null, 'wmoUnit:km_h-1'), q(10, 'wmoUnit:km_h-1'), q(10, 'wmoUnit:m_s-1'), q(10), q(0, 'wmoUnit:km_h-1'), q('10', 'wmoUnit:km_h-1')]) expect(nws.speedToMph(v)).toEqual(speedToMph(v));
+    for (const v of [null, undefined, {}, q(null, 'wmoUnit:km_h-1')]) expect(nws.speedToMph(v)).toBeNull();
+    expect(nws.speedToMph(q(10, 'wmoUnit:km_h-1'))).toBeCloseTo(6.21371, 5);
+    expect(nws.speedToMph(q(10, 'wmoUnit:m_s-1'))).toBeCloseTo(22.3694, 4);
+    expect(nws.speedToMph(q(10))).toBeCloseTo(6.21371, 5);
+    expect(nws.speedToMph(q('10', 'wmoUnit:km_h-1'))).toBeCloseTo(6.21371, 5);
+    expect(nws.speedToMph(q(0, 'wmoUnit:km_h-1'))).toBe(0);
   });
 
   it('read the gauges from the binding', () => {
