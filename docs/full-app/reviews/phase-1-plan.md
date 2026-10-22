@@ -22,6 +22,8 @@ When to apply, by the batch each one guards: before batch 1, R2, R3, R4, R6, R9,
 - Evidence: `src/main.js` lines 132 to 139 call `render()` on the saved copy, then `refresh()`. P1.9 item 2: "An entry without `fetched` ... counts each slot as fetched at `updated`"; item 3: "a stale slot reads as missing"; 02's catalog: `om-forecast` `staleMs` 24 h. With `wx` missing, `buildModel()` returns null and `render()` calls `renderNoData()` (`src/render/index.js` line 15). Every check that reads a saved copy saves it at the same pinned clock it reads it at (`timing.spec.js`, the upgrade test in `smoke.spec.js`, `update.spec.js`, P1.4's upgrade check), so none of them can see it.
 - Fix: Keep the saved forecast on screen at start. Apply fetch-time staleness to `wx` only after a refresh in this start has failed, or show the old forecast with its age ("Saved Mon 6:41 AM") rather than No data. Add a smoke check that seeds a saved copy 48 hours older than the clock, holds every upstream request, and expects the saved verdict. If the owner wants No data after 24 hours offline, that is a Putney change to add to 07 3.2 and to the proof, with the owner's approval.
 
+Applied (owner decision, 2026-10-21): P1.4 item 5.5 draws the saved copy at start whatever its age, and its browser checks gain the smoke check (a saved copy 48 hours older than the clock, every upstream held, the saved verdict expected); P1.5 item 2 labels it with its day ("Saved Mon 6:41 AM"); P1.9 item 3 makes a slot stale only when a refresh in this visit failed for it and its last good fetch is past `staleMs` (`staleSlots(..., app.errors, now)`), with a unit test, a mutation, and the held requests then aborted to show "No data."; the "No data." after a failed refresh of a forecast over 24 hours old is listed in the new 3.7 and in section 8, row 3.
+
 #### R2. Several planned golden paths cannot match what the files hold
 
 - Severity: blocker.
@@ -29,6 +31,8 @@ When to apply, by the batch each one guards: before batch 1, R2, R3, R4, R6, R9,
 - Problem: `diff` prints leaf paths ("the path diff finds a changed leaf"), and a pattern's `*` is one segment. Three planned ids name paths the files do not have at that depth. (1) `flowdays-noon` plans `parsers.flowDays.**`, but in every file it moves the whole `parsers` key is stored as a digest, `{ sha256, bytes }`, so the changed leaves are `parsers.sha256` and `parsers.bytes`. (2) `banks` plans `forecasts.*`, but each forecast is stored as `{ length, sha256 }`, so the leaves are `forecasts.<id>.length` and `forecasts.<id>.sha256`, one segment deeper. (3) `not-checked` plans `home.notChecked`, an added object whose leaves are `home.notChecked.innerHTML` and the rest; whether an added key is printed as its root or its leaves is not said. In each case `check` fails on the planned change, and rule 13 stops the step.
 - Evidence: `parseFlowDays` changed in the worktree to place each day at noon New York time, then `npx vitest run test/golden.test.js test/golden-variants.test.js`: exactly the four files 3.4 predicts fail (`v-fall-back-d3-0700`, `v-spring-d1-1200`, `v-spring-d1-1200-tight`, `v-spring-d2-0900`), each on "parsers (stored as a digest; dump the case to see it in full)". In those four files `parsers` is `{"sha256":"1d77...","bytes":23430}` and the like; 75 of the 77 variant files store `parsers` as a digest. In `june-calm-1200-default.json`, `forecasts["2026-06-15-midday"]` is `{"length":8648,"sha256":"a91f8e5e..."}`.
 - Fix: Define in 3.2 that `diff` prints leaves, also for added and removed keys, and write the patterns that way: `forecasts.*.*`, `home.notChecked.**`, `later.home.notChecked.**`, `status.partial.notChecked.**`, `status.partialAll.notChecked.**`. For a digested key, make `diff` expand it: capture the case at both revisions (as `dump` does) and diff the full values, so `flowdays-noon` can keep `parsers.flowDays.**`. Add a hashed leaf, a digest and an added object to `test/golden-check.test.js`.
+
+Applied: 3.2 now says `diff` and `check` work on leaves, added and removed objects included; a `{ length, sha256 }` hash is two leaves one segment down; a `{ sha256, bytes }` digest's two leaves are covered by a pattern under its key in `check`, and `diff` expands it by dumping both revisions in a scratch worktree (CI runs `check` only). 3.4's patterns are now `forecasts.*.*` and `<path>.notChecked.**`, and P1.1's tests gain the added object, the hash and the digest.
 
 #### R3. The config probe moves in P1.4 and P1.14, two steps that plan no golden change
 
@@ -38,6 +42,8 @@ When to apply, by the batch each one guards: before batch 1, R2, R3, R4, R6, R9,
 - Evidence: `probes.js` line 383 `routes: Object.fromEntries([...].map(h => [h, parseRoute(h)]))`, line 384 `noRoute: [parseRoute(undefined), parseRoute(null)]`, line 382 `views: VIEWS.map(v => [v.key, v.name])`, line 374 `GAUGE_FLOW: slot('river').params.flow, GAUGE_TEMP: slot('river').params.temp`. `p-config.json` holds `views` with nine entries and the routes as `{ name, day }`.
 - Fix: Put `test/golden/probes.js` in P1.4's commit (a): `routes` and `noRoute` call `parseHash(h, keys)` with Putney's tab keys, keeping the `{ name, day }` shape and today's answers for `undefined` and `null`, and `views` lists `VIEWS.filter(v => !v.when || v.when(PUTNEY))`, so Tide never reaches it. Say in P1.8 that `latest.bind` keeps `flow` and `temp` and only the URL lists each gauge once.
 
+Applied: P1.4 lists `test/golden/probes.js`. Its commit (a) filters the probe's `views` by `when(PUTNEY)` (which passes against the unchanged `src/`), and commit (b), where `parseHash` first exists, moves `routes` and `noRoute` to `parseHash(h, keys)` with the same shape and answers. P1.8 commit 3 says `latest.bind` keeps `flow` and `temp`. P1.14 notes `p-config` does not move.
+
 #### R4. `update.spec.js` serves JSON as `application/octet-stream`, so P1.4's content-type rule fails it
 
 - Severity: blocker.
@@ -45,6 +51,8 @@ When to apply, by the batch each one guards: before batch 1, R2, R3, R4, R6, R9,
 - Problem: `update.spec.js` serves `dist/` from its own Node server, whose type table has no `.json`, so `locations/putney-landing.json` and `locations/index.json` come back as `application/octet-stream`. The service worker stores and replays that header. `fetchRecord()` then reads the record as not JSON, the index as unreadable, and returns `failed`: the page shows "Could not load this location", `ready()` times out, and the spec fails. P1.4 does not list the file. The same rule makes every location fail on any static host that serves `.json` as `text/plain` or `application/octet-stream`, against CLAUDE.md's "plain static files in `dist/` that any static host can serve".
 - Evidence: `update.spec.js`: `const TYPES = { '.html': ..., '.js': ..., '.css': ..., '.svg': ..., '.png': ..., '.woff2': ..., '.webmanifest': ... }` and `'content-type': TYPES[extname(file)] || 'application/octet-stream'`. Both builds it serves are built from the working tree, so from P1.4 both need the record file.
 - Fix: Decide by the body, not the header: parse it, and accept it as a record when `v` is 1 and `slug` is the slug asked for; an HTML fallback fails to parse and goes to the index check. Unit test a JSON body with `application/json`, `text/plain` and `application/octet-stream`, and an HTML body with 200. Add `'.json': 'application/json'` to the spec's table too, and list `update.spec.js` in P1.4's files.
+
+Applied: P1.4 item 3 judges a record by its body (`v` 1 and the slug asked for), never the content type; its tests cover `application/json`, `text/plain`, `application/octet-stream`, another slug's record and an HTML 200; a mutation accepts only a JSON content type; `update.spec.js` is in P1.4's files with `'.json'` in `TYPES`. P1.2 item 3 and section 10 item 9 now say the body is checked.
 
 #### R5. P1.10's flow-limit check cannot see the waterway, where all four flow bindings live
 
@@ -54,6 +62,8 @@ When to apply, by the batch each one guards: before batch 1, R2, R3, R4, R6, R9,
 - Evidence: the roles in `data/locations/putney-landing.json` `sources` are `alerts`, `obs` and `water_temp`; `flow` and `flow_forecast` are in `data/waterways/connecticut-river-vernon-pool.json`. 4.4, 4.5 and 4.8 put the three new flow rows in their waterway files the same way.
 - Fix: Give the check the waterway: `validateLocation(rec, { waterway })` runs these two rules on `resolveSources(rec, waterway)`, and `collectLocations` passes it. Test both rules with a flow row in the record and with one inherited from the waterway.
 
+Applied: P1.2's `collectLocations` calls `validateLocation(rec, { waterway })`; P1.10 item 4 runs the two basis rules on `resolveSources(rec, waterway)`, with tests for a row in the record and one inherited, and a mutation that checks the record's own sources.
+
 #### R6. The screenshot proof cannot hold: every shot gains the note or the Privacy link
 
 - Severity: blocker.
@@ -62,6 +72,8 @@ When to apply, by the batch each one guards: before batch 1, R2, R3, R4, R6, R9,
 - Evidence: `screens.spec.js` `page.goto('/')` and `` page.goto(`/#${tab}`) ``, `shot = { fullPage: true, ... }`; the window ends 2027-03-01 (section 2, row 4) and the shots are pinned to 2026-06-15 and 2026-10-14.
 - Fix: In P1.4 or P1.6, `screens.spec.js` loads `/putney-landing`, as 01 16.5 asks ("`/putney-landing` ... identical to the pre-phase-0 screenshots"); the `30fef7a` baseline at `/` draws the same page. Either list the Privacy link as an expected difference in 3.6, P1.20 and 07 3.2 with the owner's approval, or wait for phase 2 as 07 6.6 says and link `/privacy` from the install and Settings text in the meantime.
 
+Applied (owner decision, 2026-10-21, following 07 6.6): P1.4 item 12 makes `screens.spec.js` load `/putney-landing` and `/putney-landing#<tab>`; P1.16 item 6 adds no footer link and ends the `#install` note and the Settings intro note with "How RoWhether counts app opens." linked to `/privacy`, with a smoke check; 3.6 says no shot gains the note or a link.
+
 #### R7. The upgrade proof starts from a build no Putney phone runs
 
 - Severity: blocker.
@@ -69,6 +81,8 @@ When to apply, by the batch each one guards: before batch 1, R2, R3, R4, R6, R9,
 - Problem: Phase 0 is not in production. Every installed Putney app runs the production build, `2b7ef06` (the tree `origin/master` serves), with only `putney-rowing-*` keys and a service worker without `skipWaiting`. `30fef7a` already has the phase 0 keys and the takeover fix, so an upgrade from it skips the migration and the old worker that real phones go through. Worse, a copy of `30fef7a` installed fresh never writes `rowhether-last-v1` (its `migrateStorage()` sets it only when a `putney-rowing-*` key exists), so after the update `/` opens Putney with "Not your water? Pick a location." and stays at `/`, and the proof fails on a state no real phone is in. The smoke upgrade check seeds the old keys but blocks service workers, so the first start's record file never comes from a precache there.
 - Evidence: `git log --oneline -1 origin/master` is `8c9c36a Merge pull request #7 from NeverNathaniel/dev`, and `2b7ef06` is the tip of what it merged; P0.14 item 7 upgraded from `2b7ef06` (`phase-0-progress.md`, "Proof 7, the upgrade: a build of `2b7ef06`").
 - Fix: P1.20 item 7 upgrades from `2b7ef06` to HEAD, as P0.14 did, and also from `30fef7a`. It checks that the first start after the takeover reads `locations/putney-landing.json` from the new worker's precache with the network off.
+
+Applied: P1.20 item 7 upgrades from `2b7ef06` first, checks the record file comes from the new worker's precache with the network off, then upgrades from `30fef7a`, where `/` showing Putney with the pick note is the expected result. Section 8, row 3 names both.
 
 ## Major
 
