@@ -617,6 +617,39 @@ test.describe('smoke', () => {
       expect(new URL(page.url()).pathname).toBe('/lake-test');
     });
 
+    // No page has such a link yet (the picker's rows are P1.6's), so the test adds one. The handler is
+    // seen from a listener after it: it records whether the app took the click, and turns a modified
+    // click into nothing, so no tab opens.
+    test('a link with data-nav opens its location in the page, and a modified click is left to the browser', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.route('**/locations/lake-test.json', route => route.fulfill({ json: LAKE_FILE }));
+      await page.goto('/putney-landing');
+      await ready(page);
+      await page.evaluate(() => {
+        document.body.insertAdjacentHTML('beforeend', '<a id="go" data-nav href="/lake-test">Lake</a><a id="out" data-nav href="https://example.com/x">Out</a>');
+        window.__taken = [];
+        document.addEventListener('click', e => { window.__taken.push(e.defaultPrevented); if (e.ctrlKey || e.metaKey || e.shiftKey || e.button || e.target.id === 'out') e.preventDefault(); });
+      });
+      for (const [what, options] of [['ctrl', { modifiers: ['Control'] }], ['meta', { modifiers: ['Meta'] }], ['shift', { modifiers: ['Shift'] }], ['middle', { button: 'middle' }]]) {
+        await page.locator('#go').click(options);
+        expect(new URL(page.url()).pathname, what).toBe('/putney-landing');
+      }
+      await page.locator('#out').click();
+      expect(new URL(page.url()).hostname, 'a link to another site is left alone').toBe('localhost');
+      // A middle click is an auxclick, which the page never sees as a click. The others it saw and left alone.
+      expect(await page.evaluate(() => window.__taken)).toEqual([false, false, false, false]);
+      const loads = await page.evaluate(() => { sessionStorage.mark = '1'; return history.length; });
+      await page.locator('#go').click();
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 90°');
+      expect(new URL(page.url()).pathname).toBe('/lake-test');
+      expect(await page.evaluate(() => window.__taken.at(-1)), 'the app took the click').toBe(true);
+      expect(await page.evaluate(() => history.length), 'one entry added').toBe(loads + 1);
+      // Back goes to the first location, in the page.
+      await page.goBack();
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 15°');
+      expect(new URL(page.url()).pathname).toBe('/putney-landing');
+    });
+
     test('back to the first location after another draws it again from the record and the saved forecast', async ({ page }) => {
       await routeAll(page, scenario, clock);
       await page.route('**/locations/lake-test.json', route => route.fulfill({ json: LAKE_FILE }));
