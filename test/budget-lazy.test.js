@@ -33,8 +33,10 @@ ${extra}</head>
 let dir;
 const put = (path, text) => { mkdirSync(join(dir, path, '..'), { recursive: true }); writeFileSync(join(dir, path), text); };
 
-// A passing dist/ for one location, "a", and a views chunk. Each option is a thing to break.
-function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'locations/index.json', 'locations/a.json', 'assets/views-def.js'], chunk = 'assets/views-def.js' } = {}) {
+// A passing dist/ for one location, "a", a views chunk and a suggest-form chunk (always
+// in the precache: the cases below break the views chunk). Each option is a thing to break.
+const FORM = 'assets/suggest-form-ghi.js';
+function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'locations/index.json', 'locations/a.json', 'assets/views-def.js'], chunk = 'assets/views-def.js', form = FORM, formCached = true } = {}) {
   mkdirSync(join(dir, 'scripts'), { recursive: true });
   copyFileSync(SCRIPT, join(dir, 'scripts/budget.mjs'));
   put('budget.json', JSON.stringify({ phase: 1, js: 1e6, css: 1e6, html: 1e6, precacheKiB: 1000 }));
@@ -43,9 +45,11 @@ function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'as
   put('dist/assets/index-abc.js', 'export const x = 1;\n'.repeat(50));
   put('dist/assets/index-abc.css', 'a { color: red }\n'.repeat(50));
   if (chunk) put(`dist/${chunk}`, 'export const views = {};\n'.repeat(80));
+  if (form) put(`dist/${form}`, 'export const form = {};\n'.repeat(40));
   put('dist/locations/index.json', JSON.stringify({ locations: [{ slug: 'a' }] }));
   put('dist/locations/a.json', '{}');
-  put('dist/sw.js', `precacheAndRoute([${precache.map(u => `{url:"${u}",revision:null}`).join(',')}],{});`);
+  const cached = formCached ? [...precache, FORM] : precache;
+  put('dist/sw.js', `precacheAndRoute([${cached.map(u => `{url:"${u}",revision:null}`).join(',')}],{});`);
 }
 
 const run = (script = join(dir, 'scripts/budget.mjs')) => {
@@ -57,15 +61,19 @@ beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'budget-lazy-')); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe('the lazy chunk list in scripts/budget.mjs', () => {
-  it('passes a build whose views chunk is in the precache and not in the page, and prints its size', () => {
+  it('passes a build whose chunks are in the precache and not in the page, and prints their sizes', () => {
     setup();
     const r = run();
     expect(r.code, r.out).toBe(0);
-    expect(r.out).toMatch(/ok\s+Lazy chunks views/);
+    expect(r.out).toMatch(/ok\s+Lazy chunks views, suggest-form/);
     expect(r.out).toMatch(/views\s+[\d,]+ B gzip, 2,000 B raw, precached\s+\(assets\/views-def\.js\)/);
+    expect(r.out).toMatch(/suggest-form\s+[\d,]+ B gzip, 960 B raw, precached\s+\(assets\/suggest-form-ghi\.js\)/);
     const report = JSON.parse(readFileSync(join(dir, 'dist/budget-report.json'), 'utf8'));
     expect(report.ok).toBe(true);
-    expect(report.lazy.chunks).toMatchObject([{ name: 'views', file: 'assets/views-def.js', precache: true, precached: true }]);
+    expect(report.lazy.chunks).toMatchObject([
+      { name: 'views', file: 'assets/views-def.js', precache: true, precached: true },
+      { name: 'suggest-form', file: FORM, precache: true, precached: true }
+    ]);
     expect(report.lazy.problems).toEqual([]);
   });
 
@@ -77,6 +85,19 @@ describe('the lazy chunk list in scripts/budget.mjs', () => {
     const report = JSON.parse(readFileSync(join(dir, 'dist/budget-report.json'), 'utf8'));
     expect(report.over).toEqual(['Lazy chunks']);
     expect(report.ok).toBe(false);
+  });
+
+  it('fails when the suggestion form chunk is missing, or is not in the precache', () => {
+    setup({ form: null, formCached: false });
+    let r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('dist/assets has no suggest-form-*.js');
+    setup({ formCached: false });
+    r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(`The service worker does not precache ${FORM}.`);
+    setup({ head: `<link rel="modulepreload" href="/${FORM}">\n` });
+    expect(run().out).toContain('dist/index.html loads suggest-form-ghi.js');
   });
 
   it('fails when a file is named for another chunk, since the name is what the checks look for', () => {

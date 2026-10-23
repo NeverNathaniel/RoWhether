@@ -10,6 +10,7 @@ import { fetchAll } from './data.js';
 import { loadCache, saveCache, loadPlan, savePlan, loadOverrides, saveRecord, touchCache, trimCaches, saveLast, pushRecent } from './storage.js';
 import { cachedRecord, fetchRecord, newerRecord } from './locations.js';
 import { render } from './render/index.js';
+import { renderPlace } from './render/header.js';
 import { fillPeriod } from './render/days.js';
 import { renderDetail } from './render/detail/index.js';
 import { initRoutes, renderTabs, showTab, showMissing, showFailed, setDay } from './route.js';
@@ -69,6 +70,7 @@ async function refresh() {
 function enter(record, keepAddress) {
   const slug = record.slug;
   openLocation(record, loadOverrides(slug));
+  renderPlace(app.loc);
   touchCache(slug);
   // "/" shown to a first visit is Putney, but not the visitor's choice yet.
   if (!keepAddress) saveLast(slug);
@@ -84,12 +86,15 @@ function enter(record, keepAddress) {
   refresh();
 }
 
+// No location open, for a page that has none: the header says only RoWhether.
+const none = () => { openLocation(null); renderPlace(null); };
+
 let asked = 0; // counts the addresses asked for: an answer for an older one is dropped
 // Opens the location at `slug`, or none when it is null. The record comes from
 // this browser, else from the file the build wrote.
 async function open(slug, keepAddress) {
   const mine = ++asked;
-  if (!slug) { openLocation(null); return; }
+  if (!slug) { none(); return; }
   if (app.loc?.slug === slug) { showTab(); return; }
   const stored = cachedRecord(slug);
   let record = stored?.record;
@@ -97,7 +102,7 @@ async function open(slug, keepAddress) {
     const got = await fetchRecord(slug);
     if (mine !== asked) return;
     if (!got.record) {
-      openLocation(null);
+      none();
       if (got.missing) showMissing(slug); else showFailed();
       return;
     }

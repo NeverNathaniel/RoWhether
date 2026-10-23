@@ -6,12 +6,8 @@ import { waterTemp, sunFor, lvlExcept } from '../logic.js';
 import { bindingsFor, labelFor } from '../sources/index.js';
 import { dayLabel, periodTime, periodSummary } from './days.js';
 
-export function renderHeader() {
-  const u = $('updated');
-  if (!app.updated) { u.textContent = app.errors.wx ? 'Not loaded' : 'Loading'; return; }
-  const label = app.errors.wx || app.fromCache ? 'Saved data from' : 'Updated';
-  u.textContent = `${label} ${hm(app.updated)}`;
-}
+// The header's time moved to header.js; the capture still imports it from here.
+export { renderHeader } from './header.js';
 
 export function renderNoData() {
   $('shareBtn').hidden = true;

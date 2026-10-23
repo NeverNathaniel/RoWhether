@@ -130,8 +130,9 @@ function locationProblems(distinct) {
   return { records: slugs, problems };
 }
 
-// The lazy chunks. P1.6, P1.14 and P1.18 add picker, tide and admin.
-const LAZY = [{ name: 'views', precache: true }];
+// The lazy chunks. P1.5 moved the suggestion form out of the main script to make
+// room (07 10.3, plan 7.3); P1.6, P1.14 and P1.18 add picker, tide and admin.
+const LAZY = [{ name: 'views', precache: true }, { name: 'suggest-form', precache: true }];
 
 // The files the page loads or preloads: its scripts, and its modulepreload and
 // preload links. A lazy chunk is read with import() and is in none of them.

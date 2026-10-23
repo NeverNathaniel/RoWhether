@@ -3,8 +3,30 @@
 // install sentence, the title's size class and the badge. Run in Pacific/Auckland,
 // which is neither the dock's zone nor the viewer's in these cases, so a line that
 // reads the machine's zone fails.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { linkText } from '../src/format.js';
+import { app } from '../src/state.js';
+import { PUTNEY, PUTNEY_RECORD } from '../src/putney.js';
+import { resolveLocation } from '../src/location.js';
+import { subtitleText, renderPlace } from '../src/render/header.js';
+import { installFakeDom, uninstallFakeDom } from './helpers/fakedom.js';
+
+const NY = 'America/New_York';
+// Oct 22 2026 noon in New York (EDT, UTC-4), which is the week after New Zealand
+// went to NZDT (UTC+13) and India is UTC+5:30 all year.
+const OCT = Date.UTC(2026, 9, 22, 16);
+// Mar 2 2026: New York on EST (UTC-5), and the two clock changes of March still ahead.
+const MAR2 = Date.UTC(2026, 2, 2, 17);
+// Mar 15 2026: New York on EDT again, New Zealand still on NZDT until Apr 5.
+const MAR15 = Date.UTC(2026, 2, 15, 16);
+// The plan's place, with a record's own words. Not a record the build reads.
+const place = (over = {}) => resolveLocation({ ...PUTNEY_RECORD, ...over }, { waterway: { id: 'w', name: 'Charles River' } });
+
+afterEach(() => {
+  uninstallFakeDom();
+  vi.useRealTimers();
+  app.loc = null;
+});
 
 describe('linkText', () => {
   it('turns [text](https://...) into a link that opens in a new tab', () => {
@@ -37,5 +59,132 @@ describe('linkText', () => {
     expect(linkText('[brackets] and (parentheses)')).toBe('[brackets] and (parentheses)');
     expect(linkText(null)).toBe('');
     expect(linkText(undefined)).toBe('');
+  });
+});
+
+describe('subtitleText', () => {
+  const sub = (loc, now, device) => subtitleText(loc, now, device);
+
+  it("is today's line, exactly, for Putney on a device in New York", () => {
+    expect(sub(PUTNEY, OCT, NY)).toBe('Connecticut River at the Putney Rowing Club docks. All times Eastern.');
+    expect(sub(PUTNEY, MAR2, NY)).toBe('Connecticut River at the Putney Rowing Club docks. All times Eastern.');
+  });
+
+  it('adds how far ahead or behind the dock is, from the offsets at that time', () => {
+    const end = 'Connecticut River at the Putney Rowing Club docks. All times Eastern';
+    expect(sub(PUTNEY, OCT, 'America/Chicago')).toBe(`${end}, 1 hour ahead of you.`);
+    expect(sub(PUTNEY, OCT, 'America/Los_Angeles')).toBe(`${end}, 3 hours ahead of you.`);
+    expect(sub(PUTNEY, OCT, 'Asia/Kolkata')).toBe(`${end}, 9 hours 30 minutes behind you.`);
+    expect(sub(PUTNEY, OCT, 'Pacific/Auckland')).toBe(`${end}, 17 hours behind you.`);
+    expect(sub(PUTNEY, OCT, 'UTC')).toBe(`${end}, 4 hours behind you.`);
+    // The offsets are read at `now`: New York is on EST here and on EDT in the next case.
+    expect(sub(PUTNEY, MAR2, 'Pacific/Auckland')).toBe(`${end}, 18 hours behind you.`);
+    expect(sub(PUTNEY, MAR15, 'Pacific/Auckland')).toBe(`${end}, 17 hours behind you.`);
+  });
+
+  it('says nothing for a device on another zone name with the same offset', () => {
+    expect(sub(PUTNEY, OCT, 'America/Toronto')).toBe('Connecticut River at the Putney Rowing Club docks. All times Eastern.');
+    expect(sub(PUTNEY, OCT, '')).toBe('Connecticut River at the Putney Rowing Club docks. All times Eastern.');
+  });
+
+  it('never reads the machine zone, which these tests run in Pacific/Auckland', () => {
+    expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe('Pacific/Auckland');
+    expect(sub(PUTNEY, OCT, NY)).not.toContain('ahead');
+    expect(sub(PUTNEY, OCT, NY)).not.toContain('behind');
+  });
+
+  it('counts a quarter hour and a half hour in minutes', () => {
+    const kolkata = place({ subtitle: 'The ghat.', tz: 'Asia/Kolkata', tzLabel: 'India' });
+    expect(sub(kolkata, OCT, 'Asia/Kathmandu')).toBe('The ghat. All times India, 15 minutes behind you.');
+    expect(sub(kolkata, OCT, NY)).toBe('The ghat. All times India, 9 hours 30 minutes ahead of you.');
+    const adelaide = place({ subtitle: 'The river.', tz: 'Australia/Adelaide', tzLabel: 'Adelaide' });
+    expect(sub(adelaide, OCT, 'Australia/Brisbane')).toBe('The river. All times Adelaide, 30 minutes ahead of you.');
+  });
+
+  it("names a zone with no label by the zone's own word, without Time", () => {
+    const la = place({ tz: 'America/Los_Angeles', tzLabel: null });
+    expect(sub(la, OCT, 'America/Los_Angeles')).toBe('Connecticut River at the Putney Rowing Club docks. All times Pacific.');
+    expect(sub(place({ tz: 'America/Chicago', tzLabel: null }), OCT, NY)).toBe('Connecticut River at the Putney Rowing Club docks. All times Central, 1 hour behind you.');
+  });
+
+  it("builds the line from the waterway and the locality when a record has no subtitle", () => {
+    const rec = { subtitle: null, name: 'Magazine Beach', locality: 'Cambridge, MA' };
+    expect(sub(place(rec), OCT, NY)).toBe('Charles River at Cambridge, MA. All times Eastern.');
+    // The waterway is the location's own name: the locality alone.
+    expect(sub(place({ ...rec, name: 'Charles River' }), OCT, NY)).toBe('Cambridge, MA. All times Eastern.');
+    expect(sub(place({ ...rec, locality: null }), OCT, NY)).toBe('Charles River. All times Eastern.');
+    expect(sub(place({ ...rec, locality: null, name: 'Charles River' }), OCT, NY)).toBe('Charles River. All times Eastern.');
+    expect(sub(resolveLocation({ ...PUTNEY_RECORD, ...rec }), OCT, NY)).toBe('Cambridge, MA. All times Eastern.');
+  });
+});
+
+describe('renderPlace', () => {
+  function draw(loc, { tz = NY, now = OCT } = {}) {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
+    app.deviceTz = tz;
+    const dom = installFakeDom({ width: 390 });
+    renderPlace(loc);
+    return dom;
+  }
+
+  it('draws Putney: the name, the line, the credits with links, the install sentence and the page title', () => {
+    const dom = draw(PUTNEY);
+    expect(dom.el('locName').textContent).toBe('Putney Landing');
+    expect(dom.el('sub').textContent).toBe('Connecticut River at the Putney Rowing Club docks. All times Eastern.');
+    expect(dom.el('locBadges').hidden).toBe(true);
+    expect(dom.el('installText').textContent).toBe('Add RoWhether to your home screen. It opens on Putney Landing in one tap.');
+    expect(document.title).toBe('Putney Landing rowing conditions');
+    const credits = dom.el('credits');
+    expect(credits.hidden).toBe(false);
+    expect(credits.innerHTML).toContain('<a href="https://www.weather.gov/aly/" target="_blank" rel="noopener">Albany</a> and <a href="https://www.weather.gov/gyx/" target="_blank" rel="noopener">Gray</a>');
+    expect(credits.textContent).toContain('Alerts from the National Weather Service offices in Albany and Gray, and Keene observations from the National Weather Service.');
+    expect(credits.innerHTML).not.toContain('[');
+  });
+
+  it("names the difference from the viewer's zone", () => {
+    expect(draw(PUTNEY, { tz: 'America/Chicago' }).el('sub').textContent).toBe('Connecticut River at the Putney Rowing Club docks. All times Eastern, 1 hour ahead of you.');
+  });
+
+  it('steps the title down for a name over 18 characters', () => {
+    const named = n => draw(place({ name: n })).el('title').extra.className;
+    expect(named('A'.repeat(18))).toBe('');
+    expect(named('A'.repeat(19))).toBe('long');
+    expect(named('Putney Landing')).toBe('');
+    expect(named('Thompson Boat Center')).toBe('long');
+  });
+
+  it('shows the badge for a published location and for no other', () => {
+    expect(draw(place({ status: 'published' })).el('locBadges').hidden).toBe(false);
+    expect(draw(place({ status: 'verified' })).el('locBadges').hidden).toBe(true);
+    expect(draw(place({ status: 'draft' })).el('locBadges').hidden).toBe(true);
+    expect(draw(place({ status: 'archived' })).el('locBadges').hidden).toBe(true);
+  });
+
+  it('draws the page of no location as RoWhether, with no line, badge or credits', () => {
+    const dom = draw(null);
+    expect(dom.el('locName').textContent).toBe('RoWhether');
+    expect(dom.el('title').extra.className).toBe('');
+    expect(dom.el('sub').textContent).toBe('');
+    expect(dom.el('locBadges').hidden).toBe(true);
+    expect(dom.el('credits').hidden).toBe(true);
+    expect(dom.el('credits').innerHTML).toBe('');
+    expect(dom.el('installText').textContent).toBe('Add RoWhether to your home screen. It opens full screen in one tap.');
+    expect(document.title).toBe('RoWhether');
+  });
+
+  it('draws a location after one with a badge and a long name with neither left over', () => {
+    const dom = draw(place({ status: 'published', name: 'Thompson Boat Center' }));
+    expect(dom.el('locBadges').hidden).toBe(false);
+    renderPlace(PUTNEY);
+    expect(dom.el('locBadges').hidden).toBe(true);
+    expect(dom.el('title').extra.className).toBe('');
+    expect(dom.el('locName').textContent).toBe('Putney Landing');
+  });
+
+  it('leaves the credits hidden for a record with none, and escapes what they say', () => {
+    expect(draw(place({ copy: { description: 'Rowing.' } })).el('credits').hidden).toBe(true);
+    const dom = draw(place({ copy: { credits: 'From <b>NWS</b> [Open-Meteo](https://open-meteo.com/) [x](javascript:alert(1)).' } }));
+    expect(dom.el('credits').innerHTML).toBe('From &lt;b&gt;NWS&lt;/b&gt; <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> [x](javascript:alert(1)).');
   });
 });

@@ -929,7 +929,9 @@ test.describe('smoke', () => {
 
     test('the room follows the bar when the width changes', async ({ page }) => {
       await routeAll(page, scenario, clock);
-      await page.setViewportSize({ width: 600, height: 740 });
+      // 700 px: the bar is one short row of three columns. At 600 px Don't show again makes the
+      // actions column 381 px wide and leaves the sentence 96 px, which is as tall as the bar at 320.
+      await page.setViewportSize({ width: 700, height: 740 });
       await page.goto('/');
       await ready(page);
       await seed(page, 5);

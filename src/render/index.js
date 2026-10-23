@@ -2,7 +2,8 @@
 // section, and the open detail view if there is one.
 import { app } from '../state.js';
 import { buildModel } from '../logic.js';
-import { renderHeader, renderNoData, renderHero, renderAlerts } from './hero.js';
+import { renderHeader } from './header.js';
+import { renderNoData, renderHero, renderAlerts } from './hero.js';
 import { renderNow } from './now.js';
 import { renderDays } from './days.js';
 import { renderDetail } from './detail/index.js';

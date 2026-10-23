@@ -18,9 +18,12 @@ export default defineConfig({
       injectRegister: false, // registered in src/main.js
       includeAssets: ['apple-touch-icon.png', 'favicon.svg'],
       manifest: {
-        name: 'Putney Landing rowing conditions',
-        short_name: 'Putney Row',
-        description: 'Go, caution or stay off: rowing conditions on the Connecticut River at Putney Landing, VT.',
+        name: 'RoWhether',
+        short_name: 'RoWhether',
+        description: 'Go, caution or stay off: rowing conditions for your launch site, hour by hour.',
+        // The app's identity, as today's start_url resolves: https://rowhether.com/.
+        // A different id would make installs a second app (07 6.3).
+        id: '/',
         start_url: './',
         scope: './',
         display: 'standalone',

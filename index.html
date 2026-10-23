@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Putney Row">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="RoWhether">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="description" content="Go, caution or stay off: rowing conditions on the Connecticut River at Putney Landing, VT.">
 <title>Putney Landing rowing conditions</title>
 <link rel="canonical" href="https://rowhether.com/">
@@ -25,8 +25,15 @@
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>Putney Landing <span class="env" id="envBadge" hidden></span></h1>
-      <p class="sub">Connecticut River at the Putney Rowing Club docks. All times Eastern.</p>
+      <div class="title-row">
+        <h1 id="title">
+          <button type="button" id="locBtn" class="loc-btn" aria-haspopup="dialog" aria-controls="picker" aria-describedby="locHint"><span id="locName">Putney Landing</span><svg class="loc-chev" viewBox="0 0 12 8" aria-hidden="true"><path d="M1.5 1.5 6 6l4.5-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <span class="env" id="envBadge" hidden></span>
+        </h1>
+        <span class="vh" id="locHint">Change location</span>
+      </div>
+      <p class="sub" id="sub">Connecticut River at the Putney Rowing Club docks. All times Eastern.</p>
+      <p class="badges" id="locBadges" hidden><span class="badge">Not confirmed on site</span></p>
     </div>
     <div class="actions" id="actions">
       <span class="updated" id="updated">Loading</span>
@@ -89,14 +96,14 @@
       <p class="install-row" id="installRow" hidden><button type="button" id="installBtn">Install this app</button></p>
       <p class="suggest-row" id="suggestRow" hidden><button type="button" id="suggestBtn">Suggest a change or report a bug</button></p>
     </div>
-    <p>Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (NOAA HRRR and GFS models). Alerts and Keene observations from the <a href="https://www.weather.gov/aly/" target="_blank" rel="noopener">National Weather Service, Albany</a>. River flow from USGS gauge <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01154500/" target="_blank" rel="noopener">01154500 at North Walpole</a>, water temperature from <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01161280/" target="_blank" rel="noopener">01161280 near Northfield</a>. River forecast from the <a href="https://water.noaa.gov/gauges/wlpn3" target="_blank" rel="noopener">NWS Northeast River Forecast Center</a>. Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo.</p>
+    <p id="credits"></p>
     <p>Thresholds are starting points, not club rules. Lightning: off the water at the first thunder, back on 30 minutes after the last. Look at the water before you launch.</p>
   </footer>
 </div>
 
 <div class="install-bar" id="installBar" role="region" aria-label="Install the app" hidden>
-  <img src="icon-192.png" alt="" width="44" height="44">
-  <p>Add Putney Row to your home screen. It opens full screen in one tap.</p>
+  <img src="/icon-192.png" alt="" width="44" height="44">
+  <p id="installText">Add RoWhether to your home screen. It opens on Putney Landing in one tap.</p>
   <div class="install-actions">
     <button type="button" id="installNever" hidden>Don't show again</button>
     <button type="button" id="installLater">Not now</button>
@@ -149,7 +156,7 @@
     </fieldset>
     <fieldset id="setInstall" hidden>
       <legend>App</legend>
-      <p class="note" style="margin:0 0 .5rem">Add Putney Row to your home screen. It opens full screen in one tap.</p>
+      <p class="note" style="margin:0 0 .5rem">Add RoWhether to your home screen. It opens on your last location in one tap.</p>
       <button type="button" id="setInstallBtn">Install this app</button>
     </fieldset>
     <div class="dlg-actions">
@@ -212,7 +219,7 @@
   <form method="dialog">
     <h2 id="insTitle">Add to your home screen</h2>
     <ol class="steps" id="insSteps"></ol>
-    <p class="note">Then open Putney Row from its icon. It opens full screen and keeps the last forecast for when you are offline.</p>
+    <p class="note">Then open RoWhether from its icon. It opens on your last location and keeps the last forecast for when you are offline.</p>
     <div class="dlg-actions">
       <button class="primary">Done</button>
     </div>

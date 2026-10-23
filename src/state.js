@@ -19,6 +19,7 @@ export const app = {
   detailWidth: 0,  // width the detail view was drawn at
   token: 0,        // counts the locations opened: an answer for an older one is dropped
   refreshing: null, // the token of the refresh in flight, or null
+  deviceTz: Intl.DateTimeFormat().resolvedOptions().timeZone, // the viewer's own zone, for the subtitle
   info: null,      // GET /api/info: { env, reports }, or null on a static host
   reports: null    // GET /api/reports: { hours, reports }
 };
