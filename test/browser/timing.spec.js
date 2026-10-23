@@ -79,7 +79,7 @@ test.describe('timing', () => {
         (i < 0 ? warm : heroAt).push(await page.evaluate(() => performance.getEntriesByName('hero')[0].startTime));
         // Served by the worker, drawn from the saved copy and not from a fetch.
         expect(await page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
-        await expect(page.locator('#updated')).toHaveText(/^Saved data from/);
+        await expect(page.locator('#updated')).toHaveText(/^Saved /);
         // The refresh failed too, and must not have emptied the saved copy (review Z3).
         await expect(page.locator('#refreshBtn')).toBeEnabled();
         await expect(page.locator('#verdict')).not.toHaveText('No data.');

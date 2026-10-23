@@ -790,7 +790,7 @@ test.describe('smoke', () => {
     test('every source aborted: the last data stays on screen and in storage', async ({ page }) => {
       const before = await failedRefresh(page, p => routeAll(p, scenario, clock, { abort: true }));
       await expect(page.locator('#verdict')).not.toHaveText('No data.');
-      await expect(page.locator('#updated')).toHaveText(/^Saved data from/);
+      await expect(page.locator('#updated')).toHaveText(/^Saved /);
       await expect(page.locator('#statusNote')).toBeVisible();
       await expectKept(page, before);
     });
@@ -840,7 +840,7 @@ test.describe('smoke', () => {
 
       // The forecast comes from the saved copy.
       expect(seen.served).toEqual([]);
-      await expect(page.locator('#updated')).toHaveText(/^Saved data from/);
+      await expect(page.locator('#updated')).toHaveText(/^Saved /);
       await expect(page.locator('#verdict')).toHaveText('Go.');
       await expect(page.locator('#why')).toContainText('55°F water');
       // The heading, the blank level, the dock reading, no reminder, no install bar.

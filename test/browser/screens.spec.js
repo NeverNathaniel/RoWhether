@@ -54,6 +54,10 @@ async function settle(page) {
 }
 
 test.describe('screens', { tag: '@visual' }, () => {
+  // A Putney regular's zone. From P1.5 the subtitle names the difference between the
+  // viewer's zone and the location's, so the zone the shots run in must be fixed.
+  test.use({ timezoneId: 'America/New_York' });
+
   for (const name of DAYS) {
     for (const hr of HOURS) {
       const scenario = SCENARIOS[name];

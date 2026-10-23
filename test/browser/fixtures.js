@@ -74,7 +74,7 @@ export async function ready(page) {
     const updated = document.getElementById('updated');
     const refresh = document.getElementById('refreshBtn');
     return verdict && verdict.textContent.trim() !== '' &&
-      updated && /^(Updated|Saved data from|Not loaded)/.test(updated.textContent) &&
+      updated && /^(Updated|Saved|Not loaded)/.test(updated.textContent) &&
       refresh && !refresh.disabled;
   });
   await page.evaluate(() => document.fonts.ready);
