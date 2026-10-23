@@ -43,6 +43,8 @@ test.describe('the header', () => {
     await expect(btn).toHaveText('Putney Landing');
     await expect(btn).toHaveAccessibleName('Putney Landing');
     await expect(btn).toHaveAccessibleDescription('Change location');
+    // The hint is for screen readers: one clipped pixel, so it takes no room beside the title.
+    expect((await page.locator('#locHint').boundingBox()).width).toBeLessThanOrEqual(1);
     await expect(btn).toHaveAttribute('aria-haspopup', 'dialog');
     await expect(btn).toHaveAttribute('aria-controls', 'picker');
     await expect(page.locator('#sub')).toHaveText(`${LINE}.`);

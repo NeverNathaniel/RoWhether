@@ -1034,17 +1034,23 @@ test.describe('an address with no location', () => {
     }
   });
 
-  // The form is offered here and on the picker, where no location is open (R9). The page's own
-  // code builds the context, so a line that reads the location without a guard throws on send.
-  async function sendSuggestion(page, path) {
-    const posted = [];
+  // The Worker says the form is on, and Turnstile is a stand-in that keeps what the form asks it to
+  // draw: the lazy chunk has to pass the site key on.
+  async function suggestStubs(page, posted) {
     await routeAll(page, scenario, clock);
-    await page.route('https://challenges.cloudflare.com/**', route => route.fulfill({ contentType: 'text/javascript', body: 'window.turnstile = { render() { return "w"; }, getResponse() { return "token"; }, reset() {} };' }));
+    await page.route('https://challenges.cloudflare.com/**', route => route.fulfill({ contentType: 'text/javascript', body: 'window.turnstile = { render(sel, opts) { (window.__drawn ||= []).push({ sel, opts }); return "w"; }, getResponse() { return "token"; }, reset() {} };' }));
     await page.route('**/api/suggest', route => {
       if (route.request().method() === 'GET') return route.fulfill({ json: { enabled: true, siteKey: 'test-key' } });
       posted.push(route.request().postDataJSON());
       return route.fulfill({ json: { ok: true } });
     });
+  }
+
+  // The form is offered here and on the picker, where no location is open (R9). The page's own
+  // code builds the context, so a line that reads the location without a guard throws on send.
+  async function sendSuggestion(page, path) {
+    const posted = [];
+    await suggestStubs(page, posted);
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.goto(path);
@@ -1053,6 +1059,8 @@ test.describe('an address with no location', () => {
     await page.locator('#sugSend').click();
     await expect(page.locator('#sugDone')).toBeVisible();
     expect(errors).toEqual([]);
+    const drawn = await page.evaluate(() => window.__drawn);
+    expect(drawn, 'the spam check is drawn once, with the key the Worker gave').toEqual([{ sel: '#sugCheck', opts: expect.objectContaining({ sitekey: 'test-key', action: 'suggest' }) }]);
     return posted;
   }
 
@@ -1065,5 +1073,24 @@ test.describe('an address with no location', () => {
     const [post] = await sendSuggestion(page, '/putney-landing');
     expect(post.context.location).toBe('putney-landing');
     expect(post.context.settings).toMatchObject({ heading: 15, windCaution: 10, flowOff: 28000 });
+  });
+
+  // The chunk wires the form's events when it first opens: the count, Cancel and the send.
+  test('the suggestion form counts what is left, closes on Cancel, and opens again to send once', async ({ page }) => {
+    const posted = [];
+    await suggestStubs(page, posted);
+    await page.goto('/putney-landing');
+    await page.locator('#suggestBtn').click();
+    await expect(page.locator('#suggest')).toBeVisible();
+    await page.locator('#sugText').fill('x'.repeat(1900));
+    await expect(page.locator('#sugCount')).toHaveText('100 characters left');
+    await page.locator('#sugCancel').click();
+    await expect(page.locator('#suggest')).toBeHidden();
+    await page.locator('#suggestBtn').click();
+    await expect(page.locator('#suggest')).toBeVisible();
+    await page.locator('#sugText').fill('Please add Lake Quinsigamond to the list of places.');
+    await page.locator('#sugSend').click();
+    await expect(page.locator('#sugDone')).toBeVisible();
+    expect(posted).toHaveLength(1);
   });
 });
