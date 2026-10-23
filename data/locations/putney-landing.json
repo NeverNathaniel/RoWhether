@@ -47,13 +47,13 @@
   "copy": {
     "flowStats": "Since 2016 the median day is about 6,900 cfs. 20,000 is roughly the top 10% of days, 28,000 the top 5%.",
     "flowHow": "Flow is measured at the USGS gauge at North Walpole, below the Bellows Falls dam, about 16 river miles upstream of the dock. The forecast is from the NWS Northeast River Forecast Center for the same gauge, in 6-hour steps.",
-    "credits": "Forecast from Open-Meteo (NOAA HRRR and GFS models). Alerts and Keene observations from the National Weather Service, Albany. River flow from USGS gauge 01154500 at North Walpole, water temperature from 01161280 near Northfield. River forecast from the NWS Northeast River Forecast Center. Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo.",
+    "credits": "Forecast from [Open-Meteo](https://open-meteo.com/) (NOAA HRRR and GFS models). Alerts from the National Weather Service offices in [Albany](https://www.weather.gov/aly/) and [Gray](https://www.weather.gov/gyx/), and Keene observations from the National Weather Service. River flow from USGS gauge [01154500 at North Walpole](https://waterdata.usgs.gov/monitoring-location/USGS-01154500/), water temperature from [01161280 near Northfield](https://waterdata.usgs.gov/monitoring-location/USGS-01161280/). River forecast from the [NWS Northeast River Forecast Center](https://water.noaa.gov/gauges/wlpn3). Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo.",
     "description": "Go, caution or stay off: rowing conditions on the Connecticut River at Putney Landing, VT."
   },
   "launchNotes": null,
   "status": "verified",
   "verifiedVia": "owner",
-  "revision": 2,
+  "revision": 3,
   "sources": [
     {
       "role": "alerts", "adapter": "nws-alerts", "ref": "point:42.9607,-72.5219", "label": "NWS"

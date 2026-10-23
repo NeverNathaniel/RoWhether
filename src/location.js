@@ -175,8 +175,9 @@ function checkCopy(p, c) {
   if (c == null) return;
   if (!isObj(c)) return fail(p, 'copy', 'value', 'Use an object.');
   for (const [k, v] of Object.entries(c)) {
-    // The description is the meta description of the location's page.
-    if (COPY_KEYS.includes(k)) text(p, `copy.${k}`, v, 1, k === 'description' ? 160 : 600);
+    // The description is the meta description of the location's page. The credits
+    // name every source and link to each.
+    if (COPY_KEYS.includes(k)) text(p, `copy.${k}`, v, 1, k === 'description' ? 160 : k === 'credits' ? 1200 : 600);
     else fail(p, `copy.${k}`, 'copy_key', 'Not a text that can be set.');
   }
 }
@@ -318,7 +319,7 @@ export function resolveLocation(rec, { waterway = null, overrides = {} } = {}) {
   const segments = c.kind === 'heading' ? [{ heading, lengthM: null, fromM: 0, toM: null, name: null }] : [];
   return {
     id: rec.id, slug: rec.slug, name: rec.name, shortName: rec.shortName,
-    subtitle: rec.subtitle ?? null, locality: rec.locality ?? null,
+    subtitle: rec.subtitle ?? null, locality: rec.locality ?? null, waterwayName: waterway?.name ?? null,
     tz: rec.tz, tzLabel: rec.tzLabel ?? null, lat: rec.lat, lon: rec.lon,
     country: rec.country, region: rec.region ?? null,
     waterType: rec.waterType, status: rec.status, aqiScale: rec.aqiScale,

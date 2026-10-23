@@ -150,7 +150,8 @@ describe('validateLocation', () => {
       ['monthly water temperature with 3 values', r => { r.waterTemp = { fallback: 'monthly', monthly: [40, 41, 42] }; }, 'waterTemp.monthly', 'length'],
       ['day window backwards', r => { r.daylight = { dayWindow: [22, 5] }; }, 'daylight.dayWindow', 'value'],
       ['copy key not allowed', r => { r.copy.title = 'Hello'; }, 'copy.title', 'copy_key'],
-      ['copy over 600', r => { r.copy.credits = 'x'.repeat(601); }, 'copy.credits', 'length'],
+      ['copy over 600', r => { r.copy.flowHow = 'x'.repeat(601); }, 'copy.flowHow', 'length'],
+      ['credits over 1200', r => { r.copy.credits = 'x'.repeat(1201); }, 'copy.credits', 'length'],
       ['description over 160', r => { r.copy.description = 'x'.repeat(161); }, 'copy.description', 'length'],
       ['description empty', r => { r.copy.description = ''; }, 'copy.description', 'length'],
       ['launch notes over 1000', r => { r.launchNotes = 'x'.repeat(1001); }, 'launchNotes', 'length'],
@@ -183,7 +184,8 @@ describe('validateLocation', () => {
       ['a retired row beside a primary', r => { r.sources.push(row('obs', { status: 'retired' })); }],
       ['a day window', r => { r.daylight = { dayWindow: [6, 21] }; }],
       ['a description of 160', r => { r.copy.description = 'x'.repeat(160); }],
-      ['credits of 600, the limit of every other text', r => { r.copy.credits = 'x'.repeat(600); }]
+      ['a text of 600, the limit of every text but two', r => { r.copy.flowHow = 'x'.repeat(600); }],
+      ['credits of 1200, which name every source and link to each', r => { r.copy.credits = 'x'.repeat(1200); }]
     ];
     for (const [name, edit] of ok) expect(validateLocation(rec(edit)), name).toEqual([]);
   });
@@ -297,6 +299,11 @@ describe('resolveLocation', () => {
     expect(PUTNEY.tz).toBe('America/New_York');
     expect(PUTNEY.course.heading).toBe(15);
     expect(PUTNEY).toMatchObject({ id: PUTNEY_RECORD.id, slug: 'putney-landing', name: 'Putney Landing', shortName: 'Putney', tzLabel: 'Eastern', country: 'US', region: 'US-VT', waterType: 'river', status: 'verified', aqiScale: 'us' });
+  });
+
+  it("names the waterway, for the header's line when a record has no subtitle", () => {
+    expect(PUTNEY.waterwayName).toBe('Connecticut River');
+    expect(resolveLocation(PUTNEY_RECORD).waterwayName).toBeNull();
   });
 
   it('reads the course, banks and water from the record', () => {

@@ -89,6 +89,8 @@ export function fmtFlow(v, unit = 'cfs') {
   return `${fmtInt(x)} cfs`;
 }
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Escaped text with each [text](https://...) as a link. Only https links: anything else stays text.
+export const linkText = s => esc(s).replace(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 const CARD = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 export const card = d => (d == null || isNaN(d)) ? '--' : CARD[Math.round((((d % 360) + 360) % 360) / 22.5) % 16];
 export const cToF = c => c * 9 / 5 + 32;
