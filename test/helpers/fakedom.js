@@ -31,6 +31,7 @@ export class FakeElement {
     this.dataset = watched(this);
     this.style = watched(this);
     this.extra = {}; // any other property the page code set, such as title or className
+    this.attrs = {}; // what setAttribute() wrote, which the golden capture does not record
     // A property the stand-in does not model is kept, not lost, so a change that
     // starts setting an attribute shows up in the captured output.
     return new Proxy(this, {
@@ -49,6 +50,8 @@ export class FakeElement {
   set hidden(v) { this.written = true; this._hidden = !!v; }
   get disabled() { return this._disabled; }
   set disabled(v) { this.written = true; this._disabled = !!v; }
+  setAttribute(k, v) { this.attrs[k] = String(v); }
+  getAttribute(k) { return this.attrs[k] ?? null; }
   addEventListener() {}
   querySelector() { return null; }
   querySelectorAll() { return []; }
