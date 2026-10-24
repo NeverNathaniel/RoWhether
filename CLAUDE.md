@@ -63,7 +63,7 @@ Levels: 0 go, 1 caution, 2 stay off. An hour's level is the worst of its reasons
 - Visibility < 0.25 mi is 2, < 1 mi is 1. Otherwise likely fog from `fogRisk()` is 1. Possible fog is shown but does not change the call.
 - Air below 32°F is 2. Air plus water below the cold line is 1.
 - Flow against the settings thresholds.
-- Active NWS alerts apply to hours they cover. Thunderstorm, flood, wind, dense fog and winter storm types are 2, others 1. A storm-based warning lists its whole county but is drawn as a polygon, so one with a polygon applies only when the polygon contains the dock point (`parseAlerts()`, with the dock point in the binding); a product with no polygon applies to every location in its zones.
+- Active NWS alerts apply to hours they cover. Thunderstorm, flood, wind, dense fog and winter storm types are 2, others 1. A storm-based warning lists its whole county but is drawn as a polygon, so one with a polygon applies only when the polygon contains the dock point (`parseAlerts()`, with the dock point in the binding); a product with no polygon applies to every location in its zones. Eight whole event names are Stay off too (`STAY_OFF_EVENTS`, matched whole and in any case): Small Craft Advisory, Gale Warning, Storm Warning, Special Marine Warning, Hurricane Force Wind Warning, Hurricane Warning, Storm Surge Warning and Tropical Storm Warning.
 - Air quality (US AQI) against the settings (`aqiCaution`, `aqiOff`, defaults 151 and 201). Either can be blank, which turns that level off.
 
 Fog (`fogRisk()`, thresholds in `FOG` in `src/config.js`) is none, possible or likely, with a type:

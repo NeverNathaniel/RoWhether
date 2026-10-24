@@ -2,8 +2,13 @@
 // observation at a station. Pure: no DOM, no storage.
 import { cToF } from '../format.js';
 
+// Whole event names that are Stay off, beside the patterns below: the marine
+// warnings and the Small Craft Advisory (README row 11; owner, 2026-10-21, R18). A
+// name must match whole, so "Dust Storm Warning" is not "Storm Warning".
+export const STAY_OFF_EVENTS = ['Small Craft Advisory', 'Gale Warning', 'Storm Warning', 'Special Marine Warning', 'Hurricane Force Wind Warning', 'Hurricane Warning', 'Storm Surge Warning', 'Tropical Storm Warning'];
+const WHOLE = new RegExp(`^(${STAY_OFF_EVENTS.join('|')})$`, 'i');
 export function alertLevel(ev) {
-  return /Tornado|Thunderstorm|Flash Flood|Flood Warning|High Wind|Wind Advisory|Extreme Wind|Dense Fog|Winter Storm Warning|Ice Storm|Blizzard/i.test(ev) ? 2 : 1;
+  return WHOLE.test(ev) || /Tornado|Thunderstorm|Flash Flood|Flood Warning|High Wind|Wind Advisory|Extreme Wind|Dense Fog|Winter Storm Warning|Ice Storm|Blizzard/i.test(ev) ? 2 : 1;
 }
 // Whether the polygon of a storm-based warning holds the dock point. Ray casting
 // over each ring of a Polygon, or of each polygon of a MultiPolygon, with the

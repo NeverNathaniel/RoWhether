@@ -32,5 +32,17 @@ export const CHANGES = {
     // Only the 19 main cases record the requests; every variant is lean.
     files: ['april-*', 'fall-back-*', 'june-calm-*', 'october-fog-*'],
     paths: ['sources.1.1']
+  },
+  'marine-alerts': {
+    why: 'README row 11 and R18 (owner, 2026-10-21): eight whole NWS event names are Stay off, Small Craft Advisory, Gale, Storm, Special Marine, Hurricane Force Wind, Hurricane, Storm Surge and Tropical Storm Warning. Tropical Storm Warning moves from 1 to 2 and can reach Putney.',
+    step: 'P1.8',
+    // p-pure records each name's level, and the probe's list gains the seven it lacked. v-june-alerts has a Small Craft Advisory.
+    files: ['p-pure', 'v-june-alerts'],
+    paths: [
+      'alertLevels.Small Craft Advisory', 'alertLevels.Gale Warning', 'alertLevels.Storm Warning', 'alertLevels.Special Marine Warning',
+      'alertLevels.Hurricane Force Wind Warning', 'alertLevels.Hurricane Warning', 'alertLevels.Storm Surge Warning', 'alertLevels.Tropical Storm Warning',
+      // Everything the variant draws from that one advisory's level.
+      'forecasts.**', 'home.**', 'model.**', 'parsers.**', 'runs.**', 'share', 'status.**', 'views.**'
+    ]
   }
 };

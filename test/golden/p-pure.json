@@ -877,13 +877,20 @@
     "Excessive Heat Warning": 1,
     "Air Quality Alert": 1,
     "Special Weather Statement": 1,
-    "Small Craft Advisory": 1,
+    "Small Craft Advisory": 2,
     "Lake Wind Advisory": 2,
     "Red Flag Warning": 1,
     "Fire Weather Watch": 1,
     "tornado warning": 2,
     "DENSE FOG ADVISORY": 2,
     "": 1,
-    "Hydrologic Outlook": 1
+    "Hydrologic Outlook": 1,
+    "Gale Warning": 2,
+    "Storm Warning": 2,
+    "Special Marine Warning": 2,
+    "Hurricane Force Wind Warning": 2,
+    "Hurricane Warning": 2,
+    "Storm Surge Warning": 2,
+    "Tropical Storm Warning": 2
   }
 }

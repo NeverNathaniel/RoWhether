@@ -370,8 +370,40 @@ describe('the parsers', () => {
   const f = p => ({ properties: p });
 
   it('give each alert name its level', () => {
-    const levels = [['Tornado Warning', 2], ['Severe Thunderstorm Watch', 2], ['Flash Flood Watch', 2], ['Flood Warning', 2], ['Flood Advisory', 1], ['High Wind Warning', 2], ['Wind Advisory', 2], ['Extreme Wind Warning', 2], ['Dense Fog Advisory', 2], ['Dense Smoke Advisory', 1], ['Winter Storm Warning', 2], ['Winter Weather Advisory', 1], ['Ice Storm Warning', 2], ['Blizzard Warning', 2], ['Frost Advisory', 1], ['Heat Advisory', 1], ['Small Craft Advisory', 1], ['Lake Wind Advisory', 2], ['tornado warning', 2], ['DENSE FOG ADVISORY', 2], ['', 1]];
+    const levels = [['Tornado Warning', 2], ['Severe Thunderstorm Watch', 2], ['Flash Flood Watch', 2], ['Flood Warning', 2], ['Flood Advisory', 1], ['High Wind Warning', 2], ['Wind Advisory', 2], ['Extreme Wind Warning', 2], ['Dense Fog Advisory', 2], ['Dense Smoke Advisory', 1], ['Winter Storm Warning', 2], ['Winter Weather Advisory', 1], ['Ice Storm Warning', 2], ['Blizzard Warning', 2], ['Frost Advisory', 1], ['Heat Advisory', 1], ['Small Craft Advisory', 2], ['Lake Wind Advisory', 2], ['tornado warning', 2], ['DENSE FOG ADVISORY', 2], ['', 1]];
     for (const [event, lvl] of levels) expect(nws.alertLevel(event), event).toBe(lvl);
+  });
+
+  // README row 11, with the four names the owner added on 2026-10-21 (R18). Each is a whole name.
+  const MARINE = ['Small Craft Advisory', 'Gale Warning', 'Storm Warning', 'Special Marine Warning', 'Hurricane Force Wind Warning', 'Hurricane Warning', 'Storm Surge Warning', 'Tropical Storm Warning'];
+
+  it('give the eight marine warnings Stay off, matched as whole names in any case', () => {
+    expect(nws.STAY_OFF_EVENTS).toEqual(MARINE);
+    for (const e of MARINE) {
+      expect(nws.alertLevel(e), e).toBe(2);
+      expect(nws.alertLevel(e.toLowerCase()), e.toLowerCase()).toBe(2);
+      expect(nws.alertLevel(e.toUpperCase()), e.toUpperCase()).toBe(2);
+    }
+  });
+
+  it('give a name that only contains one of them its own level, not Stay off', () => {
+    // "Dust Storm Warning" is a real event whose name ends in "Storm Warning".
+    for (const e of ['Dust Storm Warning', 'Storm Watch', 'Marine Weather Statement', 'Gale Watch', 'Hurricane Watch', 'Tropical Storm Watch', 'Hurricane Local Statement', 'Storm Surge Watch', 'Special Marine Warning Update', 'Small Craft Advisory for Winds', 'Gale', 'Craft Advisory']) {
+      expect(nws.alertLevel(e), e).toBe(1);
+    }
+    // The patterns already in force are untouched by the list.
+    for (const e of ['Winter Storm Warning', 'Ice Storm Warning', 'Severe Thunderstorm Warning', 'Flood Warning', 'Dense Fog Advisory', 'Extreme Wind Warning']) expect(nws.alertLevel(e), e).toBe(2);
+  });
+
+  it('read a recorded Small Craft Advisory as Stay off, kept for a location whose zones it names', () => {
+    // None was active in ANZ535 on 2026-10-24, so this is three advisories from the national
+    // query (alerts/active?event=Small Craft Advisory). They are zone products: geometry null.
+    const raw = recorded('alerts-anz535');
+    expect(raw.features.map(f => [f.properties.event, f.geometry])).toEqual(Array(3).fill(['Small Craft Advisory', null]));
+    const b = by(bindingsFor(locOf(r => { r.lat = 38.9; r.lon = -77.06; r.sources[0].ref = 'zones:DCZ001,DCC001,VAZ054,VAC013,ANZ535'; })), 'alerts');
+    const got = b.parse(raw);
+    expect(got.map(a => [a.event, a.lvl])).toEqual(Array(3).fill(['Small Craft Advisory', 2]));
+    expect(got[0].end).toBe(Date.parse('2026-10-24T09:00:00-07:00'));
   });
 
   it('convert wind to mph from km/h, and from m/s when the unit says so', () => {

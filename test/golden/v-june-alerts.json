@@ -1,7 +1,7 @@
 {
   "model": {
-    "sha256": "1611b3b95eedc22d8441ba1102923833940b8cdf15629dd06481096ac15bae21",
-    "bytes": 102845
+    "sha256": "da2bc571883312e2701c3aae39ccca9f83ba5b7ebfa643b7945659c764a66f32",
+    "bytes": 102832
   },
   "text": {
     "sha256": "ed3b7bbf370e2c8113daf79290f24191e8d5baf03e17238b40b55b430c40518a",
@@ -19,17 +19,17 @@
     "120-afternoon": []
   },
   "runs": {
-    "sha256": "66482f04f6a64d3afeb41b99443c5d1f592757ebb779de87ccf63c82d3025fa0",
-    "bytes": 11704
+    "sha256": "8e0bf049fbc4cd04e7995d130f90d7abc70ce80f24db096f9f6bc14daada7a36",
+    "bytes": 11456
   },
   "parsers": {
-    "sha256": "29a077e550b0fbfb45ce6a9b0f6a550d39e8fd46b9868b5fd5eae367cbedc087",
+    "sha256": "41723155652fad6041ce60ebc8f6b9367ebe90a7b73d8cb9fe0aaa151c976c13",
     "bytes": 23933
   },
   "views": {
     "week": {
       "summary": {"text":"No go period in the next 7 days.","lvl":2},
-      "days": {"null":{"day":null,"length":11260,"sha256":"c63798d9da8e778530a0c28cbf96a6b845fdb6d519dbfdb5c374cc9c7ac3fb11"}}
+      "days": {"null":{"day":null,"length":11201,"sha256":"dd640e2602c371c99e09bb6db0e79115d16675314d0473a35e02b92e02b58367"}}
     },
     "wind": {
       "summary": {"text":"7 mph from SSW now, gusts 13.","lvl":0},
@@ -41,7 +41,7 @@
     },
     "storms": {
       "summary": {"text":"No thunderstorm risk in the next 3 days. 6 NWS alerts active.","lvl":2},
-      "days": {"null":{"day":"2026-06-15","length":17492,"sha256":"643dc8c1c19a79db77798f234b5857644bacfb9b601eafd00b4a7e098f626e61"}}
+      "days": {"null":{"day":"2026-06-15","length":17492,"sha256":"6bfb694f8e73a4c061b42b0deb0fc06392d9601fcd566ec136d697fadca403c2"}}
     },
     "fog": {
       "summary": {"text":"Tomorrow morning: fog risk low.","lvl":0},
@@ -66,7 +66,7 @@
   },
   "home": {
     "alerts": {
-      "innerHTML": "\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Special Weather Statement</strong>\n      \n      \n    </div>\n    <div class=\"alert\" data-lvl=\"2\" role=\"alert\">\n      <strong>Tornado Warning</strong>\n      <p>Tornado Warning until 3 PM</p>\n      <details><summary>Details</summary><pre>A tornado is possible.</pre></details>\n    </div>\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Small Craft Advisory</strong>\n      <p>Small Craft Advisory</p>\n      <details><summary>Details</summary><pre>Winds to 25 knots.\n\nInexperienced mariners should stay in port.</pre></details>\n    </div>\n    <div class=\"alert\" data-lvl=\"2\" role=\"alert\">\n      <strong>Dense Fog Advisory</strong>\n      <p>Dense Fog Advisory</p>\n      <details><summary>Details</summary><pre>Visibility under a quarter mile.</pre></details>\n    </div>\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Alert</strong>\n      \n      \n    </div>\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Frost Advisory</strong>\n      <p>Starts this minute</p>\n      <details><summary>Details</summary><pre>Frost.</pre></details>\n    </div>",
+      "innerHTML": "\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Special Weather Statement</strong>\n      \n      \n    </div>\n    <div class=\"alert\" data-lvl=\"2\" role=\"alert\">\n      <strong>Tornado Warning</strong>\n      <p>Tornado Warning until 3 PM</p>\n      <details><summary>Details</summary><pre>A tornado is possible.</pre></details>\n    </div>\n    <div class=\"alert\" data-lvl=\"2\" role=\"alert\">\n      <strong>Small Craft Advisory</strong>\n      <p>Small Craft Advisory</p>\n      <details><summary>Details</summary><pre>Winds to 25 knots.\n\nInexperienced mariners should stay in port.</pre></details>\n    </div>\n    <div class=\"alert\" data-lvl=\"2\" role=\"alert\">\n      <strong>Dense Fog Advisory</strong>\n      <p>Dense Fog Advisory</p>\n      <details><summary>Details</summary><pre>Visibility under a quarter mile.</pre></details>\n    </div>\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Alert</strong>\n      \n      \n    </div>\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Frost Advisory</strong>\n      <p>Starts this minute</p>\n      <details><summary>Details</summary><pre>Frost.</pre></details>\n    </div>",
       "textContent": "\n    \n      Special Weather Statement\n      \n      \n    \n    \n      Tornado Warning\n      Tornado Warning until 3 PM\n      DetailsA tornado is possible.\n    \n    \n      Small Craft Advisory\n      Small Craft Advisory\n      DetailsWinds to 25 knots.\n\nInexperienced mariners should stay in port.\n    \n    \n      Dense Fog Advisory\n      Dense Fog Advisory\n      DetailsVisibility under a quarter mile.\n    \n    \n      Alert\n      \n      \n    \n    \n      Frost Advisory\n      Starts this minute\n      DetailsFrost.\n    ",
       "hidden": false,
       "disabled": false,
@@ -93,8 +93,8 @@
       "extra": {}
     },
     "days": {
-      "innerHTML": {"length":15618,"sha256":"87610988d031149719a6ed331849d5208806e92412fb387f2cab5f1f7a0a10ec"},
-      "textContent": {"length":6093,"sha256":"8a0bb3c2afbfe5efeae7bbfc049f06ad29d97bbc59b5882cc8d5b312566998d8"},
+      "innerHTML": {"length":15608,"sha256":"b554e84ab6d415521a9e3c3707c5e0e8f4ff4ff00c3373f2576c32d201f85edc"},
+      "textContent": {"length":6083,"sha256":"7c321e5660c4778683f4f8f7b3fbb31e25ee4f09f81c8c23028549da55056b9d"},
       "hidden": false,
       "disabled": false,
       "dataset": {},
@@ -183,8 +183,8 @@
       "extra": {}
     },
     "why": {
-      "innerHTML": "Tornado Warning.<span class=\"cond\">Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.</span>",
-      "textContent": "Tornado Warning.Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.",
+      "innerHTML": "Tornado Warning. Small Craft Advisory.<span class=\"cond\">Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.</span>",
+      "textContent": "Tornado Warning. Small Craft Advisory.Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.",
       "hidden": false,
       "disabled": false,
       "dataset": {},
@@ -194,24 +194,24 @@
   },
   "forecasts": {
     "2026-06-15-midday": {
-      "length": 8665,
-      "sha256": "606c8280681029f688f93f7065b9ee357fb75db4a533fef52f42092a207862d8"
+      "length": 8666,
+      "sha256": "23d3d2c394df62a28e08b17fb63ca5dee6e7259965a8a6ad4214292f2ba35024"
     },
     "2026-06-15-afternoon": {
-      "length": 10363,
-      "sha256": "ebdb462d82987f6d27db3745dfa7723c152db708a4f0e1624afaf556d1ca0b61"
+      "length": 10365,
+      "sha256": "2887a1601ab6389e72a1631a6f6a90b429d33b690c273b7ded614277c9fd90e9"
     },
     "2026-06-16-morning": {
-      "length": 10369,
-      "sha256": "7711338f0645ba95de3bded26644da808f2da87c8aaedac53f385c47d1900aa5"
+      "length": 10375,
+      "sha256": "68b35029aef40542dcb0411b3f5e9fbfb89ed3a4fef0860b42a6c40d6768b003"
     },
     "2026-06-16-midday": {
-      "length": 9347,
-      "sha256": "bc29767449f87c99ee678ce87320ad591c24091e28708c48645aa5f553354ac6"
+      "length": 9352,
+      "sha256": "1719b1ed659e6dc2a7b1e1ff0cc9609a0c79fa247d412eedf04b7265eb1c5fbf"
     },
     "2026-06-16-afternoon": {
-      "length": 10336,
-      "sha256": "0de5f223094f63915e17139c61aabf3570543dc4b8acfce443365a0cc3c0c2b4"
+      "length": 10339,
+      "sha256": "e82297a3677efc464bc62478ab4be014afbb61e693ed38f31ee48c2c4b51c392"
     },
     "2026-06-17-morning": {
       "length": 10412,
@@ -302,7 +302,7 @@
       "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "verdict": {"innerHTML":"Stay off.","textContent":"Stay off.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
-      "why": {"innerHTML":"Tornado Warning.<span class=\"cond\">Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.</span>","textContent":"Tornado Warning.Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
+      "why": {"innerHTML":"Tornado Warning. Small Craft Advisory.<span class=\"cond\">Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.</span>","textContent":"Tornado Warning. Small Craft Advisory.Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "partialAll": {
       "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":2},"style":{},"extra":{}},
@@ -310,7 +310,7 @@
       "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "statusNote": {"innerHTML":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","textContent":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "verdict": {"innerHTML":"Stay off.","textContent":"Stay off.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
-      "why": {"innerHTML":"Tornado Warning.<span class=\"cond\">Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.</span>","textContent":"Tornado Warning.Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
+      "why": {"innerHTML":"Tornado Warning. Small Craft Advisory.<span class=\"cond\">Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.</span>","textContent":"Tornado Warning. Small Craft Advisory.Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "header": {
       "loading": "Loading",
@@ -320,5 +320,5 @@
       "failed": "Saved 11:57 AM"
     }
   },
-  "share": "Putney Landing rowing, 12 PM: Stay off. Tornado Warning. Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water. No go period in the next 7 days."
+  "share": "Putney Landing rowing, 12 PM: Stay off. Tornado Warning. Small Craft Advisory. Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water. No go period in the next 7 days."
 }

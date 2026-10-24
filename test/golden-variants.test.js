@@ -131,7 +131,8 @@ describe.skipIf(DUMP)('the variants exercise what they claim', () => {
   it('alerts, Keene reports and reading ages of every kind', () => {
     const al = v('june-alerts').model.alerts;
     expect(al.map(a => a.event)).toEqual(['Special Weather Statement', 'Tornado Warning', 'Small Craft Advisory', 'Dense Fog Advisory', 'Alert', 'Frost Advisory']);
-    expect(al.map(a => a.lvl)).toEqual([1, 2, 1, 2, 1, 1]);
+    // The Small Craft Advisory is Stay off from P1.8 (marine-alerts); the Special Weather Statement and the Frost Advisory stay Caution.
+    expect(al.map(a => a.lvl)).toEqual([1, 2, 2, 2, 1, 1]);
     expect(al[5].start).toBe(v('june-alerts').model.now);
     expect(al[0].end).toBe(8.64e15);
     expect(al[0].desc).toBe('');
