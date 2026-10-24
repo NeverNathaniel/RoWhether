@@ -1,7 +1,8 @@
 // The Settings dialog round trip and the Plan a row choices, through the page
 // (review Z6). P0.7 rewrites how Settings are saved, so these were first run on
 // the code before it and are kept unchanged through P0.14: what a person sets
-// applies at once, survives a reload, and Reset goes back to the defaults.
+// applies at once, survives a reload, and Reset goes back to the defaults. P1.10
+// changes two expected values in them: a saved flow limit is stored with its gauge.
 // Date is pinned to 12:00 Eastern on the june-calm day, as in smoke.spec.js.
 import { test, expect } from '@playwright/test';
 import { SCENARIOS, routeAll, ready } from './fixtures.js';
@@ -86,6 +87,9 @@ test.describe('settings', () => {
   // change all 13, and the order rules on Save.
   const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem('rowhether-settings-v2'))['putney-landing'].values);
   const asNumbers = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Number(v)]));
+  // A saved flow limit is kept with the gauge it was set for (P1.10, 01 11.1).
+  const GAUGE = 'usgs-ogc:USGS-01154500:cfs';
+  const withGauge = o => ({ ...asNumbers(o), limitBasis: { flow: GAUGE } });
   const fillAll = async (page, changes) => {
     for (const [k, v] of Object.entries(changes)) await field(page, k).fill(v);
   };
@@ -114,14 +118,14 @@ test.describe('settings', () => {
     await expect(page.locator('#compassCap')).toContainText('upstream heading 40°');
     await expect(page.locator('#why')).toContainText('55°F water');
     await readBack(page, CHANGED);
-    expect(await stored(page)).toEqual(asNumbers(CHANGED));
+    expect(await stored(page)).toEqual(withGauge(CHANGED));
 
     // After a reload the page reads all 13 again, and the views quote them.
     await page.reload();
     await ready(page);
     await expect(page.locator('#compassCap')).toContainText('upstream heading 40°');
     await readBack(page, CHANGED);
-    expect(await stored(page)).toEqual(asNumbers(CHANGED));
+    expect(await stored(page)).toEqual(withGauge(CHANGED));
     const view = async hash => {
       await page.evaluate(h => { location.hash = h; }, hash);
       return page.locator('#detail').textContent();
@@ -142,7 +146,7 @@ test.describe('settings', () => {
     const raised = { windCaution: '30', windOff: '30', gustCaution: '30', gustOff: '30', rainCaution: '80', rainOff: '80', flowCaution: '30000', flowOff: '30000', aqiCaution: '200', aqiOff: '200' };
     const expected = Object.fromEntries(FIELDS.map((k, i) => [k, raised[k] ?? DEFAULT_VALUES[i]]));
     await readBack(page, expected);
-    expect(await stored(page)).toEqual(asNumbers(raised));
+    expect(await stored(page)).toEqual(withGauge(raised));
     await page.reload();
     await ready(page);
     await readBack(page, expected);
@@ -161,5 +165,175 @@ test.describe('settings', () => {
     await expect(pick('plan-min', '120')).toHaveAttribute('aria-pressed', 'true');
     await expect(pick('plan-when', 'afternoon')).toHaveAttribute('aria-pressed', 'true');
     await expect(pick('plan-min', '90')).toHaveAttribute('aria-pressed', 'false');
+  });
+});
+
+// P1.10 (01 11.1, 11.6; 07 5.13): the dialog is built from the location shown. For Putney it keeps
+// its 13 fields and gains the location's words: placeholders and a line under a changed field, the
+// place's name in the intro, Use location defaults, flow limits that can be left blank, and the
+// gauge a flow limit was set for. The checks above pass as they were.
+test.describe('settings built from the location', () => {
+  const GAUGE = 'usgs-ogc:USGS-01154500:cfs', OTHER = 'usgs-ogc:USGS-09999999:cfs';
+  const NOTE = 'Your flow limits were for a different gauge. Set them again for this gauge.';
+  // Storage a visit starts with, written once: a later reload keeps what the page saved.
+  const seed = (page, values) => page.addInitScript(([v]) => {
+    if (localStorage.getItem('rowhether-migrated-v1')) return;
+    localStorage.setItem('rowhether-migrated-v1', '1');
+    localStorage.setItem('rowhether-settings-v2', JSON.stringify({ 'putney-landing': { saved: 1, values: v } }));
+  }, [values]);
+  const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem('rowhether-settings-v2'))['putney-landing'].values);
+  // The dialog is hidden a moment before its close handler has saved, so the values are polled.
+  const storedIs = (page, expected) => expect.poll(() => stored(page)).toEqual(expected);
+  const save = async page => {
+    await page.locator('#setForm button[value="save"]').click();
+    await expect(page.locator('#settings')).toBeHidden();
+  };
+  const line = (page, name) => page.locator(`#own-${name}`);
+
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+    await routeAll(page, scenario, clock);
+  });
+
+  test("Putney's dialog and reminder carry the location's words", async ({ page }) => {
+    await page.goto('/putney-landing');
+    await ready(page);
+    await expect(page.locator('#setNudge p')).toHaveText('Set your own limits in Settings. Until you do, Go, Caution and Stay off use starting values for wind, gusts, rain, cold water and river flow.');
+    await openSettings(page);
+    await expect(page.locator('#setIntro')).toHaveText('Match these to your program, boat class and coach coverage. Saved in this browser for Putney Landing.');
+    await expect(page.locator('#resetSet')).toHaveText('Use location defaults');
+    await expect(page.locator('#setCourse')).toBeVisible();
+    await expect(page.locator('#setFlow')).toBeVisible();
+    await expect(page.locator('#setFlow legend')).toHaveText('River flow at North Walpole, cfs');
+    await expect(page.locator('#setFlow .note')).toHaveText('Since 2016 the median day is about 6,900 cfs. 20,000 is roughly the top 10% of days, 28,000 the top 5%.');
+    // Flow keeps the step of 100 it had, and neither flow box is required, as rain chance and air quality are not.
+    for (const k of ['flowCaution', 'flowOff']) {
+      await expect(field(page, k)).toHaveAttribute('step', '100');
+      await expect(field(page, k)).not.toHaveAttribute('required');
+    }
+    // Each box names the location's default. The dock reading keeps its own words.
+    const placeholders = await page.evaluate(names => names.map(n => document.querySelector(`#setForm [name="${n}"]`).placeholder), FIELDS);
+    expect(placeholders).toEqual(FIELDS.map((k, i) => (k === 'waterOverride' ? 'Use gauge' : `Location default ${DEFAULT_VALUES[i]}`)));
+    // At the defaults there is no line under any field.
+    expect(await page.locator('#setForm .own').evaluateAll(els => els.map(e => e.textContent))).toEqual(Array(12).fill(''));
+    await expect(page.locator('#setForm .own:not(:empty)')).toHaveCount(0);
+  });
+
+  test('a field that is not at the default says so, and says nothing again at the default', async ({ page }) => {
+    await page.goto('/putney-landing');
+    await ready(page);
+    await openSettings(page);
+    await field(page, 'windCaution').fill('8');
+    await expect(line(page, 'windCaution')).toHaveText('Your setting. Location default 10.');
+    await expect(line(page, 'windCaution')).toBeVisible();
+    await expect(line(page, 'windOff')).toBeHidden();
+    // A level turned off is a setting.
+    await field(page, 'rainCaution').fill('');
+    await expect(line(page, 'rainCaution')).toHaveText('Your setting. Location default 60.');
+    await field(page, 'flowOff').fill('30000');
+    await expect(line(page, 'flowOff')).toHaveText('Your setting. Location default 28000.');
+    await field(page, 'windCaution').fill('10');
+    await expect(line(page, 'windCaution')).toHaveText('');
+    // After a save the line is there when the dialog opens again, and Use location defaults clears them.
+    await save(page);
+    await openSettings(page);
+    await expect(line(page, 'flowOff')).toHaveText('Your setting. Location default 28000.');
+    await expect(line(page, 'rainCaution')).toHaveText('Your setting. Location default 60.');
+    await page.locator('#resetSet').click();
+    expect(await values(page)).toEqual(DEFAULT_VALUES);
+    await expect(page.locator('#setForm .own:not(:empty)')).toHaveCount(0);
+  });
+
+  test('flow limits left blank save, turn the flow check off, and read back blank', async ({ page }) => {
+    // Flow limits of 500 and 1,000 cfs make the verdict of the day's 5,929 cfs Stay off (P1.9's check).
+    await seed(page, { flowCaution: 500, flowOff: 1000, limitBasis: { flow: GAUGE } });
+    await page.goto('/putney-landing');
+    await ready(page);
+    await expect(page.locator('#verdict')).toHaveText('Stay off.');
+    await expect(page.locator('#why')).toContainText('High water at 5,929 cfs');
+    await openSettings(page);
+    expect(await values(page)).toContain('500');
+    await field(page, 'flowCaution').fill('');
+    await field(page, 'flowOff').fill('');
+    await save(page);
+    await expect(page.locator('#verdict')).toHaveText('Go.');
+    await expect(page.locator('#why')).not.toContainText('High water at');
+    await storedIs(page, { flowCaution: '', flowOff: '', limitBasis: { flow: GAUGE } });
+    await page.reload();
+    await ready(page);
+    await expect(page.locator('#verdict')).toHaveText('Go.');
+    await openSettings(page);
+    expect(await values(page)).toEqual(DEFAULT_VALUES.map((v, i) => (FIELDS[i] === 'flowCaution' || FIELDS[i] === 'flowOff' ? '' : v)));
+    await expect(field(page, 'flowCaution')).toHaveAttribute('placeholder', 'Location default 20000');
+    await expect(line(page, 'flowCaution')).toHaveText('Your setting. Location default 20000.');
+  });
+
+  test('a flow limit saved with no gauge named still applies, and is saved with the gauge on the next Save', async ({ page }) => {
+    await seed(page, { flowCaution: 500, flowOff: 1000 });
+    await page.goto('/putney-landing');
+    await ready(page);
+    await expect(page.locator('#verdict')).toHaveText('Stay off.');
+    await openSettings(page);
+    await field(page, 'windOff').fill('14');
+    await save(page);
+    await storedIs(page, { flowCaution: 500, flowOff: 1000, windOff: 14, limitBasis: { flow: GAUGE } });
+    await expect(page.locator('#verdict')).toHaveText('Stay off.');
+  });
+
+  test('flow limits set for another gauge are not used and not lost, until they are set again', async ({ page }) => {
+    await seed(page, { windCaution: 8, flowCaution: 500, flowOff: 1000, limitBasis: { flow: OTHER } });
+    await page.goto('/putney-landing');
+    await ready(page);
+    // The same limits that make the verdict Stay off above are for another gauge, so the verdict does not read them.
+    await expect(page.locator('#verdict')).toHaveText('Go.');
+    await expect(page.locator('#why')).not.toContainText('High water at');
+    await openSettings(page);
+    expect(await values(page)).toEqual(['15', '8', '15', '18', '25', '60', '90', '100', '', '20000', '28000', '151', '201']);
+    await expect(page.locator('#setFlow .note').first()).toHaveText(NOTE);
+    await expect(line(page, 'flowCaution')).toHaveText('');
+    // Saving something else keeps them, with the gauge they were for.
+    await field(page, 'windOff').fill('14');
+    await save(page);
+    await storedIs(page, { windCaution: 8, windOff: 14, flowCaution: 500, flowOff: 1000, limitBasis: { flow: OTHER } });
+    // The River tab says so as well.
+    await page.evaluate(() => { location.hash = '#river'; });
+    await expect(page.locator('#detail .how')).toContainText(NOTE);
+    await page.evaluate(() => { location.hash = '#now'; });
+    // Setting a flow limit for this gauge takes the old ones out, and the new one applies at once.
+    await openSettings(page);
+    await field(page, 'flowCaution').fill('500');
+    await save(page);
+    await storedIs(page, { windCaution: 8, windOff: 14, flowCaution: 500, limitBasis: { flow: GAUGE } });
+    await expect(page.locator('#verdict')).toHaveText('Caution.');
+    await expect(page.locator('#why')).toContainText('Elevated flow at 5,929 cfs');
+    await openSettings(page);
+    await expect(page.locator('#setFlow')).not.toContainText(NOTE);
+  });
+
+  test('the dialog fits at 360 px with the lines and the note', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await seed(page, { windCaution: 8, flowCaution: 500, flowOff: 1000, limitBasis: { flow: OTHER } });
+    await page.goto('/putney-landing');
+    await ready(page);
+    await openSettings(page);
+    // A line under every limit field, the longest ones, and the note under the flow boxes.
+    const changes = { heading: '40', windCaution: '8', windOff: '20', gustCaution: '15', gustOff: '30', rainCaution: '', rainOff: '85', coldCombined: '120', flowCaution: '15000', flowOff: '35000', aqiCaution: '', aqiOff: '180' };
+    for (const [k, v] of Object.entries(changes)) await field(page, k).fill(v);
+    await expect(page.locator('#setForm .own:not(:empty)')).toHaveCount(Object.keys(changes).length);
+    await page.locator('#setFlow').scrollIntoViewIfNeeded();
+    const fit = await page.evaluate(() => {
+      const dlg = document.getElementById('settings'), box = dlg.getBoundingClientRect(), out = [];
+      const inside = (what, el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width && (r.left < box.left - 0.5 || r.right > box.right + 0.5)) out.push(`${what} ${Math.round(r.left)} to ${Math.round(r.right)}`);
+      };
+      for (const el of dlg.querySelectorAll('input, button, .own:not(:empty), .note, legend, label')) inside(el.name || el.id || el.className || el.tagName, el);
+      return { out, dialog: dlg.scrollWidth - dlg.clientWidth, page: document.documentElement.scrollWidth - innerWidth };
+    });
+    expect(fit.out).toEqual([]);
+    expect(fit.dialog).toBeLessThanOrEqual(0);
+    expect(fit.page).toBeLessThanOrEqual(0);
+    // The buttons are all there to press: Use location defaults, Cancel and Save.
+    for (const b of ['#resetSet', '#setForm button[value="cancel"]', '#setForm button[value="save"]']) await expect(page.locator(b)).toBeVisible();
   });
 });
