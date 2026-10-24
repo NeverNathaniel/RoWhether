@@ -31,7 +31,8 @@ const LAKE = resolveLocation({
   course: { ...PUTNEY_RECORD.course, heading: 100, reachWord: 'lake' },
   banks: { word: 'shore', left: { short: 'NS', name: 'North' }, right: { short: 'SS', name: 'South' } }
 }, { waterway: PUTNEY_WATERWAY });
-const NO_BANKS = resolveLocation({ ...PUTNEY_RECORD, slug: 'lake-y', course: { ...PUTNEY_RECORD.course, heading: 100 }, banks: null }, { waterway: PUTNEY_WATERWAY });
+// A record with no banks has them generated from its heading (P1.11), so a place with none is one taken off after.
+const NO_BANKS = { ...resolveLocation({ ...PUTNEY_RECORD, slug: 'lake-y', course: { ...PUTNEY_RECORD.course, heading: 100 }, banks: null }, { waterway: PUTNEY_WATERWAY }), banks: null };
 
 // A place with its own gauges and station, its own words for the river, a flow
 // in cubic metres a second, and a name. Putney's notes name Northfield, North

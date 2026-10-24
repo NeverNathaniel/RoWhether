@@ -3,7 +3,7 @@
 // settings. Pure and DOM free, so the app, the build and later the Worker
 // share it. It imports only config.js and format.js.
 import { GLOBAL_DEFAULTS, PERIODS, WATER, FOG } from './config.js';
-import { zoneFormat } from './format.js';
+import { card, zoneFormat } from './format.js';
 
 // Words a slug may not be: app routes, and files the build writes at the top of
 // dist/. The same list is the CHECK in 08 4.4.
@@ -342,6 +342,12 @@ export const flowBasis = loc => { const r = flowRow(loc.sources); return r ? bas
 // What Settings and the River view say when the viewer's flow limits were set for another gauge.
 export const ignoredFlowNote = ({ label }) => `Your flow limits were for ${label ? `the ${label} gauge` : 'a different gauge'}. Set them again for this gauge.`;
 
+// The 8-point name of a bearing: "NE" for the compass and table cells, "northeast" for a sentence.
+const toward = deg => { const short = card(Math.round(deg / 45) * 45); return { short, name: short.replace(/./g, c => ({ N: 'north', E: 'east', S: 'south', W: 'west' })[c]) }; };
+// The banks of a course with none stored (01 10.4). Facing upstream, the right side faces
+// heading + 90 and the left the opposite: a 15 degree heading gives west and east.
+export const autoBanks = (heading, word = 'bank') => ({ word, left: toward(heading - 90), right: toward(heading + 90) });
+
 // The location the app reads: the record, its waterway's sources, and the
 // viewer's course heading. A personal heading applies only to a course that is
 // one heading (01 8.6). The record is not changed.
@@ -360,8 +366,8 @@ export function resolveLocation(rec, { waterway = null, overrides = {} } = {}) {
     country: rec.country, region: rec.region ?? null,
     waterType: rec.waterType, status: rec.status, aqiScale: rec.aqiScale,
     course: { kind: c.kind, heading, points: c.points ?? null, reachWord: c.reachWord ?? null, confirmed: c.confirmed === true, segments },
-    // Banks the record leaves null are generated from the heading in phase 1.
-    banks: rec.banks ?? null,
+    // Banks the record leaves null come from the heading, the viewer's included. Still water has shores.
+    banks: rec.banks ?? (c.kind === 'heading' ? autoBanks(heading, WATER_MODES[rec.waterType] === 'fetch' ? 'shore' : 'bank') : null),
     thresholds: { ...rec.thresholds },
     flow: rec.flow ? { ...rec.flow, label: labelRow?.label ?? null, stats: labelRow?.stats ?? null } : null,
     // Crosswind counts 0.4 unless the record says otherwise (01 9.5).

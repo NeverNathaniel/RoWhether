@@ -674,10 +674,21 @@ describe('a location with other banks, reach and current', () => {
     expect(windVsCourse(m, 90, 10)).toMatch(/ Chop builds along the reach\.$/);
   });
   it('says nothing the record cannot back', () => {
-    const bare = place({ banks: null, course: { ...PUTNEY_RECORD.course, reachWord: null } });
+    // A place with no banks at all: a record's null is generated from its heading, so this one is taken off after.
+    const bare = { ...place({ banks: null, course: { ...PUTNEY_RECORD.course, reachWord: null } }), banks: null };
     const m = at(6000, bare);
     expect(windVsCourse(m, 105, 6)).toBe('Crosswind.');
     expect(windVsCourse(m, 15, 10)).toMatch(/ Chop builds along the course\.$/);
+  });
+  it('names generated banks from the heading when the record has none (01 10.4)', () => {
+    const none = place({ banks: null, course: { ...PUTNEY_RECORD.course, heading: 330, reachWord: null } });
+    const m = at(6000, none);
+    // Facing upstream at 330, the right side faces 60 (northeast) and the left 240 (southwest).
+    expect(windVsCourse(m, 60, 6)).toBe('Crosswind off the northeast bank.');
+    expect(windVsCourse(m, 240, 6)).toBe('Crosswind off the southwest bank.');
+    // On still water the same sides are shores.
+    const lake = at(6000, place({ banks: null, waterType: 'lake', course: { ...PUTNEY_RECORD.course, heading: 166, reachWord: null } }));
+    expect(windVsCourse(lake, 256, 6)).toMatch(/^Crosswind off the west shore\./);
   });
   it('steepens chop from the lowest step of its own current, not at 10,000 cfs', () => {
     // 6,000 cfs is under Putney's 10,000 and over this river's 3,000.

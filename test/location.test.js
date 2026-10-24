@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
-import { validateLocation, validateWaterway, validateSlug, isSlug, RESERVED_SLUGS, resolveSources, resolveLocation, effectiveSettings, overridesOf, flowBasis, ignoredFlowNote } from '../src/location.js';
+import { validateLocation, validateWaterway, validateSlug, isSlug, RESERVED_SLUGS, resolveSources, resolveLocation, autoBanks, effectiveSettings, overridesOf, flowBasis, ignoredFlowNote } from '../src/location.js';
 import { GLOBAL_DEFAULTS, PERIODS, WATER, FOG } from '../src/config.js';
 import { zoneFormat } from '../src/format.js';
 
@@ -402,6 +402,70 @@ describe('resolveLocation', () => {
     loc.copy.flowHow = 'changed';
     expect(r).toEqual(PUTNEY_RECORD);
     expect(w).toEqual(PUTNEY_WATERWAY);
+  });
+});
+
+// P1.11 (01 10.4): the banks of a course whose record has none.
+describe('autoBanks', () => {
+  const sides = b => [b.left.name, b.left.short, b.right.name, b.right.short];
+
+  it('faces the right side 90 degrees from the upstream heading and names the sides by the 8 points', () => {
+    expect(sides(autoBanks(15))).toEqual(['west', 'W', 'east', 'E']);
+    expect(sides(autoBanks(270))).toEqual(['south', 'S', 'north', 'N']);
+    expect(sides(autoBanks(330))).toEqual(['southwest', 'SW', 'northeast', 'NE']);
+    expect(sides(autoBanks(0))).toEqual(['west', 'W', 'east', 'E']);
+    expect(autoBanks(166, 'shore')).toEqual({ word: 'shore', left: { short: 'E', name: 'east' }, right: { short: 'W', name: 'west' } });
+  });
+
+  it('turns through all eight points, the left always opposite the right', () => {
+    const names = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
+    for (let k = 0; k < 8; k++) {
+      const b = autoBanks(k * 45);
+      expect(b.right.name).toBe(names[(k + 2) % 8]);
+      expect(b.left.name).toBe(names[(k + 6) % 8]);
+    }
+  });
+
+  it('takes the nearest point, a tie going clockwise, and any bearing', () => {
+    // 100 + 90 = 190 is nearer south (180) than southwest (225). 22.5 + 90 = 112.5 is a tie between east and southeast.
+    expect(autoBanks(100).right.name).toBe('south');
+    expect(autoBanks(22.4).right.name).toBe('east');
+    expect(autoBanks(22.5).right.name).toBe('southeast');
+    expect(autoBanks(22.5).left.name).toBe('northwest');
+    expect(autoBanks(359).right.name).toBe('east');
+    expect(autoBanks(-30).right.name).toBe('northeast');
+  });
+
+  it('calls the sides banks unless told otherwise, and keeps names the record can hold', () => {
+    expect(autoBanks(15).word).toBe('bank');
+    const r = rec(x => { x.banks = autoBanks(15); });
+    expect(validateLocation(r, W)).toEqual([]);
+  });
+});
+
+describe('a location with no banks stored', () => {
+  const generated = (edit, o = {}) => resolveLocation(rec(r => { r.banks = null; edit(r); }), { waterway: PUTNEY_WATERWAY, ...o });
+
+  it('gets them from its heading, with the viewer\'s heading applied', () => {
+    expect(generated(() => {}).banks).toEqual(autoBanks(15));
+    expect(generated(() => {}, { overrides: { heading: 330 } }).banks).toEqual(autoBanks(330));
+    expect(generated(() => {}, { overrides: { heading: '330' } }).banks).toEqual(autoBanks(15));
+  });
+
+  it('calls them banks on a river, a tidal reach and a canal, and shores on a lake, a reservoir and a harbor', () => {
+    for (const t of ['river', 'tidal', 'canal']) expect(generated(r => { r.waterType = t; }).banks.word).toBe('bank');
+    for (const t of ['lake', 'reservoir', 'harbor']) expect(generated(r => { r.waterType = t; }).banks.word).toBe('shore');
+  });
+
+  it('gets none from a course with no heading', () => {
+    expect(generated(r => { r.course = { kind: 'polyline', points: [[42.96, -72.52], [42.97, -72.51]], reachWord: null, confirmed: false }; }).banks).toBeNull();
+    expect(generated(r => { r.course = { kind: 'none', reachWord: null, confirmed: false }; }).banks).toBeNull();
+  });
+
+  it('is not given them where the record has its own, whatever the viewer\'s heading', () => {
+    const own = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: { heading: 330 } });
+    expect(own.banks).toEqual(PUTNEY_RECORD.banks);
+    expect(own.banks.left.short).toBe('VT');
   });
 });
 
