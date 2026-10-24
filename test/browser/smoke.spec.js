@@ -907,8 +907,10 @@ test.describe('smoke', () => {
       { width: 360, dismissed: 5 }, // B2: Don't show again adds a row
       { width: 390, dismissed: 5 },
       { width: 320, dismissed: 5 }, // the text wraps more
-      { width: 600, dismissed: 0 }, // one row, short: the room stays 10rem
-      { width: 600, dismissed: 5 }
+      { width: 600, dismissed: 0 }, // the actions under a two line sentence: the room stays 10rem
+      { width: 600, dismissed: 5 },
+      { width: 760, dismissed: 0 }, // three columns, one short row
+      { width: 760, dismissed: 5 }
     ]) {
       test(`${width} px, ${dismissed} dismissals stored`, async ({ page }) => {
         await routeAll(page, scenario, clock);
@@ -929,9 +931,8 @@ test.describe('smoke', () => {
 
     test('the room follows the bar when the width changes', async ({ page }) => {
       await routeAll(page, scenario, clock);
-      // 700 px: the bar is one short row of three columns. At 600 px Don't show again makes the
-      // actions column 381 px wide and leaves the sentence 96 px, which is as tall as the bar at 320.
-      await page.setViewportSize({ width: 700, height: 740 });
+      // 760 px: the bar is one short row of three columns, at its widest.
+      await page.setViewportSize({ width: 760, height: 740 });
       await page.goto('/');
       await ready(page);
       await seed(page, 5);
@@ -944,6 +945,33 @@ test.describe('smoke', () => {
       await page.setViewportSize({ width: 320, height: 740 });
       await expect.poll(async () => (await measure(page)).height, { message: 'the bar grew' }).toBeGreaterThan(wide.height + 20);
       await expect.poll(clearance(page), { message: 'the last footer line ends above the taller bar' }).toBeGreaterThanOrEqual(0);
+    });
+
+    // Below 44rem the actions go under the sentence, so Don't show again never squeezes it into
+    // a narrow column: with three columns from 36rem it had 96 px and eight lines at 600 px (owner,
+    // 2026-10-24). From 44rem the bar is at its widest, 42rem, and the actions sit beside it.
+    test('the sentence keeps room beside the actions', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.goto('/');
+      await ready(page);
+      await seed(page, 5);
+      await page.reload();
+      await ready(page);
+      await expect(page.locator('#installNever')).toBeVisible();
+      const layout = () => page.evaluate(() => {
+        const text = document.getElementById('installText').getBoundingClientRect();
+        const actions = document.querySelector('#installBar .install-actions').getBoundingClientRect();
+        return { under: actions.top >= text.bottom - 1, width: Math.round(text.width) };
+      });
+      for (const width of [576, 600, 650, 703]) {
+        await page.setViewportSize({ width, height: 740 });
+        await expect.poll(async () => (await layout()).under, { message: `${width} px: the actions are under the sentence` }).toBe(true);
+      }
+      for (const width of [704, 800, 1280]) {
+        await page.setViewportSize({ width, height: 740 });
+        await expect.poll(async () => (await layout()).under, { message: `${width} px: the actions are beside the sentence` }).toBe(false);
+        expect((await layout()).width, `${width} px: the sentence's width`).toBeGreaterThan(180);
+      }
     });
   });
 });
