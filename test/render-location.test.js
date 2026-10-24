@@ -83,7 +83,8 @@ function screen(loc, now = NOW, { data = {}, stale } = {}) {
   // 30 daily means, 3,950 rising by 100 a day to 6,850, the last one the day before.
   const flowDays = Array.from({ length: 30 }, (_, i) => ({ t: now - (30 - i) * 24 * HOUR, v: 3950 + i * 100 }));
   const m = buildModel(loc, { wx: wx(across, 3, T0), river, flow, flowDays, flowFcst: { issued: now, pts: Array.from({ length: 13 }, (_, i) => ({ t: now + i * 6 * HOUR, v: 7000 + i * 600 })) }, obs, ...data }, S, now, { stale });
-  Object.assign(app, { loc, model: m, settings: S, data: m.data, errors: {} });
+  // The viewer's device is in the place's zone, as the golden cases have it.
+  Object.assign(app, { loc, model: m, settings: S, data: m.data, errors: {}, deviceTz: loc.tz });
   return { dom, m };
 }
 

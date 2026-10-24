@@ -164,7 +164,7 @@ const words = () => ({
 //                    would draw the wrong hours)
 export function capture(scenario, clock, settings, { loc = PUTNEY, width = 390, sink = null, raw: editRaw = null, data: editData = null, open = 0, lean = false, logicOnly = false, extraDays = [] } = {}) {
   if (Date.now() !== clock) throw new Error('Pin the clock to the case before capturing.');
-  const kept = ['loc', 'settings', 'data', 'errors', 'updated', 'fromCache', 'model', 'openPeriods'].map(k => [k, app[k]]);
+  const kept = ['loc', 'settings', 'data', 'errors', 'updated', 'fromCache', 'model', 'openPeriods', 'deviceTz'].map(k => [k, app[k]]);
 
   const hashed = s => ({ length: s.length, sha256: sha(s) });
   const big = (name, s) => { if (sink) sink(name, s); return hashed(s); };
@@ -291,7 +291,8 @@ export function capture(scenario, clock, settings, { loc = PUTNEY, width = 390, 
     // ----- the home screen -----
     // Rows a viewer opened stay open through a refresh: the first few that are not over.
     const opened = new Set(m.days.flatMap(d => d.periods).filter(x => !x.past).slice(0, open).map(x => `${x.dayKey}-${x.key}`));
-    Object.assign(app, { loc, model: m, data, errors: {}, settings: S, updated: raw.fetched, fromCache: false, openPeriods: opened });
+    // The viewer's device is in the location's zone, so a share text never carries a zone suffix (07 6.2).
+    Object.assign(app, { loc, model: m, data, errors: {}, settings: S, updated: raw.fetched, fromCache: false, openPeriods: opened, deviceTz: loc.tz });
     dom = installFakeDom({ width });
     renderHeader(); renderHero(); renderAlerts(); renderNow(); renderDays();
     out.home = elements(dom, 'home');
