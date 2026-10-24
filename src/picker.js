@@ -140,14 +140,16 @@ const heading = s => `<h4 class="pk-group">${esc(s)}</h4>`;
 const everything = list => groupList(list).map(g => `${g.heading ? heading(g.heading) : ''}${g.regions.map(r => `${r.name ? heading(r.name) : ''}${rows(r.entries)}`).join('')}`).join('');
 
 // What a sheet, the page or the search under a missing address holds.
+let hosts = 0; // a number for each picker drawn, so its hint has an id of its own
 function markup(mode, list, here, recent) {
+  const hint = `pkHint${++hosts}`;
   const sheet = mode === 'sheet', now = sheet && list.find(e => e.slug === here);
   const lately = sheet ? recent.map(s => list.find(e => e.slug === s)).filter(e => e && e.slug !== here).slice(0, 8) : [];
   const top = sheet ? `<div class="pk-top"><h2 id="pickTitle" tabindex="-1">${T.title}</h2><button type="button" class="pk-x" data-close aria-label="${T.close}">&times;</button></div>`
     : mode === 'page' ? `<h2>${T.pageTitle}</h2><p class="lede">${T.pageLead}</p>` : '';
   return `${top}${now ? rows([now], here) : ''}
 <label class="pk-label"><span>${T.find}</span><input class="pk-q" type="search" autocomplete="off" enterkeyhint="search" placeholder="${T.hint}"></label>
-<div class="pk-near"><button type="button" data-near>${T.near}</button><span class="pk-hint">${T.nearHint}</span></div>
+<div class="pk-near"><button type="button" data-near aria-describedby="${hint}">${T.near}</button><span class="pk-hint" id="${hint}">${T.nearHint}</span></div>
 <p class="pk-note" role="status"></p>
 <div class="pk-found"></div>
 <div class="pk-places"></div>

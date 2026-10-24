@@ -860,7 +860,7 @@ async function stubGeo(page, how) {
     const geo = (window.__geo = { calls: [], later: [] });
     const real = navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);
     navigator.geolocation.getCurrentPosition = (ok, no, opts) => {
-      geo.calls.push(opts);
+      geo.calls.push(opts || { noOptions: true }); // a call is a call, whatever it passes
       if (how === 'real') real(ok, no, opts);
       else if (how === 'timeout') no({ code: 3, message: 'Timeout expired' });
       else if (how === 'refused') no({ code: 1, message: 'User denied Geolocation' });
@@ -891,6 +891,7 @@ test.describe('Near me', () => {
     expect(labels, 'the button follows the search box').toEqual(['pk-label', 'pk-near']);
     await expect(page.getByRole('button', { name: 'Near me' })).toBeVisible();
     await expect(page.locator('#picker .pk-hint')).toHaveText('Uses your position once to sort the list. It is not stored.');
+    await expect(page.getByRole('button', { name: 'Near me' })).toHaveAccessibleDescription('Uses your position once to sort the list. It is not stored.');
     await page.keyboard.press('Escape');
     await page.evaluate(() => localStorage.clear()); // "/" would open the location left last
     await page.clock.setFixedTime(AFTER);
@@ -1135,6 +1136,18 @@ test.describe('the town search', () => {
     await expect(page.locator('#picker .pk-found')).toHaveText('No locations within 50 km of Worcester, Massachusetts.');
   });
 
+  test('with no location near the place, offers to suggest one when the form is configured, and opens it', async ({ page }) => {
+    await page.route('**/api/suggest', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ enabled: true, siteKey: 'test-key' }) }));
+    const q = await open(page);
+    await q.fill('worcester');
+    await page.getByRole('button', { name: 'Worcester, Western Cape, South Africa' }).click();
+    await expect(page.locator('#picker .pk-found')).toHaveText('No locations within 50 km of Worcester, Western Cape.');
+    await expect(page.locator('#picker .pk-sug button')).toBeVisible();
+    await expect(page.locator('#picker .pk-sug button')).toHaveText('Suggest a location');
+    await page.locator('#picker .pk-sug button').click();
+    await expect(page.locator('#suggest')).toBeVisible();
+  });
+
   test('with no match anywhere, says it is looking for towns until the answer, then that nothing matches', async ({ page }) => {
     let release;
     const gate = new Promise(done => { release = done; });
@@ -1258,6 +1271,21 @@ test.describe('the town search with the clock held', () => {
     await q.press('Enter');
     await page.clock.runFor(1000);
     await expect.poll(() => asks.names).toEqual(['wor', 'worc', 'worces']);
+  });
+
+  test('an ask held back by the wait is dropped when the sheet closes first', async ({ page }) => {
+    const asks = townAsks(page);
+    await stillClock(page);
+    await page.locator('#locBtn').click();
+    const q = page.locator('#picker .pk-q');
+    await q.fill('wor');
+    await q.press('Enter');
+    await expect.poll(() => asks.names).toEqual(['wor']);
+    await q.fill('worc');
+    await q.press('Enter'); // held back: the last ask was under 300 ms ago
+    await page.locator('#picker .pk-x').click();
+    await page.clock.runFor(2000);
+    expect(asks.names).toEqual(['wor']);
   });
 
   test('is not asked when the sheet closes first, or when a row is chosen', async ({ page }) => {
