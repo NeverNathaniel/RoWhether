@@ -2,8 +2,8 @@
 // Shown when a Day by day row is opened.
 import { WORD_PLAIN, LIGHT_KEYS, WATER } from '../config.js';
 import { esc, hm, r0, card, dayKey } from '../format.js';
-import { fogLift, waterWhy, debrisLikely, flowNow, flowTrend, flowForecastAt, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept, aqiWord } from '../logic.js';
-import { fact, compassSVG, sparkline } from './parts.js';
+import { fogLift, waterWhy, debrisLikely, flowNow, flowTrend, flowForecastAt, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept, aqiWord, flowForCall } from '../logic.js';
+import { fact, compassSVG, sparkline, oldFlow, noWater } from './parts.js';
 import { precipBlock } from './precip.js';
 
 function hoursTable(p, u) {
@@ -48,7 +48,7 @@ export function forecastPanel(m, p) {
       minSum < S.coldCombined ? `Under ${S.coldCombined} at the coldest point. Dress for immersion and row with a launch.` : `Above the ${S.coldCombined} cold-water line throughout.`,
       maxLvl(['cold']), `#temperature/${p.dayKey}`));
   } else {
-    f.push(fact('Water', '--', 'Gauge unavailable. Add a dock reading in Settings.'));
+    f.push(fact('Water', '--', noWater(m)));
   }
 
   const vis = nums('vis');
@@ -70,7 +70,7 @@ export function forecastPanel(m, p) {
       ? `NWS forecast for this period: about ${m.u.flow(Math.round(fc / 100) * 100, m.loc.flow?.unit)}. Go, Caution and Stay off use the latest reading.`
       : 'The NWS forecast does not reach this far, so check again closer to the time.';
     f.push(fact('River flow', `${m.u.flow(fl, m.loc.flow?.unit)} ${sparkline(m.data.flow)}`,
-      `Latest reading${tr ? ', ' + tr.charAt(0).toLowerCase() + tr.slice(1) : ''}. ${ahead}`, maxLvl(['flow']), '#river'));
+      flowForCall(m) != null ? `Latest reading${tr ? ', ' + tr.charAt(0).toLowerCase() + tr.slice(1) : ''}. ${ahead}` : oldFlow(m), maxLvl(['flow']), '#river'));
   }
 
   const s = sunFor(m, p.dayKey);

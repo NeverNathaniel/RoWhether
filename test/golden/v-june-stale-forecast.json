@@ -58,6 +58,15 @@
       "dataset": {},
       "style": {},
       "extra": {}
+    },
+    "notChecked": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
     }
   }
 }

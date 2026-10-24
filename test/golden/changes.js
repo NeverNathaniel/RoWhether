@@ -58,5 +58,16 @@ export const CHANGES = {
     // The cases with a daily mean dated in winter time: the spring variants (February and early March) and the fall back variant whose days reach 2026-11-01.
     files: ['v-spring-*', 'v-fall-back-*'],
     paths: ['parsers.flowDays.**', 'views.river.**']
+  },
+  'not-checked': {
+    why: "07 6.7 and 01 8.4: the hero's #notChecked line. It is hidden and empty at Putney, but the render code now writes it, and renderNoData() hides it too (R17).",
+    step: 'P1.9',
+    // Every case that draws the home screen or the no data screen: the 19 main cases and the 77 variants. The probes do not.
+    files: ['april-*', 'fall-back-*', 'june-calm-*', 'october-fog-*', 'v-*'],
+    paths: [
+      'home.notChecked.**', 'later.home.notChecked.**',
+      'status.partial.notChecked.**', 'status.partialAll.notChecked.**',
+      'status.noDataAll.notChecked.**', 'status.noDataForecast.notChecked.**', 'status.noDataQuiet.notChecked.**'
+    ]
   }
 };

@@ -5,7 +5,7 @@ import { hm, r0, dayKey } from '../../format.js';
 import { worstOf, factorLevel, waterTemp, waterOverridden, sunFor } from '../../logic.js';
 import { Chart, niceTicks } from '../chart.js';
 import { sourceRow } from '../../location.js';
-import { fact, readNote } from '../parts.js';
+import { fact, readNote, noWater } from '../parts.js';
 import { dayLabel } from '../days.js';
 import { mid, chartWidth, weekDays, pickDay, weekStrip, legend, chartBox, hourTicks, tickEvery, lvlDot, hourTable, head } from './common.js';
 
@@ -83,7 +83,7 @@ export function render(m, want) {
       coldest < S.coldCombined ? `At the coldest hour, under your ${S.coldCombined} line. Dress for immersion and row with a launch.` : `At the coldest hour, above your ${S.coldCombined} line.`,
       worstOf(hs, ['cold'])));
   } else {
-    f.push(fact('Water', '--', 'Gauge unavailable. Add a dock reading in Settings.'));
+    f.push(fact('Water', '--', noWater(m, ' to turn on the cold-water check')));
   }
 
   const table = hourTable('Hour by hour', ['Hour', 'Air', 'Feels like', 'Dew point', 'Air plus water'], hs.map(h => [

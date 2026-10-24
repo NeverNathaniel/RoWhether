@@ -10,6 +10,10 @@ import { effectiveSettings, resolveLocation, sourceRow } from '../src/location.j
 import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
 import { app } from '../src/state.js';
 import { buildModel } from '../src/logic.js';
+import { renderHero, renderNoData } from '../src/render/hero.js';
+import * as fog from '../src/render/detail/fog.js';
+import * as week from '../src/render/detail/week.js';
+import { bindingsFor, staleSlots } from '../src/sources/index.js';
 import { renderNow } from '../src/render/now.js';
 import { forecastPanel } from '../src/render/forecast.js';
 import { compassSVG } from '../src/render/parts.js';
@@ -64,7 +68,8 @@ afterEach(() => {
 });
 
 // The screen as the app has it: a fake page, and the model of one place.
-function screen(loc, now = NOW) {
+// `data` is added to the answers and `stale` is the map of sources past their limit (P1.9).
+function screen(loc, now = NOW, { data = {}, stale } = {}) {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(now);
   const dom = installFakeDom({ width: 390 });
@@ -75,7 +80,7 @@ function screen(loc, now = NOW) {
   const obs = { t: now, tempF: 70, wind: 5, gust: 9, dir: 200, text: 'Clear' };
   // 30 daily means, 3,950 rising by 100 a day to 6,850, the last one the day before.
   const flowDays = Array.from({ length: 30 }, (_, i) => ({ t: now - (30 - i) * 24 * HOUR, v: 3950 + i * 100 }));
-  const m = buildModel(loc, { wx: wx(across, 3, T0), river, flow, flowDays, flowFcst: { issued: now, pts: Array.from({ length: 13 }, (_, i) => ({ t: now + i * 6 * HOUR, v: 7000 + i * 600 })) }, obs }, S, now);
+  const m = buildModel(loc, { wx: wx(across, 3, T0), river, flow, flowDays, flowFcst: { issued: now, pts: Array.from({ length: 13 }, (_, i) => ({ t: now + i * 6 * HOUR, v: 7000 + i * 600 })) }, obs, ...data }, S, now, { stale });
   Object.assign(app, { loc, model: m, settings: S, data: m.data, errors: {} });
   return { dom, m };
 }
@@ -392,5 +397,226 @@ describe('Share this forecast names the place', () => {
     expect(share).toHaveBeenCalledTimes(1);
     expect(share.mock.calls[0][0]).toMatchObject({ title: 'Weir Pool rowing forecast', url: 'https://rowhether.com/' });
     expect(share.mock.calls[0][0].text).toMatch(/^Weir Pool rowing, /);
+  });
+});
+
+// P1.9: what the screens say when a source is absent here, or past its limit (07 6.7).
+describe('a source that is absent here or past its limit', () => {
+  const make = (slug, record = {}, waterway = PUTNEY_WATERWAY) => resolveLocation({ ...PUTNEY_RECORD, slug, ...record }, { waterway });
+  const noAlerts = PUTNEY_RECORD.sources.filter(s => s.role !== 'alerts');
+  const noWaterTemp = PUTNEY_RECORD.sources.filter(s => s.role !== 'water_temp');
+  // A river with no gauge row: the record's own waterway is left off, so there is no flow row.
+  const NO_GAUGE = make('no-gauge', { flow: null }, null);
+  const LAKE_NO_GAUGE = make('still-lake', { waterType: 'lake', flow: null }, null);
+  const RESERVOIR = make('still-reservoir', { waterType: 'reservoir', flow: null }, null);
+  const NO_TEMP = make('no-temp', { sources: noWaterTemp });
+  const TYPICAL = make('typical-june', { waterTemp: { fallback: 'monthly', monthly: [34, 34, 38, 45, 54, 61, 68, 70, 65, 55, 45, 37], maxAgeH: 72 }, sources: noWaterTemp });
+  const NO_ALERTS = make('no-alerts', { sources: noAlerts });
+  // The gauge's flow reading 2 days old, and its water temperature `waterAge` hours old.
+  const gone = (waterAge = 0) => ({ river: { flow: { v: 6000, t: NOW - 48 * HOUR }, waterC: { v: 20, t: NOW - waterAge * HOUR } } });
+  const line = dom => (dom.el('notChecked').hidden ? null : dom.el('notChecked').textContent);
+  // What a location with no gauge is never given, and a river answer with the flow and no water temperature.
+  const NOFLOW = { river: undefined, flow: undefined, flowDays: undefined, flowFcst: undefined };
+  const FLOWONLY = { river: { flow: { v: 6000, t: NOW } } };
+  const facts = (loc, data) => { const { dom } = screen(loc, NOW, { data }); renderNow(); return dom.el('facts').textContent; };
+  const day = m => m.days[0].key;
+
+  describe('the hero line', () => {
+    it('is hidden and empty at Putney, with its sources answering', () => {
+      const { dom } = screen(PUTNEY);
+      renderHero();
+      expect(line(dom)).toBeNull();
+      expect(dom.el('notChecked').textContent).toBe('');
+    });
+
+    it('says what a river with no gauge and a location with no alerts feed do not check', () => {
+      let { dom } = screen(NO_GAUGE); renderHero();
+      expect(line(dom)).toBe('Not checked here: river flow.');
+      ({ dom } = screen(NO_ALERTS)); renderHero();
+      expect(line(dom)).toBe('Not checked here: official alerts.');
+      ({ dom } = screen(make('neither', { flow: null, sources: noAlerts }, null))); renderHero();
+      expect(line(dom)).toBe('Not checked here: river flow, official alerts.');
+    });
+
+    it('says nothing about flow on a lake or a reservoir', () => {
+      for (const loc of [LAKE_NO_GAUGE, RESERVOIR]) { const { dom } = screen(loc); renderHero(); expect(line(dom), loc.slug).toBeNull(); }
+    });
+
+    it('says how long the gauge has not reported, and the verdict goes without it', () => {
+      const { dom, m } = screen(PUTNEY, NOW, { data: gone() });
+      renderHero();
+      expect(line(dom)).toBe('River flow not checked: the gauge has not reported for 2 days.');
+      expect(m.cur.a.reasons.map(r => r.key)).not.toContain('flow');
+    });
+
+    it('says how long NWS has not answered once the alerts are past their limit after a failed refresh', () => {
+      const stale = staleSlots(bindingsFor(PUTNEY), { alerts: NOW - 2 * HOUR, wx: NOW }, { alerts: true }, NOW);
+      const { dom } = screen(PUTNEY, NOW, { stale });
+      renderHero();
+      expect(line(dom)).toBe('Official alerts not checked: no answer from NWS for 2 hours.');
+    });
+
+    it('is not named for alerts that answered an hour ago, or for a failed refresh that was not past the limit', () => {
+      const ok = staleSlots(bindingsFor(PUTNEY), { alerts: NOW - HOUR }, { alerts: true }, NOW);
+      const { dom } = screen(PUTNEY, NOW, { stale: ok });
+      renderHero();
+      expect(line(dom)).toBeNull();
+    });
+
+    it('goes when the forecast goes, and a line from the last model never stays up', () => {
+      const { dom } = screen(NO_GAUGE);
+      renderHero();
+      expect(line(dom)).not.toBeNull();
+      renderNoData();
+      expect(dom.el('notChecked').hidden).toBe(true);
+      expect(dom.el('notChecked').textContent).toBe('');
+    });
+
+    it('is in Share this forecast when it shows, after the rest', () => {
+      const { dom } = screen(NO_GAUGE);
+      renderHero();
+      const text = shareText(NOW);
+      expect(text.endsWith(' Not checked here: river flow.')).toBe(true);
+      screen(PUTNEY);
+      renderHero();
+      expect(shareText(NOW)).not.toMatch(/not checked|Not checked/i);
+      expect(dom.el('shareBtn').hidden).toBe(false);
+    });
+  });
+
+  describe('No data after a forecast that is past its limit', () => {
+    const allFailed = () => Object.fromEntries(bindingsFor(app.loc).map(b => [b.slot, true]));
+
+    it('says the forecast did not load, though every source failed, since the page has loaded one before', () => {
+      const { dom } = screen(PUTNEY);
+      app.errors = allFailed(); app.updated = NOW - 30 * HOUR;
+      renderNoData(true);
+      expect(dom.el('verdict').textContent).toBe('No data.');
+      expect(dom.el('why').textContent).toBe('The forecast did not load. Check the connection, then tap Refresh.');
+    });
+
+    it('still says every source was blocked when none ever answered', () => {
+      const { dom } = screen(PUTNEY);
+      app.errors = allFailed(); app.updated = null;
+      renderNoData();
+      expect(dom.el('why').textContent).toMatch(/^Every data source was blocked\./);
+      renderNoData(false);
+      expect(dom.el('why').textContent).toMatch(/^Every data source was blocked\./);
+    });
+  });
+
+  describe('On the water now', () => {
+    it('has no River flow fact where the location has no gauge, and keeps "--" where the gauge did not answer', () => {
+      expect(facts(NO_GAUGE, NOFLOW)).not.toContain('River flow');
+      expect(facts(LAKE_NO_GAUGE, NOFLOW)).not.toContain('River flow');
+      const { dom } = screen(PUTNEY, NOW, { data: { river: {} } });
+      renderNow();
+      expect(dom.el('facts').textContent).toContain('River flow--USGS gauge unavailable.');
+    });
+
+    it('keeps the number of a reading past its limit, with its age, and says it is not used', () => {
+      const { dom } = screen(PUTNEY, NOW, { data: gone() });
+      renderNow();
+      const t = dom.el('facts').textContent;
+      expect(t).toContain('River flow6,000 cfs');
+      expect(t).toContain('Last reading 2 days ago, not used for Go, Caution or Stay off.');
+      expect(t).not.toContain('North Walpole gauge');
+    });
+
+    it('says the age in hours under 48', () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      const { dom } = screen(PUTNEY, NOW, { data: { river: { flow: { v: 6000, t: NOW - 30 * HOUR }, waterC: { v: 20, t: NOW } } } });
+      renderNow();
+      expect(dom.el('facts').textContent).toContain('Last reading 30 hr ago, not used for Go, Caution or Stay off.');
+    });
+
+    it('draws a reading within its limit as it did', () => {
+      const t = facts(PUTNEY);
+      expect(t).toContain('North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. Just now.');
+      expect(t).not.toContain('not used for Go');
+    });
+
+    it('says there is no water temperature where there is no gauge for it', () => {
+      expect(facts(NO_TEMP, FLOWONLY)).toContain('Water--No water temperature here. Add a dock reading in Settings.');
+    });
+
+    it('keeps "Gauge unavailable" where the gauge is there and did not answer, or answered too long ago', () => {
+      let { dom } = screen(PUTNEY, NOW, { data: { river: { flow: { v: 6000, t: NOW } } } }); renderNow();
+      expect(dom.el('facts').textContent).toContain('Water--Gauge unavailable. Add a dock reading in Settings.');
+      ({ dom } = screen(PUTNEY, NOW, { data: gone(73) })); renderNow();
+      expect(dom.el('facts').textContent).toContain('Water--Gauge unavailable. Add a dock reading in Settings.');
+      ({ dom } = screen(PUTNEY, NOW, { data: gone(71) })); renderNow();
+      expect(dom.el('facts').textContent).toMatch(/Water68°F/);
+    });
+
+    it("says the month's typical value, and that it is not a reading", () => {
+      const { dom } = screen(TYPICAL, NOW, { data: { river: { flow: { v: 6000, t: NOW } } } });
+      renderNow();
+      expect(dom.el('facts').textContent).toContain('Water--Typical for June, about 61°F. No live reading.');
+    });
+
+    it('puts the dock reading ahead of all of it', () => {
+      const { dom } = screen(NO_TEMP);
+      app.settings = { ...app.settings, waterOverride: 55 };
+      app.model = buildModel(NO_TEMP, app.data, app.settings, NOW);
+      renderNow();
+      expect(dom.el('facts').textContent).toContain('Water55°F');
+    });
+  });
+
+  describe('a full forecast', () => {
+    const panel = (loc, opts) => { const { m } = screen(loc, NOW, opts); return forecastPanel(m, m.days.flatMap(d => d.periods).find(x => !x.past)); };
+
+    it('says the water temperature is not here, or unavailable, or typical', () => {
+      expect(panel(NO_TEMP, { data: FLOWONLY })).toContain('No water temperature here. Add a dock reading in Settings.');
+      expect(panel(PUTNEY, { data: FLOWONLY })).toContain('Gauge unavailable. Add a dock reading in Settings.');
+      expect(panel(TYPICAL, { data: FLOWONLY })).toContain('Typical for June, about 61°F. No live reading.');
+    });
+
+    it('has no River flow fact without a gauge, and says a reading past its limit is not used', () => {
+      expect(panel(NO_GAUGE, { data: NOFLOW })).not.toContain('River flow');
+      const html = panel(PUTNEY, { data: gone() });
+      expect(html).toContain('River flow');
+      expect(html).toContain('Last reading 2 days ago, not used for Go, Caution or Stay off.');
+      expect(html).not.toContain('Go, Caution and Stay off use the latest reading.');
+      expect(panel(PUTNEY)).toContain('Go, Caution and Stay off use the latest reading.');
+    });
+  });
+
+  describe('the Temperature, Fog and Week views', () => {
+    it('Temperature says there is no water temperature, and what to do to turn the cold-water check on', () => {
+      expect(temperature.render(screen(NO_TEMP, NOW, { data: FLOWONLY }).m).html).toContain('No water temperature here. Add a dock reading in Settings to turn on the cold-water check.');
+      expect(temperature.render(screen(PUTNEY, NOW, { data: FLOWONLY }).m).html).toContain('Gauge unavailable. Add a dock reading in Settings.');
+      expect(temperature.render(screen(TYPICAL, NOW, { data: FLOWONLY }).m).html).toContain('Typical for June, about 61°F. No live reading.');
+    });
+
+    it('Fog says steam fog needs a water temperature where there is no gauge, and keeps its words where the gauge failed', () => {
+      expect(fog.render(screen(NO_TEMP, NOW, { data: FLOWONLY }).m).html).toContain('Steam fog needs a water temperature. Add a dock reading in Settings.');
+      expect(fog.render(screen(PUTNEY, NOW, { data: FLOWONLY }).m).html).toContain('No water temperature is available, so steam fog is not checked.');
+      expect(fog.render(screen(PUTNEY).m).html).toContain('Water is 68°F.');
+    });
+
+    it('Week says the river is not checked, in words that fit the water, and that alerts are not available', () => {
+      const open = (loc, data) => { const { m } = screen(loc, NOW, { data }); return week.render(m, day(m)).html; };
+      expect(open(NO_GAUGE, NOFLOW)).toContain('<span class="fname">River</span><span class="wnote">No river gauge here, so flow is not checked.</span>');
+      expect(open(LAKE_NO_GAUGE, NOFLOW)).toContain('<span class="wnote">This is a lake. Flow is not checked.</span>');
+      expect(open(RESERVOIR, NOFLOW)).toContain('<span class="wnote">This is a reservoir. Flow is not checked.</span>');
+      expect(open(NO_ALERTS)).toContain('<span class="fname">Alerts</span><span class="wnote">Not available here</span>');
+    });
+
+    it('Week does not call a factor with no source "no concern"', () => {
+      const { m } = screen(make('neither', { flow: null, sources: noAlerts }, null), NOW, { data: NOFLOW });
+      const html = week.render(m, day(m)).html;
+      const concerns = /No concerns from ([^.]*)\./.exec(html)[1];
+      expect(concerns).not.toMatch(/river|alerts/);
+      expect(concerns).toMatch(/wind/);
+    });
+
+    it("Week says nothing of the kind at Putney, where every source is", () => {
+      const { m } = screen(PUTNEY);
+      const html = week.render(m, day(m)).html;
+      expect(html).not.toMatch(/Not available here|flow is not checked|Flow is not checked/);
+      expect(/No concerns from ([^.]*)\./.exec(html)[1]).toMatch(/river/);
+    });
   });
 });

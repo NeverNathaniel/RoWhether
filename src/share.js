@@ -8,7 +8,7 @@ const LABEL = 'Share this forecast';
 
 export function shareText(now = Date.now()) {
   const why = $('why').innerText.replace(/\s*\n\s*/g, ' ').trim();
-  const parts = [$('verdict').textContent.trim(), why, $('holds').textContent.trim()].filter(Boolean);
+  const parts = [$('verdict').textContent.trim(), why, $('holds').textContent.trim(), $('notChecked').textContent.trim()].filter(Boolean);
   return `${app.loc.name} rowing, ${hm(now)}: ${parts.join(' ')}`;
 }
 

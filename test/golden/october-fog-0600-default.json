@@ -1480,6 +1480,15 @@
       "dataset": {},
       "style": {},
       "extra": {}
+    },
+    "notChecked": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
     }
   },
   "forecasts": {
@@ -1574,21 +1583,24 @@
       "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
-      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
+      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "noDataForecast": {
       "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
       "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
-      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "noDataQuiet": {
       "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
       "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
-      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "partial": {
       "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":1},"style":{},"extra":{}},
@@ -1596,7 +1608,8 @@
       "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "verdict": {"innerHTML":"Caution.","textContent":"Caution.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
-      "why": {"innerHTML":"Today morning, 6:34 AM to 10 AM. Valley fog likely.<span class=\"cond\">Wind 2 to 4 mph WNW, gusts 8. 39 to 51°F. Rain 2%. Fog lifting about 9 AM. Flat water.</span>","textContent":"Today morning, 6:34 AM to 10 AM. Valley fog likely.Wind 2 to 4 mph WNW, gusts 8. 39 to 51°F. Rain 2%. Fog lifting about 9 AM. Flat water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
+      "why": {"innerHTML":"Today morning, 6:34 AM to 10 AM. Valley fog likely.<span class=\"cond\">Wind 2 to 4 mph WNW, gusts 8. 39 to 51°F. Rain 2%. Fog lifting about 9 AM. Flat water.</span>","textContent":"Today morning, 6:34 AM to 10 AM. Valley fog likely.Wind 2 to 4 mph WNW, gusts 8. 39 to 51°F. Rain 2%. Fog lifting about 9 AM. Flat water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "partialAll": {
       "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":1},"style":{},"extra":{}},
@@ -1604,7 +1617,8 @@
       "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "statusNote": {"innerHTML":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","textContent":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "verdict": {"innerHTML":"Caution.","textContent":"Caution.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
-      "why": {"innerHTML":"Today morning, 6:34 AM to 10 AM. Valley fog likely.<span class=\"cond\">Wind 2 to 4 mph WNW, gusts 8. 39 to 51°F. Rain 2%. Fog lifting about 9 AM. Flat water.</span>","textContent":"Today morning, 6:34 AM to 10 AM. Valley fog likely.Wind 2 to 4 mph WNW, gusts 8. 39 to 51°F. Rain 2%. Fog lifting about 9 AM. Flat water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
+      "why": {"innerHTML":"Today morning, 6:34 AM to 10 AM. Valley fog likely.<span class=\"cond\">Wind 2 to 4 mph WNW, gusts 8. 39 to 51°F. Rain 2%. Fog lifting about 9 AM. Flat water.</span>","textContent":"Today morning, 6:34 AM to 10 AM. Valley fog likely.Wind 2 to 4 mph WNW, gusts 8. 39 to 51°F. Rain 2%. Fog lifting about 9 AM. Flat water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "header": {
       "loading": "Loading",
@@ -1683,7 +1697,8 @@
       "statusNote": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "updated": {"innerHTML":"Updated 5:57 AM","textContent":"Updated 5:57 AM","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "verdict": {"innerHTML":"Caution.","textContent":"Caution.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
-      "why": {"innerHTML":"Valley fog likely.<span class=\"cond\">Wind 2 mph from W, gusts 4. Flat water. 43°F air, 58°F water.</span>","textContent":"Valley fog likely.Wind 2 mph from W, gusts 4. Flat water. 43°F air, 58°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}}
+      "why": {"innerHTML":"Valley fog likely.<span class=\"cond\">Wind 2 mph from W, gusts 4. Flat water. 43°F air, 58°F water.</span>","textContent":"Valley fog likely.Wind 2 mph from W, gusts 4. Flat water. 43°F air, 58°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
     },
     "share": "Putney Landing rowing, 7:30 AM: Caution. Valley fog likely. Wind 2 mph from W, gusts 4. Flat water. 43°F air, 58°F water. Next go: today midday, 10 AM to 3 PM."
   }

@@ -1,6 +1,6 @@
 // Small HTML and SVG builders shared by the sections.
 import { esc, hm, hShort, ago } from '../format.js';
-import { isSet } from '../logic.js';
+import { isSet, bound, waterSource, waterTemp } from '../logic.js';
 
 // A small chevron after a label that opens a detail view.
 export const CHEV = '<svg class="chev" viewBox="0 0 8 12" aria-hidden="true"><path d="M2 2l4 4-4 4"/></svg>';
@@ -14,6 +14,18 @@ export function fact(label, val, note, lvl, href) {
 // A source's note, then how old its reading is: "The airfield, 3 mi north. 12 min ago."
 // A row with no note gives the age alone.
 export const readNote = (row, t) => `${row?.note ? row.note + ' ' : ''}${ago(t)}.`;
+
+// A flow reading past its limit is shown, not used (07 6.7).
+export const oldFlow = m => {
+  const a = ago(m.data.river.flow.t).toLowerCase();
+  return `Last reading${a && ` ${a}`}, not used for Go, Caution or Stay off.`;
+};
+
+// The Water fact's note when there is no water temperature to show (07 6.7): the month's
+// typical value, a gauge that did not answer, or no gauge. `tail` ends the last one.
+export const noWater = (m, tail = '') => waterSource(m) === 'typical'
+  ? `Typical for ${new Intl.DateTimeFormat('en-US', { timeZone: m.loc.tz, month: 'long' }).format(m.now)}, about ${m.u.temp(waterTemp(m, { forCold: true }))}. No live reading.`
+  : bound(m, 'water_temp') ? 'Gauge unavailable. Add a dock reading in Settings.' : `No water temperature here. Add a dock reading in Settings${tail}.`;
 
 // The tab already names the view, so the heading is for screen readers and
 // the opening line leads.

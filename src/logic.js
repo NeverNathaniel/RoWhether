@@ -338,9 +338,10 @@ export const lvlExcept = (a, keys) => a.reasons.filter(x => !keys.includes(x.key
 // where a river, tidal or canal location has no gauge, or its latest reading is past its
 // limit; alerts where there is no feed, or none that answered lately. Each is
 // { key, why: 'none' | 'old', since }, since being when the source last answered.
+export const FLOWING = ['river', 'tidal', 'canal'];
 export function notChecked(m) {
   const out = [], r = m.data.river?.flow;
-  if (!bound(m, 'flow')) { if (['river', 'tidal', 'canal'].includes(m.loc.waterType)) out.push({ key: 'flow', why: 'none' }); }
+  if (!bound(m, 'flow')) { if (FLOWING.includes(m.loc.waterType)) out.push({ key: 'flow', why: 'none' }); }
   else if (r && flowForCall(m) == null) out.push({ key: 'flow', why: 'old', since: r.t });
   if (!bound(m, 'alerts')) out.push({ key: 'alerts', why: 'none' });
   else if (m.stale.has('alerts')) out.push({ key: 'alerts', why: 'old', since: m.stale.get('alerts') });

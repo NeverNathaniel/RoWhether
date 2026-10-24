@@ -2,22 +2,31 @@
 import { THEN, WORD, LIGHT_KEYS, WATER } from '../config.js';
 import { app, $ } from '../state.js';
 import { esc, hm, r0, card, whenText, dayKey, lowerFirst } from '../format.js';
-import { waterTemp, sunFor, lvlExcept } from '../logic.js';
+import { waterTemp, sunFor, lvlExcept, notChecked, notCheckedText } from '../logic.js';
 import { bindingsFor, labelFor } from '../sources/index.js';
 import { dayLabel, periodTime, periodSummary } from './days.js';
 
 // The header's time moved to header.js; the capture still imports it from here.
 export { renderHeader } from './header.js';
 
-export function renderNoData() {
+// The quiet line under the hero for what is not checked, hidden when it is empty.
+function setNotChecked(text) {
+  $('notChecked').textContent = text;
+  $('notChecked').hidden = !text;
+}
+
+// `old` is a saved forecast that is past its limit after a failed refresh: the page has
+// loaded one before, so it is not blocked, and the line says the forecast did not load.
+export function renderNoData(old = false) {
   $('shareBtn').hidden = true;
   $('hero').dataset.lvl = '';
   $('verdict').textContent = 'No data.';
+  setNotChecked('');
   const allBlocked = bindingsFor(app.loc).every(b => app.errors[b.slot]);
   // Offline with no saved forecast: say so, since the blocked-sources text would blame the page (07 9.4).
   $('why').textContent = navigator.onLine === false && !app.updated
     ? 'No forecast saved for this location on this phone yet. Connect to load it.'
-    : allBlocked
+    : allBlocked && !old
       ? 'Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.'
       : 'The forecast did not load. Check the connection, then tap Refresh.';
   $('holds').textContent = '';
@@ -62,6 +71,7 @@ export function renderHero() {
   const m = app.model, cur = m.cur, a = cur.a;
   $('shareBtn').hidden = false;
   renderStatus();
+  setNotChecked(notCheckedText(notChecked(m), m.now));
   if (!m.daytime) { renderNextPeriod(m); return; }
   $('hero').dataset.lvl = a.lvl;
   $('verdict').textContent = WORD[a.lvl];

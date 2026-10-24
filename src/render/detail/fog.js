@@ -2,7 +2,7 @@
 // ingredients the fog rules look at, each drawn with its fog zone.
 import { HOUR, FOG } from '../../config.js';
 import { hm, r0, dayKey, localHour, dayWord } from '../../format.js';
-import { fogRisk, morningFog, fogLift, nextMorning, relHumidity, waterTemp, sunFor } from '../../logic.js';
+import { fogRisk, morningFog, fogLift, nextMorning, relHumidity, waterTemp, sunFor, bound } from '../../logic.js';
 import { Chart, niceTicks, niceMax } from '../chart.js';
 import { dayLabel } from '../days.js';
 import { mid, chartWidth, weekDays, pickDay, weekStrip, legend, chartBox, hourTicks, tickEvery, hourTable, head } from './common.js';
@@ -109,7 +109,7 @@ export function render(m, want) {
       <h3>How this works</h3>
       <p>Each line is one thing the fog rules look at. When a line runs through its shaded zone, that part of the rule is met. Fog is likely only when every part is met at once.</p>
       <p>Valley fog forms on clear, calm nights when the air cools to its dew point. Likely: air within ${m.u.tempDiff(V.likely.spread)} of the dew point, wind ${m.u.speed(V.likely.wind)} or less, and cloud cover ${V.likely.cloud}% or less. Possible: within ${m.u.tempDiff(V.possible.spread)}, ${m.u.speed(V.possible.wind)}, ${V.possible.cloud}%.</p>
-      <p>Steam fog rises off water much warmer than the air. Likely: water at least ${m.u.tempDiff(ST.likely.diff)} warmer, wind ${m.u.speed(ST.likely.wind)} or less, humidity ${ST.likely.rh}% or more. Possible: ${m.u.tempDiff(ST.possible.diff)}, ${m.u.speed(ST.possible.wind)}, ${ST.possible.rh}%. ${wt != null ? `Water is ${m.u.temp(wt)}.` : 'No water temperature is available, so steam fog is not checked.'}</p>
+      <p>Steam fog rises off water much warmer than the air. Likely: water at least ${m.u.tempDiff(ST.likely.diff)} warmer, wind ${m.u.speed(ST.likely.wind)} or less, humidity ${ST.likely.rh}% or more. Possible: ${m.u.tempDiff(ST.possible.diff)}, ${m.u.speed(ST.possible.wind)}, ${ST.possible.rh}%. ${wt != null ? `Water is ${m.u.temp(wt)}.` : bound(m, 'water_temp') ? 'No water temperature is available, so steam fog is not checked.' : 'Steam fog needs a water temperature. Add a dock reading in Settings.'}</p>
       <p>The model can also show fog itself, as a fog weather code or visibility under ${m.u.visCaution}, at any hour.</p>
       <p>Likely fog is a caution. Possible fog is shown but does not change Go, Caution or Stay off. These thresholds are first guesses, to be tuned against what the dock sees.</p>
     </div>`;

@@ -2,9 +2,9 @@
 import { HOUR, WATER } from '../config.js';
 import { app, $ } from '../state.js';
 import { r0, card, hm, dayKey, dayWord } from '../format.js';
-import { precipKind, rateWord, fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, aqiWord } from '../logic.js';
+import { precipKind, rateWord, fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, aqiWord, flowForCall, bound } from '../logic.js';
 import { sourceRow } from '../location.js';
-import { fact, compassSVG, sparkline, readNote } from './parts.js';
+import { fact, compassSVG, sparkline, readNote, oldFlow, noWater } from './parts.js';
 import { precipBlock } from './precip.js';
 
 // Fog now if there is any, otherwise the outlook for the next morning.
@@ -74,7 +74,7 @@ export function renderNow() {
       sum < S.coldCombined ? `Under ${S.coldCombined}. Dress for immersion and row with a launch.` : `Above the ${S.coldCombined} cold-water line.`,
       lvlOf('cold'), '#temperature'));
   } else {
-    f.push(fact('Water', '--', 'Gauge unavailable. Add a dock reading in Settings.'));
+    f.push(fact('Water', '--', noWater(m)));
   }
 
   f.push(fact('Visibility', m.u.dist(cur.vis), visibilityNote(m), lvlOf('fog'), '#fog'));
@@ -88,9 +88,9 @@ export function renderNow() {
   if (fl != null) {
     const tr = flowTrend(m.data.flow);
     f.push(fact('River flow', `${m.u.flow(fl, m.loc.flow?.unit)} ${sparkline(m.data.flow)}`,
-      `${tr ? tr + '. ' : ''}${readNote(sourceRow(m.loc, 'flow'), m.data.river.flow.t)}`,
+      flowForCall(m) != null ? `${tr ? tr + '. ' : ''}${readNote(sourceRow(m.loc, 'flow'), m.data.river.flow.t)}` : oldFlow(m),
       lvlOf('flow'), '#river'));
-  } else {
+  } else if (bound(m, 'flow')) {
     f.push(fact('River flow', '--', 'USGS gauge unavailable.', 0, '#river'));
   }
 

@@ -3,7 +3,7 @@
 // each factor that matters that day.
 import { HOUR, FACTORS, LIGHT_KEYS, WORD_PLAIN, WATER } from '../../config.js';
 import { esc, hm, r0, localMinutes, dayKey, weekday, lowerFirst } from '../../format.js';
-import { lvlExcept, sunFor, callRuns, factorRuns, confidence, confidenceText, planSessions } from '../../logic.js';
+import { lvlExcept, sunFor, callRuns, factorRuns, confidence, confidenceText, planSessions, bound, FLOWING } from '../../logic.js';
 import { loadPlan } from '../../storage.js';
 import { dayLabel, periodTime } from '../days.js';
 import { CHEV } from '../parts.js';
@@ -106,7 +106,13 @@ export function render(m, want) {
     const conf = confidence(d.runs.flatMap(r => r.hs));
     const shaky = conf && conf.level === 'low' ? `<span class="wi"><i data-lvl="n" aria-hidden="true"></i>${esc(confidenceText(conf, null, m.u))}</span>` : '';
 
-    const hit = fr.filter(x => x.runs.length), clear = fr.filter(x => !x.runs.length).map(x => x.f);
+    // A factor with no source here cannot be a concern, and is not "no concern": its row says so (07 6.7).
+    const gone = { flow: !bound(m, 'flow'), alert: !bound(m, 'alerts') };
+    const hit = fr.filter(x => x.runs.length), clear = fr.filter(x => !x.runs.length && !gone[x.f.key]).map(x => x.f);
+    const gaps = [
+      gone.flow && ['River', FLOWING.includes(m.loc.waterType) ? 'No river gauge here, so flow is not checked.' : `This is a ${m.loc.waterType}. Flow is not checked.`],
+      gone.alert && ['Alerts', 'Not available here']
+    ].filter(Boolean).map(([n, t]) => `<div class="frow"><span class="fname">${n}</span><span class="wnote">${t}</span></div>`).join('');
     const frows = hit.map(({ f, runs }) => {
       const label = TAB[f.key] ? `<a class="flink" href="#${TAB[f.key]}/${d.key}">${f.name}${CHEV}</a>` : esc(f.name);
       return `<div class="frow"><span class="fname">${label}</span><span class="wbar" aria-hidden="true">${seg(w0, w1, 'track')}${runs.map(r => seg(r.start, r.end, `seg b${r.lvl}`)).join('')}</span></div>`;
@@ -122,7 +128,7 @@ export function render(m, want) {
         <span class="wbar" aria-hidden="true">${bar}</span>
         <span class="wline">${line}${shaky}</span>
       </summary>
-      <div class="wmore">${frows}${notes}</div>
+      <div class="wmore">${frows}${gaps}${notes}</div>
     </details></li>`;
   }).join('');
 
