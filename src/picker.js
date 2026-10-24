@@ -1,6 +1,7 @@
 // The picker (07 5.1, 5.2): a sheet over the open location, the page at "/" when no
-// location is chosen, and the search under an address with no location. A lazy chunk,
-// read on the first tap of the location name (src/main.js), with its own styles.
+// location is chosen, and the search under an address with no location. Near me and the
+// town search are here too. A lazy chunk, read on the first tap of the location name
+// (src/main.js), with its own styles.
 import './styles/picker.css';
 import { app, $ } from './state.js';
 import { fetchIndex } from './locations.js';
@@ -60,10 +61,80 @@ export function groupList(entries) {
   }));
 }
 
+// ---------- Near me and towns (07 5.2.1, 5.2.2) ----------
+export const NEAR_KM = 100;      // Near me looks this far
+export const PLACE_KM = 50;      // a town's neighbours are this near
+export const TOWN_GAP_MS = 300;  // the pause in typing before a town search, and the least time between two
+const TOWN_WAIT_MS = 8000;       // a town search with no answer by then has failed
+
+const round2 = x => Math.round(x * 100) / 100;
+
+// The great-circle distance in km between two { lat, lon } points.
+export function km(a, b) {
+  const r = x => (x * Math.PI) / 180;
+  const h = Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lon - a.lon) / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+}
+
+// The entries within `within` km of `at`, nearest first, each with its distance as `d`.
+export const nearest = (list, at, within) => list.map(e => ({ ...e, d: km(at, e) })).filter(e => e.d <= within)
+  .sort((a, b) => a.d - b.d || cmp(fold(a.name), fold(b.name)));
+
+// "0.6 mi", "7.7 mi", "62 mi": US units, one decimal under 10.
+export const miles = d => { const m = d / 1.609344; return `${m < 9.95 ? m.toFixed(1) : Math.round(m)} mi`; };
+
+// The viewer's position as { lat, lon }, rounded to 2 decimals (about 1 km) before anything
+// else sees it, and kept nowhere. Asked only when this is called, which is on a tap. Rejects
+// with 'denied' (without asking at all when the permission is already denied) or 'lost'.
+export async function whereAmI(nav = navigator) {
+  try {
+    if ((await nav.permissions?.query({ name: 'geolocation' }))?.state === 'denied') return Promise.reject('denied');
+  } catch (e) { /* no permissions API, or not for this name: ask */ }
+  return new Promise((ok, no) => nav.geolocation.getCurrentPosition(
+    p => ok({ lat: round2(p.coords.latitude), lon: round2(p.coords.longitude) }),
+    e => no(e?.code === 1 ? 'denied' : 'lost'),
+    { enableHighAccuracy: false, maximumAge: 600000, timeout: 10000 }
+  ));
+}
+
+// Runs `fn` at most once per `ms`. A call inside the wait runs when it ends, and of several
+// only the last one does.
+export function throttle(fn, ms) {
+  let waiting = false, pending = null;
+  const run = args => {
+    waiting = true;
+    setTimeout(() => { waiting = false; if (pending) { const a = pending; pending = null; run(a); } }, ms);
+    fn(...args);
+  };
+  return (...args) => { if (waiting) pending = args; else run(args); };
+}
+
+// Open-Meteo's town search: keyless, and it answers with `access-control-allow-origin: *`.
+export const placesUrl = text => `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(text)}&count=5&language=en&format=json`;
+// "Worcester, Massachusetts, United States", and the shorter "Worcester, Massachusetts".
+export const placeName = p => [p.name, p.admin1, p.country].filter(Boolean).join(', ');
+export const placeShort = p => [p.name, p.admin1 || p.country].filter(Boolean).join(', ');
+
+// { places } (up to 5, as { name, admin1, country, lat, lon }), or { failed: true } for a
+// network error, an answer that is not ok or not JSON, or no answer in `ms`.
+export async function fetchPlaces(text, { get = fetch, ms = TOWN_WAIT_MS } = {}) {
+  const stop = new AbortController(), timer = setTimeout(() => stop.abort(), ms);
+  try {
+    const r = await get(placesUrl(text), { signal: stop.signal });
+    if (!r.ok) return { failed: true };
+    const found = JSON.parse(await r.text()).results;
+    return { places: (Array.isArray(found) ? found : []).filter(p => p && p.name && Number.isFinite(p.latitude) && Number.isFinite(p.longitude)).slice(0, 5)
+      .map(p => ({ name: p.name, admin1: p.admin1, country: p.country, lat: p.latitude, lon: p.longitude })) };
+  } catch (e) { return { failed: true }; } finally { clearTimeout(timer); }
+}
+
+// One town search at a time per `TOWN_GAP_MS`, across every picker the page opens.
+const askTowns = throttle((text, ok, done) => { if (ok()) fetchPlaces(text).then(done); }, TOWN_GAP_MS);
+
 // ---------- Drawing ----------
 // The second line of a row: the locality, then the waterway, each left out when it is the name.
 const sub = e => [e.locality, e.waterway].filter(s => s && s !== e.name).map(s => `${s}.`).join(' ');
-const row = (e, here) => `<li><a class="pk-row" href="/${esc(e.slug)}" data-nav data-name="${esc(e.name)}"><span class="pk-name">${esc(e.name)}</span>${here ? `<span class="badge pk-here">${T.here}</span>` : ''}${sub(e) ? `<span class="pk-sub">${esc(sub(e))}</span>` : ''}</a></li>`;
+const row = (e, here) => `<li><a class="pk-row" href="/${esc(e.slug)}" data-nav data-name="${esc(e.name)}"><span class="pk-name">${esc(e.name)}</span>${here ? `<span class="badge pk-here">${T.here}</span>` : ''}${e.d != null ? `<span class="pk-dist">${miles(e.d)}</span>` : ''}${sub(e) ? `<span class="pk-sub">${esc(sub(e))}</span>` : ''}</a></li>`;
 const rows = (list, here) => `<ul class="plist">${list.map(e => row(e, e.slug === here)).join('')}</ul>`;
 const heading = s => `<h4 class="pk-group">${esc(s)}</h4>`;
 const everything = list => groupList(list).map(g => `${g.heading ? heading(g.heading) : ''}${g.regions.map(r => `${r.name ? heading(r.name) : ''}${rows(r.entries)}`).join('')}`).join('');
@@ -76,9 +147,12 @@ function markup(mode, list, here, recent) {
     : mode === 'page' ? `<h2>${T.pageTitle}</h2><p class="lede">${T.pageLead}</p>` : '';
   return `${top}${now ? rows([now], here) : ''}
 <label class="pk-label"><span>${T.find}</span><input class="pk-q" type="search" autocomplete="off" enterkeyhint="search" placeholder="${T.hint}"></label>
+<div class="pk-near"><button type="button" data-near>${T.near}</button><span class="pk-hint">${T.nearHint}</span></div>
+<p class="pk-note" role="status"></p>
 <div class="pk-found"></div>
+<div class="pk-places"></div>
 <div class="pk-rest">${lately.length ? `<h3>${T.recent}</h3>${rows(lately)}` : ''}${mode === 'notfound' ? '' : `<h3>${T.all}</h3>${list.length ? everything(list) : `<p class="pk-none">${T.noList}</p>`}`}</div>
-<p class="pk-sug">${sheet ? '' : `${T.notHere} `}<button type="button" data-suggest>${T.suggest}</button></p>${sheet ? `<div class="dlg-actions"><button type="button" data-close>${T.close}</button></div>` : ''}`;
+<p class="pk-sug">${sheet ? '' : `${T.notHere} `}<button type="button" data-suggest>${T.suggest}</button></p>${sheet ? `<div class="dlg-actions"><button type="button" data-close>${T.close}</button></div>` : ''}<div class="vh pk-say" role="status"></div>`;
 }
 
 // ---------- The picker ----------
@@ -100,29 +174,88 @@ export async function openPicker({ mode, query = '' }) {
     if (mode === 'page') document.title = T.docTitle;
   }
   host.innerHTML = markup(mode, list, here, recent);
-  const q = host.querySelector('.pk-q'), found = host.querySelector('.pk-found'), rest = host.querySelector('.pk-rest');
+  const sel = x => host.querySelector(x);
+  const q = sel('.pk-q'), found = sel('.pk-found'), rest = sel('.pk-rest'), spots = sel('.pk-places'), note = sel('.pk-note'), say = sel('.pk-say'), nearBtn = sel('[data-near]');
+  // Still on the screen: a town search that answers after the sheet closed or the page moved on is dropped.
+  const live = () => (mode === 'sheet' ? dlg.open : !$('notFound').hidden && host.isConnected);
+  let towns = null, typing = 0, seq = 0; // the town search for the text in the box (null: none asked), the pause timer, the newest question
+  const cancel = () => { clearTimeout(typing); seq++; };
 
-  // From 2 characters the matches replace the lists. The list is in the page already, so
-  // typing asks for nothing.
+  // From 2 characters the matches replace the lists, and the towns come under them. The list
+  // is in the page already, so typing asks for no list. The towns are asked for after a pause.
   const refine = () => {
     const text = q.value.trim(), on = key(text).length > 2, hits = on ? search(list, text, recent) : [];
+    const t = on && towns, got = t?.state === 'done' && t.places;
     rest.hidden = on;
-    found.innerHTML = !on ? '' : hits.length ? rows(hits, here) : `<p class="pk-none">${T.none(esc(text))}</p>`;
+    found.innerHTML = !on ? '' : hits.length ? rows(hits, here)
+      : `<p class="pk-none">${t?.state === 'wait' ? T.waiting(esc(text)) : got?.length ? T.pickTown(esc(text)) : T.none(esc(text))}</p>`;
+    spots.innerHTML = got?.length ? `<h3>${T.places}</h3><ul class="plist">${got.map((p, i) => `<li><button type="button" class="pk-place" data-place="${i}">${esc(placeName(p))}</button></li>`).join('')}</ul>`
+      : t?.state === 'failed' ? `<p class="pk-none">${T.townFail}</p>` : '';
   };
-  q.addEventListener('input', refine);
+  const ask = text => {
+    if (!live() || key(text).length < 3 || (towns?.q === text && towns.state !== 'failed')) return;
+    const id = ++seq;
+    towns = { q: text, state: 'wait' };
+    askTowns(text, () => id === seq && live(), got => {
+      if (id !== seq) return;
+      towns = { q: text, state: got.places ? 'done' : 'failed', places: got.places };
+      refine();
+    });
+  };
+  q.addEventListener('input', () => {
+    cancel();
+    note.textContent = '';
+    const text = q.value.trim();
+    towns = key(text).length > 2 ? { q: null, state: 'wait' } : null;
+    refine();
+    if (towns) typing = setTimeout(() => ask(text), TOWN_GAP_MS);
+  });
+  // Enter asks at once. The address under a missing page is only a guess at words, so it is not
+  // sent anywhere until the viewer types or presses Enter.
+  q.addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(typing); ask(q.value.trim()); } });
   if (query) { q.value = pathWords(query); refine(); }
 
+  // Near me, on a tap only. The answer replaces the box and the lists, as a search does.
+  nearBtn.addEventListener('click', async () => {
+    nearBtn.disabled = true;
+    nearBtn.textContent = T.finding;
+    note.textContent = '';
+    try {
+      const hits = nearest(list, await whereAmI(), NEAR_KM).slice(0, 8);
+      cancel();
+      towns = null;
+      q.value = '';
+      refine();
+      if (hits.length) {
+        rest.hidden = true;
+        found.innerHTML = `<h3>${T.nearHead}</h3>${rows(hits, here)}`;
+        say.textContent = T.nearCount(hits.length);
+      } else note.textContent = T.nearNone;
+    } catch (why) {
+      note.textContent = why === 'denied' ? T.denied : T.lost;
+    }
+    nearBtn.disabled = false;
+    nearBtn.textContent = T.near;
+  });
+
   host.addEventListener('click', e => {
-    const a = e.target.closest('a[data-nav]'), b = e.target.closest('button');
+    const a = e.target.closest('a[data-nav]'), b = e.target.closest('button'), place = b?.dataset.place;
     if (b?.hasAttribute('data-close')) dlg.close();
-    else if (b?.hasAttribute('data-suggest')) {
+    else if (place != null && towns?.places) {
+      // A town: our locations within 50 km of it, nearest first.
+      const p = towns.places[+place], name = placeShort(p), hits = nearest(list, p, PLACE_KM).slice(0, 8).map(({ d, ...x }) => x);
+      found.innerHTML = hits.length ? `<h3>${esc(T.nearPlace(name))}</h3>${rows(hits, here)}` : `<p class="pk-none">${esc(T.noneNear(name))}</p>`;
+      say.textContent = hits.length ? T.nearPlaceCount(hits.length, name) : T.noneNear(name);
+    } else if (b?.hasAttribute('data-suggest')) {
       chose = true;
+      cancel();
       dlg.close(); // does nothing when the sheet is not open
       $('suggestBtn').click();
     } else if (a && !(e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)) {
       // The click goes on to the router, which opens the location. Focus then goes to
       // the title, and a screen reader hears where it is (07 12.2).
       chose = true;
+      cancel();
       dlg.close();
       setTimeout(() => {
         $('pageAnnounce').textContent = T.shown(a.dataset.name);
@@ -136,6 +269,7 @@ export async function openPicker({ mode, query = '' }) {
   chose = false;
   opener = document.activeElement;
   dlg.addEventListener('close', () => {
+    cancel();
     if (!chose) (opener?.isConnected && opener !== document.body ? opener : $('locBtn')).focus();
     chose = false;
   }, { once: true });

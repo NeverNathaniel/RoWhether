@@ -13,13 +13,15 @@
 .pk h3{margin:1.5rem 0 .25rem; font-size:1.125rem; font-weight:700; font-stretch:105%}
 .pk-group{margin:1rem 0 .1rem; color:var(--muted); font-size:.9375rem; font-weight:600}
 
-/* Rows are links to a location, in a list with a rule between them. */
+/* Rows are links to a location, in a list with a rule between them. A town is a button of the same shape. */
 .plist{list-style:none; margin:0; padding:0}
 .plist li{border-top:1px solid var(--line)}
-.pk-row{display:block; padding:.65rem .25rem; color:inherit; text-decoration:none}
-.pk-row:hover .pk-name{text-decoration:underline; text-underline-offset:.15em}
-.pk-row:focus-visible{outline-offset:-3px}
+.pk-row, .pk-place{display:block; padding:.65rem .25rem; color:inherit; text-decoration:none}
+button.pk-place{width:100%; min-height:0; border:0; border-radius:0; background:none; text-align:left; font-size:1rem; font-weight:650}
+.pk-row:hover .pk-name, .pk-place:hover{text-decoration:underline; text-underline-offset:.15em}
+.pk-row:focus-visible, .pk-place:focus-visible{outline-offset:-3px}
 .pk-name{font-weight:650}
+.pk-dist{margin-left:.5rem; color:var(--muted); font-size:.875rem; font-variant-numeric:tabular-nums}
 .pk-sub{display:block; color:var(--muted); font-size:.875rem; line-height:1.4}
 .pk-here{margin-left:.5rem; border-color:transparent; background:var(--river-soft); vertical-align:.1em}
 
@@ -27,6 +29,10 @@
 /* 16px or more, or iOS zooms in when the box is focused */
 .pk-q{width:100%; font:inherit; font-size:1rem; font-weight:400; padding:.55rem .75rem; border:1px solid var(--line); border-radius:.6rem; background:var(--bg); color:var(--ink)}
 .pk-none{margin:.5rem 0 0; color:var(--muted); font-size:.9375rem}
+.pk-near{display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .75rem; margin:.5rem 0}
+.pk-hint{color:var(--muted); font-size:.875rem; line-height:1.35}
+.pk-note{margin:.25rem 0 .5rem; font-size:.9375rem}
+.pk-note:empty{display:none}
 .pk-rest[hidden]{display:none}
 
 /* The suggestion line is there when the form is (body class set by src/suggest.js). */

@@ -14,9 +14,12 @@ export function renderNoData() {
   $('hero').dataset.lvl = '';
   $('verdict').textContent = 'No data.';
   const allBlocked = bindingsFor(app.loc).every(b => app.errors[b.slot]);
-  $('why').textContent = allBlocked
-    ? 'Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.'
-    : 'The forecast did not load. Check the connection, then tap Refresh.';
+  // Offline with no saved forecast: say so, since the blocked-sources text would blame the page (07 9.4).
+  $('why').textContent = navigator.onLine === false && !app.updated
+    ? 'No forecast saved for this location on this phone yet. Connect to load it.'
+    : allBlocked
+      ? 'Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.'
+      : 'The forecast did not load. Check the connection, then tap Refresh.';
   $('holds').textContent = '';
 }
 

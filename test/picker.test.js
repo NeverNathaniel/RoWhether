@@ -1,8 +1,9 @@
-// The picker's pure parts (P1.6; 07 5.2): folding, ranking, the search, the grouped
-// list, region names and the words of an address. The page around them is the browser
-// specs' (test/browser/picker.spec.js).
-import { describe, it, expect } from 'vitest';
-import { fold, matchRank, search, groupList, regionName, pathWords } from '../src/picker.js';
+// The picker's pure parts (P1.6, P1.7; 07 5.2): folding, ranking, the search, the grouped
+// list, region names, the words of an address, distances, Near me's position, the town search
+// and its throttle. The page around them is the browser specs' (test/browser/picker.spec.js).
+import { readFileSync } from 'node:fs';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { fold, matchRank, search, groupList, regionName, pathWords, km, nearest, miles, whereAmI, throttle, placesUrl, placeName, placeShort, fetchPlaces, NEAR_KM, PLACE_KM } from '../src/picker.js';
 
 // An entry as the build writes it into locations/index.json.
 const e = (slug, name, locality, waterway, region, over = {}) => ({
@@ -172,5 +173,247 @@ describe('pathWords', () => {
     expect(pathWords('café_au-lait')).toBe('cafe au lait');
     expect(pathWords('')).toBe('');
     expect(pathWords('---')).toBe('');
+  });
+});
+
+// ---------- Near me and towns (P1.7; 07 5.2.1, 5.2.2) ----------
+// The seven curated places where they are (plan section 4), as the index will give them.
+const at = (slug, name, lat, lon) => e(slug, name, null, null, 'US-VT', { lat, lon });
+const SPOTS = [
+  at('putney-landing', 'Putney Landing', 42.9607, -72.5219),
+  at('hanover-boathouse', 'Hanover boathouse', 43.70552, -72.29763),
+  at('boathouse-row', 'Boathouse Row', 39.96941, -75.18711),
+  at('lake-quinsigamond', 'Lake Quinsigamond', 42.29043, -71.75505),
+  at('lake-natoma', 'Lake Natoma', 38.63453, -121.21918),
+  at('thompson-boat-center', 'Thompson Boat Center', 38.90053, -77.05834),
+  at('lake-carnegie', 'Lake Carnegie', 40.33932, -74.65048)
+];
+const WORCESTER = JSON.parse(readFileSync(new URL('./fixtures/sources/geocode-worcester.json', import.meta.url), 'utf8'));
+
+describe('km', () => {
+  it('is the great-circle distance: a degree of longitude on the equator, Boston to New York, and nothing', () => {
+    expect(km({ lat: 0, lon: 0 }, { lat: 0, lon: 1 })).toBeCloseTo(111.19, 1);
+    expect(km({ lat: 42.3601, lon: -71.0589 }, { lat: 40.7128, lon: -74.006 })).toBeCloseTo(306.1, 0);
+    expect(km({ lat: 42.96, lon: -72.52 }, { lat: 42.96, lon: -72.52 })).toBe(0);
+  });
+
+  it('is the same both ways, and shorter across a degree of longitude at 43 degrees north', () => {
+    const a = { lat: 42.96, lon: -72.52 }, b = { lat: 43.7, lon: -72.3 };
+    expect(km(a, b)).toBeCloseTo(km(b, a), 9);
+    expect(km({ lat: 43, lon: 0 }, { lat: 43, lon: 1 })).toBeCloseTo(111.19 * Math.cos((43 * Math.PI) / 180), 0);
+  });
+});
+
+describe('nearest', () => {
+  const dock = { lat: 42.96, lon: -72.52 };
+
+  it('lists the places within 100 km nearest first, each with its distance in km', () => {
+    const near = nearest(SPOTS, dock, NEAR_KM);
+    expect(slugs(near)).toEqual(['putney-landing', 'hanover-boathouse', 'lake-quinsigamond']);
+    expect(near[0].d).toBeLessThan(0.5);
+    expect(near[1].d).toBeCloseTo(km(dock, SPOTS[1]), 9);
+    expect(near[1].d).toBeGreaterThan(80);
+    expect(near[2].d).toBeLessThan(NEAR_KM);
+    expect(near[0]).toMatchObject({ slug: 'putney-landing', name: 'Putney Landing', lat: 42.9607 });
+  });
+
+  it('sorts the whole list by distance when the range is wide enough, and does not change the list', () => {
+    const before = slugs(SPOTS);
+    expect(slugs(nearest(SPOTS, dock, 1e5))).toEqual(['putney-landing', 'hanover-boathouse', 'lake-quinsigamond', 'lake-carnegie', 'boathouse-row', 'thompson-boat-center', 'lake-natoma']);
+    expect(slugs(SPOTS)).toEqual(before);
+    expect(SPOTS[0].d).toBeUndefined();
+  });
+
+  it('gives an empty list when nothing is in range, and when there is nothing to look in', () => {
+    expect(nearest(SPOTS, { lat: 0, lon: 0 }, NEAR_KM)).toEqual([]);
+    expect(nearest([], dock, NEAR_KM)).toEqual([]);
+  });
+
+  it('keeps a place exactly at the range and drops one just past it', () => {
+    const far = at('x', 'X', 43.7, -72.3), d = km(dock, far);
+    expect(slugs(nearest([far], dock, d))).toEqual(['x']);
+    expect(nearest([far], dock, d - 0.001)).toEqual([]);
+  });
+
+  it('puts equal distances in order of name, accents folded', () => {
+    const two = [at('b', 'Zeta', 42, -72), at('a', 'Ångström', 42, -72), at('c', 'Beta', 42, -72)];
+    expect(slugs(nearest(two, { lat: 42.1, lon: -72 }, 50))).toEqual(['a', 'c', 'b']);
+  });
+
+  it('is what lists the places within 50 km of a town', () => {
+    const worcester = { lat: 42.26259, lon: -71.80229 };
+    expect(slugs(nearest(SPOTS, worcester, PLACE_KM))).toEqual(['lake-quinsigamond']);
+    expect(nearest(SPOTS, { lat: -33.64651, lon: 19.44852 }, PLACE_KM)).toEqual([]);
+  });
+});
+
+describe('miles', () => {
+  it('says miles with one decimal under 10 and none from there on', () => {
+    expect(miles(0.17)).toBe('0.1 mi');
+    expect(miles(0)).toBe('0.0 mi');
+    expect(miles(12.4)).toBe('7.7 mi');
+    expect(miles(16)).toBe('9.9 mi');
+    expect(miles(16.1)).toBe('10 mi');
+    expect(miles(84.9)).toBe('53 mi');
+    expect(miles(100)).toBe('62 mi');
+  });
+});
+
+describe('whereAmI', () => {
+  // A navigator whose position is known: `reads` records each call's options.
+  const nav = (over = {}, fix = { latitude: 42.96074, longitude: -72.52191 }) => {
+    const reads = [];
+    return { reads, permissions: { query: async () => ({ state: 'prompt' }) }, geolocation: { getCurrentPosition: (ok, no, opts) => { reads.push(opts); ok({ coords: fix }); } }, ...over };
+  };
+
+  it('rounds the position to 2 decimals before anything gets it, and gives nothing else', async () => {
+    const p = await whereAmI(nav());
+    expect(p).toEqual({ lat: 42.96, lon: -72.52 });
+    expect(Object.keys(p)).toEqual(['lat', 'lon']);
+    expect(await whereAmI(nav({}, { latitude: -33.86882, longitude: 151.20929, accuracy: 12, altitude: 40 }))).toEqual({ lat: -33.87, lon: 151.21 });
+  });
+
+  it('asks for a low accuracy fix that may be 10 minutes old, and waits 10 seconds', async () => {
+    const n = nav();
+    await whereAmI(n);
+    expect(n.reads).toEqual([{ enableHighAccuracy: false, maximumAge: 600000, timeout: 10000 }]);
+  });
+
+  it('asks nothing until it is called', () => {
+    const n = nav();
+    n.permissions.query = vi.fn(n.permissions.query);
+    expect(n.reads).toEqual([]);
+    expect(n.permissions.query).not.toHaveBeenCalled();
+  });
+
+  it('does not ask when the permission is already denied', async () => {
+    const n = nav({ permissions: { query: async () => ({ state: 'denied' }) } });
+    await expect(whereAmI(n)).rejects.toBe('denied');
+    expect(n.reads).toEqual([]);
+  });
+
+  it('asks when the permission is granted or still to be asked, and when there is no way to look', async () => {
+    for (const permissions of [{ query: async () => ({ state: 'granted' }) }, undefined, { query: async () => { throw new TypeError('not supported'); } }]) {
+      expect(await whereAmI(nav({ permissions })), String(permissions)).toEqual({ lat: 42.96, lon: -72.52 });
+    }
+  });
+
+  it('says denied for a refusal at the prompt, and lost for a timeout or no fix', async () => {
+    const fail = code => nav({ geolocation: { getCurrentPosition: (ok, no) => no({ code }) } });
+    await expect(whereAmI(fail(1))).rejects.toBe('denied');
+    await expect(whereAmI(fail(2))).rejects.toBe('lost');
+    await expect(whereAmI(fail(3))).rejects.toBe('lost');
+    await expect(whereAmI(nav({ geolocation: { getCurrentPosition: (ok, no) => no() } }))).rejects.toBe('lost');
+  });
+
+  it('says lost when there is no geolocation at all', async () => {
+    await expect(whereAmI({ permissions: undefined })).rejects.toBeInstanceOf(Error);
+  });
+});
+
+describe('the town search', () => {
+  it('asks Open-Meteo for 5 places in English, with the text encoded and no country filter', () => {
+    expect(placesUrl('Worcester')).toBe('https://geocoding-api.open-meteo.com/v1/search?name=Worcester&count=5&language=en&format=json');
+    expect(placesUrl('Lake Natoma, CA')).toBe('https://geocoding-api.open-meteo.com/v1/search?name=Lake%20Natoma%2C%20CA&count=5&language=en&format=json');
+    expect(placesUrl('a&b=c#d')).toContain('name=a%26b%3Dc%23d&count=5');
+    expect(placesUrl('Worcester')).not.toContain('countryCode');
+  });
+
+  const answer = body => async () => ({ ok: true, text: async () => (typeof body === 'string' ? body : JSON.stringify(body)) });
+
+  it('reads the recorded answer for Worcester as five places, as the host gave them', async () => {
+    const asked = [];
+    const got = await fetchPlaces('Worcester', { get: async (url, opts) => { asked.push([url, !!opts.signal]); return answer(WORCESTER)(); } });
+    expect(asked).toEqual([[placesUrl('Worcester'), true]]);
+    expect(got.places).toHaveLength(5);
+    expect(got.places[0]).toEqual({ name: 'Worcester', admin1: 'Massachusetts', country: 'United States', lat: 42.26259, lon: -71.80229 });
+    expect(got.places.map(placeName)).toEqual([
+      'Worcester, Massachusetts, United States', 'Worcester, Western Cape, South Africa', 'Worcester, England, United Kingdom',
+      'Barry, Illinois, United States', 'Worcester, New York, United States'
+    ]);
+  });
+
+  it('writes a place as "<name>, <admin1>, <country>" and shortens it to "<name>, <admin1>", with what is missing left out', () => {
+    expect(placeName({ name: 'Putney', admin1: 'Vermont', country: 'United States' })).toBe('Putney, Vermont, United States');
+    expect(placeShort({ name: 'Putney', admin1: 'Vermont', country: 'United States' })).toBe('Putney, Vermont');
+    expect(placeName({ name: 'Monaco', country: 'Monaco' })).toBe('Monaco, Monaco');
+    expect(placeShort({ name: 'Monaco', country: 'Monaco' })).toBe('Monaco, Monaco');
+    expect(placeName({ name: 'Somewhere' })).toBe('Somewhere');
+    expect(placeShort({ name: 'Somewhere' })).toBe('Somewhere');
+  });
+
+  it('gives no places for an answer with no results, and keeps at most 5 with a position', async () => {
+    expect(await fetchPlaces('zzqxj', { get: answer({ generationtime_ms: 0.05 }) })).toEqual({ places: [] });
+    const row = i => ({ name: `Town ${i}`, latitude: 40 + i, longitude: -70, country: 'United States' });
+    const got = await fetchPlaces('town', { get: answer({ results: [...Array.from({ length: 8 }, (_, i) => row(i)), { name: 'No position' }] }) });
+    expect(got.places.map(p => p.name)).toEqual(['Town 0', 'Town 1', 'Town 2', 'Town 3', 'Town 4']);
+    const bad = await fetchPlaces('town', { get: answer({ results: [{ name: 'No position' }, { latitude: 1, longitude: 2 }, null, row(1)] }) });
+    expect(bad.places.map(p => p.name)).toEqual(['Town 1']);
+    expect(await fetchPlaces('town', { get: answer({ results: 'nope' }) })).toEqual({ places: [] });
+  });
+
+  it('fails for a network error, an answer that is not ok, and a body that is not JSON', async () => {
+    expect(await fetchPlaces('x', { get: async () => { throw new TypeError('Failed to fetch'); } })).toEqual({ failed: true });
+    expect(await fetchPlaces('x', { get: async () => ({ ok: false, status: 429, text: async () => '{}' }) })).toEqual({ failed: true });
+    expect(await fetchPlaces('x', { get: answer('<html>busy</html>') })).toEqual({ failed: true });
+    expect(await fetchPlaces('x', { get: answer('') })).toEqual({ failed: true });
+  });
+
+  describe('with no answer', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('fails after 8 seconds, and cancels the request', async () => {
+      vi.useFakeTimers();
+      let signal;
+      const get = (url, opts) => new Promise((_, no) => { signal = opts.signal; signal.addEventListener('abort', () => no(new DOMException('aborted', 'AbortError'))); });
+      const pending = fetchPlaces('x', { get });
+      await vi.advanceTimersByTimeAsync(7999);
+      expect(signal.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await pending).toEqual({ failed: true });
+      expect(signal.aborted).toBe(true);
+    });
+
+    it('does not wait for the timer once it has an answer', async () => {
+      vi.useFakeTimers();
+      expect(await fetchPlaces('x', { get: async () => ({ ok: true, text: async () => '{"results":[]}' }) })).toEqual({ places: [] });
+      expect(vi.getTimerCount()).toBe(0);
+    });
+  });
+});
+
+describe('throttle', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('runs the first call at once and holds the rest to the end of the wait, where only the last runs', () => {
+    vi.useFakeTimers();
+    const fn = vi.fn(), t = throttle(fn, 300);
+    t('a'); t('b'); t('c');
+    expect(fn.mock.calls).toEqual([['a']]);
+    vi.advanceTimersByTime(299);
+    expect(fn).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    expect(fn.mock.calls).toEqual([['a'], ['c']]);
+    vi.advanceTimersByTime(300);
+    expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs a call made after the wait has ended at once', () => {
+    vi.useFakeTimers();
+    const fn = vi.fn(), t = throttle(fn, 300);
+    t('a');
+    vi.advanceTimersByTime(300);
+    t('b');
+    expect(fn.mock.calls).toEqual([['a'], ['b']]);
+  });
+
+  it('runs at most once in any 300 ms, for a call every 50 ms over a second', () => {
+    vi.useFakeTimers();
+    const times = [], t = throttle(() => times.push(Date.now()), 300), start = Date.now();
+    for (let i = 0; i < 21; i++) { t(i); vi.advanceTimersByTime(50); }
+    vi.advanceTimersByTime(300);
+    expect(times.length).toBeGreaterThan(2);
+    for (let i = 1; i < times.length; i++) expect(times[i] - times[i - 1], `run ${i}`).toBeGreaterThanOrEqual(300);
+    expect(times[0]).toBe(start);
   });
 });
