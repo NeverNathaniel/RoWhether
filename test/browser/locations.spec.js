@@ -15,7 +15,8 @@ const BUILT = JSON.parse(readFileSync(new URL('../../dist/locations/index.json',
 const RIVER_TABS = ['Now', 'Week', 'Wind', 'River', 'Storms', 'Fog', 'Temperature', 'Rain', 'Light', 'Air'];
 
 // What each location shows (plan 4.1). `station`, `gauge` and `lid` are the ids its requests carry,
-// `obs` is the name its observation goes by, and `flow` is whether it has a River flow fact.
+// `obs` is the name its observation goes by, `flow` is whether it has a River flow fact, and
+// `credits` are the links under the footer's first sentence (Putney's are in picker.spec.js).
 const PLACES = {
   'putney-landing': {
     name: 'Putney Landing', sub: 'Connecticut River at the Putney Rowing Club docks. All times Eastern.', badge: false,
@@ -23,11 +24,24 @@ const PLACES = {
   },
   'hanover-boathouse': {
     name: 'Hanover boathouse', sub: 'Connecticut River at the Hanover boathouse, above Wilder Dam. All times Eastern.', badge: true,
-    tabs: RIVER_TABS, flow: true, obs: 'Lebanon', station: 'KLEB', gauge: 'USGS-01144500', lid: 'WLBN3'
+    tabs: RIVER_TABS, flow: true, obs: 'Lebanon', station: 'KLEB', gauge: 'USGS-01144500', lid: 'WLBN3',
+    credits: [
+      ['Open-Meteo', 'https://open-meteo.com/'],
+      ['Burlington', 'https://www.weather.gov/btv/'],
+      ['Gray', 'https://www.weather.gov/gyx/'],
+      ['01144500 at West Lebanon', 'https://waterdata.usgs.gov/monitoring-location/USGS-01144500/'],
+      ['NWS Northeast River Forecast Center', 'https://water.noaa.gov/gauges/wlbn3']
+    ]
   },
   'boathouse-row': {
     name: 'Boathouse Row', sub: 'Schuylkill River at Boathouse Row, above Fairmount Dam. All times Eastern.', badge: true,
-    tabs: RIVER_TABS, flow: true, obs: 'Philadelphia', station: 'KPHL', gauge: 'USGS-01474500', lid: 'PADP1'
+    tabs: RIVER_TABS, flow: true, obs: 'Philadelphia', station: 'KPHL', gauge: 'USGS-01474500', lid: 'PADP1',
+    credits: [
+      ['Open-Meteo', 'https://open-meteo.com/'],
+      ['National Weather Service, Mount Holly', 'https://www.weather.gov/phi/'],
+      ['01474500 at Philadelphia', 'https://waterdata.usgs.gov/monitoring-location/USGS-01474500/'],
+      ['NWS Middle Atlantic River Forecast Center', 'https://water.noaa.gov/gauges/padp1']
+    ]
   }
 };
 
@@ -47,6 +61,7 @@ function watchConsole(page) {
 // A fact in On the water now, found by its label.
 const fact = (page, label) => page.locator('#facts .fact').filter({ has: page.locator('dt', { hasText: new RegExp(`^\\s*${label}\\s*$`) }) });
 const stored = (page, key) => page.evaluate(k => localStorage.getItem(k), key);
+const creditLinks = page => page.locator('#credits a').evaluateAll(as => as.map(a => [a.textContent, a.getAttribute('href')]));
 
 test('the list the build wrote is the list checked here', () => {
   expect(BUILT.map(l => l.slug).sort()).toEqual(Object.keys(PLACES).sort());
@@ -84,6 +99,13 @@ for (const [slug, p] of Object.entries(PLACES)) {
       await expect(page.locator('#sub')).toHaveText(p.sub);
       await expect(page.locator('#locBadges')).toBeVisible({ visible: p.badge });
       if (p.badge) await expect(page.locator('#locBadges .badge')).toHaveText('Not confirmed on site');
+    });
+
+    if (p.credits) test('credits the offices, the gauge and the river forecast it reads, each with a link', async ({ page }) => {
+      await page.goto(`/${slug}`);
+      await ready(page);
+      expect(await creditLinks(page)).toEqual(p.credits);
+      expect(await page.locator('#credits').textContent()).not.toMatch(/[\[\]]|https?:/);
     });
 
     test('has the tabs its water has, and no others', async ({ page }) => {
@@ -184,8 +206,12 @@ test.describe('boathouse-row', () => {
 });
 
 // R9: a slow answer for one place never lands in another, and a switch starts its own refresh.
+// Putney is opened and its nine answers are held. Hanover is picked from the sheet: its own
+// requests are answered at once, and its page is drawn from its own record. The answers for
+// Putney then come, failed in one check and whole in the other (a late answer that succeeds
+// must land nowhere either: it would write Putney's numbers under Hanover's saved copy).
 test.describe('switching between the real locations', () => {
-  test("with Putney's answers held, picking Hanover draws Hanover at once, and the late answers change nothing", async ({ page }) => {
+  async function pickHanoverOverHeldPutney(page) {
     await page.clock.setFixedTime(clock);
     const seen = await routeAll(page, scenario, clock);
     // Putney's nine requests are held. Everything after them is answered from the fixtures.
@@ -202,6 +228,11 @@ test.describe('switching between the real locations', () => {
     await expect(page.locator('#locName')).toHaveText('Hanover boathouse');
     expect(new URL(page.url()).pathname).toBe('/hanover-boathouse');
     await expect(page.locator('#verdict')).toHaveText(/^(Go|Caution|Stay off)\.$/);
+    // Nothing of Putney is left in the header or the footer.
+    await expect(page.locator('#sub')).toHaveText(PLACES['hanover-boathouse'].sub);
+    await expect(page.locator('#locBadges .badge')).toHaveText('Not confirmed on site');
+    await expect(page).toHaveTitle('Hanover boathouse rowing conditions');
+    expect(await creditLinks(page), "Hanover's credits, not Putney's").toEqual(PLACES['hanover-boathouse'].credits);
     // Hanover's own requests went out while Putney's were still waiting, and were answered.
     expect(seen.served).toContain('https://api.weather.gov/stations/KLEB/observations/latest');
     expect(seen.served).toContain('https://api.water.noaa.gov/nwps/v1/gauges/WLBN3/stageflow/forecast');
@@ -211,20 +242,47 @@ test.describe('switching between the real locations', () => {
     const key = 'rowhether-cache-v2:hanover-boathouse';
     const before = { verdict: await page.locator('#verdict').textContent(), why: await page.locator('#why').textContent(), updated: await page.locator('#updated').textContent(), saved: await stored(page, key) };
     expect(JSON.parse(before.saved).data.river.flow.v, 'Hanover saved a forecast of its own').toBeGreaterThan(0);
+    expect(JSON.parse(before.saved).data.river.waterC, 'Hanover has no water temperature gauge').toBeUndefined();
+    return { seen, out, key, before };
+  }
 
-    // Now Putney's answers come, all failed. They are for a place that is no longer open, and the app
-    // warns about each failed source, so only a page error is a bug from here.
-    const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-    await out.release();
-    await page.waitForLoadState('networkidle');
+  // What Hanover's page and saved copy must still be after Putney's answers have come and gone.
+  async function expectHanoverUnchanged(page, { key, before }) {
     await expect(page.locator('#locName')).toHaveText('Hanover boathouse');
     await expect(page.locator('#statusNote')).toBeHidden();
     await expect(page.locator('#verdict')).toHaveText(before.verdict);
     await expect(page.locator('#why')).toHaveText(before.why);
     await expect(page.locator('#updated')).toHaveText(before.updated);
+    await expect(page.locator('#sub')).toHaveText(PLACES['hanover-boathouse'].sub);
+    expect(await creditLinks(page)).toEqual(PLACES['hanover-boathouse'].credits);
     expect(await stored(page, key), "Hanover's saved copy is as it was").toBe(before.saved);
     expect(await stored(page, 'rowhether-cache-v2:putney-landing'), "a dropped answer is not saved as Putney's").toBeNull();
+  }
+
+  test("with Putney's answers held, picking Hanover draws Hanover at once, and the late answers, failed, change nothing", async ({ page }) => {
+    const hanover = await pickHanoverOverHeldPutney(page);
+    // Now Putney's answers come, all failed. They are for a place that is no longer open, and the app
+    // warns about each failed source, so only a page error is a bug from here.
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await hanover.out.release();
+    await page.waitForLoadState('networkidle');
+    await expectHanoverUnchanged(page, hanover);
+    expect(errors).toEqual([]);
+  });
+
+  test("with Putney's answers held, picking Hanover draws Hanover at once, and the late answers, whole, change nothing", async ({ page }) => {
+    const hanover = await pickHanoverOverHeldPutney(page);
+    const answered = hanover.seen.served.length;
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await hanover.out.answer();
+    // All nine of Putney's answers reach the page: the fixtures served them, Putney's gauge among them.
+    await expect.poll(() => hanover.seen.served.length - answered).toBe(9);
+    expect(hanover.seen.served.slice(answered)).toContain('https://api.weather.gov/stations/KEEN/observations/latest');
+    expect(hanover.seen.served.slice(answered).some(u => u.includes('monitoring_location_id=USGS-01154500'))).toBe(true);
+    await page.waitForLoadState('networkidle');
+    await expectHanoverUnchanged(page, hanover);
     expect(errors).toEqual([]);
   });
 });

@@ -10,7 +10,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectLocations, summaries, recordFile, locationFiles, shellHtml, shellNames, locationsPlugin } from '../scripts/locations/plugin.mjs';
 import { revisionProblems } from '../scripts/locations/revisions.mjs';
-import { resolveLocation } from '../src/location.js';
+import { resolveLocation, effectiveSettings } from '../src/location.js';
+import { GLOBAL_DEFAULTS } from '../src/config.js';
 import { bindingsFor } from '../src/sources/index.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -651,6 +652,36 @@ describe('the river test locations', () => {
       const { stats } = waterway.sources.find(r => r.role === 'flow');
       expect([slug, rec.thresholds.flowCaution, rec.thresholds.flowOff], slug).toEqual([slug, two(stats.p88), two(stats.p95)]);
       expect([slug, rec.flow.against], slug).toEqual([slug, [[two(stats.p88), 1.4], [two(stats.p65), 1.25]]]);
+    }
+  });
+
+  // 4.4 and 4.5: the wind, gust, rain, cold and air limits are the ones every location starts
+  // from, so only the flow limits are the river's own. They read the water as Putney's is read.
+  it('start from the global limits with only their own flow limits, and read the water and the reach as a river', () => {
+    for (const slug of RIVERS) {
+      const l = loc(slug), { flowCaution, flowOff } = entry(slug).rec.thresholds;
+      expect(effectiveSettings(l), slug).toEqual({ ...GLOBAL_DEFAULTS, flowCaution, flowOff });
+      expect([slug, l.water.mode, l.water.cross, l.course.reachWord], slug).toEqual([slug, 'river', 0.4, 'straight']);
+    }
+  });
+
+  // The sentence under the flow limits in Settings says what the record holds: the median day
+  // from its stats, its two limits, and the share of days over each (plan 4.4 and 4.5).
+  it("state the median and the limits it holds in the flow note of Settings, with the plan's shares of days", () => {
+    const num = v => v.toLocaleString('en-US');
+    for (const [slug, median, over] of [['hanover-boathouse', 5400, [13, 5]], ['boathouse-row', 2000, [12, 5]]]) {
+      const { rec, waterway } = entry(slug), { thresholds: t } = rec, { stats } = waterway.sources.find(r => r.role === 'flow');
+      expect(stats.p50, `${slug} median to two figures`).toBeGreaterThanOrEqual(median);
+      expect(stats.p50).toBeLessThan(median + 100);
+      expect(rec.copy.flowStats, slug).toBe(`Since 2016 the median day is about ${num(median)} cfs. ${num(t.flowCaution)} is the top ${over[0]}% of days, ${num(t.flowOff)} the top ${over[1]}%.`);
+    }
+  });
+
+  // 01 6.3, 15.7: Phase 1 gives every location the windows Putney has. A flow reading counts for
+  // 24 hours (a second gauge is tried after 6) and a gauge's water temperature for 72.
+  it('count a flow reading for 24 hours and a water temperature for 72, as Putney does', () => {
+    for (const slug of RIVERS) {
+      expect([slug, loc(slug).flow.maxAgeH, loc(slug).flow.staleSwitchH, loc(slug).waterTemp.maxAgeH]).toEqual([slug, 24, 6, 72]);
     }
   });
 });

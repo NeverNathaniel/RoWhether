@@ -139,6 +139,12 @@ export async function hold(page, only = Infinity) {
   await page.route(url => UPSTREAM_HOSTS.includes(url.hostname), route => {
     if (held.length < only) held.push(route); else route.fallback();
   });
-  // release(n) aborts the first n held requests, or all of them.
-  return { held, release: (n = held.length) => Promise.all(held.splice(0, n).map(r => r.abort('failed').catch(() => {}))) };
+  // release(n) aborts the first n held requests, or all of them. answer(n) lets them through
+  // to the fixtures instead, so a late answer arrives whole (P1.12 gate: a slow answer that
+  // succeeds must not land in another place any more than one that fails).
+  return {
+    held,
+    release: (n = held.length) => Promise.all(held.splice(0, n).map(r => r.abort('failed').catch(() => {}))),
+    answer: (n = held.length) => Promise.all(held.splice(0, n).map(r => r.fallback().catch(() => {})))
+  };
 }
