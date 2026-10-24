@@ -217,6 +217,13 @@ test.describe('settings built from the location', () => {
     // At the defaults there is no line under any field.
     expect(await page.locator('#setForm .own').evaluateAll(els => els.map(e => e.textContent))).toEqual(Array(12).fill(''));
     await expect(page.locator('#setForm .own:not(:empty)')).toHaveCount(0);
+    // An empty line takes no room, so two stacked boxes sit as close as they did before the lines.
+    // (An empty block has an empty box, which toBeHidden() counts as hidden, so that does not show it.)
+    const gap = await page.evaluate(() => {
+      const box = n => document.querySelector(`#setForm [name="${n}"]`).closest('label').getBoundingClientRect();
+      return box('windOff').top - box('windCaution').bottom;
+    });
+    expect(gap).toBeCloseTo(0, 1);
   });
 
   test('a field that is not at the default says so, and says nothing again at the default', async ({ page }) => {
