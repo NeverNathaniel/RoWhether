@@ -838,6 +838,8 @@ test.describe('the suggestion line', () => {
 // ---------- Near me, the town search and the picker offline (P1.7; 07 5.2.1, 5.2.2, 9.4) ----------
 const DOCK = { latitude: 42.96, longitude: -72.52 };
 const GEOCODE = /^https:\/\/geocoding-api\.open-meteo\.com\/v1\/search\?/;
+// Request events reach the test a moment after the page makes the request. Wait for them before saying none was made.
+const settle = page => page.waitForTimeout(300);
 // The names the town search was asked for, in order.
 function townAsks(page) {
   const names = [];
@@ -1244,6 +1246,7 @@ test.describe('the town search with the clock held', () => {
     await expect.poll(() => asks.names.length).toBe(2);
     expect(asks.names[1], 'asked at once, with no time passed').toBe('putney');
     await page.clock.runFor(2000);
+    await settle(page);
     expect(asks.names, 'the pause that Enter cancelled asks nothing more').toEqual(['worcester', 'putney']);
   });
 
@@ -1285,6 +1288,7 @@ test.describe('the town search with the clock held', () => {
     await q.press('Enter'); // held back: the last ask was under 300 ms ago
     await page.locator('#picker .pk-x').click();
     await page.clock.runFor(2000);
+    await settle(page);
     expect(asks.names).toEqual(['wor']);
   });
 
@@ -1300,6 +1304,7 @@ test.describe('the town search with the clock held', () => {
     await page.locator('#picker .pk-q').fill('lake natoma');
     await page.locator('#picker .pk-found .pk-row').click();
     await page.clock.runFor(2000);
+    await settle(page);
     expect(asks.names).toEqual([]);
   });
 });
