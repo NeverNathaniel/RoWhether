@@ -1,0 +1,30 @@
+{
+  "v": 1,
+  "id": "schuylkill-river-fairmount-pool",
+  "name": "Schuylkill River",
+  "reach": "Fairmount Dam pool",
+  "kind": "river",
+  "country": "US",
+  "regions": ["US-PA"],
+  "geometry": null,
+  "traffic": null,
+  "notes": null,
+  "sources": [
+    {
+      "role": "flow", "mode": "primary", "priority": 0,
+      "adapter": "usgs-ogc", "ref": "USGS-01474500", "params": { "parameterCode": "00060" },
+      "unit": "cfs", "tz": "America/New_York",
+      "label": "Fairmount Dam",
+      "note": "USGS gauge at Fairmount Dam, just below Boathouse Row.",
+      "siteLat": 39.967791, "siteLon": -75.188501,
+      "distanceM": 216, "riverM": null, "relation": "at",
+      "stats": { "from": "2016-01-01", "to": "2026-10-18", "days": 3942,
+                 "p50": 2020, "p65": 2860, "p88": 5750, "p90": 6380, "p95": 9070 }
+    },
+    {
+      "role": "flow_forecast", "mode": "primary", "priority": 0,
+      "adapter": "nwps", "ref": "PADP1", "unit": "cfs",
+      "label": "NWS Middle Atlantic River Forecast Center"
+    }
+  ]
+}

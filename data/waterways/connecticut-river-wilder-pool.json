@@ -1,0 +1,30 @@
+{
+  "v": 1,
+  "id": "connecticut-river-wilder-pool",
+  "name": "Connecticut River",
+  "reach": "Wilder Dam pool",
+  "kind": "river",
+  "country": "US",
+  "regions": ["US-NH", "US-VT"],
+  "geometry": null,
+  "traffic": null,
+  "notes": null,
+  "sources": [
+    {
+      "role": "flow", "mode": "primary", "priority": 0,
+      "adapter": "usgs-ogc", "ref": "USGS-01144500", "params": { "parameterCode": "00060" },
+      "unit": "cfs", "tz": "America/New_York",
+      "label": "West Lebanon",
+      "note": "West Lebanon gauge below Wilder Dam, about 4 mi downstream.",
+      "siteLat": 43.646182, "siteLon": -72.312313,
+      "distanceM": 6703, "riverM": null, "relation": "downstream",
+      "stats": { "from": "2016-01-01", "to": "2026-10-18", "days": 3944,
+                 "p50": 5420, "p65": 7699, "p88": 14800, "p90": 15900, "p95": 20200 }
+    },
+    {
+      "role": "flow_forecast", "mode": "primary", "priority": 0,
+      "adapter": "nwps", "ref": "WLBN3", "unit": "cfs",
+      "label": "NWS Northeast River Forecast Center"
+    }
+  ]
+}

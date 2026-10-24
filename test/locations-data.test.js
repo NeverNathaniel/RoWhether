@@ -10,6 +10,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { collectLocations, summaries, recordFile, locationFiles, shellHtml, shellNames, locationsPlugin } from '../scripts/locations/plugin.mjs';
 import { revisionProblems } from '../scripts/locations/revisions.mjs';
+import { resolveLocation } from '../src/location.js';
+import { bindingsFor } from '../src/sources/index.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = path => JSON.parse(readFileSync(join(ROOT, path), 'utf8'));
@@ -526,5 +528,129 @@ describe('node scripts/locations/revisions.mjs check, on a scratch repository', 
     const unknown = s.check('check', '0'.repeat(40));
     expect(unknown.status).toBe(2);
     expect(unknown.stderr).toMatch(/No commit/);
+  });
+});
+
+// The river locations of P1.12 (plan 4.4 and 4.5), read from data/ as the build reads them.
+describe('the river test locations', () => {
+  const REAL = collectLocations(ROOT);
+  const RIVERS = ['boathouse-row', 'hanover-boathouse', 'putney-landing'];
+  const entry = slug => REAL.find(x => x.rec.slug === slug);
+  const loc = slug => resolveLocation(entry(slug).rec, { waterway: entry(slug).waterway });
+  const bindings = slug => Object.fromEntries(bindingsFor(loc(slug), Date.UTC(2026, 5, 15, 16)).map(b => [b.slot, b]));
+  // What the real services answered on 2026-10-24 (test/fixtures/sources/<slug>/). The parsers
+  // do not read the clock, so these stay readable whatever day the test runs.
+  const recorded = (slug, name) => readJson(`test/fixtures/sources/${slug}/${name}.json`);
+  const USGS = 'https://api.waterdata.usgs.gov/ogcapi/v1/collections';
+  const at = iso => Date.parse(iso);
+
+  it('are listed with their place, water and region, Putney among them', () => {
+    const got = Object.fromEntries(summaries(REAL).filter(s => RIVERS.includes(s.slug)).map(s => [s.slug, s]));
+    expect(Object.keys(got).sort()).toEqual(RIVERS);
+    expect(got['hanover-boathouse']).toEqual({
+      slug: 'hanover-boathouse', name: 'Hanover boathouse', shortName: 'Hanover', locality: 'Hanover, NH', waterway: 'Connecticut River',
+      lat: 43.70552, lon: -72.29763, tz: 'America/New_York', country: 'US', region: 'US-NH', waterType: 'river', status: 'published', revision: 1
+    });
+    expect(got['boathouse-row']).toEqual({
+      slug: 'boathouse-row', name: 'Boathouse Row', shortName: 'Boathouse Row', locality: 'Philadelphia, PA', waterway: 'Schuylkill River',
+      lat: 39.96941, lon: -75.18711, tz: 'America/New_York', country: 'US', region: 'US-PA', waterType: 'river', status: 'published', revision: 1
+    });
+    expect(got['putney-landing'].region).toBe('US-VT');
+    expect(entry('hanover-boathouse').waterway.regions).toEqual(['US-NH', 'US-VT']);
+    expect(entry('boathouse-row').waterway.regions).toEqual(['US-PA']);
+  });
+
+  it('say "Not confirmed on site": every record but Putney is published, with a course nobody has checked', () => {
+    for (const { rec } of REAL.filter(x => x.rec.slug !== 'putney-landing')) {
+      expect([rec.slug, rec.status, rec.course.confirmed]).toEqual([rec.slug, 'published', false]);
+    }
+  });
+
+  it('read their flow and the river forecast from the waterway, and their observation from the record', () => {
+    for (const [slug, gauge, lid, station] of [['hanover-boathouse', 'USGS-01144500', 'WLBN3', 'KLEB'], ['boathouse-row', 'USGS-01474500', 'PADP1', 'KPHL']]) {
+      const s = loc(slug).sources;
+      for (const slot of ['flow', 'flowDays']) expect(s[slot].map(r => [r.adapter, r.ref, r.inherited]), `${slug} ${slot}`).toEqual([['usgs-ogc', gauge, true]]);
+      expect(s.flowFcst.map(r => [r.adapter, r.ref, r.inherited]), `${slug} flowFcst`).toEqual([['nwps', lid, true]]);
+      expect(s.obs.map(r => [r.adapter, r.ref, r.inherited]), `${slug} obs`).toEqual([['nws-obs', station, false]]);
+      expect(s.alerts.every(r => r.inherited === false), `${slug} alerts`).toBe(true);
+    }
+  });
+
+  it("take Boathouse Row's flow and water temperature from one gauge, and ask for it once", () => {
+    const rows = loc('boathouse-row').sources.river;
+    expect(rows.map(r => [r.role, r.ref, r.params.parameterCode])).toEqual([['flow', 'USGS-01474500', '00060'], ['water_temp', 'USGS-01474500', '00010']]);
+    const { url } = bindings('boathouse-row').river;
+    expect(url).toBe(`${USGS}/latest-continuous/items?monitoring_location_id=USGS-01474500&parameter_code=00060,00010&f=json&limit=50`);
+    expect(url.match(/USGS-01474500/g)).toHaveLength(1);
+  });
+
+  it('give Hanover a flow gauge and no water temperature gauge', () => {
+    expect(loc('hanover-boathouse').sources.river.map(r => r.role)).toEqual(['flow']);
+    expect(bindings('hanover-boathouse').river.url).toBe(`${USGS}/latest-continuous/items?monitoring_location_id=USGS-01144500&parameter_code=00060&f=json&limit=50`);
+  });
+
+  it('ask each service for the place, the gauge and the station named in the record', () => {
+    const h = bindings('hanover-boathouse'), r = bindings('boathouse-row');
+    expect(Object.keys(h)).toEqual(['wx', 'alerts', 'obs', 'river', 'flow', 'flowDays', 'flowFcst', 'aq', 'models']);
+    expect(Object.keys(r)).toEqual(Object.keys(h));
+    expect(h.alerts.url).toBe('https://api.weather.gov/alerts/active?zone=VTZ021,VTC027,NHZ005,NHC009');
+    expect(h.obs.url).toBe('https://api.weather.gov/stations/KLEB/observations/latest');
+    expect(h.flow.url).toBe(`${USGS}/continuous/items?monitoring_location_id=USGS-01144500&parameter_code=00060&time=P2D&limit=1000&properties=time,value&f=json`);
+    expect(h.flowDays.url).toBe(`${USGS}/daily/items?monitoring_location_id=USGS-01144500&parameter_code=00060&statistic_id=00003&time=P30D&limit=100&properties=time,value&f=json`);
+    expect(h.flowFcst.url).toBe('https://api.water.noaa.gov/nwps/v1/gauges/WLBN3/stageflow/forecast');
+    expect(r.alerts.url).toBe('https://api.weather.gov/alerts/active?zone=PAZ071,PAC101');
+    expect(r.obs.url).toBe('https://api.weather.gov/stations/KPHL/observations/latest');
+    expect(r.flow.url).toBe(`${USGS}/continuous/items?monitoring_location_id=USGS-01474500&parameter_code=00060&time=P2D&limit=1000&properties=time,value&f=json`);
+    expect(r.flowDays.url).toContain('monitoring_location_id=USGS-01474500&parameter_code=00060&statistic_id=00003');
+    expect(r.flowFcst.url).toBe('https://api.water.noaa.gov/nwps/v1/gauges/PADP1/stageflow/forecast');
+    // The forecast, air quality and model comparison are asked at the dock point, in the zone.
+    for (const [b, lat, lon] of [[h, 43.70552, -72.29763], [r, 39.96941, -75.18711]]) {
+      for (const slot of ['wx', 'aq', 'models']) {
+        const u = new URL(b[slot].url);
+        expect([slot, u.searchParams.get('latitude'), u.searchParams.get('longitude'), u.searchParams.get('timezone')]).toEqual([slot, String(lat), String(lon), 'America/New_York']);
+      }
+    }
+  });
+
+  // Recorded 2026-10-24 between 18:48 and 18:55 UTC with the requests above.
+  it("read Hanover's recorded answers as data: the flow, the series, the daily means, the forecast and the airport", () => {
+    const b = bindings('hanover-boathouse');
+    expect(b.river.parse(recorded('hanover-boathouse', 'latest'))).toEqual({ flow: { v: 1070, t: at('2026-10-24T18:30:00Z') } });
+    const flow = b.flow.parse(recorded('hanover-boathouse', 'continuous'));
+    expect([flow.length, flow[0].t, flow.at(-1)]).toEqual([191, at('2026-10-22T19:00:00Z'), { t: at('2026-10-24T18:30:00Z'), v: 1070 }]);
+    const days = b.flowDays.parse(recorded('hanover-boathouse', 'daily'));
+    // Each day sits at noon Eastern, which is 16:00 UTC while daylight saving time lasts.
+    expect([days.length, new Date(days[0].t).toISOString(), new Date(days.at(-1).t).toISOString(), days.at(-1).v]).toEqual([30, '2026-09-24T16:00:00.000Z', '2026-10-23T16:00:00.000Z', 2090]);
+    const fc = b.flowFcst.parse(recorded('hanover-boathouse', 'nwps'));
+    expect(recorded('hanover-boathouse', 'nwps').secondaryUnits).toBe('kcfs');
+    expect([fc.pts.length, fc.issued, fc.pts[0].v, fc.pts.at(-1).v]).toEqual([12, at('2026-10-24T15:18:00Z'), 1070, 982]);
+    expect(b.obs.parse(recorded('hanover-boathouse', 'obs'))).toMatchObject({ t: at('2026-10-24T18:30:00Z'), wind: 0, dir: 0, text: 'Clear' });
+    expect(b.alerts.parse(recorded('hanover-boathouse', 'alerts'))).toEqual([]);
+  });
+
+  it("read Boathouse Row's recorded answers as data, the water temperature from the flow gauge's own answer", () => {
+    const b = bindings('boathouse-row');
+    expect(b.river.parse(recorded('boathouse-row', 'latest'))).toEqual({ flow: { v: 1040, t: at('2026-10-24T18:00:00Z') }, waterC: { v: 14.5, t: at('2026-10-24T18:00:00Z') } });
+    const flow = b.flow.parse(recorded('boathouse-row', 'continuous'));
+    expect([flow.length, flow.at(-1)]).toEqual([95, { t: at('2026-10-24T18:00:00Z'), v: 1040 }]);
+    expect(b.flowDays.parse(recorded('boathouse-row', 'daily')).length).toBe(30);
+    const fc = b.flowFcst.parse(recorded('boathouse-row', 'nwps'));
+    expect([fc.pts.length, fc.pts[0].v]).toEqual([12, 886]);
+    expect(b.obs.parse(recorded('boathouse-row', 'obs'))).toMatchObject({ t: at('2026-10-24T18:30:00Z'), dir: 180, text: 'Mostly Clear' });
+    // A frost advisory for the two zones: a product with no polygon applies to the dock.
+    expect(b.alerts.parse(recorded('boathouse-row', 'alerts')).map(a => [a.event, a.lvl])).toEqual([['Frost Advisory', 1]]);
+  });
+
+  // 01 11.3: Caution at the 88th percentile of the daily mean flow, Stay off at the 95th, each
+  // rounded down to two figures, and the against-the-current steps at that Caution and at
+  // the 65th percentile. The numbers are the stats the waterway file records.
+  it("hold limits that follow the rule from each waterway's recorded flow statistics", () => {
+    const two = v => { const e = 10 ** (Math.floor(Math.log10(v)) - 1); return Math.floor(v / e) * e; };
+    for (const slug of RIVERS) {
+      const { rec, waterway } = entry(slug);
+      const { stats } = waterway.sources.find(r => r.role === 'flow');
+      expect([slug, rec.thresholds.flowCaution, rec.thresholds.flowOff], slug).toEqual([slug, two(stats.p88), two(stats.p95)]);
+      expect([slug, rec.flow.against], slug).toEqual([slug, [[two(stats.p88), 1.4], [two(stats.p65), 1.25]]]);
+    }
   });
 });

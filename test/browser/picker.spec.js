@@ -143,6 +143,25 @@ test.describe('the header', () => {
     expect(await page.evaluate(() => getComputedStyle(document.getElementById('title')).fontSize)).toBe('24px');
   });
 
+  // P1.12: the same check on the records the build wrote, one page for each, so a location added
+  // later is covered without a new line here.
+  test('fits the name of every built location in two lines at 360 px, on the real records', async ({ page }) => {
+    const { locations } = JSON.parse(readFileSync(new URL('../../dist/locations/index.json', import.meta.url), 'utf8'));
+    expect(locations.map(l => l.slug)).toEqual(expect.arrayContaining(['putney-landing', 'hanover-boathouse', 'boathouse-row']));
+    await page.setViewportSize({ width: 360, height: 844 });
+    for (const { slug, name } of locations) {
+      await page.goto(`/${slug}`);
+      await ready(page);
+      await expect(page.locator('#locName')).toHaveText(name);
+      expect(await lines(page, '#locName'), `${name} at 360 px`).toBeLessThanOrEqual(2);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), `${name} overflows`).toBeLessThanOrEqual(0);
+      expect(await page.evaluate(() => getComputedStyle(document.getElementById('title')).fontSize), `${name} (${name.length} characters)`).toBe(name.length > 18 ? '20px' : '24px');
+      // The actions stay on one row beside Updated, as for Putney.
+      expect(await lines(page, '#updated'), `${name}: Updated`).toBe(1);
+      await expect(page.locator('#settingsBtn')).toBeInViewport();
+    }
+  });
+
   test('says only RoWhether on an address with no location', async ({ page }) => {
     await page.goto('/no-such-place');
     await expect(page.locator('#notFound')).toBeVisible();
@@ -422,8 +441,11 @@ test.describe('the first visit to "/"', () => {
     for (const id of ['tabs', 'actions', 'home', 'detail', 'credits']) await expect(page.locator(`#${id}`), id).toBeHidden();
     await expect(page.locator('#refreshBtn')).toBeHidden();
     await expect(page.locator('#settingsBtn')).toBeHidden();
-    await expect(page.locator('#notFound .pk-group')).toHaveText(['Vermont']);
-    await expect(page.locator('#notFound .pk-row')).toHaveText([/Putney Landing\s*Putney, VT\. Connecticut River\./]);
+    // The built list: the groups by region name, each place with its town and water (P1.12).
+    await expect(page.locator('#notFound .pk-group')).toHaveText(['New Hampshire', 'Pennsylvania', 'Vermont']);
+    await expect(page.locator('#notFound .pk-row')).toHaveText([
+      /Hanover boathouse\s*Hanover, NH\. Connecticut River\./, /Boathouse Row\s*Philadelphia, PA\. Schuylkill River\./, /Putney Landing\s*Putney, VT\. Connecticut River\./
+    ]);
     await expect(page.locator('#notFound .pk-here')).toHaveCount(0);
     // The list is long: it is not read out when the page draws it (07 12.3).
     await expect(page.locator('#notFound .pk')).toHaveAttribute('aria-live', 'off');

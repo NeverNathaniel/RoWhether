@@ -1,0 +1,66 @@
+{
+  "v": 1,
+  "id": "1f8ec826-cc13-4d2b-b201-069bdd5f64a8",
+  "slug": "hanover-boathouse",
+  "name": "Hanover boathouse",
+  "shortName": "Hanover",
+  "subtitle": "Connecticut River at the Hanover boathouse, above Wilder Dam.",
+  "locality": "Hanover, NH",
+  "waterway": "connecticut-river-wilder-pool",
+  "lat": 43.70552,
+  "lon": -72.29763,
+  "tz": "America/New_York",
+  "tzLabel": null,
+  "country": "US",
+  "region": "US-NH",
+  "waterType": "river",
+  "course": {
+    "kind": "heading",
+    "heading": 40,
+    "reachWord": "straight",
+    "confirmed": false,
+    "note": "Estimate from the mapped river line upstream of the dock. Not checked on the water."
+  },
+  "banks": {
+    "word": "bank",
+    "left": { "short": "VT", "name": "Vermont" },
+    "right": { "short": "NH", "name": "New Hampshire" }
+  },
+  "thresholds": {
+    "windCaution": 10, "windOff": 15, "gustCaution": 18, "gustOff": 25,
+    "rainCaution": 60, "rainOff": 90, "coldCombined": 100,
+    "flowCaution": 14000, "flowOff": 20000, "aqiCaution": 151, "aqiOff": 201,
+    "basis": { "flow": "usgs-ogc:USGS-01144500:cfs" }
+  },
+  "aqiScale": "us",
+  "flow": {
+    "measure": "discharge",
+    "unit": "cfs",
+    "against": [[14000, 1.4], [7600, 1.25]],
+    "maxAgeH": 24,
+    "staleSwitchH": 6
+  },
+  "water": { "mode": "river", "cross": 0.4 },
+  "fog": null,
+  "waterTemp": { "fallback": "none", "maxAgeH": 72 },
+  "tide": null,
+  "daylight": null,
+  "copy": {
+    "description": "Go, caution or stay off: rowing conditions on the Connecticut River at the Hanover boathouse, NH.",
+    "flowStats": "Since 2016 the median day is about 5,400 cfs. 14,000 is the top 13% of days, 20,000 the top 5%.",
+    "flowHow": "Flow is measured at the USGS gauge at West Lebanon, below Wilder Dam, about 4 mi downstream of the dock in a straight line, so it reads what the dam releases. The forecast is from the NWS Northeast River Forecast Center for the same gauge, in 6-hour steps.",
+    "credits": "Forecast from [Open-Meteo](https://open-meteo.com/). Alerts from the National Weather Service offices in [Burlington](https://www.weather.gov/btv/) and [Gray](https://www.weather.gov/gyx/), and Lebanon airport observations from the National Weather Service. River flow from USGS gauge [01144500 at West Lebanon](https://waterdata.usgs.gov/monitoring-location/USGS-01144500/). River forecast from the [NWS Northeast River Forecast Center](https://water.noaa.gov/gauges/wlbn3). Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo."
+  },
+  "launchNotes": null,
+  "status": "published",
+  "sources": [
+    {
+      "role": "alerts", "adapter": "nws-alerts", "ref": "zones:VTZ021,VTC027,NHZ005,NHC009", "label": "NWS"
+    },
+    {
+      "role": "obs", "adapter": "nws-obs", "ref": "KLEB", "label": "Lebanon",
+      "note": "Lebanon airport, 5 mi south. A check on the model.",
+      "siteLat": 43.6271, "siteLon": -72.3054, "distanceM": 8742, "relation": "nearby"
+    }
+  ]
+}
