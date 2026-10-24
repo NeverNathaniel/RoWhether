@@ -467,6 +467,20 @@ describe('the parsers', () => {
       expect(noon('2026-07-01', 'UTC')).toBe('2026-07-01T12:00:00.000Z');
     });
 
+    it('read an offset written with the Unicode minus sign, as some versions of ICU write it', () => {
+      const Real = Intl.DateTimeFormat, minus = String.fromCharCode(0x2212);
+      Intl.DateTimeFormat = function (...args) {
+        const f = new Real(...args), parts = f.formatToParts.bind(f);
+        f.formatToParts = t => parts(t).map(p => (p.type === 'timeZoneName' ? { ...p, value: p.value.replace('-', minus) } : p));
+        return f;
+      };
+      try {
+        expect(Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', timeZoneName: 'longOffset' }).formatToParts(0).find(p => p.type === 'timeZoneName').value).toContain(minus);
+        expect(noon('2026-12-01', 'America/New_York')).toBe('2026-12-01T17:00:00.000Z');
+        expect(noon('2026-07-01', 'America/New_York')).toBe('2026-07-01T16:00:00.000Z');
+      } finally { Intl.DateTimeFormat = Real; }
+    });
+
     it('are right on the days the clocks change, west and east of UTC', () => {
       // New York: forward on 2026-03-08 and back on 2026-11-01, both at 2 AM, so noon is already on the new clock.
       expect(noon('2026-03-07', 'America/New_York')).toBe('2026-03-07T17:00:00.000Z');

@@ -167,9 +167,18 @@ describe('validateLocation', () => {
       ['an alerts ref that is a station', r => { r.sources[0].ref = 'station:KEEN'; }, 'sources[0].ref', 'format'],
       ['an alerts ref with no prefix', r => { r.sources[0].ref = 'VTZ015'; }, 'sources[0].ref', 'format'],
       ['an alerts zone in lower case', r => { r.sources[0].ref = 'zones:vtz015'; }, 'sources[0].ref', 'format'],
+      ['an alerts zone with a lower case state', r => { r.sources[0].ref = 'zones:vtZ015'; }, 'sources[0].ref', 'format'],
+      ['a later alerts zone with a lower case state', r => { r.sources[0].ref = 'zones:VTZ015,nhZ011'; }, 'sources[0].ref', 'format'],
       ['an alerts zone list that ends in a comma', r => { r.sources[0].ref = 'zones:VTZ015,'; }, 'sources[0].ref', 'format'],
       ['an alerts zone that is not a code', r => { r.sources[0].ref = 'zones:VTZ015,Windham'; }, 'sources[0].ref', 'format'],
       ['an alerts zones ref with no zones', r => { r.sources[0].ref = 'zones:'; }, 'sources[0].ref', 'format'],
+      ['an alerts zone with four digits', r => { r.sources[0].ref = 'zones:VTZ0155'; }, 'sources[0].ref', 'format'],
+      ['an alerts zone with two digits', r => { r.sources[0].ref = 'zones:VTZ15'; }, 'sources[0].ref', 'format'],
+      ['an alerts zone that is neither a zone nor a county', r => { r.sources[0].ref = 'zones:VTX015'; }, 'sources[0].ref', 'format'],
+      ['an alerts zone list with a space', r => { r.sources[0].ref = 'zones:VTZ015, NHZ011'; }, 'sources[0].ref', 'format'],
+      ['an alerts zone with text after the list', r => { r.sources[0].ref = 'zones:VTZ015 and more'; }, 'sources[0].ref', 'format'],
+      ['an alerts point with text after it', r => { r.sources[0].ref = 'point:42.9,-72.5 and more'; }, 'sources[0].ref', 'format'],
+      ['an alerts point with text before it', r => { r.sources[0].ref = 'a point:42.9,-72.5'; }, 'sources[0].ref', 'format'],
       ['an alerts point with one number', r => { r.sources[0].ref = 'point:42.9607'; }, 'sources[0].ref', 'format']
     ];
     for (const [name, edit, field, code] of cases) {
