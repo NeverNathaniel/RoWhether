@@ -141,7 +141,7 @@
       "extra": {}
     },
     "compass": {
-      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(162)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
+      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-22.8\" y=\"-30.9\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"35.2\" y=\"-15.4\" text-anchor=\"middle\">NH</text><g transform=\"rotate(162)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
       "textContent": "NESWVTNH",
       "hidden": false,
       "disabled": false,
@@ -269,48 +269,48 @@
   },
   "forecasts": {
     "2026-10-17-midday": {
-      "length": 8173,
-      "sha256": "5fdfef0686535fc35fc95c15db1cc38986dd395f24b8f5491890c06fa6e901db"
+      "length": 8181,
+      "sha256": "b6467e99a8a202da63a217fb4ba5b6e38e95261e7f4c8b8bc73c117dfa8995c6"
     },
     "2026-10-17-afternoon": {
-      "length": 9221,
-      "sha256": "d8ee09c27232bc39f52f7ff533a93ec08364e8249b922bf454cc05f4ee6e57ca"
+      "length": 9229,
+      "sha256": "b5d38ce1633c66ded346bcc0d4a32d70eefbc6b7ed84a86d0afc78749ac727bc"
     },
     "2026-10-18-morning": {
-      "length": 8953,
-      "sha256": "133c8d7697cb13e0c86e4850189b657664a8baa00c93ae01fc2af0b4288509ac"
+      "length": 8961,
+      "sha256": "f30e83bca683778f311a42851d3f349c6111531d527671d8d4bdaf4ba47870b0"
     },
     "2026-10-18-midday": {
-      "length": 9217,
-      "sha256": "73423f618c752a42cd9359cc67f53eef784f6f73cdf5688c838dc9d41e2a729b"
+      "length": 9225,
+      "sha256": "85f5a41c130c141d3032a71bfc01a152508dcad4c0a085b424ec201e58da50df"
     },
     "2026-10-18-afternoon": {
-      "length": 8788,
-      "sha256": "7295a65d54f6f432c601f7b7012a646af7da750a6b1c5001ab686ea6c7139e51"
+      "length": 8796,
+      "sha256": "df9a88dcbb1524dbf32fbfa634fc6f66ddca7783d0d0efe4c5109dd860a5bae4"
     },
     "2026-10-19-morning": {
-      "length": 8601,
-      "sha256": "00c8bbc7f84f2f4f8093e9c36902e4f6fd1a83b1f78f8a268dd36065f370a860"
+      "length": 8609,
+      "sha256": "35db52cd5c7c4b4b21539712085a31db03b43a1233ba1c506057458a58fc5cbc"
     },
     "2026-10-19-midday": {
-      "length": 8948,
-      "sha256": "34895f45606e255e918ade3aec4bccb88a9ae52ccac55a166a5c88505adcdf32"
+      "length": 8956,
+      "sha256": "622c1354bddd5399a741339182e962676e0a03655146372abcddc2f940fce605"
     },
     "2026-10-19-afternoon": {
-      "length": 8557,
-      "sha256": "89705d5e33f01655b75082f3e9b324e7c77a98e6da57102cf9b3343817ca1021"
+      "length": 8565,
+      "sha256": "b0833a40f5689645b9f18cfd42f60fd26a4f04fb522e34585347e1626fbfbbf4"
     },
     "2026-10-20-morning": {
-      "length": 8778,
-      "sha256": "8839a9e2d793fc44d804c18810cf5fa634a084cff123da6af4e13a49ed265958"
+      "length": 8786,
+      "sha256": "7f962666a6aff474687a1b2aa9289f1983ca0a13dcdf4d9012cb162667ca7cfc"
     },
     "2026-10-20-midday": {
-      "length": 9171,
-      "sha256": "55f7032fd16fda4064048b2fe1c3ca3773669a912ee2f615acf298556a76d547"
+      "length": 9179,
+      "sha256": "4f36e8f1fbaef0511153a238c557ad371a09a353104735a3c1b3194e4a2fa8aa"
     },
     "2026-10-20-afternoon": {
-      "length": 8646,
-      "sha256": "bd71cebd2adbb261b5ffca8a337d6dc3ba2ef04fab90fe2db000dabf645a70bb"
+      "length": 8654,
+      "sha256": "81b2c0940debbd18e0f486b9472edb3948c2ba2d52a343e2a3cada05300215f5"
     }
   },
   "status": {

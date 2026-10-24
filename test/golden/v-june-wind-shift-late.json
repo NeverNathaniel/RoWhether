@@ -68,7 +68,7 @@
       "extra": {}
     },
     "compass": {
-      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(197)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
+      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-22.8\" y=\"-30.9\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"35.2\" y=\"-15.4\" text-anchor=\"middle\">NH</text><g transform=\"rotate(197)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
       "textContent": "NESWVTNH",
       "hidden": false,
       "disabled": false,
@@ -196,80 +196,80 @@
   },
   "forecasts": {
     "2026-06-15-afternoon": {
-      "length": 7877,
-      "sha256": "bcefd37d2e04094fec7faa47b68e08dd643662edeef775ef2dc5f644eab1d5ab"
+      "length": 7885,
+      "sha256": "ff009eda6e9c9090b11cf4182b90a163356ea674d215cfb64dc4fbbc1a880cec"
     },
     "2026-06-16-morning": {
-      "length": 10347,
-      "sha256": "d76fa7298f13813450f4a9c66daa228a2522950e2a3eafcf27e45c5c73750109"
+      "length": 10355,
+      "sha256": "a0d9f18877190e4e053457426fa022d03d26dd1707dae667e2c1094dde36b9ba"
     },
     "2026-06-16-midday": {
-      "length": 9330,
-      "sha256": "df691f5bf0a10524315451f8de4fb08dd480b10cbc9db2eb36de2990736913ff"
+      "length": 9338,
+      "sha256": "ce159736a1045cd01118d1873177a43833a75abb0aa32e12fc49316fbc03750f"
     },
     "2026-06-16-afternoon": {
-      "length": 10314,
-      "sha256": "56444ed917603f56034ac5b28dc967fdafdde29950d9c41c3604ca0485b77559"
+      "length": 10322,
+      "sha256": "69256103e2c20f6b092157f3c65f1accb34457b4ad9008aacaad7381b8c21d6a"
     },
     "2026-06-17-morning": {
-      "length": 10390,
-      "sha256": "a8f99d2b1ba45d664d4a65430e43b083f88c7ebf9de72bd90fe48d2d0d36a93f"
+      "length": 10398,
+      "sha256": "8c25bcffd4824ab911ddf96c2ae1972be156e243379762889f239cf25606e26c"
     },
     "2026-06-17-midday": {
-      "length": 9332,
-      "sha256": "caf36a36e994140a285182b86fa93ca9f6e206262b8556aeaac9d88504c5a259"
+      "length": 9340,
+      "sha256": "463107d2d4a2898cad7f72586937ec31f4e17b5a0c5c2a60bfed523276b86148"
     },
     "2026-06-17-afternoon": {
-      "length": 10335,
-      "sha256": "e4f459e4c0a9035b0d323755d77b9fe4a5e8113bfa0c8b9c0187ce1b9e9afa4c"
+      "length": 10343,
+      "sha256": "50f6c19a37241f6d07ad670608e7b0543e44ca640117ac350d905f1bbebd1b21"
     },
     "2026-06-18-morning": {
-      "length": 10363,
-      "sha256": "c01afc6b984baffc1cc57da514209d84424c1f7d5d2bdce382fde3664d8ad0f6"
+      "length": 10371,
+      "sha256": "e6bd5d5b3f1c0e9b5356ffb2a5061f896221ccf0272a3b369a0fe209ec580e2f"
     },
     "2026-06-18-midday": {
-      "length": 9359,
-      "sha256": "7c23b51875b5ff6f59a440f06f75b7a002a423f02dc112bf84b36ee44b5042c0"
+      "length": 9367,
+      "sha256": "4f34cb16ff438299340409fbee11b051dc5b031fe4e416d5d678fb4613394c2e"
     },
     "2026-06-18-afternoon": {
-      "length": 10393,
-      "sha256": "53eab626bafa607ed422af8f772cf4359bfff645ec23e1259b9a8e71bd13c689"
+      "length": 10401,
+      "sha256": "c4d4366b9c53e630abf35ebcbbd017bd846753e03e8b2f34af1ca8006ffb671f"
     },
     "2026-06-19-morning": {
-      "length": 10508,
-      "sha256": "179008109f87a67972b9b2600bea24fa2214c6961b6355792f861a3d9fd1ae98"
+      "length": 10516,
+      "sha256": "9f281595a9195c923557086d729417e60f0a357100195380bd0837855596d2aa"
     },
     "2026-06-19-midday": {
-      "length": 9462,
-      "sha256": "cd848dc3aca94d7898a33e25b88c891c0b8c7619b349e343dfdc974e33db1e36"
+      "length": 9470,
+      "sha256": "c50d6374d1f380d204a6833379695a96897da7aec183b03e23f3c1d49e5e0dd8"
     },
     "2026-06-19-afternoon": {
-      "length": 10342,
-      "sha256": "0f9865be010c51295745b4fdd1e36f5e952001693360280bdaa32a2c670ee4d2"
+      "length": 10350,
+      "sha256": "dd23332b16aa10e27983efe4c230f3eabb0515293d530079d091d72f42d2273c"
     },
     "2026-06-20-morning": {
-      "length": 10086,
-      "sha256": "a5c7be2e4916994307971934772c0ece2d0e1e8da4e2a6083b37bb6899e1c1fd"
+      "length": 10094,
+      "sha256": "855e1cb4c50701a6712bc53e7a10634ca7a7aee1e3723932353a2ab8b44767ad"
     },
     "2026-06-20-midday": {
-      "length": 9019,
-      "sha256": "93d0377be01a0666434cbeb29ffec1ba0d02a6e8edd865bfb9b6e56483e584d3"
+      "length": 9027,
+      "sha256": "7b528d8f55aa26242c3e5df1de18070eeeff16c850a65a5a05d679ac8cb3cf26"
     },
     "2026-06-20-afternoon": {
-      "length": 10097,
-      "sha256": "79753225f1eae0de22a6eca5192383105974ad032e888031271a775889b11080"
+      "length": 10105,
+      "sha256": "7d5da5e9afe7cebd0f6946a1eb2a69568e2fda89be5e7a98612f42ba0145c70c"
     },
     "2026-06-21-morning": {
-      "length": 10005,
-      "sha256": "4a009a299b1e9b8fc7c0094cbee6d131bc750ea704c9a62fad09e86bd0238ee5"
+      "length": 10013,
+      "sha256": "35aafd558f39a5aa52b46d5a8b7a77449c90560de3c229b12d7d932fb2a85d8e"
     },
     "2026-06-21-midday": {
-      "length": 8936,
-      "sha256": "58019a476940593a4353e5b50db24d8f262bb36641025e0f501b3e784c5c37b3"
+      "length": 8944,
+      "sha256": "ad89fa0c9e35b2870561be770c5fa258ac1f4ab8f87fd5aad63ce684cb225895"
     },
     "2026-06-21-afternoon": {
-      "length": 9946,
-      "sha256": "905916f35e86767ce26af33ef264be4d0b4f2b9452e9643e3bb7c8297e838133"
+      "length": 9954,
+      "sha256": "bd3e2319c1060faca3499ea7037a93f7f91e0809e7251796c723d6d26f70541d"
     }
   },
   "status": {

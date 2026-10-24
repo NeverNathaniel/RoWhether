@@ -44,8 +44,9 @@ export function compassSVG(heading, banks, dir, speed) {
   s += '<path class="c-flow" d="M-5 40 L5 40 L0 49 Z"/>';
   s += '</g>';
   if (banks) {
-    s += `<text class="c-bank" x="-30" y="-24" text-anchor="middle">${esc(banks.left.short)}</text>`;
-    s += `<text class="c-bank" x="30" y="-24" text-anchor="middle">${esc(banks.right.short)}</text>`;
+    // Each label sits beside the river where it is turned to, 24 up and 30 out, and its text stays upright (01 10.5).
+    const a = heading * Math.PI / 180, c = Math.cos(a), n = Math.sin(a), r = v => Math.round(v * 10) / 10;
+    for (const [b, x] of [[banks.left, -30], [banks.right, 30]]) s += `<text class="c-bank" x="${r(x * c + 24 * n)}" y="${r(x * n - 24 * c)}" text-anchor="middle">${esc(b.short)}</text>`;
   }
   if (speed == null || dir == null) return s;
   if (speed < 1) return s + '<text class="c-calm" x="0" y="5" text-anchor="middle">Calm</text>';

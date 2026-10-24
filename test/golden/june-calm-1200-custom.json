@@ -1344,7 +1344,7 @@
       "extra": {}
     },
     "compass": {
-      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(212)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
+      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-20\" y=\"-32.8\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"36.4\" y=\"-12.3\" text-anchor=\"middle\">NH</text><g transform=\"rotate(212)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
       "textContent": "NESWVTNH",
       "hidden": false,
       "disabled": false,
@@ -1472,84 +1472,84 @@
   },
   "forecasts": {
     "2026-06-15-midday": {
-      "length": 8502,
-      "sha256": "44c7c6ed2896fae83cd42930b313e4eab57d75be5860249206bae8a106e00f67"
+      "length": 8508,
+      "sha256": "c314ef4a126cb4130164c82221b162a42897d463043e0af66a4489ecfa49d9fd"
     },
     "2026-06-15-afternoon": {
-      "length": 10183,
-      "sha256": "2c38cf9bce489814aa230c30a5773c3313d10d6781776edb21e7d56d0c2a2dd2"
+      "length": 10189,
+      "sha256": "6ee89f16afee8e6b066ae6201ed380ee6f652dee34de06dc9c8e25b72b7c80e4"
     },
     "2026-06-16-morning": {
-      "length": 10193,
-      "sha256": "b5f7e83ab356b8524723a2324c9d6422139876688afc99a24ae64a8d08ba0891"
+      "length": 10199,
+      "sha256": "5fa4c15d2107fe41342ddcfa221955cdf26ed3145fe3dd1dac589b22be6cf151"
     },
     "2026-06-16-midday": {
-      "length": 9199,
-      "sha256": "32c59011a1a7b3d171f0607e38e631d013200ced8ce725091b5ae582ae1e853b"
+      "length": 9205,
+      "sha256": "5560a41070e41535fe2774bf14ea23b6173620b7bbe743ed7fe7d845583b16bc"
     },
     "2026-06-16-afternoon": {
-      "length": 10178,
-      "sha256": "ee04e764d493966001526b1132671ac58d7295a7b4e58713368c925c71007a38"
+      "length": 10184,
+      "sha256": "700448ec262b213154fb9ba230a681f038d257d0592f9d1a47097fa1023caee5"
     },
     "2026-06-17-morning": {
-      "length": 10236,
-      "sha256": "616df6f09a560c43f84e377107bb3c887cb1f8e3a7fccaf9e0b24b682275e26f"
+      "length": 10242,
+      "sha256": "f3e22182f00cef5f379c6e3c476c15156b39223cc9fa78f5b6b788d34ae5c985"
     },
     "2026-06-17-midday": {
-      "length": 9188,
-      "sha256": "72a029c2975d04ea39ba38b30f201c5fd5bbf1d1b2a26c5ec6b7a27f0b140ba5"
+      "length": 9194,
+      "sha256": "c5e311739efab1c73632277cb44cbd980ced7981013d7c6513c8bf7e6665cb80"
     },
     "2026-06-17-afternoon": {
-      "length": 10199,
-      "sha256": "5707defbbeb78cfe2d3f5f7710d9eb1b03f6b76578baee2380a54295fda5648a"
+      "length": 10205,
+      "sha256": "57639ff27227579c631099a0c38b38474d7863d4b4dd36b7aa1ac8590796d537"
     },
     "2026-06-18-morning": {
-      "length": 10209,
-      "sha256": "47984caf0f5fc1d795bf03f0f9cc448e5a31fcaf7062cde99bb5dafbde6d51f5"
+      "length": 10215,
+      "sha256": "62e6237af7333f7884ece859b0b3fa6316097508566af2e2ef50ae7b86f1bbad"
     },
     "2026-06-18-midday": {
-      "length": 9215,
-      "sha256": "b080457b3d386495b23a8fbe6722355f1dbdbfd5fc1aaa552cca7cfd5e820d2c"
+      "length": 9221,
+      "sha256": "609105e61aea3b5e24b24fdece4d291e17260d538c2f96f82c0b4e0a226ac75e"
     },
     "2026-06-18-afternoon": {
-      "length": 10220,
-      "sha256": "2172cdb0a3462ab53165a05ad7a0e4d28842e84b6582e1c146dd87a6c7cc1bc1"
+      "length": 10226,
+      "sha256": "3599e78fa4ee8067e2a61ff504744494c4e32986c6e3f053b9efe5104265c7ab"
     },
     "2026-06-19-morning": {
-      "length": 10331,
-      "sha256": "0d92facea5c3ae0b65d5916c2a4b580c8e130aca9a1661b55541c4b8913d550e"
+      "length": 10337,
+      "sha256": "c5e18000a319feef5fe4641b56ca33824190bbfbf5b4cf8374a590e346d62113"
     },
     "2026-06-19-midday": {
-      "length": 9308,
-      "sha256": "a447b8a63cd1e7ede9efa3ca3787bc086597e3e833114bd6733824034c92c695"
+      "length": 9314,
+      "sha256": "791963299a0eefe783dcf70550bab70b135d7ab45ffc20e60d1c5b1766eb8a65"
     },
     "2026-06-19-afternoon": {
-      "length": 10194,
-      "sha256": "d65bf945f2a22ca9872bcb68266ccde16f941641c687bea223b40e9ab34c92bd"
+      "length": 10200,
+      "sha256": "d4e8a5dc79241b1591ad3da915797e6f4352ea9f6c365443e9944a48b1fe5dab"
     },
     "2026-06-20-morning": {
-      "length": 9879,
-      "sha256": "7c51d630be116c5ec61bba2e0f4d49720e6469a8c1e8027a0df46231daf64a38"
+      "length": 9885,
+      "sha256": "b39b326cb0eee6affb765a1e0efce085c310fb4950dc1c2892defd1026f6ebe2"
     },
     "2026-06-20-midday": {
-      "length": 8919,
-      "sha256": "4a163d0e777eee98f1a93342c8ead4c4e64886910306a0994d5d2751ee0c6db2"
+      "length": 8925,
+      "sha256": "f6069d09cfbb58abcf27c74d39bbbf83fafa34788cbc49c9a64897f2476daf67"
     },
     "2026-06-20-afternoon": {
-      "length": 9953,
-      "sha256": "28bd89900f444cb82726fc6619ed76f1307dc1a359ea409b8e65d54e1619506b"
+      "length": 9959,
+      "sha256": "8fb21974533561fd7113ebdfcb5510c598adee550170958afdaf41d9d9cd0e19"
     },
     "2026-06-21-morning": {
-      "length": 9798,
-      "sha256": "70fd1435d0bb20c3d233fce7d55d5a9cd95da375600d1e44f02b68a53eb45810"
+      "length": 9804,
+      "sha256": "89aa2341c5f7ecb897a6d8612efae24cb24cf1c54b8e5b63a661341f7530edab"
     },
     "2026-06-21-midday": {
-      "length": 8782,
-      "sha256": "8f4df8d734a04c0a4edd984cb8927c1dde992a4badf230d8092c9d9a69a4ea51"
+      "length": 8788,
+      "sha256": "aefe502c49383c81912ce307b6c731e0a92ff17ee18f55eda99e4781ef3920fb"
     },
     "2026-06-21-afternoon": {
-      "length": 9768,
-      "sha256": "dc50db6da8b6918887b6ce2b52beca0aba6d5aaf0bae0c4ffd4613127d0a4fee"
+      "length": 9774,
+      "sha256": "13a70360cdb80e64a85050299094367f7366ec4fca2f2a35d5b5dec7c14d473f"
     }
   },
   "status": {
@@ -1660,7 +1660,7 @@
     ],
     "home": {
       "alerts": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
-      "compass": {"innerHTML":"<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(210)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>","textContent":"NESWVTNH","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "compass": {"innerHTML":"<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-20\" y=\"-32.8\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"36.4\" y=\"-12.3\" text-anchor=\"middle\">NH</text><g transform=\"rotate(210)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>","textContent":"NESWVTNH","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "compassCap": {"innerHTML":"Wind from SSW. River runs SSW, upstream heading 20°.","textContent":"Wind from SSW. River runs SSW, upstream heading 20°.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "days": {"innerHTML":{"length":15160,"sha256":"5316ca218707b1349988d12f2a13bbe4be40c16d6666a58fd9c49ce6ddf6199c"},"textContent":{"length":5635,"sha256":"fe08c18329b0e65e55ba00d7a6eb266fa178bddbdf8c655221a155de8fc2f3ba"},"hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "facts": {"innerHTML":{"length":4788,"sha256":"e42f30b2222570076e53edb4b7300e70822214a104195d6946aa703e3ba96638"},"textContent":"Wind6 mph, gusts 12From SSW. Tailwind rowing upstream, headwind coming back.Water stateLight chopWind runs along the straight, with a long reach to build waves.Air78°FFeels like 77°F. Dew point 58°F.Water55°FYour reading, set in Settings.Air plus water133°FAbove the 100 cold-water line.Visibility10+ miFog risk low now and tomorrow morning.Air qualityAQI 34Good. Fine particles 6 µg/m³. A forecast, not a measurement.River flow5,929 cfs Steady over 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 2 hr ago.Daylight5:11 AM to 8:31 PMFirst light 4:36 AM, dark by 9:07 PM. Lights required outside sunrise to sunset.Measured at Keene6 mph SW, 75°FMostly Clear. Keene airport, 14 mi east. A check on the model. 2 hr ago.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},

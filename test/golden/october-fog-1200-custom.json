@@ -1389,7 +1389,7 @@
       "extra": {}
     },
     "compass": {
-      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(262)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
+      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-20\" y=\"-32.8\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"36.4\" y=\"-12.3\" text-anchor=\"middle\">NH</text><g transform=\"rotate(262)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
       "textContent": "NESWVTNH",
       "hidden": false,
       "disabled": false,
@@ -1517,84 +1517,84 @@
   },
   "forecasts": {
     "2026-10-14-midday": {
-      "length": 8550,
-      "sha256": "a05b02145c10423c6e13da5342e1bbca3e7d0af30441ec2a4055f8a3b59acb2c"
+      "length": 8556,
+      "sha256": "571576c501b015eac2ae7fc3e326fbacf03000f3be74cb7175d54ef5a5369d64"
     },
     "2026-10-14-afternoon": {
-      "length": 8766,
-      "sha256": "b4bdd556460da6723b9f3b5192adcf3cd023821a39e8e7c46c5a78b7ca192a2b"
+      "length": 8772,
+      "sha256": "decd156fb23cd3bccdf5732ac2e9ace69ab871227028ba6b608ef1d314341bc3"
     },
     "2026-10-15-morning": {
-      "length": 8828,
-      "sha256": "17ed6c80dee74128123fcf8f6b0aa8cf7199bbcf9dbbc07668bfb0bbf2859b91"
+      "length": 8834,
+      "sha256": "79920832960588f844ee7213e26b18c09ce7575b82a053e01e7ecd505b51026d"
     },
     "2026-10-15-midday": {
-      "length": 9247,
-      "sha256": "a9b7606ca49e3ab2b69f35b914e1c2a733189bb5aa3c5d306b2847fde873c18c"
+      "length": 9253,
+      "sha256": "c25b2fcf6abd157ea072ae3e4a98cd5cd14ea35a4d79568bb86ced4100cba5e0"
     },
     "2026-10-15-afternoon": {
-      "length": 8758,
-      "sha256": "da969cdf5da0187af85ff3db0b8d5a10e4e4578a93322f1ab12d6e000fb25f59"
+      "length": 8764,
+      "sha256": "1e81e609cb1b6c2295b3e2350d39ce3666b75addec0596d2ed8d141adbc162c5"
     },
     "2026-10-16-morning": {
-      "length": 8871,
-      "sha256": "c66561748378dbbac49c325cec42455058a79715422d3ab31cdc4e9ec14a0b5a"
+      "length": 8877,
+      "sha256": "1d4149bd72c055dd0eb4f2d489f00bf5d4dc8f567570de9d45b1a50b829a7dea"
     },
     "2026-10-16-midday": {
-      "length": 9675,
-      "sha256": "ed0f2970fd3e7999d372f9d758a858262c575ce894bac69c50fcb9f99ffdc34b"
+      "length": 9681,
+      "sha256": "7b6511d635d6ff27cb90eb60616911225766075655982e3d8b97d743873c099c"
     },
     "2026-10-16-afternoon": {
-      "length": 9016,
-      "sha256": "1eb98423b140908ffa9b949c1cf3df24f030375c944fb802795f90b94946d79b"
+      "length": 9022,
+      "sha256": "cd65ab752cd27f7a5bb2d6a073cccba6c7ff6507234733e4814c49871423f914"
     },
     "2026-10-17-morning": {
-      "length": 8976,
-      "sha256": "ab5edf8fc6205de7bb4e28e8903f2a774e1582eb7b00579392ce8671111a83c4"
+      "length": 8982,
+      "sha256": "deeccb9584a35d8c53594c8fe8aece0b2a38d828f22e1339ec41f1d560fc8625"
     },
     "2026-10-17-midday": {
-      "length": 9674,
-      "sha256": "7a0affcb1504167aada7fea11fd56ea80a084b4e55cfb130a24ce0730c61cddb"
+      "length": 9680,
+      "sha256": "56f76011b2f9978f096eeca7b0c72d9b0790672d2a673e192df34c162915d610"
     },
     "2026-10-17-afternoon": {
-      "length": 9046,
-      "sha256": "ad5758c50ce4a0d67e0755063ce3aea4af4d5c39602122adc90bba24033861c4"
+      "length": 9052,
+      "sha256": "9348296adcc448f833050ad5e92c6a91faac0ba50d17dd0cbf7f34f8371ce955"
     },
     "2026-10-18-morning": {
-      "length": 8791,
-      "sha256": "076a4a40cea4ea7644076b8b17b0083f0f6960ceefbc07471cc38eb7289cb701"
+      "length": 8797,
+      "sha256": "b9249be2b0be05caa8357fa561c28eeebc6919a1bd07251c0651827da450c512"
     },
     "2026-10-18-midday": {
-      "length": 9074,
-      "sha256": "35d8b90c11b5b3d3099d08349ede7c3ceda8600b8e8f1ab1aeaee0eef246ec17"
+      "length": 9080,
+      "sha256": "3f39dd644444652d532d0ee398a9cd7b43f57a1129b0d0755cc9f490d03d46d6"
     },
     "2026-10-18-afternoon": {
-      "length": 8626,
-      "sha256": "db499ba7b2a11e4b13954cd3a5ce92f5ccd0d048f5dc27f9dd483fa2fee9a4b5"
+      "length": 8632,
+      "sha256": "4ec8033102e624050cf7131cb8b566172c6942a86c2ffef020e1654f4738855b"
     },
     "2026-10-19-morning": {
-      "length": 8484,
-      "sha256": "6905735ca33b9c2d5435fe2a7d3be7e02c0437106997e1a501b5e0566da65a51"
+      "length": 8490,
+      "sha256": "894538667832af522081f8dd158aa0a8c01de7af4aaebbadde608d7f64151c7e"
     },
     "2026-10-19-midday": {
-      "length": 8799,
-      "sha256": "89c4219e9ae1c2d1f9fecc3cb0ecdc2e2c044721aea10f0baab07c4fff86b068"
+      "length": 8805,
+      "sha256": "8ffa0db6f30a0328e7650493b79dcee8eb1cd85b51e6dcf22e8f2f0ce09292ac"
     },
     "2026-10-19-afternoon": {
-      "length": 8389,
-      "sha256": "4a0367507a916de0ac9c58a9f57f1f4908377735f8e0f1685827359b47ccaa7f"
+      "length": 8395,
+      "sha256": "e146506f581e13c01167d9918468d832d38cae9a586f6773beba1432dee89852"
     },
     "2026-10-20-morning": {
-      "length": 8621,
-      "sha256": "372e76a5d0cc2480dd46aa970c24c998454a6b882e5266dd9ca21ce3e8570fcb"
+      "length": 8627,
+      "sha256": "7e2b56edc4cbff6994b884eb0579dd8d9a5f9bb7121bb3826e9fddb768e7337f"
     },
     "2026-10-20-midday": {
-      "length": 9004,
-      "sha256": "99869640d805d8ad8cc7696923aee5db713277e933d288df8dcc69c45936ba06"
+      "length": 9010,
+      "sha256": "4cb8ceeb444fe501322d3686f86d4faf0ec9c66b528e9e5e6e64f1593cfbb621"
     },
     "2026-10-20-afternoon": {
-      "length": 8498,
-      "sha256": "0e43d84f32a98ea4cae6168444f2d3d3ebd6e1fb2802d768a172744ba8e532e6"
+      "length": 8504,
+      "sha256": "e55fab7b1eb9a2131d5db56b54ff3d2c831ed61238340a699b886fe4c5658803"
     }
   },
   "status": {
@@ -1705,7 +1705,7 @@
     ],
     "home": {
       "alerts": {"innerHTML":"\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Frost Advisory</strong>\n      <p>Frost Advisory issued October 14 at 3:47AM EDT until October 15 at 9:00AM EDT by NWS Albany NY</p>\n      <details><summary>Details</summary><pre>* WHAT...Temperatures as low as 34 will result in frost formation.\n\n* WHERE...Windham County.\n\nTake steps now to protect tender plants from the cold.</pre></details>\n    </div>","textContent":"\n    \n      Frost Advisory\n      Frost Advisory issued October 14 at 3:47AM EDT until October 15 at 9:00AM EDT by NWS Albany NY\n      Details* WHAT...Temperatures as low as 34 will result in frost formation.\n\n* WHERE...Windham County.\n\nTake steps now to protect tender plants from the cold.\n    ","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
-      "compass": {"innerHTML":"<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(242)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>","textContent":"NESWVTNH","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "compass": {"innerHTML":"<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(20)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-20\" y=\"-32.8\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"36.4\" y=\"-12.3\" text-anchor=\"middle\">NH</text><g transform=\"rotate(242)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>","textContent":"NESWVTNH","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "compassCap": {"innerHTML":"Wind from WSW. River runs SSW, upstream heading 20°.","textContent":"Wind from WSW. River runs SSW, upstream heading 20°.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "days": {"innerHTML":{"length":15502,"sha256":"f7885778a691555253767b273f0ed854525608527ac9a1583077b3af27c0fb37"},"textContent":{"length":5977,"sha256":"730c3472dddb6b1f869453b5097c62984f86ee23a1478fa20e1083b8b5b3b542"},"hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "facts": {"innerHTML":{"length":4895,"sha256":"faaca7f30bbda799445ea7d3619cfe4f0dd4842cf86afed88505c51e4675344e"},"textContent":"Wind6 mph, gusts 11From WSW. Tailwind rowing upstream, headwind coming back.Water stateLight chopWind runs along the straight, with a long reach to build waves.Air62°FFeels like 60°F. Dew point 48°F.Water55°FYour reading, set in Settings.Air plus water117°FAbove the 100 cold-water line.Visibility10+ miFog risk low now. Tomorrow morning: valley fog likely, lifting about 9 AM. Air at the dew point, light wind and a clear night.Air qualityAQI 28Good. Fine particles 5 µg/m³. A forecast, not a measurement.River flow3,292 cfs Steady over 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 2 hr ago.Daylight7:03 AM to 6:11 PMFirst light 6:34 AM, dark by 6:39 PM. Lights required outside sunrise to sunset.Measured at Keene5 mph W, 59°FClear. Keene airport, 14 mi east. A check on the model. 2 hr ago.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},

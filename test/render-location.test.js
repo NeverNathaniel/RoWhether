@@ -95,16 +95,48 @@ const BROKEN = /undefined|NaN|\[object/;
 describe('the compass takes the heading and the bank names', () => {
   it('writes the short names of the left and right banks and turns the river to the heading', () => {
     const svg = compassSVG(100, LAKE.banks, 190, 8);
-    expect(svg).toContain('<text class="c-bank" x="-30" y="-24" text-anchor="middle">NS</text>');
-    expect(svg).toContain('<text class="c-bank" x="30" y="-24" text-anchor="middle">SS</text>');
+    expect(svg).toContain('<text class="c-bank" x="28.8" y="-25.4" text-anchor="middle">NS</text>');
+    expect(svg).toContain('<text class="c-bank" x="18.4" y="33.7" text-anchor="middle">SS</text>');
     expect(svg).toContain('<g transform="rotate(100)">');
     expect(svg).not.toMatch(/VT|NH/);
   });
 
-  it("writes Putney's own VT and NH when given Putney's banks", () => {
+  it("writes Putney's own VT and NH when given Putney's banks, turned with the river", () => {
     const svg = compassSVG(15, PUTNEY.banks, null, null);
-    expect(svg).toContain('x="-30" y="-24" text-anchor="middle">VT</text>');
-    expect(svg).toContain('x="30" y="-24" text-anchor="middle">NH</text>');
+    expect(svg).toContain('x="-22.8" y="-30.9" text-anchor="middle">VT</text>');
+    expect(svg).toContain('x="35.2" y="-15.4" text-anchor="middle">NH</text>');
+  });
+
+  // The labels sit 24 up and 30 out from the river bar, and the bar is turned by the heading, so each
+  // label is that offset turned the same way (01 10.5). The text is never turned: it has no transform.
+  const labels = svg => [...svg.matchAll(/<text class="c-bank" x="([^"]+)" y="([^"]+)"[^>]*>([^<]+)<\/text>/g)].map(m => [+m[1], +m[2], m[3]]);
+  const pair = { word: 'bank', left: { short: 'L', name: 'Left' }, right: { short: 'R', name: 'Right' } };
+
+  it('places each label at its offset turned by the heading, to one decimal', () => {
+    // Worked out by hand: x' = x cos h - y sin h, y' = x sin h + y cos h, for (-30, -24) and (30, -24).
+    expect(labels(compassSVG(0, pair))).toEqual([[-30, -24, 'L'], [30, -24, 'R']]);
+    expect(labels(compassSVG(15, pair))).toEqual([[-22.8, -30.9, 'L'], [35.2, -15.4, 'R']]);
+    expect(labels(compassSVG(90, pair))).toEqual([[24, -30, 'L'], [24, 30, 'R']]);
+    expect(labels(compassSVG(200, pair))).toEqual([[20, 32.8, 'L'], [-36.4, 12.3, 'R']]);
+    expect(labels(compassSVG(330, pair))).toEqual([[-38, -5.8, 'L'], [14, -35.8, 'R']]);
+  });
+
+  it('writes a whole number without a decimal point', () => {
+    expect(compassSVG(90, pair)).toContain('x="24" y="-30"');
+    expect(compassSVG(180, pair)).toContain('x="30" y="24"');
+  });
+
+  it('never turns the text of a label, which is the river bar and its flow arrow only', () => {
+    const svg = compassSVG(200, pair, 90, 5);
+    expect(svg.match(/<text class="c-bank"[^>]*>/g).every(t => !t.includes('transform') && t.includes('text-anchor="middle"'))).toBe(true);
+    // The only group turned by the heading holds the river, and it closes before the labels.
+    expect(svg.indexOf('</g>')).toBeLessThan(svg.indexOf('c-bank'));
+    expect(svg).toContain('<g transform="rotate(200)"><rect class="c-river"');
+  });
+
+  it("follows the viewer's heading for Putney's labels", () => {
+    const mine = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: { heading: 200 } });
+    expect(labels(compassSVG(mine.course.heading, mine.banks, null, null))).toEqual([[20, 32.8, 'VT'], [-36.4, 12.3, 'NH']]);
   });
 
   it('escapes a bank name and leaves the labels out of a place with no banks', () => {
@@ -122,8 +154,8 @@ describe('On the water now takes the course from the location', () => {
     renderNow();
     const compass = dom.el('compass').innerHTML;
     expect(compass).toContain('<g transform="rotate(100)">');
-    expect(compass).toMatch(/x="-30" y="-24" text-anchor="middle">NS<\/text>/);
-    expect(compass).toMatch(/x="30" y="-24" text-anchor="middle">SS<\/text>/);
+    expect(compass).toMatch(/x="28\.8" y="-25\.4" text-anchor="middle">NS<\/text>/);
+    expect(compass).toMatch(/x="18\.4" y="33\.7" text-anchor="middle">SS<\/text>/);
     // Upstream heading 100, so the river runs 280 degrees, which is W.
     expect(dom.el('compassCap').textContent).toMatch(/^Wind from \w+\. River runs W, upstream heading 100°\.$/);
     expect(dom.el('compassCap').textContent).toContain('River runs W, upstream heading 100°.');
@@ -134,7 +166,8 @@ describe('On the water now takes the course from the location', () => {
     const { dom } = screen(PUTNEY);
     renderNow();
     expect(dom.el('compassCap').textContent).toContain('River runs SSW, upstream heading 15°.');
-    expect(dom.el('compass').innerHTML).toContain('>VT</text>');
+    expect(dom.el('compass').innerHTML).toContain('x="-22.8" y="-30.9" text-anchor="middle">VT</text>');
+    expect(dom.el('compass').innerHTML).toContain('x="35.2" y="-15.4" text-anchor="middle">NH</text>');
   });
 
   it('names the bank the crosswind comes off, by the place', () => {
@@ -150,8 +183,8 @@ describe('a full forecast takes the course from the location', () => {
     const p = m.days.flatMap(d => d.periods).find(x => !x.past);
     const html = forecastPanel(m, p);
     expect(html).toContain('<g transform="rotate(100)">');
-    expect(html).toContain('x="-30" y="-24" text-anchor="middle">NS</text>');
-    expect(html).toContain('x="30" y="-24" text-anchor="middle">SS</text>');
+    expect(html).toContain('x="28.8" y="-25.4" text-anchor="middle">NS</text>');
+    expect(html).toContain('x="18.4" y="33.7" text-anchor="middle">SS</text>');
     expect(html).toContain('River runs W, upstream heading 100°.');
     expect(html).not.toMatch(BROKEN);
     expect(html).not.toMatch(/VT|NH/);

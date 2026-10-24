@@ -1283,7 +1283,7 @@
       "extra": {}
     },
     "compass": {
-      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(205)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
+      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-22.8\" y=\"-30.9\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"35.2\" y=\"-15.4\" text-anchor=\"middle\">NH</text><g transform=\"rotate(205)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
       "textContent": "NESWVTNH",
       "hidden": false,
       "disabled": false,
@@ -1411,84 +1411,84 @@
   },
   "forecasts": {
     "2026-04-14-midday": {
-      "length": 8961,
-      "sha256": "b6d54bd38bfdc2b3ed44ecfc6801c596cce5ecb848910b2674f3d636fdcc004d"
+      "length": 8969,
+      "sha256": "cdf0522232826ad64c839586aba866e6cbdfd1f921b0b9458a5c6eab02404171"
     },
     "2026-04-14-afternoon": {
-      "length": 9755,
-      "sha256": "aa54675c2cfea1b20c74c9019ef08bbd664a8b9207272e5e3da7c6f513f51e3a"
+      "length": 9763,
+      "sha256": "d7ad7cc00cf5eaa916668a9ad72c9b754272b9600ac398e0ad868b0706b09142"
     },
     "2026-04-15-morning": {
-      "length": 9738,
-      "sha256": "59defd7379747a4d290c5b57cb5acf4fc81a8bcf05f56392d9a413aae78b02c8"
+      "length": 9746,
+      "sha256": "05117b769fb59383644dff651efb54b41ba86887444b695a6fa9d732cd23fea1"
     },
     "2026-04-15-midday": {
-      "length": 9638,
-      "sha256": "19994ec3b6c4bf7b8c9c2c176a5e89854811744a8ea09c51c0178fa608eb9979"
+      "length": 9646,
+      "sha256": "70bc5bd2ab7a0e30f1ea84d983bc06fdabf108450068d6af0e579d4a3bcdffb9"
     },
     "2026-04-15-afternoon": {
-      "length": 9845,
-      "sha256": "568a0026b9b47e13450f1eef69efb84f6df5a456d74a08cbaddca25bf5a173e2"
+      "length": 9853,
+      "sha256": "ddefaf2001023a133b411a1b1e95ee916e088397da9124b0047f0e7224754d73"
     },
     "2026-04-16-morning": {
-      "length": 9629,
-      "sha256": "731cc6fc256fa0263c2ec04683d7b90fcac51b96f06187c3e6db1d191f39cbc1"
+      "length": 9637,
+      "sha256": "65f67d4438389bc344ac560d3f81a11cd4c2f81380566643b784ee5a4d38aa41"
     },
     "2026-04-16-midday": {
-      "length": 9616,
-      "sha256": "99657a83f196381b568f1c60f73fdaee74b98dcf4b050564a67e7c36c87d78b1"
+      "length": 9624,
+      "sha256": "6aeeddd2a1cac8cc290caee1db0ab707a8fd613ab5eefb269dc6bf504f164b9b"
     },
     "2026-04-16-afternoon": {
-      "length": 9617,
-      "sha256": "e464b4f83b0fa943dcae9330aa72a043b482279839b6d3c68ca8567bb147391e"
+      "length": 9625,
+      "sha256": "1215bd0d34a34da42e3be38a51e9242ef23acaace49e0f0ce14bd69d290670e1"
     },
     "2026-04-17-morning": {
-      "length": 9471,
-      "sha256": "d39ea439a54e58f94643ee42e473ee921ea8acb31b29da72865fc98db3153e86"
+      "length": 9479,
+      "sha256": "bdc723441d3938f9f7148764887ba1fc123f9ddb1f7379cd2980bb7b0408e6bb"
     },
     "2026-04-17-midday": {
-      "length": 9410,
-      "sha256": "a5348ac0b214836411dab077fe389670b447a17d99ed52c26a08de6074b4a7f2"
+      "length": 9418,
+      "sha256": "ad6731d11729fb46f8f9f76286dce75be2d816cec52a9c7043e4f9a895c3203d"
     },
     "2026-04-17-afternoon": {
-      "length": 9395,
-      "sha256": "3498a2a75aa4ccd45d8a1607a1ef5a45f2b40272bd8b96074268f532a2bd18fd"
+      "length": 9403,
+      "sha256": "7a3d9d7e74d3667f3aa6218cf989528fd44f1abdf2aa0e15007dcd8608f62b2f"
     },
     "2026-04-18-morning": {
-      "length": 9383,
-      "sha256": "6cacb7aa6247fc827049e30707ab9e4b2d649c84ed038510442f6ca0c55b472f"
+      "length": 9391,
+      "sha256": "e4cc4a87f29709973a3104185a7607562343253a409f9b58efe3bb982e05716e"
     },
     "2026-04-18-midday": {
-      "length": 9477,
-      "sha256": "15f65e939e2ce87dca191c7ee535c4fbdd14def80c40a85ef2ffa0999b5c4989"
+      "length": 9485,
+      "sha256": "f3028e3f7c278a1f3e8dd758c3803163cacf4d45e4587099b3348699b6471c45"
     },
     "2026-04-18-afternoon": {
-      "length": 9455,
-      "sha256": "d9d62b878bf416eb5f47130236b34108b8414111bd54aca6fc1b81ae1ac1bd2a"
+      "length": 9463,
+      "sha256": "6d2c13860c0a46f081d1dad4c5c99fd4cea879a702712000e58ec272716e11c1"
     },
     "2026-04-19-morning": {
-      "length": 9336,
-      "sha256": "3e915ec584820cc0c96ceec0c2cdd12742bff6c79126a55cd604d8c239c4ebf4"
+      "length": 9344,
+      "sha256": "99eb87015ebd327006719a42541723dd5b46bca338e1f2c7a6319996241708d3"
     },
     "2026-04-19-midday": {
-      "length": 9517,
-      "sha256": "41993ba8124e6eec4d28d217404b22f76261de80a2f6793b0795a2451232d8a1"
+      "length": 9525,
+      "sha256": "6db093f874b2eec675e9c758aff0a94f72ea05e4499d12186c0b404520342592"
     },
     "2026-04-19-afternoon": {
-      "length": 9561,
-      "sha256": "03cecb2e01881514e488c51c80f798ec8e8133da1dbecdb66f5d58d6371f5ae0"
+      "length": 9569,
+      "sha256": "6adb9b6c53d58186b77469903e2f09a9cec9b97b5a161a2ce85caf3038ddd439"
     },
     "2026-04-20-morning": {
-      "length": 9442,
-      "sha256": "965a0e772ddbb24ff6a57b6182644b77e5114bfeed4c2f4dce5c4be9d7b95550"
+      "length": 9450,
+      "sha256": "d0e7563c7e78d93087fed21b54550b62785f2d7072890982e1c32b93680b161d"
     },
     "2026-04-20-midday": {
-      "length": 9447,
-      "sha256": "3f58ef1c30072a01019b8204666ca7fdfb096eb3070fd81601290b45c47ef759"
+      "length": 9455,
+      "sha256": "340385b120590b3d3e46c32c631a54b9b6a3dc5c37ad74ff923297edc36cf6c7"
     },
     "2026-04-20-afternoon": {
-      "length": 9310,
-      "sha256": "1d2acb6bc21bdae67118ed32e56b8416f492e7c616fd2496c26d1698a57a95e1"
+      "length": 9318,
+      "sha256": "8d02c3d8d6ac1fde99d24a7e4420a5629cc8a6d7b9a28c4a219b8acb92ffe8df"
     }
   },
   "status": {
@@ -1599,7 +1599,7 @@
     ],
     "home": {
       "alerts": {"innerHTML":"\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Flood Watch</strong>\n      <p>Flood Watch issued April 14 at 5:12AM EDT until April 16 at 8:00AM EDT by NWS Albany NY</p>\n      <details><summary>Details</summary><pre>* WHAT...Flooding caused by excessive rainfall and snowmelt is possible.\n\n* WHERE...Portions of southern Vermont, including Windham County.\n\n* IMPACTS...Excessive runoff may result in flooding of rivers, creeks and other low-lying and flood-prone locations.\n\nYou should monitor later forecasts and be alert for possible Flood Warnings. Those living in areas prone to flooding should be prepared to take action should flooding develop.</pre></details>\n    </div>\n    <div class=\"alert\" data-lvl=\"2\" role=\"alert\">\n      <strong>Wind Advisory</strong>\n      <p>Wind Advisory issued April 14 at 5:12AM EDT until April 16 at 6:00PM EDT by NWS Albany NY</p>\n      <details><summary>Details</summary><pre>* WHAT...West winds 15 to 25 mph with gusts up to 40 mph expected.\n\n* WHERE...Windham County.\n\nWinds this strong can blow around unsecured objects. Boats on open water should secure moorings.</pre></details>\n    </div>","textContent":"\n    \n      Flood Watch\n      Flood Watch issued April 14 at 5:12AM EDT until April 16 at 8:00AM EDT by NWS Albany NY\n      Details* WHAT...Flooding caused by excessive rainfall and snowmelt is possible.\n\n* WHERE...Portions of southern Vermont, including Windham County.\n\n* IMPACTS...Excessive runoff may result in flooding of rivers, creeks and other low-lying and flood-prone locations.\n\nYou should monitor later forecasts and be alert for possible Flood Warnings. Those living in areas prone to flooding should be prepared to take action should flooding develop.\n    \n    \n      Wind Advisory\n      Wind Advisory issued April 14 at 5:12AM EDT until April 16 at 6:00PM EDT by NWS Albany NY\n      Details* WHAT...West winds 15 to 25 mph with gusts up to 40 mph expected.\n\n* WHERE...Windham County.\n\nWinds this strong can blow around unsecured objects. Boats on open water should secure moorings.\n    ","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
-      "compass": {"innerHTML":"<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(200)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>","textContent":"NESWVTNH","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "compass": {"innerHTML":"<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-22.8\" y=\"-30.9\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"35.2\" y=\"-15.4\" text-anchor=\"middle\">NH</text><g transform=\"rotate(200)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>","textContent":"NESWVTNH","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "compassCap": {"innerHTML":"Wind from SSW. River runs SSW, upstream heading 15°.","textContent":"Wind from SSW. River runs SSW, upstream heading 15°.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "days": {"innerHTML":{"length":15493,"sha256":"6a3009a9d3ef7e6f269048685e3a8fb9c2f5468cf9030352f5a383c887be05b8"},"textContent":{"length":5968,"sha256":"d09c295af010865e08c193fe91cda3c978724a1e8792f3ca58f0d1fee95122ef"},"hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
       "facts": {"innerHTML":{"length":5079,"sha256":"508e3f8511f66feed2f17b15a8550a0a1f1394cb0963bf31b179ac80742e25c6"},"textContent":"Wind14 mph, gusts 22From SSW. Tailwind rowing upstream, headwind coming back. Chop builds along the straight. Wind against current steepens it.Water stateRough waterWind runs along the straight, with a long reach to build waves. Wind against the current steepens it. River rising fast. Watch for floating debris.Air59°FFeels like 55°F. Dew point 48°F.Water41°FNearest main-stem gauge, near Northfield, MA, about 19 mi downstream. 2 hr ago.Air plus water101°FAbove the 100 cold-water line.Visibility10+ miFog risk low now and tomorrow morning.Air qualityAQI 43Good. Fine particles 8 µg/m³. A forecast, not a measurement.River flow21,977 cfs Rising, up 26% in 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 2 hr ago.Daylight6:11 AM to 7:31 PMFirst light 5:41 AM, dark by 8:01 PM. Lights required outside sunrise to sunset.Measured at Keene12 mph SW, 56°FMostly Cloudy. Keene airport, 14 mi east. A check on the model. 2 hr ago.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},

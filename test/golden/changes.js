@@ -69,5 +69,13 @@ export const CHANGES = {
       'status.partial.notChecked.**', 'status.partialAll.notChecked.**',
       'status.noDataAll.notChecked.**', 'status.noDataForecast.notChecked.**', 'status.noDataQuiet.notChecked.**'
     ]
+  },
+  banks: {
+    why: "01 10.5 and 07 3.2: the compass bank labels sit at their offsets turned by the course heading, with the text upright. Putney's VT moves from (-30, -24) to (-22.8, -30.9) and NH from (30, -24) to (35.2, -15.4).",
+    step: 'P1.11',
+    // Every case that draws the compass: the 19 main cases and the variants with a model that draws it.
+    files: ['april-*', 'fall-back-*', 'june-calm-*', 'october-fog-*', 'v-*'],
+    // The home compass, its re-draw 90 minutes later, every full forecast, and the Day by day rows a variant has open (each holds a forecast).
+    paths: ['home.compass.innerHTML', 'later.home.compass.innerHTML', 'forecasts.*.*', 'home.days.innerHTML.*']
   }
 };
