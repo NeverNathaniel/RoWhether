@@ -1498,7 +1498,8 @@ test.describe('offline', () => {
     await page.locator('#locBtn').click();
     await expect(page.locator('#picker .pk-q')).toBeVisible();
     await expect(page.locator('#picker .pk-here')).toHaveText('Showing now');
-    await expect(page.locator('#picker .pk-group')).toHaveText(['Vermont']);
+    // The list is the built one, so it grows as locations are added: say what must be there, not all that is.
+    await expect(page.locator('#picker .pk-group', { hasText: 'Vermont' })).toHaveCount(1);
     const q = page.locator('#picker .pk-q');
     await q.fill('put');
     await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Putney Landing']);
@@ -1509,7 +1510,9 @@ test.describe('offline', () => {
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation(DOCK);
     await page.getByRole('button', { name: 'Near me' }).click();
-    await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Putney Landing']);
+    await expect(page.locator('#picker .pk-found h3')).toHaveText('Near you');
+    await expect(page.locator('#picker .pk-found .pk-name').first()).toHaveText('Putney Landing');
+    await expect(page.locator('#picker .pk-found .pk-dist').first()).toHaveText('0.1 mi');
     expect(crashed).toEqual([]);
   });
 
