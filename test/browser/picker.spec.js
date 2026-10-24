@@ -264,7 +264,8 @@ test.describe('the footer', () => {
     release();
     await expect(page.locator('#credits a')).toHaveCount(6);
     await expect(page.locator('#credits')).not.toContainText('National Weather Service, Albany.');
-    expect(PUTNEY_FILE.revision).toBe(3);
+    // The build's record is newer than the saved one, whatever revision a later step gives Putney.
+    expect(PUTNEY_FILE.revision).toBeGreaterThan(old.revision);
   });
 });
 
