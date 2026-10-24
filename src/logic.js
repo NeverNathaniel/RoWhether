@@ -33,12 +33,33 @@ export function lightAt(m, t) {
 }
 
 // ---------- River and water ----------
+// A reading taken at t may be used when the limit is blank or t is within it. A time
+// that cannot be read is not fresh (01 15.7).
+const fresh = (t, maxAgeH, now) => maxAgeH == null || now - t <= maxAgeH * HOUR;
+// The latest flow reading, which the fact shows.
 export function flowNow(m) { return m.data.river && m.data.river.flow ? m.data.river.flow.v : null; }
+// The flow Go, Caution and Stay off use: the latest reading while it is within the
+// location's maxAgeH, else null.
+export function flowForCall(m) {
+  const r = m.data.river?.flow;
+  return r && fresh(r.t, m.loc.flow?.maxAgeH, m.now) ? r.v : null;
+}
 export function waterOverridden(S) { return !isNaN(parseFloat(S.waterOverride)); }
-export function waterTemp(m) {
-  const o = parseFloat(m.S.waterOverride);
-  if (!isNaN(o)) return o;
-  return m.data.river && m.data.river.waterC ? cToF(m.data.river.waterC.v) : null;
+// Whether the location has a source for a role. An info row is shown, never used (01 4.2).
+export const bound = (m, role) => Object.values(m.loc.sources || {}).flat().some(r => r.role === role && r.mode !== 'info');
+// Where the water temperature comes from: your reading, a gauge reading within the
+// location's maxAgeH, or this month's typical value when the record has a table of them (01 11.4).
+export function waterSource(m) {
+  if (waterOverridden(m.S)) return 'you';
+  const r = m.data.river?.waterC, w = m.loc.waterTemp;
+  if (r && fresh(r.t, w.maxAgeH, m.now)) return 'gauge';
+  return w.fallback === 'monthly' && w.monthly ? 'typical' : null;
+}
+// In °F. The typical value only when forCold asks for it: steam fog never uses it.
+export function waterTemp(m, { forCold = false } = {}) {
+  const s = waterSource(m);
+  return s === 'you' ? parseFloat(m.S.waterOverride) : s === 'gauge' ? cToF(m.data.river.waterC.v)
+    : s === 'typical' && forCold ? m.loc.waterTemp.monthly[+m.fmt.dayKey(m.now).slice(5, 7) - 1] : null;
 }
 // Percent change in flow over the last 6 hours of the series, or null.
 export function flowChange(ser) {
@@ -79,7 +100,7 @@ export function windVsCourse(m, dir, speed) {
   else if (c <= -0.5) s = 'Tailwind rowing upstream, headwind coming back.';
   else s = crosswind(m.loc.banks, rel);
   if (Math.abs(c) >= 0.5 && along >= 8) s += ` Chop builds along the ${course.reachWord || 'course'}.`;
-  const f = flowNow(m);
+  const f = flowForCall(m);
   if (c <= -0.5 && along >= 8 && f != null && f >= Math.min(...againstSteps(m).map(([cfs]) => cfs))) s += ' Wind against current steepens it.';
   return s;
 }
@@ -99,7 +120,7 @@ export function chopWind(m, h) {
   const along = Math.abs(h.wind * Math.cos(rel)), cross = Math.abs(h.wind * Math.sin(rel));
   let e = along + m.loc.water.cross * cross;
   const against = Math.cos(rel) <= -0.5;
-  const f = flowNow(m), steps = againstSteps(m);
+  const f = flowForCall(m), steps = againstSteps(m);
   if (against && f != null) {
     const k = steps.find(([cfs]) => f >= cfs);
     if (k) e *= k[1];
@@ -120,9 +141,10 @@ export function waterState(m, h, prev) {
 }
 
 // True when the river rose fast enough recently to bring down debris.
+// A reading past its limit rules it out. With no reading the series speaks, as it did.
 export function debrisLikely(m) {
   const pct = flowChange(m.data.flow);
-  return pct != null && pct >= WATER.debrisRise;
+  return pct != null && pct >= WATER.debrisRise && (flowNow(m) == null || flowForCall(m) != null);
 }
 
 // One sentence on why the water is the way it is.
@@ -287,12 +309,12 @@ export function assess(m, h, lightT) {
   }
 
   if (h.temp != null && h.temp < 32) add(2, 'freeze', `Below freezing at ${m.u.temp(h.temp)}, ice on docks and oarlocks`);
-  const wt = waterTemp(m);
+  const wt = waterTemp(m, { forCold: true });
   if (wt != null && h.temp != null) {
     const sum = Math.round(h.temp + wt);
     if (sum < S.coldCombined) add(1, 'cold', `Cold water, air plus water ${m.u.tempSum(h.temp + wt)}`);
   }
-  const f = flowNow(m);
+  const f = flowForCall(m);
   if (f != null) {
     if (isSet(S.flowOff) && f >= S.flowOff) add(2, 'flow', `High water at ${m.u.flow(f, m.loc.flow?.unit)}`);
     else if (isSet(S.flowCaution) && f >= S.flowCaution) add(1, 'flow', `Elevated flow at ${m.u.flow(f, m.loc.flow?.unit)}`);
@@ -311,15 +333,43 @@ export function assess(m, h, lightT) {
 }
 export const lvlExcept = (a, keys) => a.reasons.filter(x => !keys.includes(x.key)).reduce((m, x) => Math.max(m, x.lvl), 0);
 
+// ---------- What is not checked ----------
+// The factors that could change the level and are not checked here or now (01 8.4): flow
+// where a river, tidal or canal location has no gauge, or its latest reading is past its
+// limit; alerts where there is no feed, or none that answered lately. Each is
+// { key, why: 'none' | 'old', since }, since being when the source last answered.
+export function notChecked(m) {
+  const out = [], r = m.data.river?.flow;
+  if (!bound(m, 'flow')) { if (['river', 'tidal', 'canal'].includes(m.loc.waterType)) out.push({ key: 'flow', why: 'none' }); }
+  else if (r && flowForCall(m) == null) out.push({ key: 'flow', why: 'old', since: r.t });
+  if (!bound(m, 'alerts')) out.push({ key: 'alerts', why: 'none' });
+  else if (m.stale.has('alerts')) out.push({ key: 'alerts', why: 'old', since: m.stale.get('alerts') });
+  return out;
+}
+// "Not checked here: river flow, official alerts." for the ones with no source, then a
+// sentence for each that is old. Ages under 48 hours are in hours, then in days.
+export function notCheckedText(items, now) {
+  const span = since => {
+    const h = Math.floor((now - since) / HOUR);
+    return !Number.isFinite(since) ? '' : ` for ${h < 48 ? `${h} hour${h === 1 ? '' : 's'}` : `${Math.floor(h / 24)} days`}`;
+  };
+  const none = items.filter(x => x.why === 'none').map(x => (x.key === 'flow' ? 'river flow' : 'official alerts'));
+  return [none.length && `Not checked here: ${none.join(', ')}.`, ...items.filter(x => x.why === 'old').map(x =>
+    (x.key === 'flow' ? `River flow not checked: the gauge has not reported${span(x.since)}.` : `Official alerts not checked: no answer from NWS${span(x.since)}.`))].filter(Boolean).join(' ');
+}
+
 // ---------- Model ----------
 // Build everything the UI needs from a location, raw data and settings.
 // Returns null if there is no usable forecast. units is { system, wind }; club
 // is read by a later step.
-export function buildModel(loc, data, S, now = Date.now(), { units, club } = {}) {
+export function buildModel(loc, all, S, now = Date.now(), { units, club, stale = new Map() } = {}) {
+  // A source past its limit after a failed refresh reads as missing. Alerts stay, each
+  // in force by its own end time, and the gauge's own reading time decides its use (P1.9).
+  const data = stale.size ? Object.fromEntries(Object.entries(all).filter(([k]) => !stale.has(k) || ['alerts', 'river', 'flow'].includes(k))) : all;
   const d = data.wx;
   if (!d || !d.hourly || !d.daily) return null;
   const m = {
-    loc, fmt: zoneFormat(loc.tz), u: unitFormat(units), S, data, now, sunCache: {},
+    loc, fmt: zoneFormat(loc.tz), u: unitFormat(units), S, data, now, stale, sunCache: {},
     alerts: (data.alerts || []).filter(a => a.end > now),
     hours: [], days: [], h72: [], cur: null
   };

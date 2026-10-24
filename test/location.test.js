@@ -333,7 +333,7 @@ describe('resolveLocation', () => {
   });
 
   it('takes the flow gauge label and stats from the waterway binding', () => {
-    expect(PUTNEY.flow).toMatchObject({ measure: 'discharge', unit: 'cfs', against: [[20000, 1.4], [10000, 1.25]], maxAgeH: null, staleSwitchH: 6, label: 'North Walpole' });
+    expect(PUTNEY.flow).toMatchObject({ measure: 'discharge', unit: 'cfs', against: [[20000, 1.4], [10000, 1.25]], maxAgeH: 24, staleSwitchH: 6, label: 'North Walpole' });
     expect(PUTNEY.flow.stats).toMatchObject({ days: 3939, p50: 6910, p88: 20300, p90: 21820, p95: 28010 });
   });
 
@@ -349,7 +349,7 @@ describe('resolveLocation', () => {
 
   it('fills the defaults a record leaves out', () => {
     expect(PUTNEY.fog).toEqual(FOG);
-    expect(PUTNEY.waterTemp).toEqual({ fallback: 'none', monthly: null, maxAgeH: null });
+    expect(PUTNEY.waterTemp).toEqual({ fallback: 'none', monthly: null, maxAgeH: 72 });
     expect(PUTNEY.daylight).toEqual({ dayWindow: [5, 22] });
     expect(PUTNEY.tide).toBeNull();
     expect(PUTNEY.periods).toBe(PERIODS);

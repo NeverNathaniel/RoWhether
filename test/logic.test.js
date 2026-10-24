@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { HOUR, MIN } from '../src/config.js';
 import { dayKey, localHour, lowerFirst } from '../src/format.js';
-import { precipKind, rateWord, precipSummary, buildModel, sunOn, uvWord, rowingHours, callRuns, factorRuns, worstReasons, aqiWord, confidence, confidenceText, planSessions, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity } from '../src/logic.js';
+import { precipKind, rateWord, precipSummary, buildModel, sunOn, uvWord, rowingHours, callRuns, factorRuns, worstReasons, aqiWord, confidence, confidenceText, planSessions, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity, flowNow, flowForCall, waterTemp, waterSource, waterOverridden, bound, notChecked, notCheckedText } from '../src/logic.js';
 import { parseAlerts, parseObs, alertLevel } from '../src/sources/nws.js';
 import { parseRiver, parseFlow, parseFlowDays } from '../src/sources/usgs.js';
 import { parseFlowForecast } from '../src/sources/nwps.js';
@@ -800,5 +800,288 @@ describe('a location in another zone', () => {
     const { dawn, plan } = stepFrom(PUTNEY, T0, T0 + HOUR);
     expect(dawn).toBe(Date.UTC(2026, 5, 15, 8, 36, 34, 252));
     expect(plan.start).toBe(Date.UTC(2026, 5, 15, 9, 0, 0, 0));
+  });
+});
+
+// P1.9: a reading past its limit is not used, a source past its limit after a failed
+// refresh reads as missing, and what is not checked is said (01 8.4, 15.7; 02; 08 K9).
+describe('flow and water readings past their limits', () => {
+  const H = HOUR;
+  // The river rose 60% in the last six hours, so a debris warning is due.
+  const RISING = { flow: Array.from({ length: 13 }, (_, i) => ({ t: NOON - (12 - i) * H, v: i < 7 ? 5000 : 5000 + (i - 6) * 500 })) };
+  const river = (flowAge, waterAge = 0, v = 12000) => ({ river: { flow: { v, t: NOON - flowAge * H }, waterC: { v: 20, t: NOON - waterAge * H } } });
+  const mk = (extra = {}, S = SETTINGS, loc = PUTNEY, over) => buildModel(loc, { wx: wx(over), ...RISING, ...extra }, { ...S }, NOON);
+  const withFlow = (maxAgeH, extra = {}) => resolveLocation({ ...PUTNEY_RECORD, flow: { ...PUTNEY_RECORD.flow, maxAgeH }, ...extra }, { waterway: PUTNEY_WATERWAY });
+  const reasons = m => hourAt(m, 12).a.reasons.map(r => r.key);
+
+  it('uses a flow reading 23 hours old and not one 25 hours old', () => {
+    const S = { ...SETTINGS, flowCaution: 10000 };
+    const fresh = mk(river(23), S), old = mk(river(25), S);
+    expect(PUTNEY.flow.maxAgeH).toBe(24);
+    expect(flowForCall(fresh)).toBe(12000);
+    expect(flowForCall(old)).toBeNull();
+    // The fact still shows the number.
+    expect(flowNow(old)).toBe(12000);
+    expect(reasons(fresh)).toContain('flow');
+    expect(reasons(old)).not.toContain('flow');
+    expect(old.cur.a.reasons.map(r => r.key)).not.toContain('flow');
+  });
+
+  it('takes the limit as inclusive, to the millisecond', () => {
+    const at = ms => mk({ river: { flow: { v: 12000, t: NOON - 24 * H - ms }, waterC: { v: 20, t: NOON } } });
+    expect(flowForCall(at(0))).toBe(12000);
+    expect(flowForCall(at(1))).toBeNull();
+  });
+
+  it('gives no debris warning from a reading past its limit', () => {
+    expect(debrisLikely(mk(river(23)))).toBe(true);
+    expect(debrisLikely(mk(river(25)))).toBe(false);
+    // With no reading at all the series speaks, as it did before the limit existed.
+    expect(debrisLikely(mk({ river: {} }))).toBe(true);
+    expect(debrisLikely(mk({ river: undefined }))).toBe(true);
+  });
+
+  it('gives no wind against the current text or multiplier from a reading past its limit', () => {
+    const wind = { wind: 10, dir: 195 };
+    const fresh = mk(river(23)), old = mk(river(25));
+    expect(windVsCourse(fresh, 195, 10)).toContain('Wind against current steepens it.');
+    expect(windVsCourse(old, 195, 10)).not.toContain('against current');
+    expect(chopWind(fresh, wind)).toMatchObject({ e: 12.5, against: true });
+    expect(chopWind(old, wind)).toMatchObject({ e: 10, against: false });
+  });
+
+  it('uses any age when the location sets no limit, and a time that cannot be read only then', () => {
+    const none = withFlow(null);
+    expect(flowForCall(mk(river(400), SETTINGS, none))).toBe(12000);
+    expect(flowForCall(mk({ river: { flow: { v: 12000 }, waterC: { v: 20, t: NOON } } }, SETTINGS, none))).toBe(12000);
+    expect(flowForCall(mk({ river: { flow: { v: 12000, t: NaN }, waterC: { v: 20, t: NOON } } }))).toBeNull();
+    expect(flowForCall(mk({ river: { flow: { v: 12000 }, waterC: { v: 20, t: NOON } } }))).toBeNull();
+  });
+
+  it('has no flow for a location with no flow record, and no reading means none', () => {
+    const bay = resolveLocation({ ...PUTNEY_RECORD, slug: 'bay-q', flow: null }, { waterway: PUTNEY_WATERWAY });
+    expect(flowForCall(mk(river(0), SETTINGS, bay))).toBe(12000);
+    expect(flowForCall(mk({ river: {} }))).toBeNull();
+  });
+
+  it('uses a gauge water temperature 71 hours old and not one 73 hours old', () => {
+    expect(PUTNEY.waterTemp.maxAgeH).toBe(72);
+    const fresh = mk(river(0, 71)), old = mk(river(0, 73));
+    expect(waterTemp(fresh)).toBe(68);
+    expect(waterSource(fresh)).toBe('gauge');
+    expect(waterTemp(old)).toBeNull();
+    expect(waterTemp(old, { forCold: true })).toBeNull();
+    expect(waterSource(old)).toBeNull();
+    // The cold check follows: 31 + 68 is under the 100 line, and with no water there is no check.
+    const air = { temp: 31 };
+    expect(hourAt(mk(river(0, 71), SETTINGS, PUTNEY, () => air), 12).a.reasons.map(r => r.key)).toContain('cold');
+    expect(hourAt(mk(river(0, 73), SETTINGS, PUTNEY, () => air), 12).a.reasons.map(r => r.key)).not.toContain('cold');
+  });
+
+  it("puts the dock reading ahead of a gauge, old or not", () => {
+    const m = mk(river(0, 200), { ...SETTINGS, waterOverride: '55' });
+    expect(waterOverridden(m.S)).toBe(true);
+    expect(waterTemp(m)).toBe(55);
+    expect(waterSource(m)).toBe('you');
+    expect(waterTemp(mk(river(0, 0), { ...SETTINGS, waterOverride: '55' }))).toBe(55);
+  });
+
+  describe('the monthly typical value', () => {
+    // 12 values, January to December. June is the sixth, 61°F.
+    const monthly = [34, 34, 38, 45, 54, 61, 68, 70, 65, 55, 45, 37];
+    const typical = resolveLocation({ ...PUTNEY_RECORD, slug: 'bay-t', waterTemp: { fallback: 'monthly', monthly, maxAgeH: 72 } }, { waterway: PUTNEY_WATERWAY });
+    const none = { river: { flow: { v: 6000, t: NOON } } };
+
+    it('is used for the cold check only, and named', () => {
+      const m = mk(none, SETTINGS, typical);
+      expect(waterSource(m)).toBe('typical');
+      expect(waterTemp(m)).toBeNull();
+      expect(waterTemp(m, { forCold: true })).toBe(61);
+    });
+
+    it('reads the month in the location zone, not the viewer', () => {
+      // Midnight Eastern on 1 July is 04:00 UTC, still 30 June in UTC-4 hours before: 2026-07-01 00:30 EDT.
+      const july = buildModel(typical, { wx: wx(() => ({}), 3, Date.UTC(2026, 6, 1, 4)), ...none }, { ...SETTINGS }, Date.UTC(2026, 6, 1, 4, 30));
+      expect(waterTemp(july, { forCold: true })).toBe(68);
+      const june = buildModel(typical, { wx: wx(() => ({}), 3, Date.UTC(2026, 5, 30, 4)), ...none }, { ...SETTINGS }, Date.UTC(2026, 6, 1, 3, 30));
+      expect(waterTemp(june, { forCold: true })).toBe(61);
+    });
+
+    it('feeds the cold reason', () => {
+      // 40°F air and 61°F water is 101 on a 105 line.
+      const m = mk(none, { ...SETTINGS, coldCombined: 105 }, typical, () => ({ temp: 40 }));
+      expect(hourAt(m, 12).a.reasons.find(r => r.key === 'cold')).toMatchObject({ lvl: 1 });
+      const off = mk(none, { ...SETTINGS, coldCombined: 100 }, typical, () => ({ temp: 40 }));
+      expect(hourAt(off, 12).a.reasons.map(r => r.key)).not.toContain('cold');
+    });
+
+    it('never feeds steam fog', () => {
+      // 40°F air over a typical 61°F is 21° colder, which would be likely steam fog with a live reading.
+      const air = (i, t) => (localHour(t) <= 10 ? { temp: 40, dew: 38, wind: 3, cloud: 100 } : {});
+      const m = mk(none, SETTINGS, typical, air);
+      expect(fogRisk(m, hourAt(m, 6)).type).not.toBe('steam');
+      const live = mk({ river: { flow: { v: 6000, t: NOON }, waterC: { v: 16, t: NOON } } }, SETTINGS, typical, air);
+      expect(fogRisk(live, hourAt(live, 6))).toMatchObject({ risk: 2, type: 'steam' });
+    });
+
+    it('gives way to a gauge reading, and to the dock reading', () => {
+      expect(waterSource(mk(river(0, 1), SETTINGS, typical))).toBe('gauge');
+      expect(waterTemp(mk(river(0, 1), SETTINGS, typical), { forCold: true })).toBe(68);
+      expect(waterSource(mk(none, { ...SETTINGS, waterOverride: '50' }, typical))).toBe('you');
+    });
+
+    it('is not used when the record says there is none', () => {
+      const m = mk(none, SETTINGS, resolveLocation({ ...PUTNEY_RECORD, slug: 'bay-u', waterTemp: { fallback: 'none', maxAgeH: 72 } }, { waterway: PUTNEY_WATERWAY }));
+      expect(waterSource(m)).toBeNull();
+      expect(waterTemp(m, { forCold: true })).toBeNull();
+    });
+  });
+});
+
+describe('a source past its limit after a failed refresh', () => {
+  const alert = { event: 'Wind Advisory', headline: '', desc: '', instr: '', start: NOON - HOUR, end: NOON + 6 * HOUR, lvl: 2 };
+  const all = { alerts: [alert], obs: { t: NOON - HOUR, tempF: 70, wind: 3, gust: 5, dir: 200, text: 'Clear' }, aq: [{ t: NOON, aqi: 80, pm25: 10 }],
+    models: { ids: ['a'], hours: [{ t: NOON, wind: [4], precip: [0] }] }, flowDays: [{ t: NOON - 24 * HOUR, v: 5000 }], flowFcst: { issued: NOON, pts: [{ t: NOON, v: 6000 }] },
+    flow: [{ t: NOON, v: 6000 }], river: RIVER };
+  const mk = stale => buildModel(PUTNEY, { wx: wx(), ...all }, { ...SETTINGS }, NOON, { stale: new Map(stale) });
+
+  it('is no model when the forecast is past its limit', () => {
+    expect(mk([['wx', NOON - 30 * HOUR]])).toBeNull();
+  });
+
+  it('drops observations, air quality, models, the daily means and the river forecast', () => {
+    const m = mk([['obs', 1], ['aq', 1], ['models', 1], ['flowDays', 1], ['flowFcst', 1]]);
+    for (const k of ['obs', 'aq', 'models', 'flowDays', 'flowFcst']) expect(m.data[k], k).toBeUndefined();
+    expect(m.hours.every(h => h.aqi === null && h.ens === null)).toBe(true);
+    // What was not named stays.
+    expect(m.data.alerts).toBe(all.alerts);
+    expect(m.data.river).toBe(all.river);
+  });
+
+  it('keeps alerts that are still in force by their own end time, and the gauge', () => {
+    const m = mk([['alerts', NOON - 2 * HOUR], ['river', NOON - 30 * HOUR], ['flow', NOON - 30 * HOUR]]);
+    expect(m.alerts).toEqual([alert]);
+    expect(hourAt(m, 12).a.reasons.map(r => r.key)).toContain('alert');
+    expect(m.data.river).toBe(all.river);
+    expect(m.data.flow).toBe(all.flow);
+    // An alert past its own end time is not in force, stale or not.
+    const over = buildModel(PUTNEY, { wx: wx(), alerts: [{ ...alert, end: NOON - 1 }] }, { ...SETTINGS }, NOON, { stale: new Map([['alerts', 0]]) });
+    expect(over.alerts).toEqual([]);
+  });
+
+  it('draws the whole saved copy when nothing is named, with no staleness argument at all', () => {
+    const none = buildModel(PUTNEY, { wx: wx(), ...all }, { ...SETTINGS }, NOON);
+    expect(none.data.obs).toBe(all.obs);
+    expect(none.stale.size).toBe(0);
+    expect(buildModel(PUTNEY, { wx: wx(), ...all }, { ...SETTINGS }, NOON, { stale: new Map() }).data.obs).toBe(all.obs);
+  });
+
+  it('does not change the data it was given', () => {
+    const data = { wx: wx(), ...all }, keys = Object.keys(data);
+    buildModel(PUTNEY, data, { ...SETTINGS }, NOON, { stale: new Map([['obs', 1], ['aq', 1]]) });
+    expect(Object.keys(data)).toEqual(keys);
+  });
+});
+
+describe('what is not checked', () => {
+  const H = HOUR;
+  const mk = (loc, extra = {}, stale) => buildModel(loc, { wx: wx(), river: RIVER, alerts: [], ...extra }, effectiveSettings(loc), NOON, { stale: new Map(stale) });
+  const make = (slug, record, waterway = PUTNEY_WATERWAY) => resolveLocation({ ...PUTNEY_RECORD, slug, ...record }, { waterway });
+  const noAlerts = PUTNEY_RECORD.sources.filter(s => s.role !== 'alerts');
+
+  it('is empty for Putney while its sources answer', () => {
+    expect(notChecked(mk(PUTNEY))).toEqual([]);
+    expect(notCheckedText([], NOON)).toBe('');
+  });
+
+  it('says the flow is not checked at a river, a tidal river or a canal with no gauge', () => {
+    for (const waterType of ['river', 'tidal', 'canal']) {
+      const loc = make(`w-${waterType}`, { waterType, flow: null }, null);
+      expect(notChecked(mk(loc)), waterType).toEqual([{ key: 'flow', why: 'none' }]);
+    }
+  });
+
+  it('says nothing about flow on a lake, a reservoir or a harbor', () => {
+    for (const waterType of ['lake', 'reservoir', 'harbor']) {
+      const loc = make(`w-${waterType}`, { waterType, flow: null, water: undefined }, null);
+      expect(notChecked(mk(loc)).filter(x => x.key === 'flow'), waterType).toEqual([]);
+    }
+  });
+
+  it('reads a flow row that is only information as no gauge', () => {
+    const info = { ...PUTNEY_WATERWAY, sources: PUTNEY_WATERWAY.sources.map(s => (s.role === 'flow' ? { ...s, mode: 'info' } : s)) };
+    expect(bound(mk(make('w-info', {}, info)), 'flow')).toBe(false);
+    expect(notChecked(mk(make('w-info', {}, info)))).toEqual([{ key: 'flow', why: 'none' }]);
+    expect(bound(mk(PUTNEY), 'flow')).toBe(true);
+    expect(bound(mk(PUTNEY), 'water_temp')).toBe(true);
+    expect(bound(mk(PUTNEY), 'tide')).toBe(false);
+  });
+
+  it('says the alerts are not checked where there is no feed', () => {
+    const loc = make('w-noalerts', { sources: noAlerts });
+    expect(notChecked(mk(loc))).toEqual([{ key: 'alerts', why: 'none' }]);
+  });
+
+  it('lists the flow, then the alerts, when neither has a source', () => {
+    const loc = make('w-nothing', { flow: null, sources: noAlerts }, null);
+    expect(notChecked(mk(loc)).map(x => `${x.key}/${x.why}`)).toEqual(['flow/none', 'alerts/none']);
+  });
+
+  it('says the flow is not checked once the latest reading is past its limit, and when it was taken', () => {
+    const m = mk(PUTNEY, { river: { flow: { v: 6000, t: NOON - 25 * H }, waterC: { v: 20, t: NOON } } });
+    expect(notChecked(m)).toEqual([{ key: 'flow', why: 'old', since: NOON - 25 * H }]);
+    expect(notChecked(mk(PUTNEY, { river: { flow: { v: 6000, t: NOON - 24 * H }, waterC: { v: 20, t: NOON } } }))).toEqual([]);
+  });
+
+  it('says nothing about a gauge that gave no reading: that is a failure, named elsewhere', () => {
+    expect(notChecked(mk(PUTNEY, { river: {} }))).toEqual([]);
+    expect(notChecked(mk(PUTNEY, { river: undefined }))).toEqual([]);
+  });
+
+  it('says the alerts are not checked when that slot is past its limit, and when they last answered', () => {
+    expect(notChecked(mk(PUTNEY, {}, [['alerts', NOON - 2 * H]]))).toEqual([{ key: 'alerts', why: 'old', since: NOON - 2 * H }]);
+    expect(notChecked(mk(PUTNEY, {}, [['alerts', null]]))).toEqual([{ key: 'alerts', why: 'old', since: null }]);
+    // A source that is not alerts does not count.
+    expect(notChecked(mk(PUTNEY, {}, [['obs', NOON - 5 * H]]))).toEqual([]);
+  });
+
+  it('says the alerts are not checked here, not old, when the location has no feed and the slot is named', () => {
+    const loc = make('w-noalerts2', { sources: noAlerts });
+    expect(notChecked(mk(loc, {}, [['alerts', 1]])).map(x => x.why)).toEqual(['none']);
+  });
+
+  describe('as words', () => {
+    const t = (...items) => notCheckedText(items, NOON);
+    it('puts the sources that are not here in one sentence', () => {
+      expect(t({ key: 'flow', why: 'none' }, { key: 'alerts', why: 'none' })).toBe('Not checked here: river flow, official alerts.');
+      expect(t({ key: 'flow', why: 'none' })).toBe('Not checked here: river flow.');
+      expect(t({ key: 'alerts', why: 'none' })).toBe('Not checked here: official alerts.');
+    });
+
+    it('says how long the gauge has not reported, in hours under 48 and then in days', () => {
+      const flow = h => t({ key: 'flow', why: 'old', since: NOON - h * H });
+      expect(flow(25)).toBe('River flow not checked: the gauge has not reported for 25 hours.');
+      expect(flow(47.9)).toBe('River flow not checked: the gauge has not reported for 47 hours.');
+      expect(flow(48)).toBe('River flow not checked: the gauge has not reported for 2 days.');
+      expect(flow(60)).toBe('River flow not checked: the gauge has not reported for 2 days.');
+      expect(flow(72)).toBe('River flow not checked: the gauge has not reported for 3 days.');
+      expect(flow(1)).toBe('River flow not checked: the gauge has not reported for 1 hour.');
+    });
+
+    it('says how long NWS has not answered', () => {
+      expect(t({ key: 'alerts', why: 'old', since: NOON - 2 * H })).toBe('Official alerts not checked: no answer from NWS for 2 hours.');
+      expect(t({ key: 'alerts', why: 'old', since: NOON - 1.5 * H })).toBe('Official alerts not checked: no answer from NWS for 1 hour.');
+    });
+
+    it('leaves out the age when it is not known', () => {
+      expect(t({ key: 'alerts', why: 'old', since: null })).toBe('Official alerts not checked: no answer from NWS.');
+      expect(t({ key: 'flow', why: 'old', since: NaN })).toBe('River flow not checked: the gauge has not reported.');
+      expect(t({ key: 'flow', why: 'old' })).toBe('River flow not checked: the gauge has not reported.');
+    });
+
+    it('gives each old source its own sentence, after the ones that are not here', () => {
+      expect(t({ key: 'flow', why: 'old', since: NOON - 50 * H }, { key: 'alerts', why: 'none' }, { key: 'alerts', why: 'old', since: NOON - 3 * H }))
+        .toBe('Not checked here: official alerts. River flow not checked: the gauge has not reported for 2 days. Official alerts not checked: no answer from NWS for 3 hours.');
+    });
   });
 });

@@ -36,12 +36,12 @@
     "measure": "discharge",
     "unit": "cfs",
     "against": [[20000, 1.4], [10000, 1.25]],
-    "maxAgeH": null,
+    "maxAgeH": 24,
     "staleSwitchH": 6
   },
   "water": { "mode": "river", "cross": 0.4 },
   "fog": null,
-  "waterTemp": { "fallback": "none", "maxAgeH": null },
+  "waterTemp": { "fallback": "none", "maxAgeH": 72 },
   "tide": null,
   "daylight": null,
   "copy": {
@@ -53,7 +53,7 @@
   "launchNotes": null,
   "status": "verified",
   "verifiedVia": "owner",
-  "revision": 4,
+  "revision": 5,
   "sources": [
     {
       "role": "alerts", "adapter": "nws-alerts", "ref": "zones:VTZ015,VTC025,NHZ011,NHC005", "label": "NWS"
