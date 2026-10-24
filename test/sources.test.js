@@ -480,6 +480,20 @@ describe('the parsers', () => {
       expect(noon('2026-04-05', 'Pacific/Auckland')).toBe('2026-04-05T00:00:00.000Z');
     });
 
+    it('read 12:00 on the clock of every zone Intl knows, on every day of 2026', () => {
+      // The check reads the zone's own clock with a second formatter, not the offset the parser reads.
+      const days = Array.from({ length: 365 }, (_, i) => new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10));
+      const zones = Intl.supportedValuesOf('timeZone');
+      expect(zones.length).toBeGreaterThan(300);
+      for (const tz of zones) {
+        const clock = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+        const got = usgs.parseFlowDays({ features: days.map(time => day(time)) }, { params: { tz } });
+        const bad = got.map(p => clock.format(p.t).replace(',', '')).filter((text, i) => text !== `${days[i]} 12:00`);
+        expect(got, tz).toHaveLength(365);
+        expect(bad.slice(0, 3), tz).toEqual([]);
+      }
+    });
+
     it('read the recorded answer across the fall back of 2025, in Eastern time', () => {
       // USGS-01154500, 2025-10-25 to 2025-11-08, as the daily request of the binding gets it, recorded
       // 2026-10-24: the fall back before the recording, since this year's was still ahead.
