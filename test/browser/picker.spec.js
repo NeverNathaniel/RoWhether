@@ -1150,16 +1150,6 @@ test.describe('the town search', () => {
     return page.locator('#picker .pk-q');
   };
 
-  test('waits for a pause in the typing, then asks once with the whole text', async ({ page }) => {
-    const asks = townAsks(page);
-    const q = await open(page);
-    await q.pressSequentially('worcester', { delay: 90 }); // each key is well inside the pause: it starts again
-    expect(asks.names, 'nothing while the keys are still coming').toEqual([]);
-    await expect.poll(() => asks.names).toEqual(['worcester']);
-    await page.waitForTimeout(500);
-    expect(asks.names).toEqual(['worcester']);
-  });
-
   test('lists up to 5 places as "<name>, <admin1>, <country>" under the matches, and the matches stay', async ({ page }) => {
     const q = await open(page);
     await q.fill('worcester');
@@ -1331,6 +1321,28 @@ test.describe('the town search with the clock held', () => {
   test.beforeEach(async ({ page }) => {
     await routeAll(page, scenario, clock);
     await serve(page, { index: INDEX, ...FILES });
+  });
+
+  // Each key starts the pause again. With the clock held, a slow machine cannot end a pause between two keys.
+  test('waits for a pause in the typing, then asks once with the whole text', async ({ page }) => {
+    const asks = townAsks(page);
+    await stillClock(page);
+    await page.locator('#locBtn').click();
+    const q = page.locator('#picker .pk-q');
+    for (const key of 'worcester') {
+      await q.press(key);
+      await page.clock.runFor(250); // well inside the pause
+    }
+    await settle(page);
+    expect(asks.names, 'nothing while the keys are still coming').toEqual([]);
+    await page.clock.runFor(49);
+    await settle(page);
+    expect(asks.names, '299 ms after the last key is not a pause yet').toEqual([]);
+    await page.clock.runFor(1);
+    await expect.poll(() => asks.names).toEqual(['worcester']);
+    await page.clock.runFor(2000);
+    await settle(page);
+    expect(asks.names).toEqual(['worcester']);
   });
 
   test('asks at the end of the pause, not before, and an Enter asks at once and cancels the pause', async ({ page }) => {
