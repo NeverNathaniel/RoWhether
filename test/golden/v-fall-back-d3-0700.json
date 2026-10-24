@@ -51,7 +51,7 @@
     "bytes": 9252
   },
   "parsers": {
-    "sha256": "743c7d5202b4b8025585f83c6ec95d0760d412ffd4773276da2683f726ae5b36",
+    "sha256": "59aeb1097401d3e5de02e81971e7ab4789fa522acd4ca4899e033d3b36adbefe",
     "bytes": 21908
   },
   "views": {
@@ -65,7 +65,7 @@
     },
     "river": {
       "summary": {"text":"5,291 cfs now. Forecast to ease to about 4,300 cfs by Fri 7 AM.","lvl":0},
-      "days": {"null":{"day":null,"length":32415,"sha256":"4e1f6b9917c93e83b331d9a327f5aff62b87f2f6dee01a21150778587740914c"}}
+      "days": {"null":{"day":null,"length":32387,"sha256":"d8adbfa8732350dc9fb5ba14b1dc46eb411c7fa2f231b5bfaf08cd86cecab506"}}
     },
     "storms": {
       "summary": {"text":"No thunderstorm risk in the next 3 days.","lvl":0},

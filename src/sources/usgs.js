@@ -27,11 +27,30 @@ export function parseFlow(d) {
     .sort((a, b) => a.t - b.t);
 }
 
-// Daily mean flow. Dates are local days; each point sits at noon Eastern
-// (16:00 UTC is noon EDT, 11 AM EST, close enough for a daily point).
-export function parseFlowDays(d) {
-  return (d.features || [])
-    .map(f => ({ t: Date.parse(`${f.properties.time}T16:00:00Z`), v: parseFloat(f.properties.value) }))
+// The zone's offset from UTC at a time, in ms, read from its own name for it
+// ("GMT-04:00"; plain "GMT" is none).
+const offsetIn = tz => {
+  const f = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' });
+  return t => {
+    const m = /([+\-\u2212])(\d\d):(\d\d)/.exec(f.formatToParts(t).find(p => p.type === 'timeZoneName').value);
+    return m ? (m[1] === '+' ? 1 : -1) * (m[2] * 60 + +m[3]) * 6e4 : 0;
+  };
+};
+
+// Daily mean flow. Dates are local days in the gauge's zone, which the binding names
+// (`params.tz`: the flow row's, else the location's); each point sits at local noon.
+// The zone's offset is read at 12:00 UTC that day, then again at the first answer, so a
+// day the clocks change is right in a zone east of UTC as well as west. There is no
+// default zone: Intl would take the device's.
+export function parseFlowDays(d, b) {
+  const features = d.features || [], tz = b?.params?.tz;
+  if (features.length && !tz) throw new Error('parseFlowDays needs a time zone.');
+  const off = features.length && offsetIn(tz);
+  return features
+    .map(f => {
+      const t0 = Date.parse(`${f.properties.time}T12:00:00Z`);
+      return { t: isNaN(t0) ? NaN : t0 - off(t0 - off(t0)), v: parseFloat(f.properties.value) };
+    })
     .filter(x => !isNaN(x.t) && !isNaN(x.v))
     .sort((a, b) => a.t - b.t);
 }
@@ -39,6 +58,8 @@ export function parseFlowDays(d) {
 // One flow row (the waterway's gauge) serves the latest value, the 48 hour
 // series and the daily means; `river` also reads the water temperature row.
 const flowId = rows => ({ id: rows[0].ref });
+// The daily means also need the zone the gauge's days are in.
+const dayId = (rows, loc) => ({ ...flowId(rows), tz: rows[0].tz || loc.tz });
 
 export const latest = {
   key: 'usgs-latest', slot: 'river', regions: ['US'], via: 'browser', hosts: [HOST],
@@ -67,7 +88,7 @@ export const recent = {
 export const daily = {
   key: 'usgs-daily', slot: 'flowDays', regions: ['US'], via: 'browser', hosts: [HOST],
   refreshMs: null, staleMs: null,
-  bind: flowId,
+  bind: dayId,
   url: b => `${USGS_OGC}/collections/daily/items?monitoring_location_id=${b.params.id}&parameter_code=${Q}&statistic_id=00003&time=P30D&limit=100&properties=time,value&f=json`,
   parse: parseFlowDays,
   label: () => 'USGS daily flow'

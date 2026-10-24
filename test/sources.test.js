@@ -68,7 +68,7 @@ describe('bindingsFor(PUTNEY)', () => {
   it("reads each slot's options from the stored rows", () => {
     expect(bs.map(b => b.params)).toEqual([
       {}, { zones: 'VTZ015,VTC025,NHZ011,NHC005', lat: 42.9607, lon: -72.5219 }, { station: 'KEEN' }, { flow: 'USGS-01154500', temp: 'USGS-01161280' },
-      { id: 'USGS-01154500' }, { id: 'USGS-01154500' }, { lid: 'WLPN3' }, {}, { models: MODELS.map(x => x.id) }
+      { id: 'USGS-01154500' }, { id: 'USGS-01154500', tz: 'America/New_York' }, { lid: 'WLPN3' }, {}, { models: MODELS.map(x => x.id) }
     ]);
     expect(by(bs, 'obs')).toMatchObject({ label: 'Keene' });
     expect(by(bs, 'wx')).toMatchObject({ label: null });
@@ -179,7 +179,7 @@ describe('a location with other sources', () => {
     expect(by(bs, 'obs')).toMatchObject({ params: { station: 'KEEN' }, label: 'Keene', url: 'https://api.weather.gov/stations/KEEN/observations/latest' });
     expect(by(bs, 'river').params).toEqual({ flow: 'USGS-01154500', temp: 'USGS-01161280' });
     expect(by(bs, 'flow')).toMatchObject({ params: { id: 'USGS-01154500' }, label: 'North Walpole' });
-    expect(by(bs, 'flowDays').params).toEqual({ id: 'USGS-01154500' });
+    expect(by(bs, 'flowDays').params).toEqual({ id: 'USGS-01154500', tz: 'America/New_York' });
     expect(by(bs, 'flowFcst')).toMatchObject({ params: { lid: 'WLPN3' }, url: 'https://api.water.noaa.gov/nwps/v1/gauges/WLPN3/stageflow/forecast' });
     expect(bs.map(b => b.url).join('\n')).not.toMatch(/EGLL|02KF005|ZZZ1/);
   });
@@ -448,6 +448,82 @@ describe('the parsers', () => {
     // A location with no temperature gauge takes no temperature, even from a reading with no gauge id.
     const noTemp = { features: [at('USGS-1', '00060', '5'), f({ parameter_code: '00010', value: '4' })] };
     expect(usgs.parseRiver(noTemp, { params: { flow: 'USGS-1' } })).toEqual({ flow: { v: 5, t } });
+  });
+
+  // Daily means sit at noon of the day in the gauge's zone, which the binding names (P1.8).
+  describe('the daily means', () => {
+    const day = (time, value = '100') => ({ properties: { time, value } });
+    const noon = (date, tz) => new Date(usgs.parseFlowDays({ features: [day(date)] }, { params: { tz } })[0].t).toISOString();
+
+    it('place a day at noon in the zone, with the clocks as they are on that day', () => {
+      expect(noon('2026-07-01', 'America/New_York')).toBe('2026-07-01T16:00:00.000Z');
+      expect(noon('2026-12-01', 'America/New_York')).toBe('2026-12-01T17:00:00.000Z');
+      expect(noon('2026-07-01', 'America/Los_Angeles')).toBe('2026-07-01T19:00:00.000Z');
+      expect(noon('2026-12-01', 'America/Los_Angeles')).toBe('2026-12-01T20:00:00.000Z');
+      expect(noon('2026-07-01', 'Europe/London')).toBe('2026-07-01T11:00:00.000Z');
+      expect(noon('2026-12-01', 'Europe/London')).toBe('2026-12-01T12:00:00.000Z');
+      // A zone off the hour, and one with no change of clocks.
+      expect(noon('2026-07-01', 'Asia/Kolkata')).toBe('2026-07-01T06:30:00.000Z');
+      expect(noon('2026-07-01', 'UTC')).toBe('2026-07-01T12:00:00.000Z');
+    });
+
+    it('are right on the days the clocks change, west and east of UTC', () => {
+      // New York: forward on 2026-03-08 and back on 2026-11-01, both at 2 AM, so noon is already on the new clock.
+      expect(noon('2026-03-07', 'America/New_York')).toBe('2026-03-07T17:00:00.000Z');
+      expect(noon('2026-03-08', 'America/New_York')).toBe('2026-03-08T16:00:00.000Z');
+      expect(noon('2026-10-31', 'America/New_York')).toBe('2026-10-31T16:00:00.000Z');
+      expect(noon('2026-11-01', 'America/New_York')).toBe('2026-11-01T17:00:00.000Z');
+      // Auckland is 13 hours ahead in summer, so noon of 2026-09-27 (the clocks go forward at 2 AM that day) is the evening before in UTC.
+      expect(noon('2026-09-26', 'Pacific/Auckland')).toBe('2026-09-26T00:00:00.000Z');
+      expect(noon('2026-09-27', 'Pacific/Auckland')).toBe('2026-09-26T23:00:00.000Z');
+      expect(noon('2026-04-04', 'Pacific/Auckland')).toBe('2026-04-03T23:00:00.000Z');
+      expect(noon('2026-04-05', 'Pacific/Auckland')).toBe('2026-04-05T00:00:00.000Z');
+    });
+
+    it('read the recorded answer across the fall back of 2025, in Eastern time', () => {
+      // USGS-01154500, 2025-10-25 to 2025-11-08, as the daily request of the binding gets it, recorded
+      // 2026-10-24: the fall back before the recording, since this year's was still ahead.
+      const got = by(bindingsFor(PUTNEY), 'flowDays').parse(recorded('flowdays-est'));
+      const days = Array.from({ length: 15 }, (_, i) => new Date(Date.UTC(2025, 9, 25 + i)).toISOString().slice(0, 10));
+      expect(days[0]).toBe('2025-10-25');
+      expect(days.at(-1)).toBe('2025-11-08');
+      // Eastern daylight time to 2 AM on 2025-11-02, Eastern standard after it: noon is 16:00 UTC, then 17:00 UTC.
+      expect(got.map(p => new Date(p.t).toISOString())).toEqual(days.map(date => `${date}T${date < '2025-11-02' ? 16 : 17}:00:00.000Z`));
+      expect(got.every(p => Number.isFinite(p.v))).toBe(true);
+    });
+
+    it('drop a day that is not a date or has no value, and sort the rest', () => {
+      const got = usgs.parseFlowDays({ features: [day('2026-04-12', '9000'), day('2026-04-10', '8000'), day('2026-04-11', null), day('nope', '1'), day('2026-04-13', 'Eqp'), { properties: {} }] }, { params: { tz: 'America/New_York' } });
+      expect(got.map(p => p.v)).toEqual([8000, 9000]);
+      expect(got.map(p => new Date(p.t).toISOString())).toEqual(['2026-04-10T16:00:00.000Z', '2026-04-12T16:00:00.000Z']);
+    });
+
+    it('need a zone to place a day, and have none of their own', () => {
+      for (const b of [undefined, {}, { params: {} }, { params: { tz: '' } }]) {
+        expect(() => usgs.parseFlowDays({ features: [day('2026-04-12')] }, b), JSON.stringify(b)).toThrow('needs a time zone');
+        // With nothing to place there is nothing to say.
+        expect(usgs.parseFlowDays({}, b)).toEqual([]);
+        expect(usgs.parseFlowDays({ features: [] }, b)).toEqual([]);
+      }
+    });
+
+    it('take the zone of the flow row, and the location\'s when the row has none', () => {
+      expect(by(bindingsFor(PUTNEY), 'flowDays').params.tz).toBe('America/New_York');
+      const waterway = clone(PUTNEY_WATERWAY);
+      waterway.sources[0].tz = 'America/Chicago';
+      expect(by(bindingsFor(locOf(() => {}, waterway)), 'flowDays').params.tz).toBe('America/Chicago');
+      delete waterway.sources[0].tz;
+      expect(by(bindingsFor(locOf(r => { r.tz = 'America/Los_Angeles'; }, waterway)), 'flowDays').params.tz).toBe('America/Los_Angeles');
+      // The 48 hour series has no day to place, so its binding has no zone.
+      expect(by(bindingsFor(PUTNEY), 'flow').params).toEqual({ id: 'USGS-01154500' });
+    });
+
+    it('place the days of a location by its binding, whatever zone the machine is in', () => {
+      const waterway = clone(PUTNEY_WATERWAY);
+      waterway.sources[0].tz = 'America/Los_Angeles';
+      const b = by(bindingsFor(locOf(() => {}, waterway)), 'flowDays');
+      expect(new Date(b.parse({ features: [day('2026-07-01')] })[0].t).toISOString()).toBe('2026-07-01T19:00:00.000Z');
+    });
   });
 
   // USGS-01646500 lists five series of water temperature, and four of them ended in 2019.

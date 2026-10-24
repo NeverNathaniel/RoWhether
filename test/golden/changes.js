@@ -51,5 +51,12 @@ export const CHANGES = {
     files: ['april-*', 'fall-back-*', 'june-calm-*', 'october-fog-*'],
     // river (latest), flow (48 hours) and flowDays (daily means).
     paths: ['sources.3.1', 'sources.4.1', 'sources.5.1']
+  },
+  'flowdays-noon': {
+    why: "01 15.2 and 08 K11: a daily mean sits at noon of the day in the gauge's zone, in place of 16:00 UTC. A date outside daylight saving time moves from 16:00 to 17:00 UTC.",
+    step: 'P1.8',
+    // The cases with a daily mean dated in winter time: the spring variants (February and early March) and the fall back variant whose days reach 2026-11-01.
+    files: ['v-spring-*', 'v-fall-back-*'],
+    paths: ['parsers.flowDays.**', 'views.river.**']
   }
 };
