@@ -761,6 +761,51 @@ test.describe('an address with no location', () => {
   });
 });
 
+// The page for no location is drawn again while an earlier draw is still waiting for the list of
+// locations (a slow connection: Try again, or Back between two addresses). The newer draw is the
+// page, and the earlier one is dropped when it answers, not drawn beside it.
+test.describe('the page for no location drawn again before the list arrives', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+    await routeAll(page, scenario, clock);
+  });
+  // The list is held until release(). waiting() counts the requests held, answers() those answered.
+  async function holdList(page) {
+    const held = []; let answered = 0;
+    page.on('response', r => { if (r.url().endsWith('/locations/index.json')) answered++; });
+    await page.route('**/locations/index.json', async route => { await new Promise(done => held.push(done)); await route.fallback(); });
+    return { waiting: () => held.length, answers: () => answered, release: () => held.forEach(done => done()) };
+  }
+
+  test('Try again on a location that did not load, with the first search still waiting, leaves one search box', async ({ page }) => {
+    await page.route('**/locations/lake-broken.json', route => route.abort('failed'));
+    const list = await holdList(page);
+    await page.goto('/lake-broken');
+    await expect(page.locator('#notFound h2')).toHaveText('Could not load this location');
+    await page.locator('#retryBtn').click();
+    await expect.poll(list.waiting).toBe(2);
+    list.release();
+    await expect.poll(list.answers).toBe(2);
+    await page.evaluate(() => new Promise(done => setTimeout(done, 100)));
+    await expect(page.locator('#notFound .pk-q')).toHaveCount(1);
+    await expect(page.locator('#retryBtn')).toHaveCount(1);
+  });
+
+  test('Back between two addresses with no location, the first search answering last, leaves the search of the newer one', async ({ page }) => {
+    const list = await holdList(page);
+    await page.goto('/Aaa');
+    await expect(page.locator('#notFound h2')).toHaveText('No location here');
+    await page.evaluate(() => { history.pushState(null, '', '/Bbb'); dispatchEvent(new PopStateEvent('popstate')); });
+    await expect(page.locator('#notFound')).toContainText('No location at rowhether.com/Bbb.');
+    await expect.poll(list.waiting).toBe(2);
+    list.release();
+    await expect.poll(list.answers).toBe(2);
+    await page.evaluate(() => new Promise(done => setTimeout(done, 100)));
+    await expect(page.locator('#notFound .pk-q')).toHaveCount(1);
+    await expect(page.locator('#notFound .pk-q')).toHaveValue('bbb');
+  });
+});
+
 test.describe('the suggestion line', () => {
   test('shows in the sheet and the page when the suggestion form is configured, and closes the sheet to open the form', async ({ page }) => {
     await page.clock.setFixedTime(clock);

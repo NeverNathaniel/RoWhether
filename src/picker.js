@@ -84,12 +84,13 @@ function markup(mode, list, here, recent) {
 // ---------- The picker ----------
 let opener = null; // what had focus when the sheet opened
 let chose = false; // a row or the suggestion button was used: the sheet does not return focus
+let drawn = 0;     // counts the draws of the page: one that answers late, after a newer, is dropped
 
 // mode: 'sheet' over the open location; 'page' for "/" with no location chosen; 'notfound'
 // for the search under an address with no location (`query` is that address).
 export async function openPicker({ mode, query = '' }) {
-  const dlg = $('picker'), index = await fetchIndex(), list = index ? index.locations : [];
-  if (mode === 'sheet' ? dlg.open : app.loc || $('notFound').hidden) return; // opened already, or the page moved on
+  const dlg = $('picker'), mine = mode === 'sheet' ? 0 : ++drawn, index = await fetchIndex(), list = index ? index.locations : [];
+  if (mode === 'sheet' ? dlg.open : app.loc || $('notFound').hidden || mine !== drawn) return; // opened already, or the page moved on
   const host = document.createElement('div'), here = app.loc?.slug, recent = loadRecent();
   host.className = 'pk';
   if (mode === 'sheet') dlg.replaceChildren(host);
