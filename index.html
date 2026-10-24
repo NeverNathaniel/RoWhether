@@ -54,7 +54,7 @@
         </div>
       </div>
       <div class="set-nudge" id="setNudge" hidden>
-        <p>Set your own limits in Settings. Until you do, Go, Caution and Stay off use starting values for wind, gusts, rain, cold water and river flow.</p>
+        <p id="setNudgeText"></p>
         <div class="set-nudge-actions">
           <button type="button" id="setNudgeLater">Dismiss</button>
           <button type="button" class="primary" id="setNudgeBtn">Open settings</button>
@@ -127,8 +127,8 @@
   <form method="dialog" id="setForm">
     <!-- Focus the heading on open, not the first box, so the keyboard waits for a tap -->
     <h2 id="setTitle" tabindex="-1" autofocus>Settings</h2>
-    <p class="note">Match these to your program, boat class and coach coverage. Saved in this browser.</p>
-    <fieldset>
+    <p class="note" id="setIntro"></p>
+    <fieldset id="setCourse">
       <legend>Course</legend>
       <label>Upstream heading, degrees <input name="heading" type="number" min="0" max="359" step="1" inputmode="numeric" required></label>
     </fieldset>
@@ -146,25 +146,20 @@
     <fieldset>
       <legend>Rain chance, %</legend>
       <p class="note" style="margin:0 0 .25rem">The forecast chance of rain in an hour. Leave a box empty to turn it off.</p>
-      <label>Caution at <input name="rainCaution" type="number" min="0" max="100" step="5" inputmode="numeric" placeholder="Off"></label>
-      <label>Stay off at <input name="rainOff" type="number" min="0" max="100" step="5" inputmode="numeric" placeholder="Off"></label>
+      <label>Caution at <input name="rainCaution" type="number" min="0" max="100" step="5" inputmode="numeric"></label>
+      <label>Stay off at <input name="rainOff" type="number" min="0" max="100" step="5" inputmode="numeric"></label>
     </fieldset>
     <fieldset>
       <legend>Cold water</legend>
       <label>Caution when air plus water is under, °F <input name="coldCombined" type="number" min="0" max="200" step="1" inputmode="numeric" required></label>
       <label>Water temperature override, °F <input name="waterOverride" type="number" min="32" max="90" step="0.1" inputmode="decimal" placeholder="Use gauge"></label>
     </fieldset>
-    <fieldset>
-      <legend>River flow at North Walpole, cfs</legend>
-      <label>Caution at <input name="flowCaution" type="number" min="0" step="100" inputmode="numeric" required></label>
-      <label>Stay off at <input name="flowOff" type="number" min="0" step="100" inputmode="numeric" required></label>
-      <p class="note" style="margin:.4rem 0 0">Since 2016 the median day is about 6,900 cfs. 20,000 is roughly the top 10% of days, 28,000 the top 5%.</p>
-    </fieldset>
+    <fieldset id="setFlow" hidden></fieldset>
     <fieldset>
       <legend>Air quality, US AQI</legend>
       <p class="note" style="margin:0 0 .25rem">Wildfire smoke and haze. 151 is Unhealthy, 201 Very unhealthy. Leave a box empty to turn it off.</p>
-      <label>Caution at <input name="aqiCaution" type="number" min="0" max="500" step="1" inputmode="numeric" placeholder="Off"></label>
-      <label>Stay off at <input name="aqiOff" type="number" min="0" max="500" step="1" inputmode="numeric" placeholder="Off"></label>
+      <label>Caution at <input name="aqiCaution" type="number" min="0" max="500" step="1" inputmode="numeric"></label>
+      <label>Stay off at <input name="aqiOff" type="number" min="0" max="500" step="1" inputmode="numeric"></label>
     </fieldset>
     <fieldset id="setInstall" hidden>
       <legend>App</legend>
@@ -172,7 +167,7 @@
       <button type="button" id="setInstallBtn">Install this app</button>
     </fieldset>
     <div class="dlg-actions">
-      <button type="button" id="resetSet">Reset defaults</button>
+      <button type="button" id="resetSet">Use location defaults</button>
       <span class="spacer"></span>
       <button value="cancel" formnovalidate>Cancel</button>
       <button value="save" class="primary">Save</button>
