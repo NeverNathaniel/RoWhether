@@ -478,7 +478,7 @@ describe('river history and forecast parsers', () => {
       { properties: { time: '2026-10-03', value: '2360' } },
       { properties: { time: '2026-09-13', value: '2820' } },
       { properties: { time: '2026-09-14', value: 'bad' } }
-    ] });
+    ] }, { params: { tz: 'America/New_York' } });
     expect(s.map(p => p.v)).toEqual([2820, 2360]);
     expect(dayKey(s[0].t)).toBe('2026-09-13');
     expect(localHour(s[0].t)).toBe(12);

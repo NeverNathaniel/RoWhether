@@ -311,8 +311,10 @@ function parserProbe() {
     parseFlow({}), parseFlow({ features: [] }),
     parseFlow({ features: [pt('2026-04-14T15:00:00+00:00', '100'), pt('2026-04-14T14:00:00+00:00', '90'), pt('2026-04-14T14:30:00+00:00', null), pt('bad', '5'), pt('2026-04-14T14:45:00+00:00', 'x'), pt('2026-04-14T16:00:00+00:00', '0')] })
   ];
+  // The daily parser places each day at noon in the gauge's zone, which the binding names.
+  const db = { params: { tz: 'America/New_York' } };
   out.flowDays = [
-    parseFlowDays({}), parseFlowDays({ features: [pt('2026-04-12', '9000'), pt('2026-04-10', '8000'), pt('2026-04-11', null), pt('nope', '1'), pt('2026-04-13', 'Eqp')] })
+    parseFlowDays({}, db), parseFlowDays({ features: [pt('2026-04-12', '9000'), pt('2026-04-10', '8000'), pt('2026-04-11', null), pt('nope', '1'), pt('2026-04-13', 'Eqp')] }, db)
   ];
   out.flowFcst = [
     parseFlowForecast({}), parseFlowForecast({ data: [] }),
