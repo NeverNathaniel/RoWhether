@@ -220,7 +220,7 @@ export async function openPicker({ mode, query = '' }) {
   // Near me, on a tap only. The answer replaces the box and the lists, as a search does, unless the
   // viewer has typed or closed the picker while the position was on its way (that changes `seq`).
   nearBtn.addEventListener('click', async () => {
-    const id = ++seq;
+    const id = ++seq, had = document.activeElement === nearBtn;
     nearBtn.disabled = true;
     nearBtn.textContent = T.finding;
     note.textContent = '';
@@ -242,6 +242,8 @@ export async function openPicker({ mode, query = '' }) {
     }
     nearBtn.disabled = false;
     nearBtn.textContent = T.near;
+    // A disabled button gives up focus: a keyboard viewer gets it back, unless they have gone elsewhere.
+    if (had && live() && (!document.activeElement || document.activeElement === document.body)) nearBtn.focus();
   });
 
   host.addEventListener('click', e => {

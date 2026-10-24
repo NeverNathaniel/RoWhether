@@ -872,6 +872,9 @@ async function stubGeo(page, how) {
   }, how);
 }
 const geoCalls = page => page.evaluate(() => window.__geo.calls);
+// The tap's call reaches the stub a moment after the click, since the permissions query comes first: wait for it
+// before a test answers or interrupts it, or window.__geo.later[0] can still be missing.
+const geoAsked = (page, n = 1) => expect.poll(async () => (await geoCalls(page)).length).toBe(n);
 const SAT = (lat, lon) => ({ coords: { latitude: lat, longitude: lon } });
 const NEAR_DENIED = 'Location is off for this site. Search by name, or allow location for rowhether.com in your browser settings.';
 const NEAR_LOST = 'Could not find your position. Try again, or search by name.';
@@ -963,6 +966,49 @@ test.describe('Near me', () => {
       await expect(page.locator('#notFound .pk-rest')).toBeVisible();
       await expect(page.locator('#notFound .pk-found')).toHaveText('');
     });
+
+    // The button is disabled while it waits, and a disabled button gives up focus. 07 12.1: Tab to "Near me",
+    // Enter. The viewer must still be on the button when the answer comes, so the next Tab is the first result.
+    test('keyboard: Enter on Near me leaves focus on it, and the next Tab is the first result', async ({ page }) => {
+      await stubGeo(page, 'real');
+      await page.goto('/putney-landing');
+      await ready(page);
+      await page.locator('#locBtn').click();
+      const near = page.getByRole('button', { name: 'Near me' });
+      await near.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.locator('#picker .pk-found h3')).toHaveText('Near you');
+      await expect(near).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(page.locator('#picker .pk-found .pk-row').first()).toBeFocused();
+    });
+  });
+
+  // The note carries the help and timeout lines. A live region is read out when text is put into it, but not
+  // when it is shown with the text already in it, so it stays in the page while empty and takes no room.
+  test('the note is a live region that is in the page while it is empty, and takes no room', async ({ page }) => {
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    const note = page.locator('#picker .pk-note');
+    await expect(note).toHaveAttribute('role', 'status');
+    await expect(note).toHaveText('');
+    const shape = await note.evaluate(el => { const css = getComputedStyle(el); return { display: css.display, height: el.getBoundingClientRect().height, margin: css.marginTop + css.marginBottom }; });
+    expect(shape.display, 'display none takes the region out of the page').not.toBe('none');
+    expect(shape.height).toBe(0);
+    expect(shape.margin).toBe('0px0px');
+  });
+
+  test('keyboard: the help line for a refusal leaves focus on Near me', async ({ page }) => {
+    await stubGeo(page, 'denied');
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    const near = page.getByRole('button', { name: 'Near me' });
+    await near.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#picker .pk-note')).toHaveText(NEAR_DENIED);
+    await expect(near).toBeFocused();
   });
 
   test('far from every location says so, and leaves the lists', async ({ page, context }) => {
@@ -1029,6 +1075,7 @@ test.describe('Near me', () => {
     const wait = page.locator('#picker .pk-near button');
     await expect(wait).toHaveText('Finding you');
     await expect(wait).toBeDisabled();
+    await geoAsked(page);
     await wait.click({ force: true }).catch(() => {});
     expect(await geoCalls(page)).toHaveLength(1);
     await page.evaluate(([lat, lon]) => window.__geo.later[0].ok({ coords: { latitude: lat, longitude: lon } }), [42.96, -72.52]);
@@ -1044,6 +1091,7 @@ test.describe('Near me', () => {
     await ready(page);
     await page.locator('#locBtn').click();
     await page.getByRole('button', { name: 'Near me' }).click();
+    await geoAsked(page);
     await page.keyboard.press('Escape');
     await page.evaluate(() => window.__geo.later[0].ok({ coords: { latitude: 42.96, longitude: -72.52 } }));
     await page.locator('#locBtn').click();
@@ -1058,9 +1106,11 @@ test.describe('Near me', () => {
     await ready(page);
     await page.locator('#locBtn').click();
     await page.getByRole('button', { name: 'Near me' }).click();
+    await geoAsked(page);
     await page.locator('#picker .pk-q').fill('lak');
     await page.evaluate(() => window.__geo.later[0].ok({ coords: { latitude: 42.96, longitude: -72.52 } }));
     await expect(page.locator('#picker .pk-near button')).toHaveText('Near me');
+    await expect(page.locator('#picker .pk-q'), 'focus stays in the box the viewer is typing in').toBeFocused();
     await expect(page.locator('#picker .pk-q')).toHaveValue('lak');
     await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Lake Carnegie', 'Lake Natoma', 'Lake Quinsigamond']);
     await expect(page.locator('#picker .pk-found h3')).toHaveCount(0);
@@ -1209,6 +1259,22 @@ test.describe('the town search', () => {
     await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Putney Landing']);
   });
 
+  test('writes the typed text as text in the lines about towns', async ({ page }) => {
+    let release;
+    const gate = new Promise(done => { release = done; });
+    await page.route(GEOCODE, async route => {
+      await gate;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: [{ name: 'Elsewhere', admin1: 'Nowhere', country: 'Land', latitude: 1, longitude: 2 }] }) });
+    });
+    const q = await open(page);
+    await q.fill('<i id=typed>zz</i>');
+    await expect(page.locator('#picker .pk-found')).toHaveText('No locations match "<i id=typed>zz</i>". Looking for towns.');
+    await expect(page.locator('#typed')).toHaveCount(0);
+    release();
+    await expect(page.locator('#picker .pk-found')).toHaveText('No locations match "<i id=typed>zz</i>". Pick a town to see locations near it.');
+    await expect(page.locator('#typed')).toHaveCount(0);
+  });
+
   test('is not asked for the address under a missing page, until the viewer presses Enter or types', async ({ page }) => {
     const asks = townAsks(page);
     await page.goto('/lake-nowhere');
@@ -1306,6 +1372,45 @@ test.describe('the town search with the clock held', () => {
     await page.clock.runFor(2000);
     await settle(page);
     expect(asks.names).toEqual([]);
+  });
+
+  // No row is chosen and nothing is closed: the address changes under the page (Back, a link). What is held for
+  // the picker page is dropped because the page is no longer there.
+  test('on the picker page, an ask held back by the wait is dropped when the page moves on', async ({ page }) => {
+    const asks = townAsks(page);
+    await page.clock.install({ time: AFTER });
+    await page.goto('/');
+    const q = page.locator('#notFound .pk-q');
+    await expect(q).toBeVisible();
+    await page.clock.pauseAt(AFTER + 60e3);
+    await q.fill('wor');
+    await q.press('Enter');
+    await expect.poll(() => asks.names).toEqual(['wor']);
+    await q.fill('worc');
+    await q.press('Enter'); // held back: the last ask was under 300 ms ago
+    await page.evaluate(() => { history.pushState(null, '', '/putney-landing'); dispatchEvent(new PopStateEvent('popstate')); });
+    await expect(page.locator('#locName')).toHaveText('Putney Landing');
+    await page.clock.runFor(2000);
+    await settle(page);
+    expect(asks.names).toEqual(['wor']);
+  });
+});
+
+// The line for a connection lost after the page loaded. Offline from the start is the offline describe's.
+test.describe('the hero with nothing saved', () => {
+  test('Refresh after the connection is lost says there is no forecast saved, and online it did not', async ({ page, context }) => {
+    await page.clock.setFixedTime(clock);
+    await routeAll(page, scenario, clock, { abort: true });
+    await page.goto('/putney-landing');
+    await ready(page);
+    await expect(page.locator('#verdict')).toHaveText('No data.');
+    await expect(page.locator('#why')).toContainText('Every data source was blocked');
+    await context.setOffline(true);
+    await page.locator('#refreshBtn').click();
+    await expect(page.locator('#why')).toHaveText('No forecast saved for this location on this phone yet. Connect to load it.');
+    await context.setOffline(false);
+    await page.locator('#refreshBtn').click();
+    await expect(page.locator('#why')).toContainText('Every data source was blocked');
   });
 });
 

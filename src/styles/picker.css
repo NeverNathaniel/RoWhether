@@ -32,7 +32,7 @@ button.pk-place{width:100%; min-height:0; border:0; border-radius:0; background:
 .pk-near{display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .75rem; margin:.5rem 0}
 .pk-hint{color:var(--muted); font-size:.875rem; line-height:1.35}
 .pk-note{margin:.25rem 0 .5rem; font-size:.9375rem}
-.pk-note:empty{display:none}
+.pk-note:empty{margin:0} /* in the page while empty: a live region shown with its text already in it is not read out */
 .pk-rest[hidden]{display:none}
 
 /* The suggestion line is there when the form is (body class set by src/suggest.js). */
