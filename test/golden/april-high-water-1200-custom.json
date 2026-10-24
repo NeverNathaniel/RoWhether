@@ -854,7 +854,7 @@
     ],
     [
       "alerts",
-      "https://api.weather.gov/alerts/active?point=42.9607,-72.5219",
+      "https://api.weather.gov/alerts/active?zone=VTZ015,VTC025,NHZ011,NHC005",
       "NWS alerts"
     ],
     [

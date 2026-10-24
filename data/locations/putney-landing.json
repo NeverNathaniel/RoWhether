@@ -53,10 +53,10 @@
   "launchNotes": null,
   "status": "verified",
   "verifiedVia": "owner",
-  "revision": 3,
+  "revision": 4,
   "sources": [
     {
-      "role": "alerts", "adapter": "nws-alerts", "ref": "point:42.9607,-72.5219", "label": "NWS"
+      "role": "alerts", "adapter": "nws-alerts", "ref": "zones:VTZ015,VTC025,NHZ011,NHC005", "label": "NWS"
     },
     {
       "role": "obs", "adapter": "nws-obs", "ref": "KEEN", "label": "Keene",

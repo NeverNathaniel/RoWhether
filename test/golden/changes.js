@@ -25,5 +25,12 @@ export const CHANGES = {
     // What moved: the 19 main cases and the variants with a model. The probes and v-june-stale-forecast, which has none, do not.
     files: ['april-*', 'fall-back-*', 'june-calm-*', 'october-fog-*', 'v-*'],
     paths: ['status.header.cached', 'status.header.failed']
+  },
+  'alerts-zones': {
+    why: "01 6.1 and README row 6: Putney's alerts are asked for by the four NWS zones of both banks (VTZ015, VTC025, NHZ011, NHC005), in place of the point.",
+    step: 'P1.8',
+    // Only the 19 main cases record the requests; every variant is lean.
+    files: ['april-*', 'fall-back-*', 'june-calm-*', 'october-fog-*'],
+    paths: ['sources.1.1']
   }
 };

@@ -44,7 +44,7 @@ describe("Putney's files", () => {
 
   it('carry three location bindings and two waterway bindings', () => {
     expect(PUTNEY_RECORD.sources.map(b => [b.role, b.adapter, b.ref])).toEqual([
-      ['alerts', 'nws-alerts', 'point:42.9607,-72.5219'],
+      ['alerts', 'nws-alerts', 'zones:VTZ015,VTC025,NHZ011,NHC005'],
       ['obs', 'nws-obs', 'KEEN'],
       ['water_temp', 'usgs-ogc', 'USGS-01161280']
     ]);
@@ -163,7 +163,14 @@ describe('validateLocation', () => {
       ['priority 10', r => { r.sources[0].priority = 10; }, 'sources[0].priority', 'range'],
       ['binding zone', r => { r.sources[2].tz = 'Mars/Olympus'; }, 'sources[2].tz', 'zone'],
       ['two primaries for one role', r => { r.sources.push(row('obs', { mode: 'primary' })); }, 'sources[3].role', 'two_primaries'],
-      ['two primaries, the mode left to default', r => { r.sources.push(row('obs')); }, 'sources[3].role', 'two_primaries']
+      ['two primaries, the mode left to default', r => { r.sources.push(row('obs')); }, 'sources[3].role', 'two_primaries'],
+      ['an alerts ref that is a station', r => { r.sources[0].ref = 'station:KEEN'; }, 'sources[0].ref', 'format'],
+      ['an alerts ref with no prefix', r => { r.sources[0].ref = 'VTZ015'; }, 'sources[0].ref', 'format'],
+      ['an alerts zone in lower case', r => { r.sources[0].ref = 'zones:vtz015'; }, 'sources[0].ref', 'format'],
+      ['an alerts zone list that ends in a comma', r => { r.sources[0].ref = 'zones:VTZ015,'; }, 'sources[0].ref', 'format'],
+      ['an alerts zone that is not a code', r => { r.sources[0].ref = 'zones:VTZ015,Windham'; }, 'sources[0].ref', 'format'],
+      ['an alerts zones ref with no zones', r => { r.sources[0].ref = 'zones:'; }, 'sources[0].ref', 'format'],
+      ['an alerts point with one number', r => { r.sources[0].ref = 'point:42.9607'; }, 'sources[0].ref', 'format']
     ];
     for (const [name, edit, field, code] of cases) {
       const problems = validateLocation(edit === null ? null : rec(edit));
@@ -185,7 +192,10 @@ describe('validateLocation', () => {
       ['a day window', r => { r.daylight = { dayWindow: [6, 21] }; }],
       ['a description of 160', r => { r.copy.description = 'x'.repeat(160); }],
       ['a text of 600, the limit of every text but two', r => { r.copy.flowHow = 'x'.repeat(600); }],
-      ['credits of 1200, which name every source and link to each', r => { r.copy.credits = 'x'.repeat(1200); }]
+      ['credits of 1200, which name every source and link to each', r => { r.copy.credits = 'x'.repeat(1200); }],
+      ['an alerts zone list with a county and a marine zone', r => { r.sources[0].ref = 'zones:VTZ015,NHC005,ANZ535'; }],
+      ['an alerts point of whole degrees', r => { r.sources[0].ref = 'point:42,-72'; }],
+      ['an alerts point with 5 decimals', r => { r.sources[0].ref = 'point:42.96070,-72.52190'; }]
     ];
     for (const [name, edit] of ok) expect(validateLocation(rec(edit)), name).toEqual([]);
   });
@@ -236,7 +246,7 @@ describe('resolveSources', () => {
     expect(s.flow.map(b => b.ref)).toEqual(['USGS-01154500']);
     expect(s.flowDays.map(b => b.ref)).toEqual(['USGS-01154500']);
     expect(s.flowFcst.map(b => [b.adapter, b.ref, b.inherited])).toEqual([['nwps', 'WLPN3', true]]);
-    expect(s.alerts[0]).toMatchObject({ adapter: 'nws-alerts', ref: 'point:42.9607,-72.5219', inherited: false });
+    expect(s.alerts[0]).toMatchObject({ adapter: 'nws-alerts', ref: 'zones:VTZ015,VTC025,NHZ011,NHC005', inherited: false });
     expect(s.obs[0]).toMatchObject({ ref: 'KEEN', label: 'Keene', inherited: false });
   });
 

@@ -24,6 +24,8 @@ const COPY_KEYS = ['flowFact', 'flowStats', 'flowHow', 'waterTempFact', 'obsFact
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const REGION = /^[A-Z]{2}-[A-Z0-9]{1,3}$/;
+// The ref of an alerts row: NWS forecast zone, county and marine zone codes, or a point (01 4.4).
+const ALERTS_REF = /^(zones:[A-Z]{2}[ZC]\d{3}(,[A-Z]{2}[ZC]\d{3})*|point:-?\d+(\.\d+)?,-?\d+(\.\d+)?)$/;
 
 // Roles and the slots they fill, in the order the roles are walked. One flow
 // row fills three slots, and `river` reads the flow row, then the water
@@ -196,6 +198,7 @@ function checkSources(p, list) {
     if (b.priority != null && !(Number.isInteger(b.priority) && b.priority >= 0 && b.priority <= 9)) fail(p, f('priority'), 'range', 'Use 0 to 9.');
     text(p, f('adapter'), b.adapter, 2, 32, true);
     text(p, f('ref'), b.ref, 1, 120, true);
+    if (b.role === 'alerts' && typeof b.ref === 'string' && !ALERTS_REF.test(b.ref)) fail(p, f('ref'), 'format', 'Use zones:<code>,<code> or point:<lat>,<lon>.');
     if (b.params != null && !isObj(b.params)) fail(p, f('params'), 'value', 'Use an object.');
     pick(p, f('unit'), b.unit, UNITS);
     zone(p, f('tz'), b.tz);

@@ -44,6 +44,11 @@ describe('bindingsFor(PUTNEY)', () => {
     expect(by(bs, 'flowFcst').url).toBe('https://api.water.noaa.gov/nwps/v1/gauges/WLPN3/stageflow/forecast');
   });
 
+  it('asks for the alerts of the four zones, on both banks, in one request', () => {
+    expect(by(bs, 'alerts').url).toBe('https://api.weather.gov/alerts/active?zone=VTZ015,VTC025,NHZ011,NHC005');
+    expect(by(bs, 'alerts').url).not.toContain('point=');
+  });
+
   it('derives the fetcher of each slot from the stored provider', () => {
     expect(bs.map(b => [b.slot, b.adapter])).toEqual([
       ['wx', 'om-forecast'], ['alerts', 'nws-alerts'], ['obs', 'nws-obs'], ['river', 'usgs-latest'], ['flow', 'usgs-recent'],
@@ -53,7 +58,7 @@ describe('bindingsFor(PUTNEY)', () => {
 
   it("reads each slot's options from the stored rows", () => {
     expect(bs.map(b => b.params)).toEqual([
-      {}, { point: '42.9607,-72.5219' }, { station: 'KEEN' }, { flow: 'USGS-01154500', temp: 'USGS-01161280' },
+      {}, { zones: 'VTZ015,VTC025,NHZ011,NHC005', lat: 42.9607, lon: -72.5219 }, { station: 'KEEN' }, { flow: 'USGS-01154500', temp: 'USGS-01161280' },
       { id: 'USGS-01154500' }, { id: 'USGS-01154500' }, { lid: 'WLPN3' }, {}, { models: MODELS.map(x => x.id) }
     ]);
     expect(by(bs, 'obs')).toMatchObject({ label: 'Keene' });
@@ -118,9 +123,20 @@ describe('a location with other sources', () => {
     expect(bs.map(b => b.url).join('\n')).not.toMatch(/KEEN|WLPN3|01154500|01161280|42\.9607|New_York/);
   });
 
-  it('takes the alerts point from the location when the ref is not a point', () => {
-    const loc = locOf(r => { r.sources[0].ref = 'zones:VTZ015'; });
-    expect(by(bindingsFor(loc), 'alerts').url).toBe('https://api.weather.gov/alerts/active?point=42.9607,-72.5219');
+  it('reads a zones ref into a zone request and a point ref into a point request, and carries the dock point in both', () => {
+    const zones = by(bindingsFor(locOf(r => { r.lat = 38.9; r.lon = -77.06; r.sources[0].ref = 'zones:DCZ001,DCC001,ANZ535'; })), 'alerts');
+    expect(zones.url).toBe('https://api.weather.gov/alerts/active?zone=DCZ001,DCC001,ANZ535');
+    expect(zones.params).toEqual({ zones: 'DCZ001,DCC001,ANZ535', lat: 38.9, lon: -77.06 });
+    const point = by(bindingsFor(locOf(r => { r.sources[0].ref = 'point:42.4,-71.1'; })), 'alerts');
+    expect(point.url).toBe('https://api.weather.gov/alerts/active?point=42.4,-71.1');
+    expect(point.params).toEqual({ point: '42.4,-71.1', lat: 42.9607, lon: -72.5219 });
+  });
+
+  it('takes the alerts point from the location when the ref is in no form the validator allows', () => {
+    for (const ref of ['station:KEEN', 'VTZ015', 'zones']) {
+      const loc = locOf(r => { r.sources[0].ref = ref; });
+      expect(by(bindingsFor(loc), 'alerts').url, ref).toBe('https://api.weather.gov/alerts/active?point=42.9607,-72.5219');
+    }
   });
 
   it('names a station by its id when the row has no label', () => {
@@ -256,11 +272,99 @@ describe('the parsers', () => {
   });
 
   it('read alerts recorded in another zone', () => {
-    const b = by(bindingsFor(PUTNEY), 'alerts'), raw = recorded('alerts-elsewhere');
-    const got = b.parse(raw, b);
+    const raw = recorded('alerts-elsewhere');
+    // With no binding nothing is dropped, as the probes call it.
+    const got = nws.parseAlerts(raw);
     expect(got.map(a => [a.event, a.lvl])).toEqual([['Rip Current Statement', 1], ['Flood Warning', 2], ['High Surf Advisory', 1]]);
     // The Flood Warning has no end time and ends when it expires.
     expect(got[1].end).toBe(Date.parse('2026-10-18T23:00:00-04:00'));
+  });
+
+  // A storm-based warning lists its whole county in affectedZones, so ?zone= returns it
+  // for every spot in the county, and only the polygon says where it applies (R15).
+  describe('an alert drawn as a polygon', () => {
+    const raw = recorded('alerts-elsewhere');
+    // The recorded Flood Warning is a polygon in Lake and Volusia counties, Florida. The two
+    // other products have no geometry, so they apply to every location in their zones.
+    const keeps = (lat, lon) => by(bindingsFor(locOf(r => { r.lat = lat; r.lon = lon; })), 'alerts').parse(raw).map(a => a.event);
+
+    it('is dropped for a dock outside its polygon, and the products with no geometry are kept', () => {
+      expect(keeps(42.9607, -72.5219)).toEqual(['Rip Current Statement', 'High Surf Advisory']);
+      expect(keeps(29.2, -81.7)).toEqual(['Rip Current Statement', 'High Surf Advisory']);
+      expect(keeps(29.4, -81.55)).toEqual(['Rip Current Statement', 'High Surf Advisory']);
+    });
+
+    it('is kept for a dock inside its polygon, with the others', () => {
+      expect(keeps(29.2, -81.55)).toEqual(['Rip Current Statement', 'Flood Warning', 'High Surf Advisory']);
+    });
+
+    it('is judged by the dock point of the location, for a point ref too', () => {
+      const bind = (lat, lon) => by(bindingsFor(locOf(r => { r.lat = lat; r.lon = lon; r.sources[0].ref = 'point:29.2,-81.55'; })), 'alerts');
+      expect(bind(42.9607, -72.5219).parse(raw).map(a => a.event)).not.toContain('Flood Warning');
+      expect(bind(29.2, -81.55).parse(raw).map(a => a.event)).toContain('Flood Warning');
+    });
+
+    it('is not dropped when the binding has no dock point', () => {
+      for (const b of [undefined, {}, { params: {} }, { params: { zones: 'X' } }, { params: { lat: 29.2 } }, { params: { lat: 'x', lon: 'y' } }]) {
+        expect(nws.parseAlerts(raw, b).map(a => a.event), JSON.stringify(b)).toContain('Flood Warning');
+      }
+    });
+
+    const poly = (type, coordinates) => ({ features: [{ properties: { event: 'Severe Thunderstorm Warning' }, geometry: { type, coordinates } }] });
+    const square = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+    const kept = (d, lat, lon) => nws.parseAlerts(d, { params: { lat, lon } }).length;
+
+    it('holds for a ring drawn either way round, and the edges of the shape are not special', () => {
+      const cw = square(0, 0, 10, 10), ccw = [...cw].reverse();
+      for (const ring of [cw, ccw]) {
+        expect(kept(poly('Polygon', [ring]), 5, 5)).toBe(1);
+        expect(kept(poly('Polygon', [ring]), 11, 5)).toBe(0);
+        expect(kept(poly('Polygon', [ring]), 5, 11)).toBe(0);
+        expect(kept(poly('Polygon', [ring]), -1, 5)).toBe(0);
+        expect(kept(poly('Polygon', [ring]), 5, -1)).toBe(0);
+      }
+      // An L shape: the notch is outside.
+      const L = [[0, 0], [10, 0], [10, 4], [4, 4], [4, 10], [0, 10], [0, 0]];
+      expect(kept(poly('Polygon', [L]), 2, 8)).toBe(1);
+      expect(kept(poly('Polygon', [L]), 8, 8)).toBe(0);
+      expect(kept(poly('Polygon', [L]), 8, 2)).toBe(1);
+    });
+
+    it('treats the inner rings of a polygon as holes', () => {
+      const withHole = poly('Polygon', [square(0, 0, 10, 10), square(4, 4, 6, 6)]);
+      expect(kept(withHole, 2, 2)).toBe(1);
+      expect(kept(withHole, 5, 5)).toBe(0);
+      expect(kept(withHole, 5, 8)).toBe(1);
+      expect(kept(withHole, 20, 20)).toBe(0);
+    });
+
+    it('is kept when any polygon of a MultiPolygon holds the dock, and holes belong to their own polygon', () => {
+      const multi = poly('MultiPolygon', [[square(0, 0, 4, 4)], [square(10, 10, 20, 20), square(14, 14, 16, 16)]]);
+      expect(kept(multi, 2, 2)).toBe(1);
+      expect(kept(multi, 12, 12)).toBe(1);
+      expect(kept(multi, 15, 15)).toBe(0);
+      expect(kept(multi, 7, 7)).toBe(0);
+      // The hole of the second polygon does not take the point out of the first.
+      const nested = poly('MultiPolygon', [[square(0, 0, 20, 20)], [square(0, 0, 20, 20), square(8, 8, 12, 12)]]);
+      expect(kept(nested, 10, 10)).toBe(1);
+    });
+
+    it('applies as listed when its shape is not a polygon or cannot be read', () => {
+      for (const g of [{ type: 'Point', coordinates: [1, 2] }, { type: 'GeometryCollection', geometries: [] }, { type: 'Polygon', coordinates: 'x' }, { type: 'Polygon', coordinates: [] }, { type: 'MultiPolygon', coordinates: [[[1, 2]]] }, { type: 'Polygon', coordinates: [[1, 2, 3]] }, { type: 'Polygon' }, null]) {
+        expect(kept({ features: [{ properties: { event: 'Flood Warning' }, geometry: g }] }, 5, 5), JSON.stringify(g)).toBe(1);
+      }
+      expect(nws.covers(undefined, 5, 5)).toBe(true);
+    });
+
+    it('keeps the order of the alerts it keeps, and what it reads of each', () => {
+      const d = { features: [
+        { properties: { event: 'Flood Warning', headline: 'h1' }, geometry: { type: 'Polygon', coordinates: [square(0, 0, 10, 10)] } },
+        { properties: { event: 'Wind Advisory', headline: 'h2' }, geometry: null },
+        { properties: { event: 'Tornado Warning', headline: 'h3' }, geometry: { type: 'Polygon', coordinates: [square(50, 50, 60, 60)] } },
+        { properties: { event: 'Frost Advisory', headline: 'h4' } }
+      ] };
+      expect(nws.parseAlerts(d, { params: { lat: 5, lon: 5 } }).map(a => [a.event, a.headline, a.lvl])).toEqual([['Flood Warning', 'h1', 2], ['Wind Advisory', 'h2', 2], ['Frost Advisory', 'h4', 1]]);
+    });
   });
 
   const f = p => ({ properties: p });
@@ -351,20 +455,20 @@ describe('the stored records', () => {
       if (!bound.includes(slot)) out.push(`${slot}: no binding`);
       for (const r of rows) {
         if (!(PROVIDERS[r.adapter] || []).some(a => a.slot === slot)) out.push(`${slot}: no fetcher for ${r.adapter}`);
-        // Zone lists are read from phase 1, which lifts this.
-        if (r.adapter === 'nws-alerts' && !/^point:/.test(r.ref)) out.push(`${slot}: ${r.ref} is not a point`);
+        // A zone list or a point; any other form would ask for the alerts at the point.
+        if (r.adapter === 'nws-alerts' && !/^(point|zones):/.test(r.ref)) out.push(`${slot}: ${r.ref} is not a zone list or a point`);
       }
     }
     return out;
   };
 
-  it('have a fetcher for every row, a binding for every slot and a point for the alerts, in every file under data/', () => {
+  it('have a fetcher for every row, a binding for every slot and a zone list or a point for the alerts, in every file under data/', () => {
     const files = read('locations');
     expect(files.map(r => r.slug)).toContain('putney-landing');
     for (const r of files) expect(problems(resolveLocation(r, { waterway: waterways[r.waterway] ?? null })), r.slug).toEqual([]);
   });
 
-  it('finds a misspelled adapter, a provider that lacks the slot, and a zones ref', () => {
+  it('finds a misspelled adapter, a provider that lacks the slot, and an alerts ref in no form it reads', () => {
     const way = clone(PUTNEY_WATERWAY);
     expect(problems(locOf(() => {}, way))).toEqual([]);
     // The flow row fills river, flow and flowDays. river is still bound through the temperature row.
@@ -374,6 +478,8 @@ describe('the stored records', () => {
     ]);
     // A provider that has no fetcher for this slot.
     expect(problems(locOf(r => { r.sources.find(s => s.role === 'obs').adapter = 'usgs-ogc'; }, PUTNEY_WATERWAY))).toEqual(['obs: no binding', 'obs: no fetcher for usgs-ogc']);
-    expect(problems(locOf(r => { r.sources[0].ref = 'zones:VTZ015,VTC025'; }, PUTNEY_WATERWAY))).toEqual(['alerts: zones:VTZ015,VTC025 is not a point']);
+    expect(problems(locOf(r => { r.sources[0].ref = 'zones:VTZ015,VTC025'; }, PUTNEY_WATERWAY))).toEqual([]);
+    expect(problems(locOf(r => { r.sources[0].ref = 'point:42.9607,-72.5219'; }, PUTNEY_WATERWAY))).toEqual([]);
+    expect(problems(locOf(r => { r.sources[0].ref = 'station:KEEN'; }, PUTNEY_WATERWAY))).toEqual(['alerts: station:KEEN is not a zone list or a point']);
   });
 });

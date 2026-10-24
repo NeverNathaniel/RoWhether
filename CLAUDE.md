@@ -36,10 +36,10 @@ RoWhether is a single-page rowing conditions app for a curated list of locations
 ## Location and endpoints
 
 - Putney Landing is data, not code: `data/locations/putney-landing.json` (the place, its limits, the course heading, its words) and `data/waterways/connecticut-river-vernon-pool.json` (the river's gauges, station and alerts). The build writes them to `locations/putney-landing.json` with the waterway inlined. The app reads that file, or the copy saved in the browser, and resolves it into the `loc` that `fetchAll(loc)`, `buildModel(loc, ...)` and the render code read.
-- Dock: 42.9607, -72.5219. NWS office ALY, grid 111,85, forecast zone VTZ015 (Windham County).
+- Dock: 42.9607, -72.5219. The point resolves to NWS office GYX (Gray), grid 3,13, forecast zone NHZ011 and county NHC005 (Cheshire, NH). Alerts are asked for by four zones, one forecast zone and county on each bank: VTZ015 and VTC025 (Windham, VT) from the Albany office and NHZ011 and NHC005 from Gray.
 - The URLs below are what Putney asks for. `bindingsFor(loc)` in `src/sources/index.js` builds them from the location's source rows, one adapter per provider, and the golden and browser tests pin them.
 - Open-Meteo forecast: `current`, `hourly` (temperature, apparent temp, dew point, precip probability, precip, weather code, wind speed, gusts, direction, visibility, CAPE, cloud cover) and `daily` (sunrise, sunset, max/min temp, max precip probability). Units mph, °F, inches. 7 days.
-- NWS alerts: `https://api.weather.gov/alerts/active?point=42.9607,-72.5219`
+- NWS alerts: `https://api.weather.gov/alerts/active?zone=VTZ015,VTC025,NHZ011,NHC005`. A location's alerts row is `zones:<code>,<code>` or `point:<lat>,<lon>` (`point` asks at that point).
 - NWS observation: `https://api.weather.gov/stations/KEEN/observations/latest` (km/h and °C, converted)
 - USGS latest values (newer OGC API, not legacy waterservices): `https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items?monitoring_location_id=USGS-01154500,USGS-01161280&parameter_code=00060,00010&f=json`
 - USGS 48 h flow series: `https://api.waterdata.usgs.gov/ogcapi/v0/collections/continuous/items?monitoring_location_id=USGS-01154500&parameter_code=00060&time=P2D&limit=1000&properties=time,value&f=json`
@@ -63,7 +63,7 @@ Levels: 0 go, 1 caution, 2 stay off. An hour's level is the worst of its reasons
 - Visibility < 0.25 mi is 2, < 1 mi is 1. Otherwise likely fog from `fogRisk()` is 1. Possible fog is shown but does not change the call.
 - Air below 32°F is 2. Air plus water below the cold line is 1.
 - Flow against the settings thresholds.
-- Active NWS alerts apply to hours they cover. Thunderstorm, flood, wind, dense fog and winter storm types are 2, others 1.
+- Active NWS alerts apply to hours they cover. Thunderstorm, flood, wind, dense fog and winter storm types are 2, others 1. A storm-based warning lists its whole county but is drawn as a polygon, so one with a polygon applies only when the polygon contains the dock point (`parseAlerts()`, with the dock point in the binding); a product with no polygon applies to every location in its zones.
 - Air quality (US AQI) against the settings (`aqiCaution`, `aqiOff`, defaults 151 and 201). Either can be blank, which turns that level off.
 
 Fog (`fogRisk()`, thresholds in `FOG` in `src/config.js`) is none, possible or likely, with a type:

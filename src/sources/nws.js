@@ -5,8 +5,28 @@ import { cToF } from '../format.js';
 export function alertLevel(ev) {
   return /Tornado|Thunderstorm|Flash Flood|Flood Warning|High Wind|Wind Advisory|Extreme Wind|Dense Fog|Winter Storm Warning|Ice Storm|Blizzard/i.test(ev) ? 2 : 1;
 }
-export function parseAlerts(d) {
-  return (d.features || []).map(f => {
+// Whether the polygon of a storm-based warning holds the dock point. Ray casting
+// over each ring of a Polygon, or of each polygon of a MultiPolygon, with the
+// inner rings as holes. An alert with no geometry, or one drawn in a shape this
+// cannot read, applies as listed: the unknown side is to show it.
+const inRing = (ring, x, y) => ring.reduce((c, [xi, yi], i) => {
+  const [xj, yj] = ring[(i || ring.length) - 1];
+  return (yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi ? !c : c;
+}, false);
+const inPoly = ([outer, ...holes], x, y) => inRing(outer, x, y) && !holes.some(h => inRing(h, x, y));
+export function covers(g, lat, lon) {
+  try {
+    if (g?.type === 'Polygon') return inPoly(g.coordinates, lon, lat);
+    if (g?.type === 'MultiPolygon') return g.coordinates.some(p => inPoly(p, lon, lat));
+  } catch { /* an unreadable shape applies */ }
+  return true;
+}
+
+// `b` is the binding: with the dock point in it, a polygon alert applies only
+// where it covers the dock. Without one (a bare call) nothing is dropped.
+export function parseAlerts(d, b) {
+  const at = b?.params, here = Number.isFinite(at?.lat) && Number.isFinite(at?.lon);
+  return (d.features || []).filter(f => !here || covers(f.geometry, at.lat, at.lon)).map(f => {
     const p = f.properties || {};
     const start = Date.parse(p.onset || p.effective) || 0;
     const end = Date.parse(p.ends || p.expires) || 8.64e15;
@@ -32,10 +52,14 @@ export function parseObs(d) {
 export const alerts = {
   key: 'nws-alerts', slot: 'alerts', regions: ['US'], via: 'browser', hosts: ['https://api.weather.gov'],
   refreshMs: null, staleMs: null,
-  // The row's ref is `point:<lat>,<lon>` (01 4.4). Any other form reads the
-  // location's own point until zone lists arrive in phase 1.
-  bind: ([row], loc) => ({ point: row?.ref?.startsWith('point:') ? row.ref.slice(6) : `${loc.lat},${loc.lon}` }),
-  url: b => `https://api.weather.gov/alerts/active?point=${b.params.point}`,
+  // The row's ref is `zones:<code>,<code>` or `point:<lat>,<lon>` (01 4.4). Any
+  // other form reads the location's own point. The dock point goes along for the
+  // polygon rule in parseAlerts.
+  bind: ([row], loc) => {
+    const ref = row?.ref || '', at = { lat: loc.lat, lon: loc.lon };
+    return ref.startsWith('zones:') ? { zones: ref.slice(6), ...at } : { point: ref.startsWith('point:') ? ref.slice(6) : `${loc.lat},${loc.lon}`, ...at };
+  },
+  url: b => `https://api.weather.gov/alerts/active?${b.params.zones ? `zone=${b.params.zones}` : `point=${b.params.point}`}`,
   parse: parseAlerts,
   label: () => 'NWS alerts'
 };
