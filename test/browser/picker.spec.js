@@ -1410,6 +1410,24 @@ test.describe('the town search with the clock held', () => {
     expect(asks.names).toEqual([]);
   });
 
+  // The answer replaces the box, so the pause that was running for the text in it is over: the town search must
+  // not go out afterwards for words that are no longer there.
+  test('is not asked for text that a Near me answer has taken out of the box', async ({ page }) => {
+    const asks = townAsks(page);
+    await stubGeo(page, 'hold');
+    await stillClock(page);
+    await page.locator('#locBtn').click();
+    await page.locator('#picker .pk-q').fill('worcester');
+    await page.getByRole('button', { name: 'Near me' }).click();
+    await geoAsked(page);
+    await page.evaluate(() => window.__geo.later[0].ok({ coords: { latitude: 42.96, longitude: -72.52 } }));
+    await expect(page.locator('#picker .pk-found h3')).toHaveText('Near you');
+    await expect(page.locator('#picker .pk-q')).toHaveValue('');
+    await page.clock.runFor(2000);
+    await settle(page);
+    expect(asks.names, 'the pause ended after the box was cleared').toEqual([]);
+  });
+
   // No row is chosen and nothing is closed: the address changes under the page (Back, a link). What is held for
   // the picker page is dropped because the page is no longer there.
   test('on the picker page, an ask held back by the wait is dropped when the page moves on', async ({ page }) => {
