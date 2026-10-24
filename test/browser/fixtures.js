@@ -4,10 +4,15 @@
 // The responses come from test/fixtures/golden.js, the same ones the golden
 // cases use, so a screenshot and a golden file describe the same data. The
 // app's own parsers run on them in the browser.
+import { readFileSync } from 'node:fs';
 import { createServer } from 'vite';
 import { SCENARIOS } from '../fixtures/golden.js';
 
 export { SCENARIOS };
+
+// Open-Meteo's town search as recorded for "Worcester" (test/fixtures/sources/). Any other
+// name has no match, which the host answers with no `results`.
+const WORCESTER = JSON.parse(readFileSync(new URL('../fixtures/sources/geocode-worcester.json', import.meta.url), 'utf8'));
 
 // Which response each upstream request gets, by host and path. The wx and
 // models requests share one path (the forecast endpoint) and differ only in the
@@ -28,6 +33,9 @@ const UPSTREAM = {
   },
   'api.water.noaa.gov': {
     '/nwps/v1/gauges/WLPN3/stageflow/forecast': raw => raw.flowFcst
+  },
+  'geocoding-api.open-meteo.com': {
+    '/v1/search': (raw, url) => (/^worcester$/i.test(url.searchParams.get('name') || '') ? WORCESTER : { generationtime_ms: 0.05 })
   }
 };
 

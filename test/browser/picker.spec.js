@@ -448,10 +448,12 @@ test.describe('the first visit to "/"', () => {
     await expect(page.locator('.pk-found .pk-row')).toHaveCount(1);
     await expect(page.locator('.pk-found .pk-row')).toContainText('Putney Landing');
     await expect(page.locator('.pk-rest')).toBeHidden();
-    expect(requests, 'no request from the first key to the last').toEqual([]);
-    // Tab goes to the result, which is a link, and Enter opens it.
-    await page.keyboard.press('Tab');
-    await expect(page.locator('.pk-found .pk-row')).toBeFocused();
+    // The town search is the one request typing can lead to, and it waits for a pause (see "town search").
+    expect(requests.filter(p => p !== '/v1/search'), 'no request from the first key to the last').toEqual([]);
+    // Tab reaches the result, which is a link (the Near me button may come first), and Enter opens it.
+    const first = page.locator('.pk-found .pk-row');
+    for (let i = 0; i < 3 && !(await first.evaluate(a => a === document.activeElement)); i++) await page.keyboard.press('Tab');
+    await expect(first).toBeFocused();
     await page.clock.setFixedTime(clock); // the forecasts are cut at this moment
     await page.keyboard.press('Enter');
     await ready(page);
