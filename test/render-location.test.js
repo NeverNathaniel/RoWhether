@@ -39,6 +39,8 @@ const NO_BANKS = resolveLocation({ ...PUTNEY_RECORD, slug: 'lake-y', course: { .
 const WEIR = resolveLocation({
   ...PUTNEY_RECORD, slug: 'weir-pool', name: 'Weir Pool',
   flow: { ...PUTNEY_RECORD.flow, unit: 'm3s' },
+  // Putney's limits, set for this place's gauge (P1.10): a basis for another gauge would drop them.
+  thresholds: { ...PUTNEY_RECORD.thresholds, basis: { flow: 'usgs-ogc:USGS-2:m3s' } },
   copy: { ...PUTNEY_RECORD.copy, flowHow: 'The weir gauge sets the flow, <b>2 mi</b> up.', flowStats: 'Flow here is usually 40 m³/s.' },
   sources: [
     { role: 'alerts', adapter: 'nws-alerts', ref: 'point:42,-72', label: 'NWS' },
@@ -280,6 +282,21 @@ describe('the River view and the forecasts take flow and words from the place', 
     expect(river.render(m).html).toMatch(/<td>7,000 cfs<\/td>/);
     expect(river.render(m).html).toContain('Daily mean from 3,950 cfs on ');
     expect(river.render(m).html).toMatch(/<td>6,850 cfs<\/td>/);
+  });
+
+  it("says in How this works that the viewer's flow limits were for another gauge, and only then (P1.10)", () => {
+    const note = 'Your flow limits were for a different gauge. Set them again for this gauge.';
+    const stored = limitBasis => resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: { flowCaution: 4000, limitBasis } });
+    const html = river.render(screen(stored({ flow: 'usgs-ogc:USGS-01154501:cfs' })).m).html;
+    expect(html).toContain(`<p>${note}</p>`);
+    // After the line on what the limits check, before the words on the gauge's history.
+    expect(html.indexOf('The latest measured flow is checked')).toBeLessThan(html.indexOf(note));
+    expect(html.indexOf(note)).toBeLessThan(html.indexOf('Since 2016'));
+    expect(html).not.toMatch(BROKEN);
+    // Limits for this gauge, none saved, and none with no gauge named say nothing.
+    for (const loc of [stored({ flow: 'usgs-ogc:USGS-01154500:cfs' }), stored(undefined), PUTNEY]) {
+      expect(river.render(screen(loc).m).html, JSON.stringify(loc.ignoredFlow)).not.toContain('Your flow limits were');
+    }
   });
 
   it('falls back to cfs where the place has no flow record, and still draws', () => {

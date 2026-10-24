@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
-import { validateLocation, validateWaterway, validateSlug, isSlug, RESERVED_SLUGS, resolveSources, resolveLocation, effectiveSettings, overridesOf } from '../src/location.js';
+import { validateLocation, validateWaterway, validateSlug, isSlug, RESERVED_SLUGS, resolveSources, resolveLocation, effectiveSettings, overridesOf, flowBasis, ignoredFlowNote } from '../src/location.js';
 import { GLOBAL_DEFAULTS, PERIODS, WATER, FOG } from '../src/config.js';
 import { zoneFormat } from '../src/format.js';
 
@@ -466,6 +466,211 @@ describe('effectiveSettings', () => {
   it('starts from GLOBAL_DEFAULTS, which has no heading and no flow keys', () => {
     expect(Object.keys(GLOBAL_DEFAULTS).sort()).toEqual(['aqiCaution', 'aqiOff', 'coldCombined', 'gustCaution', 'gustOff', 'rainCaution', 'rainOff', 'waterOverride', 'windCaution', 'windOff']);
     expect(GLOBAL_DEFAULTS.waterOverride).toBe('');
+  });
+});
+
+// The gauge a flow limit is for (01 11.1, P1.10): adapter:ref:unit of the location's flow binding.
+const GAUGE = 'usgs-ogc:USGS-01154500:cfs';
+const OTHER = 'usgs-ogc:USGS-01154501:cfs';
+// Putney's flow row, as the waterway file holds it.
+const FLOW_ROW = PUTNEY_WATERWAY.sources.find(b => b.role === 'flow');
+
+// The same place in the two ways a record has its flow row: from its waterway, as Putney's files
+// do, and in its own sources with a waterway that has none (R5). `edit` changes the record.
+const FORMS = {
+  inherited: edit => [rec(edit), PUTNEY_WATERWAY],
+  own: edit => [rec(r => { r.sources.push({ ...FLOW_ROW, label: 'Own gauge' }); edit(r); }), { ...PUTNEY_WATERWAY, sources: PUTNEY_WATERWAY.sources.filter(b => b.role !== 'flow') }]
+};
+
+describe('validateLocation and the limit basis', () => {
+  it("passes Putney's own files, which carry the gauge their flow limits are for", () => {
+    expect(PUTNEY_RECORD.thresholds.basis).toEqual({ flow: GAUGE });
+    expect(validateLocation(PUTNEY_RECORD, W)).toEqual([]);
+  });
+
+  it.each(Object.keys(FORMS))('checks a basis against the flow row when the record has it %s', form => {
+    const check = edit => validateLocation(...FORMS[form](edit).map((x, i) => (i ? { waterway: x } : x)));
+    expect(check(() => {})).toEqual([]);
+    // The gauge the limits were set for is not the one the location reads.
+    expect(has(check(r => { r.thresholds.basis = { flow: OTHER }; }), 'thresholds.basis.flow', 'basis')).toBe(true);
+    expect(has(check(r => { r.thresholds.basis = { flow: 'usgs-ogc:USGS-01154500:m3s' }; }), 'thresholds.basis.flow', 'basis')).toBe(true);
+    // No basis at all is a limit made for the gauge the location reads.
+    expect(check(r => { delete r.thresholds.basis; })).toEqual([]);
+    // Blank limits need no basis, and a basis is not a limit.
+    expect(check(r => { r.thresholds.flowCaution = null; r.thresholds.flowOff = ''; })).toEqual([]);
+  });
+
+  it('refuses a flow limit when the location has no flow binding at all', () => {
+    const lake = edit => rec(r => { r.waterway = null; r.status = 'draft'; r.sources = r.sources.filter(b => b.role !== 'flow'); edit(r); });
+    const problems = validateLocation(lake(r => { delete r.thresholds.basis; }));
+    expect(has(problems, 'thresholds.flowCaution', 'no_binding')).toBe(true);
+    // Either level alone is a limit.
+    expect(has(validateLocation(lake(r => { delete r.thresholds.basis; delete r.thresholds.flowCaution; })), 'thresholds.flowOff', 'no_binding')).toBe(true);
+    expect(has(validateLocation(lake(r => { delete r.thresholds.basis; delete r.thresholds.flowOff; })), 'thresholds.flowCaution', 'no_binding')).toBe(true);
+    // A basis names a gauge the location does not have.
+    expect(has(validateLocation(lake(r => { delete r.thresholds.flowCaution; delete r.thresholds.flowOff; })), 'thresholds.basis.flow', 'basis')).toBe(true);
+    // Blank limits, and no basis, are fine.
+    expect(validateLocation(lake(r => { delete r.thresholds.basis; delete r.thresholds.flowCaution; delete r.thresholds.flowOff; r.flow = null; }))).toEqual([]);
+    expect(validateLocation(lake(r => { delete r.thresholds.basis; r.thresholds.flowCaution = null; r.thresholds.flowOff = ''; r.flow = null; }))).toEqual([]);
+  });
+
+  it('does not count an info row, a retired row or an off row as the binding', () => {
+    for (const extra of [{ mode: 'info' }, { status: 'retired' }, { mode: 'off' }]) {
+      const r = rec(x => { x.sources.push({ ...FLOW_ROW, ...extra }); });
+      const way = { ...PUTNEY_WATERWAY, sources: PUTNEY_WATERWAY.sources.filter(b => b.role !== 'flow') };
+      expect(has(validateLocation(r, { waterway: way }), 'thresholds.flowCaution', 'no_binding'), JSON.stringify(extra)).toBe(true);
+    }
+  });
+
+  it('takes the unit from the flow block when the row has none', () => {
+    const noUnit = { ...PUTNEY_WATERWAY, sources: PUTNEY_WATERWAY.sources.map(b => (b.role === 'flow' ? { ...b, unit: undefined } : b)) };
+    expect(validateLocation(PUTNEY_RECORD, { waterway: noUnit })).toEqual([]);
+    expect(has(validateLocation(rec(r => { r.flow.unit = 'm3s'; }), { waterway: noUnit }), 'thresholds.basis.flow', 'basis')).toBe(true);
+  });
+
+  it("checks the basis map's shape", () => {
+    const check = basis => validateLocation(rec(r => { r.thresholds.basis = basis; }), W);
+    expect(has(check('usgs-ogc:USGS-01154500:cfs'), 'thresholds.basis', 'value')).toBe(true);
+    expect(has(check([GAUGE]), 'thresholds.basis', 'value')).toBe(true);
+    expect(has(check({ flow: GAUGE, wind: 'x:y:z' }), 'thresholds.basis.wind', 'unknown')).toBe(true);
+    expect(has(check({ flow: '' }), 'thresholds.basis.flow', 'length')).toBe(true);
+    expect(has(check({ flow: 5 }), 'thresholds.basis.flow', 'length')).toBe(true);
+    // The tide and level keys are allowed (01 11.1), and no phase 1 location reads their limits.
+    expect(has(check({ flow: GAUGE, tide: 'noaa-tides:8447930:ft' }), 'thresholds.basis.tide')).toBe(false);
+    expect(has(check({ flow: GAUGE, level: null }), 'thresholds.basis.level')).toBe(false);
+    expect(has(check({ flow: GAUGE }), 'thresholds.basis')).toBe(false);
+  });
+
+  it('does not throw on sources it cannot read, which the sources rules already name', () => {
+    for (const sources of ['x', { role: 'flow' }, [null], [1, 'a']]) {
+      const problems = validateLocation(rec(r => { r.sources = sources; }), W);
+      expect(problems.some(x => x.field.startsWith('sources')), JSON.stringify(sources)).toBe(true);
+    }
+    const bad = validateLocation(PUTNEY_RECORD, { waterway: { ...PUTNEY_WATERWAY, sources: [null] } });
+    expect(Array.isArray(bad)).toBe(true);
+  });
+});
+
+describe('effectiveSettings and the limit basis', () => {
+  // A location whose limits are for GAUGE, with its flow binding, built by hand.
+  const withBasis = (basis, gauge = GAUGE) => {
+    const [adapter, ref, unit] = gauge.split(':');
+    return { thresholds: { windCaution: 8, flowCaution: 5000, flowOff: 9000, ...(basis && { basis }) }, flow: { unit: 'cfs' }, sources: { flow: [{ role: 'flow', mode: 'primary', adapter, ref, unit }] } };
+  };
+
+  it("leaves Putney's limits as they were, and never copies the basis into the settings", () => {
+    expect({ ...effectiveSettings(PUTNEY), heading: PUTNEY.course.heading }).toEqual(DEFAULTS);
+    expect(PUTNEY.thresholds.basis).toEqual({ flow: GAUGE });
+    for (const S of [effectiveSettings(PUTNEY), effectiveSettings(PUTNEY, { overrides: { flowCaution: 15000, limitBasis: { flow: GAUGE } } }), effectiveSettings(withBasis({ flow: GAUGE }))]) {
+      expect(S).not.toHaveProperty('basis');
+      expect(S).not.toHaveProperty('limitBasis');
+    }
+  });
+
+  it("finds the location's gauge from its resolved flow row", () => {
+    expect(flowBasis(PUTNEY)).toBe(GAUGE);
+    expect(flowBasis(withBasis(null, OTHER))).toBe(OTHER);
+    expect(flowBasis({ thresholds: {}, flow: null, sources: {} })).toBeNull();
+    expect(flowBasis({ thresholds: {} })).toBeNull();
+    // The unit comes from the flow block when the row has none, and an info row is not the gauge.
+    expect(flowBasis({ flow: { unit: 'm3s' }, sources: { flow: [{ adapter: 'a', ref: 'b' }] } })).toBe('a:b:m3s');
+    expect(flowBasis({ sources: { flow: [{ adapter: 'a', ref: 'b', unit: 'cfs', mode: 'info' }, { adapter: 'c', ref: 'd', unit: 'ft', mode: 'fallback' }] } })).toBe('c:d:ft');
+  });
+
+  it("applies the location's flow limits while their basis is the location's gauge", () => {
+    expect(effectiveSettings(withBasis({ flow: GAUGE }))).toMatchObject({ windCaution: 8, flowCaution: 5000, flowOff: 9000 });
+  });
+
+  it("drops the location's flow limits when their basis is another gauge, and keeps the others", () => {
+    const S = effectiveSettings(withBasis({ flow: OTHER }));
+    expect(S).toMatchObject({ windCaution: 8, flowCaution: '', flowOff: '' });
+    // Also with no flow binding left at all: the gauge they were for is gone.
+    expect(effectiveSettings({ thresholds: { flowCaution: 5000, flowOff: 9000, basis: { flow: GAUGE } } })).toMatchObject({ flowCaution: '', flowOff: '' });
+  });
+
+  it('reads a limit with no basis as made for the gauge the location has', () => {
+    expect(effectiveSettings(withBasis(null))).toMatchObject({ flowCaution: 5000, flowOff: 9000 });
+    expect(effectiveSettings(withBasis({}))).toMatchObject({ flowCaution: 5000, flowOff: 9000 });
+  });
+
+  it("applies the viewer's flow limits while their basis is the location's gauge", () => {
+    const o = { flowCaution: 4000, flowOff: 7000, limitBasis: { flow: GAUGE } };
+    expect(effectiveSettings(withBasis({ flow: GAUGE }), { overrides: o })).toMatchObject({ flowCaution: 4000, flowOff: 7000 });
+  });
+
+  it("ignores the viewer's flow limits made for another gauge, and keeps them in what it was given", () => {
+    const o = { windCaution: 6, flowCaution: 4000, flowOff: 7000, limitBasis: { flow: OTHER } };
+    const before = clone(o);
+    // The location's own limits apply instead, and the viewer's other limits still do.
+    expect(effectiveSettings(withBasis({ flow: GAUGE }), { overrides: o })).toMatchObject({ windCaution: 6, flowCaution: 5000, flowOff: 9000 });
+    expect(effectiveSettings(PUTNEY, { overrides: o })).toMatchObject({ windCaution: 6, flowCaution: 20000, flowOff: 28000 });
+    expect(o).toEqual(before);
+    // A location with no flow limits of its own is left blank.
+    expect(effectiveSettings({ ...withBasis(null), thresholds: {} }, { overrides: o })).toMatchObject({ flowCaution: '', flowOff: '' });
+  });
+
+  it("reads a viewer's flow limit saved with no basis, before P1.10, as made for the current gauge", () => {
+    expect(effectiveSettings(PUTNEY, { overrides: { flowCaution: 15000 } })).toMatchObject({ flowCaution: 15000, flowOff: 28000 });
+    expect(effectiveSettings(PUTNEY, { overrides: { flowCaution: 15000, limitBasis: {} } })).toMatchObject({ flowCaution: 15000 });
+    expect(effectiveSettings(PUTNEY, { overrides: { flowCaution: 15000, limitBasis: { flow: null } } })).toMatchObject({ flowCaution: 15000 });
+  });
+
+  it("applies the viewer's flow limits at a location with no flow binding, which has none to disagree with, only when they carry no basis", () => {
+    expect(effectiveSettings({ thresholds: {} }, { overrides: { flowCaution: 7000 } })).toMatchObject({ flowCaution: 7000 });
+    expect(effectiveSettings({ thresholds: {} }, { overrides: { flowCaution: 7000, limitBasis: { flow: GAUGE } } })).toMatchObject({ flowCaution: '' });
+  });
+
+  it("holds the basis of each side to its own: a basis on the viewer's limits never moves the location's", () => {
+    const S = effectiveSettings(withBasis({ flow: GAUGE }), { overrides: { windCaution: 6, limitBasis: { flow: OTHER } } });
+    expect(S).toMatchObject({ windCaution: 6, flowCaution: 5000, flowOff: 9000 });
+  });
+
+  it('does not change what it is given', () => {
+    const loc = withBasis({ flow: OTHER }), before = clone(loc), o = { flowCaution: 1, limitBasis: { flow: OTHER } }, ob = clone(o);
+    effectiveSettings(loc, { overrides: o });
+    expect(loc).toEqual(before);
+    expect(o).toEqual(ob);
+  });
+});
+
+describe('resolveLocation and flow limits set for another gauge', () => {
+  const way = (...extra) => ({ ...PUTNEY_WATERWAY, sources: [...PUTNEY_WATERWAY.sources, ...extra] });
+  const OLD_ROW = { ...FLOW_ROW, ref: 'USGS-01154501', label: 'Bellows Falls', status: 'retired' };
+  const stored = (limitBasis, extra = { flowCaution: 4000 }) => ({ ...extra, ...(limitBasis && { limitBasis }) });
+
+  it('says nothing while the limits apply, so the location has no such key', () => {
+    for (const o of [{}, stored(null), stored({ flow: GAUGE }), stored({}), { windCaution: 7 }, stored({ flow: OTHER }, { windCaution: 7 })]) {
+      const loc = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: o });
+      expect(loc, JSON.stringify(o)).not.toHaveProperty('ignoredFlow');
+    }
+    expect(PUTNEY).not.toHaveProperty('ignoredFlow');
+  });
+
+  it('names the gauge they were for when a row of the record or the waterway still has it', () => {
+    const o = stored({ flow: 'usgs-ogc:USGS-01154501:cfs' });
+    expect(resolveLocation(PUTNEY_RECORD, { waterway: way(OLD_ROW), overrides: o }).ignoredFlow).toEqual({ label: 'Bellows Falls' });
+    // In the record's own sources, beside the row it reads now (a role with own rows uses only those).
+    const own = rec(r => { r.sources.push(FLOW_ROW, OLD_ROW); });
+    expect(resolveLocation(own, { waterway: PUTNEY_WATERWAY, overrides: o }).ignoredFlow).toEqual({ label: 'Bellows Falls' });
+    // Either level counts, and a blank level the viewer set is a limit too.
+    expect(resolveLocation(own, { waterway: PUTNEY_WATERWAY, overrides: stored({ flow: 'usgs-ogc:USGS-01154501:cfs' }, { flowOff: '' }) }).ignoredFlow).toEqual({ label: 'Bellows Falls' });
+  });
+
+  it('has no label when no row names the gauge, and the words still read', () => {
+    const loc = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: stored({ flow: OTHER }) });
+    expect(loc.ignoredFlow).toEqual({ label: null });
+    // A row with no label is no name either.
+    expect(resolveLocation(PUTNEY_RECORD, { waterway: way({ ...OLD_ROW, label: undefined }), overrides: stored({ flow: 'usgs-ogc:USGS-01154501:cfs' }) }).ignoredFlow).toEqual({ label: null });
+  });
+
+  it('says nothing at a location with no flow binding, which shows no flow limits', () => {
+    const lake = rec(r => { r.sources = r.sources.filter(b => b.role !== 'flow'); r.flow = null; });
+    expect(resolveLocation(lake, { waterway: { ...PUTNEY_WATERWAY, sources: [] }, overrides: stored({ flow: OTHER }) })).not.toHaveProperty('ignoredFlow');
+  });
+
+  it('words the notice for Settings and the River view', () => {
+    expect(ignoredFlowNote({ label: 'North Walpole' })).toBe('Your flow limits were for the North Walpole gauge. Set them again for this gauge.');
+    expect(ignoredFlowNote({ label: null })).toBe('Your flow limits were for a different gauge. Set them again for this gauge.');
   });
 });
 

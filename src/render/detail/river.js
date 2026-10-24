@@ -4,6 +4,7 @@ import { HOUR, MIN, WATER } from '../../config.js';
 import { fmtInt, esc, ago, whenText, monthDay, localHour, localMinutes, weekday, dayKey } from '../../format.js';
 import { flowNow, flowTrend, flowChange, flowForecastPeak, factorLevel, isSet } from '../../logic.js';
 import { Chart, niceTicks, niceMax } from '../chart.js';
+import { ignoredFlowNote } from '../../location.js';
 import { fact } from '../parts.js';
 import { chartWidth, legend, chartBox, hourTable, head } from './common.js';
 
@@ -169,7 +170,7 @@ export function render(m) {
     <div class="panel how">
       <h3>How this works</h3>
       ${para(flowHow)}
-      <p>The latest measured flow is checked against your settings. The forecast is for planning and does not change Go, Caution or Stay off. A rise of ${WATER.debrisRise}% or more in 6 hours adds a floating debris warning.</p>
+      <p>The latest measured flow is checked against your settings. The forecast is for planning and does not change Go, Caution or Stay off. A rise of ${WATER.debrisRise}% or more in 6 hours adds a floating debris warning.</p>${m.loc.ignoredFlow ? para(ignoredFlowNote(m.loc.ignoredFlow)) : ''}
       ${para(flowStats)}
     </div>`;
   return { day: null, html };

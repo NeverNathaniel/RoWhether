@@ -153,7 +153,7 @@ describe('collectLocations', () => {
   });
 
   it('accepts a draft with no waterway', () => {
-    const draft = rec(r => { r.status = 'draft'; r.waterway = null; r.sources = []; });
+    const draft = rec(r => { r.status = 'draft'; r.waterway = null; r.sources = []; r.thresholds = { ...r.thresholds }; delete r.thresholds.flowCaution; delete r.thresholds.flowOff; delete r.thresholds.basis; });
     expect(failure(() => collectLocations(scratch({ locations: { 'putney-landing': draft } })))).toBeNull();
   });
 });

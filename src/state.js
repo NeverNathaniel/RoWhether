@@ -7,6 +7,7 @@ export const app = {
   loc: null,       // the resolved location, with the viewer's heading; null until one is open
   defaults: null,  // the location's settings and heading with nothing overridden
   settings: null,  // the limits in force: the location's, then the viewer's
+  overrides: {},   // what the viewer saved for the open location, as stored, the limits in force or not
   data: {},        // last good response per source
   errors: {},      // sources that failed on the latest refresh
   fetched: {},     // time of each source's last good fetch, by slot
@@ -30,6 +31,7 @@ export const app = {
 // not in the settings.
 export function applyOverrides(o) {
   const rec = app.record;
+  app.overrides = o;
   app.loc = resolveLocation(rec, { waterway: rec.waterwayRecord, overrides: o });
   setZone(app.loc.tz);
   app.settings = effectiveSettings(app.loc, { overrides: o });
@@ -39,7 +41,7 @@ export function applyOverrides(o) {
 // leaves no location open, for a page that has none.
 export function openLocation(record, overrides) {
   Object.assign(app, { record, data: {}, errors: {}, fetched: {}, updated: null, fromCache: false, model: null, openPeriods: new Set(), detailDay: null, homeScroll: 0, token: app.token + 1 });
-  if (!record) { Object.assign(app, { loc: null, defaults: null, settings: null }); return; }
+  if (!record) { Object.assign(app, { loc: null, defaults: null, settings: null, overrides: {} }); return; }
   applyOverrides(overrides);
   // Nothing overridden: the limits, and the course heading when the course has one.
   app.defaults = { ...effectiveSettings(app.loc), ...(record.course.kind === 'heading' && { heading: record.course.heading }) };

@@ -29,7 +29,8 @@
   "thresholds": {
     "windCaution": 10, "windOff": 15, "gustCaution": 18, "gustOff": 25,
     "rainCaution": 60, "rainOff": 90, "coldCombined": 100,
-    "flowCaution": 20000, "flowOff": 28000, "aqiCaution": 151, "aqiOff": 201
+    "flowCaution": 20000, "flowOff": 28000, "aqiCaution": 151, "aqiOff": 201,
+    "basis": { "flow": "usgs-ogc:USGS-01154500:cfs" }
   },
   "aqiScale": "us",
   "flow": {
@@ -53,7 +54,7 @@
   "launchNotes": null,
   "status": "verified",
   "verifiedVia": "owner",
-  "revision": 5,
+  "revision": 6,
   "sources": [
     {
       "role": "alerts", "adapter": "nws-alerts", "ref": "zones:VTZ015,VTC025,NHZ011,NHC005", "label": "NWS"

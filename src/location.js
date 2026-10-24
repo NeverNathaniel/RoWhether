@@ -49,6 +49,7 @@ const THRESHOLDS = {
   flowCaution: T(true, 0, 1e7), flowOff: T(true, 0, 1e7), aqiCaution: T(true, 0, 500), aqiOff: T(true, 0, 500),
   streamCaution: T(true, 0, 10), streamOff: T(true, 0, 10), minLaunch: T(true), levelLow: T(true), levelHigh: T(true)
 };
+const BASIS_KEYS = ['flow', 'tide', 'level'];
 const PAIRS = [['windCaution', 'windOff'], ['gustCaution', 'gustOff'], ['rainCaution', 'rainOff'], ['flowCaution', 'flowOff'], ['aqiCaution', 'aqiOff'], ['streamCaution', 'streamOff']];
 
 // Validators return a list of problems, empty when the record is valid. A
@@ -136,12 +137,35 @@ function checkThresholds(p, t) {
   if (!isObj(t)) return missing(p, 'thresholds');
   for (const [k, v] of Object.entries(t)) {
     const rule = THRESHOLDS[k], field = `thresholds.${k}`;
-    if (!rule) fail(p, field, 'unknown', 'Not a threshold.');
+    if (k === 'basis') checkBasis(p, v);
+    else if (!rule) fail(p, field, 'unknown', 'Not a threshold.');
     else if (!(rule.blank && (v === null || v === ''))) num(p, field, v, rule.min, rule.max, true);
   }
   for (const [lo, hi] of PAIRS) {
     if (isNum(t[lo]) && isNum(t[hi]) && t[lo] > t[hi]) fail(p, `thresholds.${hi}`, 'order', 'Stay off cannot be lower than caution.');
   }
+}
+
+// The gauge the limits in a binding's unit were set for, as adapter:ref:unit (01 11.1).
+function checkBasis(p, b) {
+  if (!isObj(b)) return fail(p, 'thresholds.basis', 'value', 'Use an object.');
+  for (const [k, v] of Object.entries(b)) {
+    if (BASIS_KEYS.includes(k)) text(p, `thresholds.basis.${k}`, v, 1, 200);
+    else fail(p, `thresholds.basis.${k}`, 'unknown', 'Use flow, tide or level.');
+  }
+}
+
+// A flow limit needs the flow binding it was set for. The rows are the resolved ones, so a
+// flow row the record takes from its waterway counts. Tide and level limits are read from
+// the step that adds them.
+function checkFlowLimits(p, rec, waterway) {
+  const t = rec.thresholds, own = rec.sources, shared = waterway?.sources;
+  const rows = l => l == null || (Array.isArray(l) && l.every(isObj));
+  if (!isObj(t) || !rows(own) || !rows(shared)) return; // named by their own rules
+  const row = flowRow(resolveSources(rec, waterway));
+  if ((isNum(t.flowCaution) || isNum(t.flowOff)) && !row) fail(p, isNum(t.flowCaution) ? 'thresholds.flowCaution' : 'thresholds.flowOff', 'no_binding', 'A flow limit needs a flow source.');
+  const basis = t.basis?.flow;
+  if (typeof basis === 'string' && basis !== (row && basisOf(row, rec.flow?.unit))) fail(p, 'thresholds.basis.flow', 'basis', 'The limits were set for a different gauge than the one this location reads.');
 }
 
 function checkFlow(p, f) {
@@ -216,7 +240,7 @@ function checkSources(p, list) {
   });
 }
 
-export function validateLocation(rec) {
+export function validateLocation(rec, { waterway = null } = {}) {
   const p = [];
   if (!isObj(rec)) return [bad('', 'value', 'A location is an object.')];
   if (rec.v != null && rec.v !== 1) fail(p, 'v', 'value', 'Use version 1.');
@@ -254,6 +278,7 @@ export function validateLocation(rec) {
   pick(p, 'verifiedVia', rec.verifiedVia, VERIFIED_VIA);
   if (rec.revision != null && !(Number.isInteger(rec.revision) && rec.revision >= 1)) fail(p, 'revision', 'range', 'Use 1 or more.');
   checkSources(p, rec.sources);
+  checkFlowLimits(p, rec, waterway);
   return p;
 }
 
@@ -309,12 +334,20 @@ export function resolveSources(loc, waterway) {
 // the gauge or station in the texts. Null when the location has no such row.
 export const sourceRow = (loc, role) => Object.values(loc.sources || {}).flat().find(r => r.role === role) ?? null;
 
+// The gauge a limit in the flow binding's unit was set for: adapter:ref:unit (01 11.1).
+const basisOf = (row, unit) => `${row.adapter}:${row.ref}:${row.unit ?? unit}`;
+// The flow binding the limits are for: the first flow row that is not for information only.
+export const flowRow = sources => sources?.flow?.find(r => r.mode !== 'info') ?? null;
+export const flowBasis = loc => { const r = flowRow(loc.sources); return r ? basisOf(r, loc.flow?.unit) : null; };
+// What Settings and the River view say when the viewer's flow limits were set for another gauge.
+export const ignoredFlowNote = ({ label }) => `Your flow limits were for ${label ? `the ${label} gauge` : 'a different gauge'}. Set them again for this gauge.`;
+
 // The location the app reads: the record, its waterway's sources, and the
 // viewer's course heading. A personal heading applies only to a course that is
 // one heading (01 8.6). The record is not changed.
 export function resolveLocation(rec, { waterway = null, overrides = {} } = {}) {
   const sources = resolveSources(rec, waterway);
-  const flowRow = sources.flow?.[0];
+  const labelRow = sources.flow?.[0];
   const c = rec.course;
   const heading = c.kind === 'heading' && isNum(overrides.heading) ? overrides.heading : c.heading;
   // A heading course is one segment of unknown length. Polylines get theirs
@@ -330,7 +363,7 @@ export function resolveLocation(rec, { waterway = null, overrides = {} } = {}) {
     // Banks the record leaves null are generated from the heading in phase 1.
     banks: rec.banks ?? null,
     thresholds: { ...rec.thresholds },
-    flow: rec.flow ? { ...rec.flow, label: flowRow?.label ?? null, stats: flowRow?.stats ?? null } : null,
+    flow: rec.flow ? { ...rec.flow, label: labelRow?.label ?? null, stats: labelRow?.stats ?? null } : null,
     // Crosswind counts 0.4 unless the record says otherwise (01 9.5).
     water: { mode: WATER_MODES[rec.waterType], cross: 0.4, levels: WATER.levels, blend: WATER.blend, ...rec.water },
     fog: { ...FOG, ...rec.fog },
@@ -340,8 +373,19 @@ export function resolveLocation(rec, { waterway = null, overrides = {} } = {}) {
     periods: PERIODS,
     sources,
     copy: { ...rec.copy },
-    fmt: zoneFormat(rec.tz)
+    fmt: zoneFormat(rec.tz),
+    ...ignoredFlow(rec, waterway, sources, overrides)
   };
+}
+
+// The viewer's flow limits that were set for another gauge are ignored and kept (01 11.1). Where
+// there is such a limit, { ignoredFlow: { label } } names that gauge from a row that still has it,
+// even a retired one, or null. Otherwise nothing, so the location has no such key.
+function ignoredFlow(rec, waterway, sources, overrides) {
+  const old = overrides.limitBasis?.flow, row = flowRow(sources);
+  if (typeof old !== 'string' || !row || old === basisOf(row, rec.flow?.unit) || (overrides.flowCaution === undefined && overrides.flowOff === undefined)) return null;
+  const named = [...(rec.sources || []), ...(waterway?.sources || [])].find(r => r.role === 'flow' && basisOf(r, rec.flow?.unit) === old);
+  return { ignoredFlow: { label: named?.label ?? null } };
 }
 
 // The limits for one location, as plain values: the global defaults, then the
@@ -349,9 +393,18 @@ export function resolveLocation(rec, { waterway = null, overrides = {} } = {}) {
 // global default, so it is blank unless the location sets it. Only keys the
 // settings know are taken from the overrides, so `heading` stays out: it lives
 // in loc.course. A blank (null in a record) is '' and turns that level off.
+// A flow limit is for one gauge (01 11.1): the location's by thresholds.basis, the
+// viewer's by overrides.limitBasis. One with no basis was made for the gauge the
+// location has now. One for another gauge is not used, and the basis never leaves here.
+const FLOW_LIMITS = ['flowCaution', 'flowOff'];
 export function effectiveSettings(loc, { overrides = {} } = {}) {
-  const S = { ...GLOBAL_DEFAULTS, flowCaution: '', flowOff: '', ...loc.thresholds };
-  for (const k of Object.keys(S)) if (overrides[k] !== undefined) S[k] = overrides[k];
+  const { basis, ...own } = loc.thresholds;
+  const S = { ...GLOBAL_DEFAULTS, flowCaution: '', flowOff: '', ...own };
+  const gauge = flowBasis(loc), mine = overrides.limitBasis?.flow;
+  if (basis?.flow != null && basis.flow !== gauge) for (const k of FLOW_LIMITS) S[k] = '';
+  for (const k of Object.keys(S)) {
+    if (overrides[k] !== undefined && !(FLOW_LIMITS.includes(k) && mine != null && mine !== gauge)) S[k] = overrides[k];
+  }
   for (const k of Object.keys(S)) if (S[k] === null) S[k] = '';
   return S;
 }

@@ -426,6 +426,19 @@ describe('settings overrides', () => {
     loadOverrides('putney-landing').windCaution = 99;
     expect(loadOverrides('putney-landing')).toEqual({ windCaution: 8 });
   });
+
+  it('keeps the gauge a flow limit was set for with the limit (01 11.1)', () => {
+    use({});
+    const values = { windCaution: 8, flowCaution: 15000, flowOff: 30000, limitBasis: { flow: 'usgs-ogc:USGS-01154500:cfs' } };
+    saveOverrides('putney-landing', values);
+    expect(JSON.parse(ls.map.get('rowhether-settings-v2'))['putney-landing'].values).toEqual(values);
+    expect(loadOverrides('putney-landing')).toEqual(values);
+    // Saving again with no flow limit leaves no basis behind, and the other location keeps its own.
+    saveOverrides('lake-natoma', { limitBasis: { flow: 'x:y:cfs' }, flowOff: 1 });
+    saveOverrides('putney-landing', { windCaution: 8 });
+    expect(loadOverrides('putney-landing')).toEqual({ windCaution: 8 });
+    expect(loadOverrides('lake-natoma')).toEqual({ limitBasis: { flow: 'x:y:cfs' }, flowOff: 1 });
+  });
 });
 
 describe('cache, plan, install and the reminder', () => {
@@ -1038,6 +1051,37 @@ describe('the state a location opens with', () => {
     const { heading, ...limits } = OLD_SETTINGS;
     expect(app.settings).toEqual({ ...limits, waterOverride: 55 });
     expect(app.loc.course.heading).toBe(heading);
+  });
+
+  it('holds what the viewer saved, as stored, and a location with none open holds nothing', async () => {
+    use({ 'rowhether-migrated-v1': '1', 'rowhether-settings-v2': putneySettings({ windCaution: 8 }) });
+    const { app, applyOverrides, openLocation } = await fresh();
+    expect(app.overrides).toEqual({ windCaution: 8 });
+    applyOverrides({ windOff: 14 });
+    expect(app.overrides).toEqual({ windOff: 14 });
+    openLocation(null);
+    expect(app.overrides).toEqual({});
+  });
+
+  it("uses a saved flow limit made for Putney's gauge, or made before gauges were named, and ignores one for another gauge", async () => {
+    const GAUGE = 'usgs-ogc:USGS-01154500:cfs';
+    const flow = { flowCaution: 15000, flowOff: 30000 };
+    use({ 'rowhether-migrated-v1': '1', 'rowhether-settings-v2': putneySettings({ ...flow, limitBasis: { flow: GAUGE } }) });
+    let { app } = await fresh();
+    expect(app.settings).toMatchObject(flow);
+    expect(app.loc).not.toHaveProperty('ignoredFlow');
+    // Saved before this step: no basis, read as made for this gauge.
+    use({ 'rowhether-migrated-v1': '1', 'rowhether-settings-v2': putneySettings(flow) });
+    ({ app } = await fresh());
+    expect(app.settings).toMatchObject(flow);
+    expect(app.loc).not.toHaveProperty('ignoredFlow');
+    // Another gauge: the location's own limits stand, the note names no gauge a row still has, and the stored limits are kept.
+    use({ 'rowhether-migrated-v1': '1', 'rowhether-settings-v2': putneySettings({ ...flow, windCaution: 8, limitBasis: { flow: 'usgs-ogc:USGS-01154501:cfs' } }) });
+    ({ app } = await fresh());
+    expect(app.settings).toMatchObject({ windCaution: 8, flowCaution: 20000, flowOff: 28000 });
+    expect(app.loc.ignoredFlow).toEqual({ label: null });
+    expect(app.overrides).toMatchObject({ ...flow, limitBasis: { flow: 'usgs-ogc:USGS-01154501:cfs' } });
+    expect(JSON.parse(ls.map.get('rowhether-settings-v2'))['putney-landing'].values).toMatchObject(flow);
   });
 
   it('applyOverrides rebuilds both, and an empty set goes back to the defaults', async () => {
