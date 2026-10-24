@@ -343,7 +343,8 @@ test.describe('smoke', () => {
           text: t.textContent, x: c[0] - centre[0], y: c[1] - centre[1],
           side: (c[0] - centre[0]) * left[0] + (c[1] - centre[1]) * left[1],
           clear: apart(b, quad), inside: corners.every(p => Math.hypot(p[0] - rc[0], p[1] - rc[1]) <= ring.width / 2),
-          upright: !t.closest('g[transform]') && !t.getAttribute('transform')
+          // Upright: nothing between the label and the page turns it, whether by an attribute or a style.
+          upright: ((m) => Math.abs(m.b) < 1e-6 && Math.abs(m.c) < 1e-6)(t.getScreenCTM())
         };
       });
     });
