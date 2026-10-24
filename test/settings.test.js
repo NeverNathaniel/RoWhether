@@ -12,30 +12,48 @@ import { PUTNEY_FILE } from './helpers/putney-file.js';
 const NOW = 1760700000000;
 // The 13 fields of the form, written out.
 const FIELDS = ['heading', 'windCaution', 'windOff', 'gustCaution', 'gustOff', 'rainCaution', 'rainOff', 'coldCombined', 'waterOverride', 'flowCaution', 'flowOff', 'aqiCaution', 'aqiOff'];
+const FLOW = ['flowCaution', 'flowOff'];
 
 // A place that is not Putney: heading 90, wind caution 12 and no flow limits, as the build writes it.
 const clone = o => JSON.parse(JSON.stringify(o));
 const rec = clone(PUTNEY_RECORD);
 rec.slug = 'some-lake'; rec.course.heading = 90; rec.thresholds.windCaution = 12;
-delete rec.thresholds.flowCaution; delete rec.thresholds.flowOff; rec.flow = null;
+delete rec.thresholds.flowCaution; delete rec.thresholds.flowOff; delete rec.thresholds.basis; rec.flow = null;
 const LAKE_FILE = recordFile(rec, PUTNEY_WATERWAY);
 const LAKE = resolveLocation(rec, { waterway: PUTNEY_WATERWAY });
 const LAKE_DEFAULTS = { ...effectiveSettings(LAKE), heading: LAKE.course.heading };
 const PUTNEY_VALUES = { heading: '15', windCaution: '10', windOff: '15', gustCaution: '18', gustOff: '25', rainCaution: '60', rainOff: '90', coldCombined: '100', waterOverride: '', flowCaution: '20000', flowOff: '28000', aqiCaution: '151', aqiOff: '201' };
 
-// A page with the dialog's elements. Each element keeps the listeners it was given.
+// A page with the dialog's elements. Each element keeps the listeners it was given. The form's
+// fields are the ones index.html has, and the two flow fields, which the script writes into
+// #setFlow when the dialog opens (P1.10): they are in the form from the start and replaced by
+// whatever the script writes, or removed when it writes none.
 function page() {
   const els = {};
-  const el = id => (els[id] ??= { id, hidden: false, on: {}, addEventListener(type, fn) { this.on[type] = fn; } });
-  // An input's value is always a string, as in the browser.
-  const input = () => { let v = ''; return { get value() { return v; }, set value(x) { v = String(x ?? ''); } }; };
-  el('setForm').elements = Object.fromEntries(FIELDS.map(k => [k, input()]));
+  const el = id => (els[id] ??= { id, hidden: false, textContent: '', on: {}, addEventListener(type, fn) { this.on[type] = fn; } });
+  // An input's value is always a string, as in the browser. `line` is what was put after its label.
+  const input = name => {
+    let v = '';
+    const o = {
+      name, placeholder: '', disabled: false, attrs: {}, line: null,
+      get value() { return v; }, set value(x) { v = String(x ?? ''); },
+      closest: () => ({ after: n => { o.line = n; } }),
+      setAttribute: (k, x) => { o.attrs[k] = x; }
+    };
+    return o;
+  };
+  const form = Object.fromEntries(FIELDS.map(k => [k, input(k)]));
+  el('setForm').elements = form;
+  let flowHtml = '';
+  Object.defineProperty(el('setFlow'), 'innerHTML', {
+    get: () => flowHtml,
+    set: x => { flowHtml = x; for (const k of FLOW) delete form[k]; for (const k of FLOW) if (x.includes(`name="${k}"`)) form[k] = input(k); }
+  });
   el('settings').showModal = () => {};
-  vi.stubGlobal('document', { getElementById: el });
-  const form = els.setForm.elements;
+  vi.stubGlobal('document', { getElementById: el, createElement: tag => ({ tag, hidden: false, className: '', id: '', textContent: '' }) });
   return {
-    el, form,
-    shown: () => Object.fromEntries(FIELDS.map(k => [k, form[k].value])),
+    el, form, els,
+    shown: () => Object.fromEntries(FIELDS.filter(k => form[k]).map(k => [k, form[k].value])),
     open: () => els.settingsBtn.on.click(),
     reset: () => els.resetSet.on.click(),
     save: () => { els.settings.returnValue = 'save'; els.settings.on.close(); }

@@ -19,10 +19,12 @@ const clone = o => JSON.parse(JSON.stringify(o));
 const rec = edit => { const r = clone(PUTNEY_RECORD); edit(r); return r; };
 const has = (problems, field, code) => problems.some(x => x.field === field && (!code || x.code === code));
 const row = (role, extra = {}) => ({ role, adapter: 'test', ref: role, ...extra });
+// Putney takes its flow row from its waterway, so a check of its record gets the waterway too.
+const W = { waterway: PUTNEY_WATERWAY };
 
 describe("Putney's files", () => {
   it('validate', () => {
-    expect(validateLocation(PUTNEY_RECORD)).toEqual([]);
+    expect(validateLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY })).toEqual([]);
     expect(validateWaterway(PUTNEY_WATERWAY)).toEqual([]);
   });
 
@@ -39,7 +41,9 @@ describe("Putney's files", () => {
 
   it('carry thresholds equal to the DEFAULTS without heading and waterOverride', () => {
     const { heading, waterOverride, ...limits } = DEFAULTS;
-    expect(PUTNEY_RECORD.thresholds).toEqual(limits);
+    // The basis of the flow limits (P1.10) is not a limit.
+    const { basis, ...own } = PUTNEY_RECORD.thresholds;
+    expect(own).toEqual(limits);
   });
 
   it('carry three location bindings and two waterway bindings', () => {
@@ -182,7 +186,7 @@ describe('validateLocation', () => {
       ['an alerts point with one number', r => { r.sources[0].ref = 'point:42.9607'; }, 'sources[0].ref', 'format']
     ];
     for (const [name, edit, field, code] of cases) {
-      const problems = validateLocation(edit === null ? null : rec(edit));
+      const problems = validateLocation(edit === null ? null : rec(edit), W);
       expect(has(problems, field, code), `${name}: ${JSON.stringify(problems)}`).toBe(true);
     }
   });
@@ -193,7 +197,7 @@ describe('validateLocation', () => {
       ['heading 0 and 359', r => { r.course.heading = 359; }],
       ['a draft with no waterway', r => { r.status = 'draft'; r.waterway = null; }],
       ['blank rain and aqi levels, null or empty', r => { r.thresholds.rainCaution = null; r.thresholds.aqiOff = ''; }],
-      ['no flow limits', r => { delete r.thresholds.flowCaution; delete r.thresholds.flowOff; r.flow = null; }],
+      ['no flow limits', r => { delete r.thresholds.flowCaution; delete r.thresholds.flowOff; delete r.thresholds.basis; r.flow = null; }],
       ['no banks', r => { r.banks = null; }],
       ['a discharge in cubic metres a second', r => { r.flow.unit = 'm3s'; }],
       ['a second obs row as a fallback', r => { r.sources.push(row('obs', { mode: 'fallback', priority: 1 })); }],
@@ -206,12 +210,12 @@ describe('validateLocation', () => {
       ['an alerts point of whole degrees', r => { r.sources[0].ref = 'point:42,-72'; }],
       ['an alerts point with 5 decimals', r => { r.sources[0].ref = 'point:42.96070,-72.52190'; }]
     ];
-    for (const [name, edit] of ok) expect(validateLocation(rec(edit)), name).toEqual([]);
+    for (const [name, edit] of ok) expect(validateLocation(rec(edit), W), name).toEqual([]);
   });
 
   it('does not change the record it checks', () => {
     const before = clone(PUTNEY_RECORD);
-    validateLocation(PUTNEY_RECORD);
+    validateLocation(PUTNEY_RECORD, W);
     expect(PUTNEY_RECORD).toEqual(before);
   });
 });
@@ -415,8 +419,9 @@ describe('effectiveSettings', () => {
     expect(S.waterOverride).toBe('');
   });
 
-  it('gives the same from the record as from the resolved location', () => {
-    expect(effectiveSettings(PUTNEY_RECORD)).toEqual(effectiveSettings(PUTNEY));
+  it('reads the limits from the thresholds alone: a record with no basis gives the same as the resolved location', () => {
+    const { basis, ...own } = PUTNEY_RECORD.thresholds;
+    expect(effectiveSettings({ ...PUTNEY_RECORD, thresholds: own })).toEqual(effectiveSettings(PUTNEY));
   });
 
   it('gives a location with no thresholds the global defaults and blank flow limits', () => {
@@ -480,7 +485,7 @@ describe('overridesOf', () => {
   // A place that is not Putney: heading 90, wind caution 12 and no flow limits.
   const lake = resolveLocation(rec(r => {
     r.slug = 'some-lake'; r.course.heading = 90; r.thresholds.windCaution = 12;
-    delete r.thresholds.flowCaution; delete r.thresholds.flowOff; r.flow = null;
+    delete r.thresholds.flowCaution; delete r.thresholds.flowOff; delete r.thresholds.basis; r.flow = null;
   }), { waterway: PUTNEY_WATERWAY });
   const defaultsOf = loc => ({ ...effectiveSettings(loc), heading: loc.course.heading });
 

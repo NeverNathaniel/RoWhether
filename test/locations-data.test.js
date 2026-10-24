@@ -26,7 +26,7 @@ const BOTH = { [WATERWAY.id]: WATERWAY, [LAKE_WATERWAY.id]: LAKE_WATERWAY };
 const lake = (slug, extra = () => {}) => rec(r => {
   r.slug = slug; r.id = '00000000-0000-4000-8000-000000000001'; r.name = 'Lake Test'; r.waterType = 'lake';
   r.waterway = LAKE_WATERWAY.id; r.flow = null; r.water = null; r.waterTemp = null;
-  r.thresholds = { ...r.thresholds }; delete r.thresholds.flowCaution; delete r.thresholds.flowOff;
+  r.thresholds = { ...r.thresholds }; delete r.thresholds.flowCaution; delete r.thresholds.flowOff; delete r.thresholds.basis;
   r.sources = r.sources.filter(b => b.role === 'alerts'); delete r.copy.flowStats; delete r.copy.flowHow;
   extra(r);
 });
