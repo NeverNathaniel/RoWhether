@@ -180,8 +180,10 @@ export async function openPicker({ mode, query = '' }) {
   const q = sel('.pk-q'), found = sel('.pk-found'), rest = sel('.pk-rest'), spots = sel('.pk-places'), note = sel('.pk-note'), say = sel('.pk-say'), nearBtn = sel('[data-near]');
   // Still on the screen: a town search that answers after the sheet closed or the page moved on is dropped.
   const live = () => (mode === 'sheet' ? dlg.open : !$('notFound').hidden && host.isConnected);
-  let towns = null, typing = 0, seq = 0; // the town search for the text in the box (null: none asked), the pause timer, the newest question
-  const cancel = () => { clearTimeout(typing); seq++; };
+  // The town search for the text in the box (null: none asked), the pause timer, and the newest question of each
+  // kind: a town search, and a tap on Near me. They are separate so that one does not end the other.
+  let towns = null, typing = 0, seq = 0, near = 0;
+  const cancel = () => { clearTimeout(typing); seq++; near++; };
 
   // From 2 characters the matches replace the lists, and the towns come under them. The list
   // is in the page already, so typing asks for no list. The towns are asked for after a pause.
@@ -218,15 +220,15 @@ export async function openPicker({ mode, query = '' }) {
   if (query) { q.value = pathWords(query); refine(); }
 
   // Near me, on a tap only. The answer replaces the box and the lists, as a search does, unless the
-  // viewer has typed or closed the picker while the position was on its way (that changes `seq`).
+  // viewer has typed or closed the picker while the position was on its way (that changes `near`).
   nearBtn.addEventListener('click', async () => {
-    const id = ++seq, had = document.activeElement === nearBtn;
+    const id = ++near, had = document.activeElement === nearBtn;
     nearBtn.disabled = true;
     nearBtn.textContent = T.finding;
     note.textContent = '';
     try {
       const hits = nearest(list, await whereAmI(), NEAR_KM).slice(0, 8);
-      if (id === seq && live()) {
+      if (id === near && live()) {
         cancel();
         towns = null;
         q.value = '';
@@ -238,7 +240,7 @@ export async function openPicker({ mode, query = '' }) {
         } else note.textContent = T.nearNone;
       }
     } catch (why) {
-      if (id === seq) note.textContent = why === 'denied' ? T.denied : T.lost;
+      if (id === near) note.textContent = why === 'denied' ? T.denied : T.lost;
     }
     nearBtn.disabled = false;
     nearBtn.textContent = T.near;

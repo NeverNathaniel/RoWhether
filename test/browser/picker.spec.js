@@ -1116,6 +1116,23 @@ test.describe('Near me', () => {
     await expect(page.locator('#picker .pk-found h3')).toHaveCount(0);
     await expect(page.locator('#picker .pk-say')).toHaveText('');
   });
+
+  // Typing starts the pause before a town search, and the tap lands inside it. The search is asked for when the
+  // pause ends, and that must not take the tap's answer with it.
+  test('a tap made inside the pause after typing still gets its answer when the pause ends', async ({ page }) => {
+    await stubGeo(page, 'hold');
+    const asks = townAsks(page);
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await page.locator('#picker .pk-q').fill('lak');
+    await page.getByRole('button', { name: 'Near me' }).click();
+    await geoAsked(page);
+    await expect.poll(() => asks.names, 'the pause ended and the town search went out').toEqual(['lak']);
+    await page.evaluate(() => window.__geo.later[0].ok({ coords: { latitude: 42.96, longitude: -72.52 } }));
+    await expect(page.locator('#picker .pk-found h3')).toHaveText('Near you');
+    await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Putney Landing', 'Hanover boathouse', 'Lake Quinsigamond']);
+  });
 });
 
 test.describe('the town search', () => {
@@ -1286,6 +1303,25 @@ test.describe('the town search', () => {
     await q.press('Enter');
     await expect.poll(() => asks.names).toEqual(['lake nowhere']);
     await expect(page.locator('#notFound .pk-found')).toContainText('Nothing matches "lake nowhere"');
+  });
+
+  // Near me is a separate question from the towns. A refusal ends it and says so, and the town search that was
+  // already out is still wanted: its answer must not be dropped, leaving "Looking for towns." up for good.
+  test('a town answer that is out when Near me is tapped and refused still arrives', async ({ page }) => {
+    let release;
+    const gate = new Promise(done => { release = done; });
+    await page.route(GEOCODE, async route => { await gate; await route.fallback(); });
+    await stubGeo(page, 'denied');
+    const asks = townAsks(page);
+    const q = await open(page);
+    await q.fill('worcester');
+    await expect.poll(() => asks.names).toEqual(['worcester']);
+    await page.getByRole('button', { name: 'Near me' }).click();
+    await expect(page.locator('#picker .pk-note')).toHaveText(NEAR_DENIED);
+    release();
+    await expect(page.locator('#picker .pk-place').first()).toBeVisible();
+    await expect(page.locator('#picker .pk-found')).not.toContainText('Looking for towns');
+    await expect(page.locator('#picker .pk-note')).toHaveText(NEAR_DENIED);
   });
 });
 
