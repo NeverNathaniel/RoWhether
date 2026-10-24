@@ -4,6 +4,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { parseRoute, parseHash, homeTarget } from '../src/route.js';
 import { installFakeDom, uninstallFakeDom } from './helpers/fakedom.js';
 import { PUTNEY_FILE } from './helpers/putney-file.js';
+import { FIRST_VISIT_PUTNEY_UNTIL as UNTIL } from '../src/config.js';
 
 // parseRoute takes anything with the parts of a location, and a URL has them.
 const at = href => parseRoute(new URL(href, 'https://rowhether.com'));
@@ -100,20 +101,39 @@ describe('parseHash', () => {
   });
 });
 
+// The last moment inside the first-visit window (07 5.1), and the first one after it.
+const INSIDE = UNTIL - 1;
+
 describe('homeTarget', () => {
-  it('opens the location stored as the last one, and replaces the address with it', () => {
-    expect(homeTarget({ last: 'hanover-boathouse' })).toEqual({ slug: 'hanover-boathouse', replace: true });
-    expect(homeTarget({ last: 'putney-landing' })).toEqual({ slug: 'putney-landing', replace: true });
+  it('opens the location stored as the last one, and replaces the address with it, inside the window and after it', () => {
+    for (const now of [0, INSIDE, UNTIL, UNTIL + 400 * 864e5]) {
+      expect(homeTarget({ last: 'hanover-boathouse', now }), String(now)).toEqual({ slug: 'hanover-boathouse', replace: true });
+      expect(homeTarget({ last: 'putney-landing', now }), String(now)).toEqual({ slug: 'putney-landing', replace: true });
+    }
   });
 
-  it('opens Putney Landing, and keeps the address, when nothing is stored', () => {
-    for (const last of [null, undefined, '']) expect(homeTarget({ last }), String(last)).toEqual({ slug: 'putney-landing', keepAddress: true });
-    expect(homeTarget({})).toEqual({ slug: 'putney-landing', keepAddress: true });
+  it('shows Putney Landing with the note, and keeps the address, when nothing is stored inside the window', () => {
+    for (const last of [null, undefined, '']) {
+      for (const now of [0, Date.UTC(2026, 9, 24), INSIDE]) {
+        expect(homeTarget({ last, now }), `${last} ${now}`).toEqual({ slug: 'putney-landing', keepAddress: true, note: true });
+      }
+    }
+  });
+
+  it('is the picker page when nothing is stored and the window has ended, from the first moment after it', () => {
+    for (const now of [UNTIL, UNTIL + 1, UNTIL + 400 * 864e5]) {
+      expect(homeTarget({ last: null, now }), String(now)).toEqual({ page: 'picker' });
+    }
+  });
+
+  it('opens Putney Landing at its address after Dismiss, which stores it as the last location, inside the window and after it', () => {
+    for (const now of [INSIDE, UNTIL]) expect(homeTarget({ last: 'putney-landing', now }), String(now)).toEqual({ slug: 'putney-landing', replace: true });
   });
 
   it('does not take what is stored on trust: something that is not a slug is as good as nothing', () => {
     for (const last of ['Putney-Landing', 'api', 'a', '../x', 'x/y', 'lake lake', `${'a'.repeat(60)}`, '<script>', '-ab', 42, {}]) {
-      expect(homeTarget({ last }), String(last)).toEqual({ slug: 'putney-landing', keepAddress: true });
+      expect(homeTarget({ last, now: INSIDE }), String(last)).toEqual({ slug: 'putney-landing', keepAddress: true, note: true });
+      expect(homeTarget({ last, now: UNTIL }), String(last)).toEqual({ page: 'picker' });
     }
   });
 });
@@ -123,15 +143,16 @@ describe('homeTarget', () => {
 // has its own copy of the module, since it holds the opener and the path it last showed.
 describe('the router in the page', () => {
   const ORIGIN = 'https://rowhether.com';
-  let r, state, detail, dom, loc, hist, opened, winOn, docOn, store;
+  let r, state, detail, dom, loc, hist, opened, notes, picked, winOn, docOn, store, gate;
   // Inside the first-visit window (07 5.1), unless a case says another: "/" reads the time.
   const NOW = Date.UTC(2026, 5, 15, 16);
 
   // The location moves as the browser's does: an address resolves against the current one.
   const goTo = href => { const u = new URL(href, ORIGIN + loc.pathname + loc.search); Object.assign(loc, { pathname: u.pathname, search: u.search, hash: u.hash }); };
 
-  // A page at `href`, with the router started and an opener that notes what it is asked for.
-  async function start(href, stored = {}, now = NOW) {
+  // A page at `href`, with the router started and an opener that notes what it is asked for,
+  // and a picker that notes what it is asked to show. `entry` is what the history entry holds.
+  async function start(href, stored = {}, now = NOW, entry = null) {
     vi.resetModules();
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(now);
@@ -139,7 +160,7 @@ describe('the router in the page', () => {
     vi.stubGlobal('localStorage', { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => { store.set(k, String(v)); }, removeItem: k => { store.delete(k); }, key: i => [...store.keys()][i] ?? null, get length() { return store.size; } });
     loc = { origin: ORIGIN, pathname: '/', search: '', hash: '' };
     goTo(href);
-    hist = { state: null, calls: [], pushState(s, t, h) { this.calls.push(['push', h]); goTo(h); }, replaceState(s, t, h) { this.calls.push(['replace', h]); goTo(h); } };
+    hist = { state: entry, calls: [], states: [], pushState(s, t, h) { this.calls.push(['push', h]); this.state = s; goTo(h); }, replaceState(s, t, h) { this.calls.push(['replace', h]); this.states.push(s); this.state = s; goTo(h); } };
     winOn = {}; docOn = {};
     dom = installFakeDom();
     document.addEventListener = (type, fn) => { docOn[type] = fn; };
@@ -151,10 +172,10 @@ describe('the router in the page', () => {
     detail = await import('../src/render/detail/index.js');
     for (const v of detail.VIEWS) v.load = () => new Promise(() => {}); // the views chunk is the browser checks'
     r = await import('../src/route.js');
-    opened = [];
-    r.initRoutes((slug, keep) => { opened.push([slug, !!keep]); });
+    opened = []; notes = []; picked = [];
+    r.initRoutes((slug, keep, note) => { opened.push([slug, !!keep]); notes.push(!!note); return gate; }, o => { picked.push(o); });
   }
-  afterEach(() => { uninstallFakeDom(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+  afterEach(() => { uninstallFakeDom(); vi.unstubAllGlobals(); vi.useRealTimers(); gate = undefined; });
 
   // A click on `target`, as the browser's event gives it.
   const click = (target, extra = {}) => {
@@ -176,7 +197,7 @@ describe('the router in the page', () => {
       await start('/');
       expect(opened).toEqual([['putney-landing', true]]);
       expect(hist.calls).toEqual([]);
-      expect(loc.pathname).toBe('/');
+      expect(loc.pathname + loc.search + loc.hash).toBe('/');
     });
 
     it('opens the last location at "/", and puts it in the address with the hash, with no new history entry', async () => {
@@ -190,6 +211,7 @@ describe('the router in the page', () => {
       await start('/', { 'rowhether-last-v1': '../etc/passwd' });
       expect(opened).toEqual([['putney-landing', true]]);
       expect(hist.calls).toEqual([]);
+      expect(loc.pathname).toBe('/');
     });
 
     it('opens none and shows the not found page for an address that is not a location', async () => {
@@ -236,6 +258,184 @@ describe('the router in the page', () => {
       expect(state.app.view).toEqual({ name: 'wind', day: null });
       r.showMissing('x');
       expect(state.app.view).toBeNull();
+    });
+  });
+
+  describe('the first visit and the picker (07 5.1)', () => {
+    const tick = () => new Promise(done => setTimeout(done, 0));
+    const hiddenPage = () => [dom.el('notFound').hidden, dom.el('tabs').hidden, dom.el('actions').hidden, dom.el('home').hidden, dom.el('detail').hidden];
+
+    it('shows Putney Landing with the note at "/" inside the window, and stores no location', async () => {
+      await start('/');
+      expect(opened).toEqual([['putney-landing', true]]);
+      expect(notes).toEqual([true]);
+      expect(picked).toEqual([]);
+      expect(store.has('rowhether-last-v1')).toBe(false);
+      expect(loc.pathname).toBe('/');
+      expect(hist.calls, 'arriving writes nothing to the history').toEqual([]);
+    });
+
+    it('shows the picker page at "/" when nothing is stored and the window has ended', async () => {
+      await start('/', {}, UNTIL);
+      expect(opened).toEqual([[null, false]]);
+      expect(picked).toEqual([{ mode: 'page' }]);
+      expect(hiddenPage()).toEqual([false, true, true, true, true]);
+      expect(loc.pathname).toBe('/');
+      expect(store.has('rowhether-last-v1')).toBe(false);
+      expect(hist.calls).toEqual([]);
+    });
+
+    it('opens the last location at its address, with no note, whatever the time', async () => {
+      for (const now of [NOW, UNTIL, UNTIL + 400 * 864e5]) {
+        await start('/', { 'rowhether-last-v1': 'putney-landing' }, now);
+        expect(opened, String(now)).toEqual([['putney-landing', false]]);
+        expect(notes).toEqual([false]);
+        expect(loc.pathname).toBe('/putney-landing');
+        expect(picked).toEqual([]);
+      }
+    });
+
+    it('keeps a tab hash on the way, so "/#wind" with nothing stored shows Putney with the note on that tab', async () => {
+      await start('/#wind');
+      expect(opened).toEqual([['putney-landing', true]]);
+      expect(notes).toEqual([true]);
+      expect(loc.hash).toBe('#wind');
+    });
+
+    it('leaves a location address alone: no note, no picker', async () => {
+      await start('/hanover-boathouse', {}, UNTIL);
+      expect(opened).toEqual([['hanover-boathouse', false]]);
+      expect(notes).toEqual([false]);
+      expect(picked).toEqual([]);
+      expect(hist.calls).toEqual([]);
+    });
+
+    it('?open=picker opens the picker over the last location, and takes the query out of the address', async () => {
+      await start('/?open=picker', { 'rowhether-last-v1': 'hanover-boathouse' });
+      expect(opened).toEqual([['hanover-boathouse', false]]);
+      expect(loc.pathname + loc.search).toBe('/hanover-boathouse');
+      await tick();
+      expect(picked).toEqual([{ mode: 'sheet' }]);
+    });
+
+    it('?open=picker over a location address opens the sheet after the location, and is taken out of the address with the hash kept', async () => {
+      let opens;
+      gate = new Promise(done => { opens = done; }); // the opener's answer: the location has opened when it settles
+      await start('/putney-landing?open=picker#wind');
+      expect(opened).toEqual([['putney-landing', false]]);
+      expect(hist.calls).toEqual([['replace', '/putney-landing#wind']]);
+      expect(loc.search).toBe('');
+      await tick();
+      expect(picked).toEqual([]); // not before the location has opened
+      opens();
+      await tick();
+      expect(picked).toEqual([{ mode: 'sheet' }]);
+      // A popstate at the address the router wrote is not a new address.
+      winOn.popstate();
+      expect(opened).toHaveLength(1);
+    });
+
+    it('?open=picker with nothing stored is the picker page, not Putney with its note', async () => {
+      await start('/?open=picker');
+      expect(opened).toEqual([[null, false]]);
+      expect(picked).toEqual([{ mode: 'page' }]);
+      expect(loc.pathname + loc.search).toBe('/');
+      expect(hiddenPage()).toEqual([false, true, true, true, true]);
+    });
+
+    it('does not read a query that is not open=picker', async () => {
+      await start('/?open=other&x=1');
+      expect(opened).toEqual([['putney-landing', true]]);
+      expect(loc.search).toBe('?open=other&x=1');
+    });
+
+    it('asks the picker for the search under an address with no location, with the address, and under a location that did not load, with none', async () => {
+      await start('/Putney-Landing/extra');
+      expect(picked).toEqual([{ mode: 'notfound', query: 'Putney-Landing/extra' }]);
+      r.showMissing('lake-quinsigamond');
+      expect(picked.at(-1)).toEqual({ mode: 'notfound', query: 'lake-quinsigamond' });
+      r.showFailed();
+      expect(picked.at(-1)).toEqual({ mode: 'notfound' });
+    });
+
+    it('the picker page is drawn in the page for no location, with nothing of the last one left in it', async () => {
+      await start('/Putney-Landing/extra');
+      expect(dom.el('notFound').textContent).toContain('No location here');
+      await start('/', {}, UNTIL);
+      expect(dom.el('notFound').textContent).toBe('');
+      expect(dom.el('notFound').hidden).toBe(false);
+    });
+
+    // "/" would open the last location now, so an entry for "/" that is left by a link in the app
+    // remembers what it showed.
+    it('Back to the picker page returns to it, and not to the location chosen from it', async () => {
+      await start('/', {}, UNTIL);
+      expect(hist.calls).toEqual([]);
+      click(inside('a[data-nav]', link('/hanover-boathouse')));
+      expect(hist.calls).toEqual([['replace', '/'], ['push', '/hanover-boathouse']]);
+      const entry = hist.states[0];
+      expect(entry).toEqual({ home: 'picker' });
+      expect(opened.at(-1)).toEqual(['hanover-boathouse', false]);
+      store.set('rowhether-last-v1', 'hanover-boathouse'); // opening it stores it
+      goTo('/'); hist.state = entry; // Back
+      winOn.popstate();
+      expect(opened.at(-1)).toEqual([null, false]);
+      expect(picked.at(-1)).toEqual({ mode: 'page' });
+      expect(loc.pathname).toBe('/');
+    });
+
+    it('Back to Putney with its note returns to it at "/" with no note, once another location has been chosen', async () => {
+      await start('/');
+      r.navigate('/hanover-boathouse');
+      const entry = hist.states[0];
+      expect(entry).toEqual({ home: 'putney-landing' });
+      store.set('rowhether-last-v1', 'hanover-boathouse');
+      goTo('/'); hist.state = entry;
+      winOn.popstate();
+      expect(opened.at(-1)).toEqual(['putney-landing', true]);
+      expect(notes.at(-1)).toBe(false);
+      expect(loc.pathname).toBe('/');
+      expect(store.get('rowhether-last-v1')).toBe('hanover-boathouse'); // showing it did not choose it
+    });
+
+    it('notes the tab it was left from, for a "/" with a tab hash', async () => {
+      await start('/#wind');
+      r.navigate('/hanover-boathouse');
+      expect(hist.calls[0]).toEqual(['replace', '/#wind']);
+      expect(hist.states[0]).toEqual({ home: 'putney-landing' });
+    });
+
+    it('leaves the entry alone when a location is left for another: only "/" is not its own address', async () => {
+      await start('/putney-landing#wind');
+      r.navigate('/hanover-boathouse');
+      expect(hist.calls).toEqual([['push', '/hanover-boathouse']]);
+    });
+
+    it('an entry that remembers Putney, once Putney is the last location, goes to its address', async () => {
+      await start('/', { 'rowhether-last-v1': 'putney-landing' }, NOW, { home: 'putney-landing' });
+      expect(opened).toEqual([['putney-landing', false]]);
+      expect(loc.pathname).toBe('/putney-landing');
+    });
+
+    it('an entry that remembers Putney, with no location chosen, shows it with the note again', async () => {
+      await start('/', {}, NOW, { home: 'putney-landing' });
+      expect(opened).toEqual([['putney-landing', true]]);
+      expect(notes).toEqual([true]);
+    });
+
+    it('does not take what the entry remembers on trust', async () => {
+      await start('/', {}, UNTIL, { home: '../etc' });
+      expect(picked).toEqual([{ mode: 'page' }]);
+      await start('/', {}, NOW, { home: { x: 1 } });
+      expect(opened).toEqual([['putney-landing', true]]);
+    });
+
+    it('keeps what a history entry holds when it adds the tab or the day', async () => {
+      await start('/putney-landing#wind', {}, NOW, { keep: 1 });
+      state.openLocation(PUTNEY_FILE, {});
+      r.showTab();
+      r.setDay('2026-10-14');
+      expect(hist.state).toEqual({ keep: 1 });
     });
   });
 

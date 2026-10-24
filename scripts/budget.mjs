@@ -131,8 +131,8 @@ function locationProblems(distinct) {
 }
 
 // The lazy chunks. P1.5 moved the suggestion form out of the main script to make
-// room (07 10.3, plan 7.3); P1.6, P1.14 and P1.18 add picker, tide and admin.
-const LAZY = [{ name: 'views', precache: true }, { name: 'suggest-form', precache: true }];
+// room (07 10.3, plan 7.3); P1.6 added the picker; P1.14 and P1.18 add tide and admin.
+const LAZY = [{ name: 'views', precache: true }, { name: 'suggest-form', precache: true }, { name: 'picker', precache: true }];
 
 // The files the page loads or preloads: its scripts, and its modulepreload and
 // preload links. A lazy chunk is read with import() and is in none of them.
@@ -158,6 +158,12 @@ function lazyChunks(assets, html, distinct) {
       if (precache && !cached) problems.push(`The service worker does not precache ${f.file}.`);
       if (!precache && cached) problems.push(`The service worker precaches ${f.file}, a chunk that is not precached.`);
       chunks.push({ name, file: f.file, raw: f.raw, gzip: f.gzip, precache, precached: cached });
+    }
+    // A chunk that imports a stylesheet has it as its own file (assets/<name>-*.css): offline, the chunk needs it.
+    for (const f of assets.filter((a) => new RegExp(`^assets/${name}-[^/]+\\.css$`).test(a.file))) {
+      const cached = distinct.includes(f.file);
+      if (precache && !cached) problems.push(`The service worker does not precache ${f.file}, the stylesheet of the ${name} chunk.`);
+      if (!precache && cached) problems.push(`The service worker precaches ${f.file}, the stylesheet of a chunk that is not precached.`);
     }
   }
   return { chunks, problems };

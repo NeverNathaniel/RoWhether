@@ -267,3 +267,505 @@ test.describe('the footer', () => {
     expect(PUTNEY_FILE.revision).toBe(3);
   });
 });
+
+// ---------- Picking a location (P1.6; 07 5.1, 5.2, 4.7, 12.1, 12.2) ----------
+const AFTER = Date.UTC(2027, 3, 1, 16); // after the first-visit window
+const ROOT_TITLE = 'RoWhether: pick a location';
+const entry = (slug, name, locality, waterway, region, over = {}) => ({ slug, name, shortName: name.split(' ')[0], locality, waterway, lat: 42, lon: -72, tz: 'America/New_York', country: 'US', region, waterType: 'river', status: 'published', revision: 1, ...over });
+// The curated list as the build will write it, so the sheet has rows from several regions to sort and group.
+const INDEX = {
+  v: 1,
+  locations: [
+    entry('putney-landing', 'Putney Landing', 'Putney, VT', 'Connecticut River', 'US-VT', { status: 'verified', revision: PUTNEY_FILE.revision }),
+    entry('hanover-boathouse', 'Hanover boathouse', 'Hanover, NH', 'Connecticut River', 'US-NH'),
+    entry('boathouse-row', 'Boathouse Row', 'Philadelphia, PA', 'Schuylkill River', 'US-PA'),
+    entry('lake-quinsigamond', 'Lake Quinsigamond', 'Worcester, MA', 'Lake Quinsigamond', 'US-MA', { waterType: 'lake' }),
+    entry('lake-natoma', 'Lake Natoma', 'Folsom, CA', 'Lake Natoma', 'US-CA', { waterType: 'lake' }),
+    entry('thompson-boat-center', 'Thompson Boat Center', 'Washington, DC', 'Potomac River', 'US-DC'),
+    entry('lake-carnegie', 'Lake Carnegie', 'Princeton, NJ', 'Lake Carnegie', 'US-NJ', { waterType: 'lake' })
+  ]
+};
+// The records the page may open: Putney's at the other addresses, with their own names.
+const FILES = Object.fromEntries(['hanover-boathouse', 'lake-natoma', 'lake-carnegie'].map(slug => {
+  const e = INDEX.locations.find(l => l.slug === slug);
+  return [slug, record(slug, { name: e.name, status: 'published', subtitle: `${e.waterway} at ${e.locality}.`, tz: 'America/New_York', tzLabel: 'Eastern' })];
+}));
+const path = page => new URL(page.url()).pathname;
+const stored = (page, key) => page.evaluate(k => localStorage.getItem(k), key);
+const asks = page => { const urls = []; page.on('request', r => urls.push(new URL(r.url()).pathname)); return urls; };
+function watchConsole(page) {
+  const bad = [];
+  page.on('pageerror', e => bad.push(`pageerror: ${e.message}`));
+  page.on('console', m => {
+    if (!['error', 'warning'].includes(m.type()) || m.text() === 'Service Worker registration blocked by Playwright') return;
+    const { url = '' } = m.location();
+    if (/Failed to load resource.*404/.test(m.text()) && /\/api\/(info|suggest)$/.test(url)) return;
+    bad.push(`${m.type()}: ${m.text()} (${url})`);
+  });
+  return bad;
+}
+
+test.describe('the first visit to "/"', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+    await routeAll(page, scenario, clock);
+  });
+
+  test('inside the window shows Putney Landing with a note above the hero, in place of the Settings reminder, and stores no location', async ({ page }) => {
+    await page.goto('/');
+    await ready(page);
+    await expect(page.locator('#pickNote')).toBeVisible();
+    await expect(page.locator('#pickNote p')).toHaveText('Not your water? Pick a location.');
+    await expect(page.locator('#pickNote button')).toHaveText(['Dismiss', 'Pick a location']);
+    // One note at a time: nothing is saved here, so the Settings reminder would show without it.
+    await expect(page.locator('#setNudge')).toBeHidden();
+    const tops = await page.evaluate(() => ['pickNote', 'hero'].map(id => document.getElementById(id).getBoundingClientRect().top));
+    expect(tops[0], 'the note is above the hero').toBeLessThan(tops[1]);
+    expect(path(page)).toBe('/');
+    expect(await stored(page, 'rowhether-last-v1')).toBeNull();
+    await expect(page.locator('#locName')).toHaveText('Putney Landing');
+    await expect(page).toHaveTitle('Putney Landing rowing conditions');
+  });
+
+  test('"Pick a location" opens the sheet, and Escape closes it with focus back on the button', async ({ page }) => {
+    await page.goto('/');
+    await ready(page);
+    await page.locator('#pickNoteBtn').click();
+    await expect(page.getByRole('dialog', { name: 'Change location' })).toBeVisible();
+    await expect(page.locator('#pickTitle')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#picker')).toBeHidden();
+    await expect(page.locator('#pickNoteBtn')).toBeFocused();
+    await expect(page.locator('#pickNote')).toBeVisible();
+  });
+
+  test('a reload without an answer shows the note again. Dismiss ends it, brings the Settings reminder back, and "/" is Putney at its address from then on', async ({ page }) => {
+    await page.goto('/');
+    await ready(page);
+    await page.reload();
+    await ready(page);
+    await expect(page.locator('#pickNote')).toBeVisible();
+    expect(path(page)).toBe('/');
+    expect(await stored(page, 'rowhether-last-v1')).toBeNull();
+    await page.locator('#pickNoteLater').click();
+    await expect(page.locator('#pickNote')).toBeHidden();
+    await expect(page.locator('#setNudge')).toBeVisible();
+    expect(await stored(page, 'rowhether-last-v1')).toBe('putney-landing');
+    expect(await stored(page, 'rowhether-pickhint-v1')).toBe('1');
+    expect(path(page), 'the address waits for the next visit').toBe('/');
+    await page.reload();
+    await ready(page);
+    await expect(page.locator('#pickNote')).toBeHidden();
+    expect(path(page)).toBe('/putney-landing');
+  });
+
+  test('picking Putney Landing from the sheet answers the note the same way', async ({ page }) => {
+    await serve(page, { index: INDEX });
+    await page.goto('/');
+    await ready(page);
+    await page.locator('#pickNoteBtn').click();
+    await page.locator('#picker .pk-cur .pk-row, #picker .plist .pk-row').first().click();
+    await expect(page.locator('#pickNote')).toBeHidden();
+    expect(path(page)).toBe('/putney-landing');
+    expect(await stored(page, 'rowhether-last-v1')).toBe('putney-landing');
+    await expect(page.locator('#setNudge')).toBeVisible();
+  });
+
+  test('picking another location from the sheet opens it, and Back returns to Putney at "/" without the note', async ({ page }) => {
+    await serve(page, { index: INDEX, ...FILES });
+    await page.goto('/');
+    await ready(page);
+    await page.locator('#pickNoteBtn').click();
+    await page.locator('#picker .pk-row', { hasText: 'Lake Natoma' }).last().click();
+    await expect(page.locator('#locName')).toHaveText('Lake Natoma');
+    await ready(page);
+    expect(path(page)).toBe('/lake-natoma');
+    await expect(page.locator('#pickNote')).toBeHidden();
+    expect(await stored(page, 'rowhether-last-v1')).toBe('lake-natoma');
+    await page.goBack();
+    await expect(page.locator('#locName')).toHaveText('Putney Landing');
+    expect(path(page)).toBe('/');
+    await expect(page.locator('#pickNote')).toBeHidden();
+    expect(await stored(page, 'rowhether-last-v1'), 'showing Putney again did not choose it').toBe('lake-natoma');
+  });
+
+  // The record Putney had before P1.5: saved in this browser, and replaced once the index has been read.
+  test('keeps the note when a newer record of Putney replaces the saved one', async ({ page }) => {
+    const old = { ...PUTNEY_FILE, revision: 2, copy: { ...PUTNEY_FILE.copy, credits: OLD_CREDITS } };
+    await page.addInitScript(rec => { localStorage.setItem('rowhether-migrated-v1', '1'); localStorage.setItem('rowhether-loc-v1:putney-landing', rec); }, JSON.stringify({ record: old, fetchedAt: clock }));
+    let release;
+    const gate = new Promise(done => { release = done; });
+    await page.route('**/locations/index.json', async route => { await gate; await route.fallback(); });
+    await page.goto('/');
+    await ready(page);
+    await expect(page.locator('#pickNote')).toBeVisible();
+    await expect(page.locator('#credits a')).toHaveCount(0);
+    release();
+    await expect(page.locator('#credits a')).toHaveCount(6);
+    await expect(page.locator('#pickNote')).toBeVisible();
+    await expect(page.locator('#setNudge')).toBeHidden();
+    expect(path(page)).toBe('/');
+  });
+
+  test('after the window, with nothing stored, "/" is the picker page: no tabs, no Refresh or Settings, nothing asked of any weather source', async ({ page }) => {
+    const bad = watchConsole(page);
+    const seen = await routeAll(page, scenario, clock);
+    await page.clock.setFixedTime(AFTER);
+    await page.goto('/');
+    await expect(page.locator('.pk-q')).toBeVisible();
+    await expect(page.locator('#notFound h2')).toHaveText('Where do you row?');
+    await expect(page.locator('#notFound .lede')).toHaveText('Pick your launch site. RoWhether checks wind, fog, storms, river flow and daylight there, hour by hour, and says Go, Caution or Stay off.');
+    await expect(page.locator('#locName')).toHaveText('RoWhether');
+    await expect(page).toHaveTitle(ROOT_TITLE);
+    for (const id of ['tabs', 'actions', 'home', 'detail', 'credits']) await expect(page.locator(`#${id}`), id).toBeHidden();
+    await expect(page.locator('#refreshBtn')).toBeHidden();
+    await expect(page.locator('#settingsBtn')).toBeHidden();
+    await expect(page.locator('#notFound .pk-group')).toHaveText(['Vermont']);
+    await expect(page.locator('#notFound .pk-row')).toHaveText([/Putney Landing\s*Putney, VT\. Connecticut River\./]);
+    await expect(page.locator('#notFound .pk-here')).toHaveCount(0);
+    expect(path(page)).toBe('/');
+    expect(seen.served).toEqual([]);
+    expect(await stored(page, 'rowhether-last-v1')).toBeNull();
+    expect(bad).toEqual([]);
+    // The same on the next visit: nothing was chosen.
+    await page.reload();
+    await expect(page.locator('.pk-q')).toBeVisible();
+  });
+
+  test('the picker page at 360 px does not scroll sideways, lists the regions in order, and searches with no request', async ({ page }) => {
+    await serve(page, { index: INDEX, ...FILES });
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.clock.setFixedTime(AFTER);
+    await page.goto('/');
+    await expect(page.locator('.pk-q')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    await expect(page.locator('#notFound .pk-group')).toHaveText(['California', 'District of Columbia', 'Massachusetts', 'New Hampshire', 'New Jersey', 'Pennsylvania', 'Vermont']);
+    await expect(page.locator('#notFound h4.pk-group').first()).toBeVisible();
+    const requests = asks(page);
+    await page.locator('.pk-q').pressSequentially('put');
+    await expect(page.locator('.pk-found .pk-row')).toHaveCount(1);
+    await expect(page.locator('.pk-found .pk-row')).toContainText('Putney Landing');
+    await expect(page.locator('.pk-rest')).toBeHidden();
+    expect(requests, 'no request from the first key to the last').toEqual([]);
+    // Tab goes to the result, which is a link, and Enter opens it.
+    await page.keyboard.press('Tab');
+    await expect(page.locator('.pk-found .pk-row')).toBeFocused();
+    await page.clock.setFixedTime(clock); // the forecasts are cut at this moment
+    await page.keyboard.press('Enter');
+    await ready(page);
+    expect(path(page)).toBe('/putney-landing');
+    await expect(page).toHaveTitle('Putney Landing rowing conditions');
+    await expect(page.locator('#pageAnnounce')).toHaveText('Showing Putney Landing.');
+    await expect(page.locator('#title')).toBeFocused();
+    expect(await stored(page, 'rowhether-last-v1')).toBe('putney-landing');
+    // Back is the picker again, though "/" would now open the location just chosen.
+    await page.goBack();
+    await expect(page.locator('.pk-q')).toBeVisible();
+    expect(path(page)).toBe('/');
+    await expect(page).toHaveTitle(ROOT_TITLE);
+    await expect(page.locator('#tabs')).toBeHidden();
+  });
+});
+
+test.describe('the sheet', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+    await routeAll(page, scenario, clock);
+    await serve(page, { index: INDEX, ...FILES });
+  });
+
+  test('is opened by Enter on the location name, takes focus on its heading, and Escape returns focus to the name', async ({ page }) => {
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog', { name: 'Change location' })).toBeVisible();
+    await expect(page.locator('#pickTitle')).toHaveText('Change location');
+    await expect(page.locator('#pickTitle')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#picker')).toBeHidden();
+    await expect(page.locator('#locBtn')).toBeFocused();
+  });
+
+  test('lists the current location first with "Showing now", then all of them by region, each row a link with its place and water', async ({ page }) => {
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    const rows = page.locator('#picker .pk-row');
+    await expect(rows.first()).toContainText('Putney Landing');
+    await expect(rows.first().locator('.pk-here')).toHaveText('Showing now');
+    await expect(page.locator('#picker .pk-here')).toHaveCount(1);
+    await expect(rows.first().locator('.pk-sub')).toHaveText('Putney, VT. Connecticut River.');
+    await expect(page.locator('#picker h3')).toHaveText(['All locations']);
+    await expect(page.locator('#picker .pk-group')).toHaveText(['California', 'District of Columbia', 'Massachusetts', 'New Hampshire', 'New Jersey', 'Pennsylvania', 'Vermont']);
+    // Locality and waterway are left out when they repeat the name.
+    await expect(page.locator('#picker .pk-row', { hasText: 'Lake Natoma' }).locator('.pk-sub')).toHaveText('Folsom, CA.');
+    expect(await rows.evaluateAll(as => as.map(a => a.getAttribute('href') + (a.hasAttribute('data-nav') ? ' nav' : '')))).toEqual([
+      '/putney-landing nav', '/lake-natoma nav', '/thompson-boat-center nav', '/lake-quinsigamond nav', '/hanover-boathouse nav', '/lake-carnegie nav', '/boathouse-row nav', '/putney-landing nav'
+    ]);
+    // The suggestion line waits for the form to be configured, which it is not here.
+    await expect(page.locator('#picker .pk-sug')).toBeHidden();
+    await expect(page.locator('#picker .dlg-actions button')).toHaveText('Close');
+    await page.locator('#picker .pk-x').click();
+    await expect(page.locator('#picker')).toBeHidden();
+    await expect(page.locator('#locBtn')).toBeFocused();
+    await page.locator('#locBtn').click();
+    await page.locator('#picker .dlg-actions button').click();
+    await expect(page.locator('#picker')).toBeHidden();
+  });
+
+  test('searches from 2 characters, best match first, and the matches replace the lists', async ({ page }) => {
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    const q = page.getByLabel('Find a location');
+    await expect(q).toHaveAttribute('type', 'search');
+    await expect(q).toHaveAttribute('placeholder', 'Boathouse, lake, river or town');
+    await expect(q).toHaveAttribute('autocomplete', 'off');
+    await expect(q).toHaveAttribute('enterkeyhint', 'search');
+    await q.fill('l');
+    await expect(page.locator('.pk-found .pk-row')).toHaveCount(0);
+    await expect(page.locator('.pk-rest')).toBeVisible();
+    // Two characters are enough. A name that starts with them comes before a name with a word that does.
+    await q.fill('la');
+    await expect(page.locator('.pk-found .pk-name')).toHaveText(['Lake Carnegie', 'Lake Natoma', 'Lake Quinsigamond', 'Putney Landing']);
+    await expect(page.locator('.pk-rest')).toBeHidden();
+    await q.fill('lak');
+    await expect(page.locator('.pk-found .pk-name')).toHaveText(['Lake Carnegie', 'Lake Natoma', 'Lake Quinsigamond']);
+    await q.fill('boat');
+    await expect(page.locator('.pk-found .pk-name')).toHaveText(['Boathouse Row', 'Hanover boathouse', 'Thompson Boat Center']);
+    await q.fill('worcester');
+    await expect(page.locator('.pk-found .pk-name')).toHaveText(['Lake Quinsigamond']);
+    await q.fill('Quinsigamónd'); // accents do not matter
+    await expect(page.locator('.pk-found .pk-name')).toHaveText(['Lake Quinsigamond']);
+    await q.fill('Quinsigamund');
+    await expect(page.locator('.pk-found')).toContainText('Nothing matches "Quinsigamund". Check the spelling, or search for a town.');
+    await q.fill('<b>x</b>');
+    await expect(page.locator('.pk-found b')).toHaveCount(0);
+    await expect(page.locator('.pk-found')).toContainText('Nothing matches "<b>x</b>".');
+    await q.fill('');
+    await expect(page.locator('.pk-found')).toHaveText('');
+    await expect(page.locator('.pk-rest')).toBeVisible();
+  });
+
+  test('choosing a row opens the location, closes the sheet, moves focus to the title, says where it is and scrolls to the top; Recent then lists the one left', async ({ page }) => {
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await page.locator('#locBtn').click();
+    await page.locator('#picker .pk-rest .pk-row', { hasText: 'Hanover boathouse' }).click();
+    await expect(page.locator('#locName')).toHaveText('Hanover boathouse');
+    await ready(page);
+    await expect(page.locator('#picker')).toBeHidden();
+    expect(path(page)).toBe('/hanover-boathouse');
+    await expect(page).toHaveTitle('Hanover boathouse rowing conditions');
+    await expect(page.locator('#pageAnnounce')).toHaveText('Showing Hanover boathouse.');
+    await expect(page.locator('#title')).toBeFocused();
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    expect(await stored(page, 'rowhether-last-v1')).toBe('hanover-boathouse');
+    // The sheet now: Hanover is showing, Putney is recent.
+    await page.locator('#locBtn').click();
+    await expect(page.locator('#picker .pk-row').first()).toContainText('Hanover boathouse');
+    await expect(page.locator('#picker h3')).toHaveText(['Recent', 'All locations']);
+    await expect(page.locator('#picker .pk-rest .plist').first().locator('.pk-name')).toHaveText(['Putney Landing']);
+  });
+
+  test('a modified click on a row is left to the browser, and the sheet stays', async ({ page }) => {
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await page.locator('#picker .pk-rest .pk-row', { hasText: 'Lake Carnegie' }).click({ modifiers: ['Shift'], trial: true });
+    // A shift click opens a window in a real browser. Here the click is not sent, only the page's own handling is read.
+    const kept = await page.evaluate(() => {
+      const a = [...document.querySelectorAll('#picker .pk-rest .pk-row')].find(x => x.textContent.includes('Lake Carnegie'));
+      const e = new MouseEvent('click', { bubbles: true, cancelable: true, shiftKey: true });
+      a.dispatchEvent(e);
+      return { prevented: e.defaultPrevented, open: document.getElementById('picker').open };
+    });
+    expect(kept).toEqual({ prevented: false, open: true });
+    expect(path(page)).toBe('/putney-landing');
+  });
+
+  test('rises from the bottom edge at 360 px and is a centered dialog at 1280 px', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await expect(page.locator('#picker')).toBeVisible();
+    let box = await page.locator('#picker').boundingBox();
+    expect(box.x).toBe(0);
+    expect(box.width).toBe(360);
+    expect(Math.round(box.y + box.height)).toBe(780);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#picker')).toBeHidden();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.locator('#locBtn').click();
+    await expect(page.locator('#picker')).toBeVisible();
+    box = await page.locator('#picker').boundingBox();
+    expect(box.width).toBeLessThanOrEqual(34 * 16);
+    expect(Math.abs(box.x + box.width / 2 - 640)).toBeLessThan(2);
+    expect(box.y).toBeGreaterThan(0);
+  });
+
+  test('is not read until the first tap on the location name, and then is read once, with its styles', async ({ page }) => {
+    const requests = asks(page);
+    await page.goto('/putney-landing');
+    await ready(page);
+    expect(requests.filter(p => /\/picker-/.test(p)), 'before the first tap').toEqual([]);
+    await page.locator('#locBtn').click();
+    await expect(page.locator('#picker')).toBeVisible();
+    expect(requests.filter(p => /\/picker-.*\.js$/.test(p))).toHaveLength(1);
+    expect(requests.filter(p => /\/picker-.*\.css$/.test(p))).toHaveLength(1);
+    await page.keyboard.press('Escape');
+    await page.locator('#locBtn').click();
+    await expect(page.locator('#picker')).toBeVisible();
+    expect(requests.filter(p => /\/picker-/.test(p)), 'the second tap reads nothing more').toHaveLength(2);
+    await expect(page.locator('#picker .pk-row')).not.toHaveCount(0);
+  });
+
+  test('a second tap while the first is still loading opens one sheet, and the page says nothing about it', async ({ page }) => {
+    const bad = watchConsole(page);
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.evaluate(() => { const b = document.getElementById('locBtn'); b.click(); b.click(); });
+    await expect(page.locator('#picker')).toBeVisible();
+    await expect(page.locator('#picker .pk-q')).toHaveCount(1);
+    await page.waitForTimeout(200);
+    expect(bad).toEqual([]);
+  });
+});
+
+test.describe('?open=picker', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+    await routeAll(page, scenario, clock);
+    await serve(page, { index: INDEX, ...FILES });
+  });
+
+  test('over a location opens the sheet once the location is drawn, and the query leaves the address', async ({ page }) => {
+    await page.goto('/putney-landing?open=picker#wind');
+    await expect(page.locator('#picker')).toBeVisible();
+    await expect(page.locator('#picker .pk-here')).toHaveCount(1);
+    expect(new URL(page.url()).search).toBe('');
+    expect(new URL(page.url()).hash).toBe('#wind');
+  });
+
+  test('at "/" opens the sheet over the last location, and with none stored is the picker page, even inside the window', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('rowhether-last-v1', 'lake-natoma'));
+    await page.goto('/?open=picker');
+    await expect(page.locator('#picker')).toBeVisible();
+    await expect(page.locator('#picker .pk-row').first()).toContainText('Lake Natoma');
+    expect(path(page) + new URL(page.url()).search).toBe('/lake-natoma');
+  });
+
+  test('with nothing stored it is the picker page, not Putney with its note', async ({ page }) => {
+    await page.goto('/?open=picker');
+    await expect(page.locator('#notFound h2')).toHaveText('Where do you row?');
+    await expect(page.locator('#pickNote')).toBeHidden();
+    expect(path(page) + new URL(page.url()).search).toBe('/');
+  });
+});
+
+test.describe('the picker page that arrives late', () => {
+  test('does not draw over a location opened while the list was loading, nor change the title', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    let release;
+    const gate = new Promise(done => { release = done; });
+    await page.route('**/locations/index.json', async route => { await gate; await route.fallback(); });
+    await page.clock.setFixedTime(AFTER);
+    await page.goto('/');
+    await expect(page.locator('#notFound')).toBeVisible(); // the page, with the list still to come
+    await page.clock.setFixedTime(clock);
+    await page.evaluate(() => { history.pushState(null, '', '/putney-landing'); dispatchEvent(new PopStateEvent('popstate')); });
+    await ready(page);
+    const listed = page.waitForResponse(r => r.url().endsWith('/locations/index.json'));
+    release();
+    await listed;
+    await page.evaluate(() => new Promise(done => setTimeout(done, 50)));
+    await expect(page.locator('#notFound .pk')).toHaveCount(0);
+    await expect(page).toHaveTitle('Putney Landing rowing conditions');
+    await expect(page.locator('#notFound')).toBeHidden();
+  });
+});
+
+test.describe('an address with no location', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.install({ time: clock });
+  });
+
+  test('has the search under its words, filled in with the address, and picking from it opens the location (R9)', async ({ page }) => {
+    const bad = watchConsole(page);
+    const seen = await routeAll(page, scenario, clock);
+    await page.goto('/lake-quinsigamond');
+    await expect(page.locator('#notFound h2')).toHaveText('No location here');
+    await expect(page.locator('#notFound')).toContainText('No location at rowhether.com/lake-quinsigamond.');
+    const q = page.locator('#notFound .pk-q');
+    await expect(q).toHaveValue('lake quinsigamond');
+    await expect(page.locator('#notFound .pk-found')).toContainText('Nothing matches "lake quinsigamond". Check the spelling, or search for a town.');
+    // Nothing else is on the page: no list of every location, no tabs.
+    await expect(page.locator('#notFound h3')).toHaveCount(0);
+    await expect(page.locator('#tabs')).toBeHidden();
+    // The tab comes back with the page like this: no request.
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.clock.runFor(11 * 60e3);
+    expect(seen.served).toEqual([]);
+    await q.fill('putney');
+    await page.locator('#notFound .pk-row').click();
+    await page.clock.runFor(50);
+    await ready(page);
+    expect(path(page)).toBe('/putney-landing');
+    await expect(page.locator('#verdict')).toHaveText('Go.');
+    await expect(page.locator('#notFound')).toBeHidden();
+    expect(seen.served).toHaveLength(9);
+    await expect(page.locator('#title')).toBeFocused();
+    expect(bad).toEqual([]);
+  });
+
+  test('an address that is not a slug has it too, from its words', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await page.goto('/Putney-Landing/extra');
+    await expect(page.locator('#notFound .pk-q')).toHaveValue('putney landing extra');
+    await expect(page.locator('#notFound .pk-found')).toContainText('Nothing matches');
+    await page.locator('#notFound .pk-q').fill('putney');
+    await expect(page.locator('#notFound .pk-found .pk-row')).toHaveCount(1);
+  });
+
+  test('a location that did not load keeps its retry button and gains the search', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    // The index lists it and its file is a failure: the page cannot say whether it exists.
+    await serve(page, { index: { v: 1, locations: [...INDEX.locations, entry('lake-broken', 'Lake Broken', 'Nowhere, VT', null, 'US-VT')] } });
+    await page.route('**/locations/lake-broken.json', route => route.abort('failed'));
+    await page.goto('/lake-broken');
+    await expect(page.locator('#notFound h2')).toHaveText('Could not load this location');
+    await expect(page.locator('#retryBtn')).toBeVisible();
+    await expect(page.locator('#notFound .pk-q')).toBeVisible();
+    await expect(page.locator('#notFound .pk-q')).toHaveValue('');
+  });
+});
+
+test.describe('the suggestion line', () => {
+  test('shows in the sheet and the page when the suggestion form is configured, and closes the sheet to open the form', async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+    await routeAll(page, scenario, clock);
+    await page.route('**/api/suggest', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ enabled: true, siteKey: 'test-key' }) }));
+    await page.goto('/putney-landing');
+    await ready(page);
+    await expect(page.locator('#suggestBtn')).toBeVisible();
+    await page.locator('#locBtn').click();
+    await expect(page.locator('#picker .pk-sug')).toBeVisible();
+    await expect(page.locator('#picker .pk-sug button')).toHaveText('Suggest a location');
+    await page.locator('#picker .pk-sug button').click();
+    await expect(page.locator('#picker')).toBeHidden();
+    await expect(page.locator('#suggest')).toBeVisible();
+  });
+
+  test('is on the picker page too, worded as a question', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await page.route('**/api/suggest', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ enabled: true, siteKey: 'test-key' }) }));
+    await page.clock.setFixedTime(AFTER);
+    await page.goto('/');
+    await expect(page.locator('#notFound .pk-sug')).toBeVisible();
+    await expect(page.locator('#notFound .pk-sug')).toContainText('Not here? Suggest a location');
+  });
+});

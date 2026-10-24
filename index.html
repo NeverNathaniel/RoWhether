@@ -26,7 +26,7 @@
   <header class="top">
     <div>
       <div class="title-row">
-        <h1 id="title">
+        <h1 id="title" tabindex="-1">
           <button type="button" id="locBtn" class="loc-btn" aria-haspopup="dialog" aria-controls="picker" aria-describedby="locHint"><span id="locName">Putney Landing</span><svg class="loc-chev" viewBox="0 0 12 8" aria-hidden="true"><path d="M1.5 1.5 6 6l4.5-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <span class="env" id="envBadge" hidden></span>
         </h1>
@@ -46,6 +46,13 @@
 
   <main>
     <div id="home">
+      <div class="set-nudge" id="pickNote" hidden>
+        <p>Not your water? Pick a location.</p>
+        <div class="set-nudge-actions">
+          <button type="button" id="pickNoteLater">Dismiss</button>
+          <button type="button" class="primary" id="pickNoteBtn">Pick a location</button>
+        </div>
+      </div>
       <div class="set-nudge" id="setNudge" hidden>
         <p>Set your own limits in Settings. Until you do, Go, Caution and Stay off use starting values for wind, gusts, rain, cold water and river flow.</p>
         <div class="set-nudge-actions">
@@ -110,6 +117,10 @@
     <button type="button" class="primary" id="installGo">Install</button>
   </div>
 </div>
+
+<div class="vh" id="pageAnnounce" aria-live="polite"></div>
+
+<dialog id="picker" class="sheet" aria-labelledby="pickTitle"></dialog>
 
 <dialog id="settings" aria-labelledby="setTitle">
   <form method="dialog" id="setForm">

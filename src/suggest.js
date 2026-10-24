@@ -31,5 +31,6 @@ export async function initSuggest() {
     return; // offline, local dev, or not deployed with the Worker
   }
   $('suggestRow').hidden = false;
+  document.body.classList.add('can-suggest'); // the picker offers it too
   $('suggestBtn').addEventListener('click', () => import('./suggest-form.js').then(f => f.openForm(siteKey)));
 }

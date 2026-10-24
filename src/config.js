@@ -5,6 +5,10 @@ export const SITE_URL = 'https://rowhether.com/';
 // The location "/" opens for someone with none stored, and the only one that has dock reports.
 export const DEFAULT_SLUG = 'putney-landing';
 export const REPORTS_SLUG = 'putney-landing';
+// Until this moment "/" shows Putney Landing, with a note that offers the picker, to a
+// visitor who has not chosen a location. After it, "/" is the picker page (07 5.1).
+// PLACEHOLDER: 90 days after phase 1 reaches production. The owner sets it with the merge to master.
+export const FIRST_VISIT_PUTNEY_UNTIL = Date.UTC(2027, 2, 1);
 
 // What every location starts from, before its own thresholds and the viewer's
 // changes (01 11.5). No heading (it lives in the course) and no flow limits
