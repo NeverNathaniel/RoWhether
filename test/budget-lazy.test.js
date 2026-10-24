@@ -130,6 +130,18 @@ describe('the lazy chunk list in scripts/budget.mjs', () => {
     expect(r.out).toContain(`The service worker does not precache ${PICKER_CSS}, the stylesheet of the picker chunk.`);
   });
 
+  it("fails when the service worker precaches the stylesheet of a chunk that is marked not precached", () => {
+    setup({ pickerCached: false });
+    const copy = join(dir, 'scripts/budget.mjs');
+    const text = readFileSync(copy, 'utf8');
+    expect(text).toContain("{ name: 'picker', precache: true }");
+    writeFileSync(copy, text.replace("{ name: 'picker', precache: true }", "{ name: 'picker', precache: false }"));
+    const r = run(copy);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(`The service worker precaches ${PICKER_CSS}, the stylesheet of a chunk that is not precached.`);
+    expect(r.out).not.toContain(`precaches ${PICKER},`);
+  });
+
   it('passes a chunk with no stylesheet of its own', () => {
     setup({ pickerCss: null });
     expect(run().code).toBe(0);

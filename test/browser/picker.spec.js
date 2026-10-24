@@ -423,6 +423,8 @@ test.describe('the first visit to "/"', () => {
     await expect(page.locator('#notFound .pk-group')).toHaveText(['Vermont']);
     await expect(page.locator('#notFound .pk-row')).toHaveText([/Putney Landing\s*Putney, VT\. Connecticut River\./]);
     await expect(page.locator('#notFound .pk-here')).toHaveCount(0);
+    // The list is long: it is not read out when the page draws it (07 12.3).
+    await expect(page.locator('#notFound .pk')).toHaveAttribute('aria-live', 'off');
     expect(path(page)).toBe('/');
     expect(seen.served).toEqual([]);
     expect(await stored(page, 'rowhether-last-v1')).toBeNull();
@@ -624,7 +626,12 @@ test.describe('the sheet', () => {
     await expect(page.locator('#picker .pk-row')).not.toHaveCount(0);
   });
 
+  // Some browsers refuse showModal() on a dialog that is open (Chromium now ignores it), so the page is made to.
   test('a second tap while the first is still loading opens one sheet, and the page says nothing about it', async ({ page }) => {
+    await page.addInitScript(() => {
+      const show = HTMLDialogElement.prototype.showModal;
+      HTMLDialogElement.prototype.showModal = function () { if (this.open) throw new DOMException('The dialog is open.', 'InvalidStateError'); return show.call(this); };
+    });
     const bad = watchConsole(page);
     await page.goto('/putney-landing');
     await ready(page);
@@ -649,6 +656,16 @@ test.describe('?open=picker', () => {
     await expect(page.locator('#picker .pk-here')).toHaveCount(1);
     expect(new URL(page.url()).search).toBe('');
     expect(new URL(page.url()).hash).toBe('#wind');
+  });
+
+  // Nothing had focus when it opened, so there is no control for the browser to give focus back to.
+  test('Escape returns focus to the location name when nothing had focus', async ({ page }) => {
+    await page.goto('/putney-landing?open=picker');
+    await expect(page.locator('#picker')).toBeVisible();
+    await expect(page.locator('#pickTitle')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#picker')).toBeHidden();
+    await expect(page.locator('#locBtn')).toBeFocused();
   });
 
   test('at "/" opens the sheet over the last location, and with none stored is the picker page, even inside the window', async ({ page }) => {

@@ -411,6 +411,12 @@ describe('the router in the page', () => {
       expect(hist.calls).toEqual([['push', '/hanover-boathouse']]);
     });
 
+    it('writes nothing for a "/" that the last location replaced: that is a location address now', async () => {
+      await start('/', { 'rowhether-last-v1': 'hanover-boathouse' });
+      r.navigate('/putney-landing');
+      expect(hist.calls).toEqual([['replace', '/hanover-boathouse'], ['push', '/putney-landing']]);
+    });
+
     it('an entry that remembers Putney, once Putney is the last location, goes to its address', async () => {
       await start('/', { 'rowhether-last-v1': 'putney-landing' }, NOW, { home: 'putney-landing' });
       expect(opened).toEqual([['putney-landing', false]]);
