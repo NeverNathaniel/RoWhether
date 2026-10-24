@@ -1041,7 +1041,8 @@ test.describe('an address with no location', () => {
     page.on('request', r => { if (new URL(r.url()).pathname.startsWith('/locations/')) files.push(new URL(r.url()).pathname); });
     await page.goto('/Putney-Landing/extra');
     await expect(page.locator('#notFound')).toContainText('No location at rowhether.com/Putney-Landing/extra.');
-    expect(files).toEqual([]);
+    // No record is looked up. The list of locations is read (P1.6): the search under the address needs it.
+    expect(files.filter(f => f !== '/locations/index.json')).toEqual([]);
     expect(seen.served).toEqual([]);
     expect(bad).toEqual([]);
   });

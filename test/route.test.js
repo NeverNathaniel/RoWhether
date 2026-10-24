@@ -124,13 +124,17 @@ describe('homeTarget', () => {
 describe('the router in the page', () => {
   const ORIGIN = 'https://rowhether.com';
   let r, state, detail, dom, loc, hist, opened, winOn, docOn, store;
+  // Inside the first-visit window (07 5.1), unless a case says another: "/" reads the time.
+  const NOW = Date.UTC(2026, 5, 15, 16);
 
   // The location moves as the browser's does: an address resolves against the current one.
   const goTo = href => { const u = new URL(href, ORIGIN + loc.pathname + loc.search); Object.assign(loc, { pathname: u.pathname, search: u.search, hash: u.hash }); };
 
   // A page at `href`, with the router started and an opener that notes what it is asked for.
-  async function start(href, stored = {}) {
+  async function start(href, stored = {}, now = NOW) {
     vi.resetModules();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
     store = new Map(Object.entries(stored));
     vi.stubGlobal('localStorage', { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => { store.set(k, String(v)); }, removeItem: k => { store.delete(k); }, key: i => [...store.keys()][i] ?? null, get length() { return store.size; } });
     loc = { origin: ORIGIN, pathname: '/', search: '', hash: '' };
@@ -150,7 +154,7 @@ describe('the router in the page', () => {
     opened = [];
     r.initRoutes((slug, keep) => { opened.push([slug, !!keep]); });
   }
-  afterEach(() => { uninstallFakeDom(); vi.unstubAllGlobals(); });
+  afterEach(() => { uninstallFakeDom(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
   // A click on `target`, as the browser's event gives it.
   const click = (target, extra = {}) => {
