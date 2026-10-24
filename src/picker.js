@@ -215,24 +215,28 @@ export async function openPicker({ mode, query = '' }) {
   q.addEventListener('keydown', e => { if (e.key === 'Enter') { clearTimeout(typing); ask(q.value.trim()); } });
   if (query) { q.value = pathWords(query); refine(); }
 
-  // Near me, on a tap only. The answer replaces the box and the lists, as a search does.
+  // Near me, on a tap only. The answer replaces the box and the lists, as a search does, unless the
+  // viewer has typed or closed the picker while the position was on its way (that changes `seq`).
   nearBtn.addEventListener('click', async () => {
+    const id = ++seq;
     nearBtn.disabled = true;
     nearBtn.textContent = T.finding;
     note.textContent = '';
     try {
       const hits = nearest(list, await whereAmI(), NEAR_KM).slice(0, 8);
-      cancel();
-      towns = null;
-      q.value = '';
-      refine();
-      if (hits.length) {
-        rest.hidden = true;
-        found.innerHTML = `<h3>${T.nearHead}</h3>${rows(hits, here)}`;
-        say.textContent = T.nearCount(hits.length);
-      } else note.textContent = T.nearNone;
+      if (id === seq && live()) {
+        cancel();
+        towns = null;
+        q.value = '';
+        refine();
+        if (hits.length) {
+          rest.hidden = true;
+          found.innerHTML = `<h3>${T.nearHead}</h3>${rows(hits, here)}`;
+          say.textContent = T.nearCount(hits.length);
+        } else note.textContent = T.nearNone;
+      }
     } catch (why) {
-      note.textContent = why === 'denied' ? T.denied : T.lost;
+      if (id === seq) note.textContent = why === 'denied' ? T.denied : T.lost;
     }
     nearBtn.disabled = false;
     nearBtn.textContent = T.near;

@@ -273,20 +273,21 @@ const AFTER = Date.UTC(2027, 3, 1, 16); // after the first-visit window
 const ROOT_TITLE = 'RoWhether: pick a location';
 const entry = (slug, name, locality, waterway, region, over = {}) => ({ slug, name, shortName: name.split(' ')[0], locality, waterway, lat: 42, lon: -72, tz: 'America/New_York', country: 'US', region, waterType: 'river', status: 'published', revision: 1, ...over });
 // The curated list as the build will write it, so the sheet has rows from several regions to sort and group.
+// Each is where it is (plan section 4), so a distance from a position means something.
 const INDEX = {
   v: 1,
   locations: [
-    entry('putney-landing', 'Putney Landing', 'Putney, VT', 'Connecticut River', 'US-VT', { status: 'verified', revision: PUTNEY_FILE.revision }),
-    entry('hanover-boathouse', 'Hanover boathouse', 'Hanover, NH', 'Connecticut River', 'US-NH'),
-    entry('boathouse-row', 'Boathouse Row', 'Philadelphia, PA', 'Schuylkill River', 'US-PA'),
-    entry('lake-quinsigamond', 'Lake Quinsigamond', 'Worcester, MA', 'Lake Quinsigamond', 'US-MA', { waterType: 'lake' }),
-    entry('lake-natoma', 'Lake Natoma', 'Folsom, CA', 'Lake Natoma', 'US-CA', { waterType: 'lake' }),
-    entry('thompson-boat-center', 'Thompson Boat Center', 'Washington, DC', 'Potomac River', 'US-DC'),
-    entry('lake-carnegie', 'Lake Carnegie', 'Princeton, NJ', 'Lake Carnegie', 'US-NJ', { waterType: 'lake' })
+    entry('putney-landing', 'Putney Landing', 'Putney, VT', 'Connecticut River', 'US-VT', { status: 'verified', revision: PUTNEY_FILE.revision, lat: 42.9607, lon: -72.5219 }),
+    entry('hanover-boathouse', 'Hanover boathouse', 'Hanover, NH', 'Connecticut River', 'US-NH', { lat: 43.70552, lon: -72.29763 }),
+    entry('boathouse-row', 'Boathouse Row', 'Philadelphia, PA', 'Schuylkill River', 'US-PA', { lat: 39.96941, lon: -75.18711 }),
+    entry('lake-quinsigamond', 'Lake Quinsigamond', 'Worcester, MA', 'Lake Quinsigamond', 'US-MA', { waterType: 'lake', lat: 42.29043, lon: -71.75505 }),
+    entry('lake-natoma', 'Lake Natoma', 'Folsom, CA', 'Lake Natoma', 'US-CA', { waterType: 'lake', lat: 38.63453, lon: -121.21918 }),
+    entry('thompson-boat-center', 'Thompson Boat Center', 'Washington, DC', 'Potomac River', 'US-DC', { lat: 38.90053, lon: -77.05834 }),
+    entry('lake-carnegie', 'Lake Carnegie', 'Princeton, NJ', 'Lake Carnegie', 'US-NJ', { waterType: 'lake', lat: 40.33932, lon: -74.65048 })
   ]
 };
 // The records the page may open: Putney's at the other addresses, with their own names.
-const FILES = Object.fromEntries(['hanover-boathouse', 'lake-natoma', 'lake-carnegie'].map(slug => {
+const FILES = Object.fromEntries(['hanover-boathouse', 'lake-natoma', 'lake-carnegie', 'lake-quinsigamond'].map(slug => {
   const e = INDEX.locations.find(l => l.slug === slug);
   return [slug, record(slug, { name: e.name, status: 'published', subtitle: `${e.waterway} at ${e.locality}.`, tz: 'America/New_York', tzLabel: 'Eastern' })];
 }));
@@ -831,5 +832,526 @@ test.describe('the suggestion line', () => {
     await page.goto('/');
     await expect(page.locator('#notFound .pk-sug')).toBeVisible();
     await expect(page.locator('#notFound .pk-sug')).toContainText('Not here? Suggest a location');
+  });
+});
+
+// ---------- Near me, the town search and the picker offline (P1.7; 07 5.2.1, 5.2.2, 9.4) ----------
+const DOCK = { latitude: 42.96, longitude: -72.52 };
+const GEOCODE = /^https:\/\/geocoding-api\.open-meteo\.com\/v1\/search\?/;
+// The names the town search was asked for, in order.
+function townAsks(page) {
+  const names = [];
+  page.on('request', r => { if (GEOCODE.test(r.url())) names.push(new URL(r.url()).searchParams.get('name')); });
+  return { names };
+}
+// A page whose clock stands still from the moment it has drawn, so the pause before a town search and
+// the wait between two end only when the test runs the clock. Timers, but not the network, follow it.
+async function stillClock(page, url = '/putney-landing') {
+  await page.clock.install({ time: clock });
+  await page.goto(url);
+  await ready(page);
+  await page.clock.pauseAt(clock + 60e3);
+}
+// Counts the calls to getCurrentPosition. `how` is what a call does: 'real' asks the browser, 'timeout' and
+// 'refused' fail as the browser would, 'hold' waits for the test to answer (window.__geo.later[0].ok(...)).
+// 'denied' also makes the permissions API say so.
+async function stubGeo(page, how) {
+  await page.addInitScript(how => {
+    const geo = (window.__geo = { calls: [], later: [] });
+    const real = navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);
+    navigator.geolocation.getCurrentPosition = (ok, no, opts) => {
+      geo.calls.push(opts);
+      if (how === 'real') real(ok, no, opts);
+      else if (how === 'timeout') no({ code: 3, message: 'Timeout expired' });
+      else if (how === 'refused') no({ code: 1, message: 'User denied Geolocation' });
+      else geo.later.push({ ok, no });
+    };
+    if (how === 'denied') navigator.permissions.query = async () => ({ state: 'denied' });
+  }, how);
+}
+const geoCalls = page => page.evaluate(() => window.__geo.calls);
+const SAT = (lat, lon) => ({ coords: { latitude: lat, longitude: lon } });
+const NEAR_DENIED = 'Location is off for this site. Search by name, or allow location for rowhether.com in your browser settings.';
+const NEAR_LOST = 'Could not find your position. Try again, or search by name.';
+const TOWN_FAIL = 'Town search is not available right now. Location names still work.';
+
+test.describe('Near me', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+    await routeAll(page, scenario, clock);
+    await serve(page, { index: INDEX, ...FILES });
+  });
+
+  test('is a button under the search with its hint, in the sheet, on the picker page and under a missing address', async ({ page }) => {
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await expect(page.locator('#picker .pk-q')).toBeVisible();
+    const labels = await page.locator('#picker .pk-label, #picker .pk-near').evaluateAll(els => els.map(el => el.className));
+    expect(labels, 'the button follows the search box').toEqual(['pk-label', 'pk-near']);
+    await expect(page.getByRole('button', { name: 'Near me' })).toBeVisible();
+    await expect(page.locator('#picker .pk-hint')).toHaveText('Uses your position once to sort the list. It is not stored.');
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => localStorage.clear()); // "/" would open the location left last
+    await page.clock.setFixedTime(AFTER);
+    await page.goto('/');
+    await expect(page.locator('#notFound .pk-near button')).toHaveText('Near me');
+    await expect(page.locator('#notFound .pk-hint')).toBeVisible();
+    await page.goto('/lake-nowhere');
+    await expect(page.locator('#notFound .pk-near button')).toHaveText('Near me');
+  });
+
+  // The real permission and the real geolocation, set by the context to the dock.
+  test.describe('granted at the dock', () => {
+    test.use({ geolocation: DOCK, permissions: ['geolocation'] });
+
+    test('lists the locations within 100 km nearest first under "Near you", each with its distance in miles, and says how many', async ({ page, context }) => {
+      await stubGeo(page, 'real');
+      const bad = watchConsole(page);
+      await page.goto('/putney-landing');
+      await ready(page);
+      await page.locator('#locBtn').click();
+      await expect(page.locator('#picker .pk-q')).toBeVisible();
+      expect(await geoCalls(page), 'opening the sheet asks for no position').toEqual([]);
+      const keys = await page.evaluate(() => Object.keys(localStorage).sort());
+      const seen = [];
+      page.on('request', r => seen.push(r.url()));
+      await page.getByRole('button', { name: 'Near me' }).click();
+      await expect(page.locator('#picker .pk-found h3')).toHaveText('Near you');
+      await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Putney Landing', 'Hanover boathouse', 'Lake Quinsigamond']);
+      await expect(page.locator('#picker .pk-found .pk-dist')).toHaveText(['0.1 mi', '53 mi', '60 mi']);
+      await expect(page.locator('#picker .pk-found .pk-row').first().locator('.pk-here')).toHaveText('Showing now');
+      await expect(page.locator('#picker .pk-rest')).toBeHidden();
+      await expect(page.locator('#picker .pk-say')).toHaveText('3 locations near you.');
+      await expect(page.locator('#picker .pk-say')).toHaveAttribute('role', 'status');
+      await expect(page.locator('#picker .pk-near button')).toBeEnabled();
+      await expect(page.locator('#picker .pk-near button')).toHaveText('Near me');
+      expect(await geoCalls(page)).toEqual([{ enableHighAccuracy: false, maximumAge: 600000, timeout: 10000 }]);
+      // Nothing is sent or kept: no request, and no new key.
+      expect(seen, 'the position goes nowhere').toEqual([]);
+      expect(await page.evaluate(() => Object.keys(localStorage).sort())).toEqual(keys);
+      expect(bad).toEqual([]);
+      // A row opens its location, as any row does.
+      await page.locator('#picker .pk-found .pk-row', { hasText: 'Hanover boathouse' }).click();
+      await expect(page.locator('#locName')).toHaveText('Hanover boathouse');
+      expect(path(page)).toBe('/hanover-boathouse');
+    });
+
+    test('rounds the position to 2 decimals before it sorts: 42.9649, -72.5249 is 0.1 mi from the dock, not 0.3', async ({ page, context }) => {
+      await context.setGeolocation({ latitude: 42.9649, longitude: -72.5249 });
+      await stubGeo(page, 'real');
+      await page.goto('/putney-landing');
+      await ready(page);
+      await page.locator('#locBtn').click();
+      await page.getByRole('button', { name: 'Near me' }).click();
+      await expect(page.locator('#picker .pk-found .pk-dist').first()).toHaveText('0.1 mi');
+    });
+
+    test('works from the picker page, and typing afterwards brings the matches back', async ({ page }) => {
+      await page.clock.setFixedTime(AFTER);
+      await page.goto('/');
+      await page.getByRole('button', { name: 'Near me' }).click();
+      await expect(page.locator('#notFound .pk-found .pk-name')).toHaveText(['Putney Landing', 'Hanover boathouse', 'Lake Quinsigamond']);
+      await expect(page.locator('#notFound .pk-rest')).toBeHidden();
+      await page.locator('#notFound .pk-q').fill('lak');
+      await expect(page.locator('#notFound .pk-found .pk-name')).toHaveText(['Lake Carnegie', 'Lake Natoma', 'Lake Quinsigamond']);
+      await expect(page.locator('#notFound .pk-found .pk-dist')).toHaveCount(0);
+      await page.locator('#notFound .pk-q').fill('');
+      await expect(page.locator('#notFound .pk-rest')).toBeVisible();
+      await expect(page.locator('#notFound .pk-found')).toHaveText('');
+    });
+  });
+
+  test('far from every location says so, and leaves the lists', async ({ page, context }) => {
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 0, longitude: 0 });
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await page.getByRole('button', { name: 'Near me' }).click();
+    await expect(page.locator('#picker .pk-note')).toHaveText('No locations within 100 km of you. Search by name.');
+    await expect(page.locator('#picker .pk-note')).toHaveAttribute('role', 'status');
+    await expect(page.locator('#picker .pk-found')).toHaveText('');
+    await expect(page.locator('#picker .pk-rest')).toBeVisible();
+    await page.locator('#picker .pk-q').fill('lak');
+    await expect(page.locator('#picker .pk-note')).toBeHidden();
+  });
+
+  test('with the permission denied shows the help line at once and never asks the browser for a position', async ({ page }) => {
+    await stubGeo(page, 'denied');
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    expect(await geoCalls(page)).toEqual([]);
+    await page.getByRole('button', { name: 'Near me' }).click();
+    await expect(page.locator('#picker .pk-note')).toHaveText(NEAR_DENIED);
+    expect(await geoCalls(page), 'getCurrentPosition is never called').toEqual([]);
+    await expect(page.locator('#picker .pk-near button')).toBeEnabled();
+    await expect(page.locator('#picker .pk-rest')).toBeVisible();
+    await page.getByRole('button', { name: 'Near me' }).click();
+    await expect(page.locator('#picker .pk-note')).toHaveText(NEAR_DENIED);
+    expect(await geoCalls(page)).toEqual([]);
+  });
+
+  test('a refusal at the prompt gives the same help line', async ({ page }) => {
+    await stubGeo(page, 'refused');
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await page.getByRole('button', { name: 'Near me' }).click();
+    await expect(page.locator('#picker .pk-note')).toHaveText(NEAR_DENIED);
+    expect(await geoCalls(page)).toHaveLength(1);
+  });
+
+  test('a timeout says it could not find the position, and the next tap tries again', async ({ page }) => {
+    await stubGeo(page, 'timeout');
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await page.getByRole('button', { name: 'Near me' }).click();
+    await expect(page.locator('#picker .pk-note')).toHaveText(NEAR_LOST);
+    await expect(page.locator('#picker .pk-near button')).toBeEnabled();
+    await expect(page.locator('#picker .pk-near button')).toHaveText('Near me');
+    await page.getByRole('button', { name: 'Near me' }).click();
+    await expect.poll(async () => (await geoCalls(page)).length).toBe(2);
+    await expect(page.locator('#picker .pk-note')).toHaveText(NEAR_LOST);
+  });
+
+  test('while it waits the button says "Finding you" and is disabled, and a second tap asks nothing more', async ({ page }) => {
+    await stubGeo(page, 'hold');
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await page.getByRole('button', { name: 'Near me' }).click();
+    const wait = page.locator('#picker .pk-near button');
+    await expect(wait).toHaveText('Finding you');
+    await expect(wait).toBeDisabled();
+    await wait.click({ force: true }).catch(() => {});
+    expect(await geoCalls(page)).toHaveLength(1);
+    await page.evaluate(([lat, lon]) => window.__geo.later[0].ok({ coords: { latitude: lat, longitude: lon } }), [42.96, -72.52]);
+    await expect(page.locator('#picker .pk-found h3')).toHaveText('Near you');
+    await expect(wait).toHaveText('Near me');
+    await expect(wait).toBeEnabled();
+  });
+
+  test('a position that arrives after the sheet closed breaks nothing, and the next sheet starts clean', async ({ page }) => {
+    await stubGeo(page, 'hold');
+    const bad = watchConsole(page);
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await page.getByRole('button', { name: 'Near me' }).click();
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => window.__geo.later[0].ok({ coords: { latitude: 42.96, longitude: -72.52 } }));
+    await page.locator('#locBtn').click();
+    await expect(page.locator('#picker .pk-found')).toHaveText('');
+    await expect(page.locator('#picker .pk-near button')).toHaveText('Near me');
+    expect(bad).toEqual([]);
+  });
+
+  test('a position that arrives after the viewer has typed does not take the box away from them', async ({ page }) => {
+    await stubGeo(page, 'hold');
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await page.getByRole('button', { name: 'Near me' }).click();
+    await page.locator('#picker .pk-q').fill('lak');
+    await page.evaluate(() => window.__geo.later[0].ok({ coords: { latitude: 42.96, longitude: -72.52 } }));
+    await expect(page.locator('#picker .pk-near button')).toHaveText('Near me');
+    await expect(page.locator('#picker .pk-q')).toHaveValue('lak');
+    await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Lake Carnegie', 'Lake Natoma', 'Lake Quinsigamond']);
+    await expect(page.locator('#picker .pk-found h3')).toHaveCount(0);
+    await expect(page.locator('#picker .pk-say')).toHaveText('');
+  });
+});
+
+test.describe('the town search', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+    await routeAll(page, scenario, clock);
+    await serve(page, { index: INDEX, ...FILES });
+  });
+
+  const open = async page => {
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    return page.locator('#picker .pk-q');
+  };
+
+  test('waits for a pause in the typing, then asks once with the whole text', async ({ page }) => {
+    const asks = townAsks(page);
+    const q = await open(page);
+    await q.pressSequentially('worcester', { delay: 90 }); // each key is well inside the pause: it starts again
+    expect(asks.names, 'nothing while the keys are still coming').toEqual([]);
+    await expect.poll(() => asks.names).toEqual(['worcester']);
+    await page.waitForTimeout(500);
+    expect(asks.names).toEqual(['worcester']);
+  });
+
+  test('lists up to 5 places as "<name>, <admin1>, <country>" under the matches, and the matches stay', async ({ page }) => {
+    const q = await open(page);
+    await q.fill('worcester');
+    await expect(page.locator('#picker .pk-places h3')).toHaveText('Places');
+    await expect(page.locator('#picker .pk-place')).toHaveText([
+      'Worcester, Massachusetts, United States', 'Worcester, Western Cape, South Africa', 'Worcester, England, United Kingdom',
+      'Barry, Illinois, United States', 'Worcester, New York, United States'
+    ]);
+    await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Lake Quinsigamond']);
+    // Places come after the matches on the page, and a place is a button, not a row.
+    const order = await page.locator('#picker .pk-found, #picker .pk-places').evaluateAll(els => els.map(el => el.className));
+    expect(order).toEqual(['pk-found', 'pk-places']);
+    await expect(page.locator('#picker .pk-place').first()).toHaveJSProperty('tagName', 'BUTTON');
+    await expect(page.locator('#picker .pk-places .pk-row')).toHaveCount(0);
+    await expect(page.locator('#picker .pk-found .pk-row')).toHaveCount(1);
+  });
+
+  test('choosing a place lists the locations within 50 km of it, nearest first, with no distance, and says how many', async ({ page }) => {
+    const q = await open(page);
+    await q.fill('worcester');
+    await page.getByRole('button', { name: 'Worcester, Massachusetts, United States' }).click();
+    await expect(page.locator('#picker .pk-found h3')).toHaveText('Near Worcester, Massachusetts');
+    await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Lake Quinsigamond']);
+    await expect(page.locator('#picker .pk-found .pk-dist')).toHaveCount(0);
+    await expect(page.locator('#picker .pk-say')).toHaveText('1 location near Worcester, Massachusetts.');
+    // The places stay, so another can be chosen: one with no location near it says so.
+    await page.getByRole('button', { name: 'Worcester, Western Cape, South Africa' }).click();
+    await expect(page.locator('#picker .pk-found')).toHaveText('No locations within 50 km of Worcester, Western Cape.');
+    await expect(page.locator('#picker .pk-found h3')).toHaveCount(0);
+    await expect(page.locator('#picker .pk-say')).toHaveText('No locations within 50 km of Worcester, Western Cape.');
+    // A location chosen from the first answer opens, as any row does.
+    await page.getByRole('button', { name: 'Worcester, Massachusetts, United States' }).click();
+    await page.locator('#picker .pk-found .pk-row').click();
+    await expect(page.locator('#locName')).toHaveText('Lake Quinsigamond');
+  });
+
+  test('with no location near any of the places, says so, and then that a town is the way on', async ({ page }) => {
+    await serve(page, { index: { v: 1, locations: INDEX.locations.filter(l => ['putney-landing', 'hanover-boathouse'].includes(l.slug)) } });
+    const q = await open(page);
+    await q.fill('worcester');
+    await expect(page.locator('#picker .pk-place')).toHaveCount(5);
+    await expect(page.locator('#picker .pk-found')).toHaveText('No locations match "worcester". Pick a town to see locations near it.');
+    await page.getByRole('button', { name: 'Worcester, Massachusetts, United States' }).click();
+    await expect(page.locator('#picker .pk-found')).toHaveText('No locations within 50 km of Worcester, Massachusetts.');
+  });
+
+  test('with no match anywhere, says it is looking for towns until the answer, then that nothing matches', async ({ page }) => {
+    let release;
+    const gate = new Promise(done => { release = done; });
+    await page.route(GEOCODE, async route => { await gate; await route.fallback(); });
+    const q = await open(page);
+    await q.fill('zzqxj');
+    await expect(page.locator('#picker .pk-found')).toHaveText('No locations match "zzqxj". Looking for towns.');
+    await page.waitForTimeout(500); // past the pause: the request is out and held
+    await expect(page.locator('#picker .pk-found')).toHaveText('No locations match "zzqxj". Looking for towns.');
+    release();
+    await expect(page.locator('#picker .pk-found')).toHaveText('Nothing matches "zzqxj". Check the spelling, or search for a town.');
+    await expect(page.locator('#picker .pk-places')).toHaveText('');
+  });
+
+  test('fails with a line that leaves the names working: a refused connection, and an answer that is not ok', async ({ page }) => {
+    const q = await open(page);
+    await page.route(GEOCODE, route => route.abort('failed'));
+    await q.fill('worcester');
+    await expect(page.locator('#picker .pk-places')).toHaveText(TOWN_FAIL);
+    await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Lake Quinsigamond']);
+    await page.unroute(GEOCODE);
+    await page.route(GEOCODE, route => route.fulfill({ status: 429, contentType: 'application/json', body: '{"error":true,"reason":"Daily API request limit exceeded."}' }));
+    await q.fill('worcestr');
+    await expect(page.locator('#picker .pk-places')).toHaveText(TOWN_FAIL);
+    await expect(page.locator('#picker .pk-found')).toHaveText('Nothing matches "worcestr". Check the spelling, or search for a town.');
+    // Enter asks again, and a good answer replaces the failure.
+    await page.unroute(GEOCODE);
+    await q.fill('worcester');
+    await q.press('Enter');
+    await expect(page.locator('#picker .pk-place').first()).toBeVisible();
+    await expect(page.locator('#picker .pk-places')).not.toContainText('not available');
+  });
+
+  test('escapes what the host sends', async ({ page }) => {
+    await page.route(GEOCODE, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: [{ name: '<img src=x onerror=window.pwned=1>Bay', admin1: '<b>Evil</b> & Co', country: 'Land', latitude: 1, longitude: 2 }] }) }));
+    const q = await open(page);
+    await q.fill('bay');
+    await expect(page.locator('#picker .pk-place')).toHaveText('<img src=x onerror=window.pwned=1>Bay, <b>Evil</b> & Co, Land');
+    await expect(page.locator('#picker .pk-places img, #picker .pk-places b')).toHaveCount(0);
+    expect(await page.evaluate(() => window.pwned)).toBeUndefined();
+    await page.locator('#picker .pk-place').click();
+    await expect(page.locator('#picker .pk-found')).toHaveText('No locations within 50 km of <img src=x onerror=window.pwned=1>Bay, <b>Evil</b> & Co.');
+  });
+
+  test('drops an answer for text that has changed since', async ({ page }) => {
+    const held = [];
+    await page.route(GEOCODE, async route => { held.push(route); });
+    const asks = townAsks(page);
+    const q = await open(page);
+    await q.fill('worcester');
+    await q.press('Enter');
+    await expect.poll(() => asks.names).toEqual(['worcester']);
+    await q.fill('putney');
+    await held[0].fallback();
+    await page.waitForTimeout(300);
+    await expect(page.locator('#picker .pk-places')).toHaveText('');
+    await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Putney Landing']);
+  });
+
+  test('is not asked for the address under a missing page, until the viewer presses Enter or types', async ({ page }) => {
+    const asks = townAsks(page);
+    await page.goto('/lake-nowhere');
+    const q = page.locator('#notFound .pk-q');
+    await expect(q).toHaveValue('lake nowhere');
+    await page.waitForTimeout(700);
+    expect(asks.names, 'the words of the address are a guess, and go nowhere').toEqual([]);
+    await expect(page.locator('#notFound .pk-found')).toContainText('Nothing matches "lake nowhere". Check the spelling, or search for a town.');
+    await q.press('Enter');
+    await expect.poll(() => asks.names).toEqual(['lake nowhere']);
+    await expect(page.locator('#notFound .pk-found')).toContainText('Nothing matches "lake nowhere"');
+  });
+});
+
+// The page's clock stands still here, so these tests move it by hand.
+test.describe('the town search with the clock held', () => {
+  test.beforeEach(async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await serve(page, { index: INDEX, ...FILES });
+  });
+
+  test('asks at the end of the pause, not before, and an Enter asks at once and cancels the pause', async ({ page }) => {
+    const asks = townAsks(page);
+    await stillClock(page);
+    await page.locator('#locBtn').click();
+    const q = page.locator('#picker .pk-q');
+    await q.fill('worcester');
+    await page.clock.runFor(299);
+    expect(asks.names, '299 ms is not a pause yet').toEqual([]);
+    await page.clock.runFor(1);
+    await expect.poll(() => asks.names).toEqual(['worcester']);
+    await page.clock.runFor(300); // the wait between two asks is over
+    await q.fill('putney');
+    await q.press('Enter');
+    await expect.poll(() => asks.names.length).toBe(2);
+    expect(asks.names[1], 'asked at once, with no time passed').toBe('putney');
+    await page.clock.runFor(2000);
+    expect(asks.names, 'the pause that Enter cancelled asks nothing more').toEqual(['worcester', 'putney']);
+  });
+
+  test('asks at most once per 300 ms: a second Enter within the wait asks when it ends', async ({ page }) => {
+    const asks = townAsks(page);
+    await stillClock(page);
+    await page.locator('#locBtn').click();
+    const q = page.locator('#picker .pk-q');
+    await q.fill('wor');
+    await q.press('Enter');
+    await expect.poll(() => asks.names).toEqual(['wor']);
+    await q.fill('worc');
+    await q.press('Enter');
+    await page.waitForTimeout(400); // real time passes, the page's does not
+    expect(asks.names, 'held back').toEqual(['wor']);
+    await page.clock.runFor(299);
+    expect(asks.names).toEqual(['wor']);
+    await page.clock.runFor(1);
+    await expect.poll(() => asks.names).toEqual(['wor', 'worc']);
+    // Only the last of several is asked, and Enter twice for the same text asks once.
+    await q.fill('worce');
+    await q.press('Enter');
+    await q.fill('worces');
+    await q.press('Enter');
+    await q.press('Enter');
+    await page.clock.runFor(1000);
+    await expect.poll(() => asks.names).toEqual(['wor', 'worc', 'worces']);
+  });
+
+  test('is not asked when the sheet closes first, or when a row is chosen', async ({ page }) => {
+    const asks = townAsks(page);
+    await stillClock(page);
+    await page.locator('#locBtn').click();
+    const q = page.locator('#picker .pk-q');
+    await q.fill('worcester');
+    await page.locator('#picker .pk-x').click(); // Escape in a search box clears it first
+    await page.clock.runFor(2000);
+    await page.locator('#locBtn').click();
+    await page.locator('#picker .pk-q').fill('lake natoma');
+    await page.locator('#picker .pk-found .pk-row').click();
+    await page.clock.runFor(2000);
+    expect(asks.names).toEqual([]);
+  });
+});
+
+test.describe('offline', () => {
+  test.use({ serviceWorkers: 'allow' });
+
+  // After one online visit the worker holds the shell, the picker chunk and the record files. Everything
+  // the page asks for from then on is answered by it, or fails as a network request does.
+  async function online(page) {
+    await page.clock.setFixedTime(clock);
+    await routeAll(page, scenario, clock);
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+  }
+  async function goOffline(page, context) {
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await context.setOffline(true);
+    await page.reload();
+    expect(await page.evaluate(() => navigator.serviceWorker.controller !== null)).toBe(true);
+  }
+
+  test('the picker still opens from the precache, finds Putney, and says the town search is not available', async ({ page, context }) => {
+    const requests = asks(page);
+    const crashed = [];
+    page.on('pageerror', e => crashed.push(e.message));
+    await online(page);
+    expect(requests.filter(p => /\/picker-/.test(p)), 'the chunk was not read online: it comes from the precache').toEqual([]);
+    await goOffline(page, context);
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await expect(page.locator('#picker .pk-q')).toBeVisible();
+    await expect(page.locator('#picker .pk-here')).toHaveText('Showing now');
+    await expect(page.locator('#picker .pk-group')).toHaveText(['Vermont']);
+    const q = page.locator('#picker .pk-q');
+    await q.fill('put');
+    await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Putney Landing']);
+    await expect(page.locator('#picker .pk-places')).toHaveText(TOWN_FAIL);
+    await q.fill('zzzz');
+    await expect(page.locator('#picker .pk-found')).toContainText('Nothing matches "zzzz"');
+    // Near me needs no connection.
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation(DOCK);
+    await page.getByRole('button', { name: 'Near me' }).click();
+    await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Putney Landing']);
+    expect(crashed).toEqual([]);
+  });
+
+  test('a location with no saved forecast shows its header and tabs from the precached record, and the hero says it has none', async ({ page, context }) => {
+    const crashed = [];
+    page.on('pageerror', e => crashed.push(e.message));
+    await online(page);
+    // Forget what this phone saved for Putney: its forecast and its record, not where it was left.
+    await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (/^rowhether-(cache|loc)-v\d+:putney-landing$/.test(k)) localStorage.removeItem(k); });
+    expect(await page.evaluate(() => Object.keys(localStorage).filter(k => /putney-landing/.test(k)))).toEqual([]);
+    await goOffline(page, context);
+    await ready(page);
+    await expect(page.locator('#locName')).toHaveText('Putney Landing');
+    await expect(page.locator('#sub')).toContainText('Connecticut River at the Putney Rowing Club docks');
+    await expect(page.locator('#tabs a')).toHaveText(['Now', 'Week', 'Wind', 'River', 'Storms', 'Fog', 'Temperature', 'Rain', 'Light', 'Air']);
+    await expect(page.locator('#verdict')).toHaveText('No data.');
+    await expect(page.locator('#why')).toHaveText('No forecast saved for this location on this phone yet. Connect to load it.');
+    await expect(page.locator('#updated')).toHaveText('Not loaded');
+    // The record was read from the precache and saved again.
+    expect(await page.evaluate(() => localStorage.getItem('rowhether-loc-v1:putney-landing') !== null)).toBe(true);
+    // Back on the network, Refresh loads it.
+    await context.setOffline(false);
+    await routeAll(page, scenario, clock);
+    await page.locator('#refreshBtn').click();
+    await expect(page.locator('#verdict')).toHaveText('Go.');
+    expect(crashed).toEqual([]);
+  });
+
+  test('a saved forecast is still shown offline, with no line about a missing one', async ({ page, context }) => {
+    await online(page);
+    await goOffline(page, context);
+    await ready(page);
+    await expect(page.locator('#verdict')).toHaveText('Go.');
+    await expect(page.locator('#why')).not.toContainText('No forecast saved');
+    await expect(page.locator('#updated')).toHaveText(/^Saved /);
   });
 });
