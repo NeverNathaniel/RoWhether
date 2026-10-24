@@ -24,10 +24,15 @@ const offset = (tz, now) => {
   return m ? (m[1] === '+' ? 1 : -1) * (m[2] * 60 + +m[3]) : 0;
 };
 
+// The zone's word for itself, "Eastern": the record's label, else the zone's own word without Time.
+export const zoneName = (loc, now) => loc.tzLabel || zonePart(loc.tz, now, 'longGeneric').replace(/ Time$/, '');
+// Minutes the zone is ahead of the device's at `now`, negative when behind, 0 with no device zone.
+export const zoneAhead = (tz, deviceTz, now) => deviceTz ? offset(tz, now) - offset(deviceTz, now) : 0;
+
 // ", 1 hour ahead of you", ", 9 hours 30 minutes behind you", or nothing when the
 // device's zone is the location's at `now`.
 function zoneDiff(tz, deviceTz, now) {
-  const d = deviceTz ? offset(tz, now) - offset(deviceTz, now) : 0, a = Math.abs(d), h = Math.floor(a / 60), m = a % 60;
+  const d = zoneAhead(tz, deviceTz, now), a = Math.abs(d), h = Math.floor(a / 60), m = a % 60;
   return d ? `, ${[h && `${h} hour${h > 1 ? 's' : ''}`, m && `${m} minutes`].filter(Boolean).join(' ')} ${d > 0 ? 'ahead of' : 'behind'} you` : '';
 }
 
@@ -35,8 +40,7 @@ function zoneDiff(tz, deviceTz, now) {
 // <locality>.", then the zone and how far it is from the device's.
 export function subtitleText(loc, now, deviceTz) {
   const line = loc.subtitle || `${[loc.waterwayName !== loc.name && loc.waterwayName, loc.locality].filter(Boolean).join(' at ') || loc.name}.`;
-  const zone = loc.tzLabel || zonePart(loc.tz, now, 'longGeneric').replace(/ Time$/, '');
-  return `${line} All times ${zone}${zoneDiff(loc.tz, deviceTz, now)}.`;
+  return `${line} All times ${zoneName(loc, now)}${zoneDiff(loc.tz, deviceTz, now)}.`;
 }
 
 // The place under the title and in the footer. `null` is a page with no location.

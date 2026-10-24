@@ -447,8 +447,74 @@ describe('Share this forecast names the place', () => {
       await click();
     } finally { vi.unstubAllGlobals(); }
     expect(share).toHaveBeenCalledTimes(1);
-    expect(share.mock.calls[0][0]).toMatchObject({ title: 'Weir Pool rowing forecast', url: 'https://rowhether.com/' });
+    expect(share.mock.calls[0][0]).toMatchObject({ title: 'Weir Pool rowing forecast', url: 'https://rowhether.com/weir-pool' });
     expect(share.mock.calls[0][0].text).toMatch(/^Weir Pool rowing, /);
+  });
+
+  // What the share sheet is given for a place, on production and on a dev address (07 6.2).
+  async function shared(loc, info, address) {
+    const { dom } = screen(loc);
+    let click;
+    dom.el('shareBtn').addEventListener = (type, fn) => { click = fn; };
+    const share = vi.fn(async () => {});
+    vi.stubGlobal('navigator', { share });
+    if (address) vi.stubGlobal('location', address);
+    app.info = info;
+    try {
+      initShare();
+      await click();
+    } finally { vi.unstubAllGlobals(); app.info = null; }
+    return share.mock.calls[0][0];
+  }
+
+  it("links to the place's page on rowhether.com on production, whatever address it was opened on", async () => {
+    const at = { origin: 'https://other.example', pathname: '/somewhere' };
+    expect((await shared(PUTNEY, null, at)).url).toBe('https://rowhether.com/putney-landing');
+    expect((await shared(PUTNEY, { env: 'production' }, at)).url).toBe('https://rowhether.com/putney-landing');
+    expect((await shared(WEIR, { env: 'production', reports: true }, at)).url).toBe('https://rowhether.com/weir-pool');
+  });
+
+  it('links to its own address on a dev instance', async () => {
+    const at = { origin: 'https://dev-rowhether.example.workers.dev', pathname: '/weir-pool' };
+    expect((await shared(WEIR, { env: 'dev' }, at)).url).toBe('https://dev-rowhether.example.workers.dev/weir-pool');
+  });
+
+  describe('the zone suffix', () => {
+    const at = (loc, deviceTz, now = NOW) => { screen(loc, now); renderHero(); app.deviceTz = deviceTz; return shareText(now); };
+    const head = text => text.slice(0, text.indexOf(':'));
+
+    it('is absent for a sharer in the place\'s own zone, whatever the machine\'s', () => {
+      expect(at(PUTNEY, 'America/New_York')).toMatch(/^Putney Landing rowing, 12\u00a0PM: /);
+      // The same offset under another name (Toronto keeps New York's clock).
+      expect(at(PUTNEY, 'America/Toronto')).toMatch(/^Putney Landing rowing, 12\u00a0PM: /);
+    });
+
+    it('names the place\'s zone for a sharer in another, after the time', () => {
+      expect(head(at(PUTNEY, 'America/Chicago'))).toBe('Putney Landing rowing, 12\u00a0PM Eastern');
+      expect(head(at(PUTNEY, 'Pacific/Auckland'))).toBe('Putney Landing rowing, 12\u00a0PM Eastern');
+      expect(at(PUTNEY, 'America/Chicago')).toMatch(/^Putney Landing rowing, 12\u00a0PM Eastern: \S/);
+    });
+
+    it('takes the name from the record, else the zone\'s own word', () => {
+      const london = resolveLocation({ ...PUTNEY_RECORD, slug: 'thames', name: 'Thames', tz: 'Europe/London', tzLabel: 'London' }, { waterway: PUTNEY_WATERWAY });
+      expect(head(at(london, 'America/New_York'))).toMatch(/ London$/);
+      const la = resolveLocation({ ...PUTNEY_RECORD, slug: 'la', name: 'Marina', tz: 'America/Los_Angeles', tzLabel: null }, { waterway: PUTNEY_WATERWAY });
+      expect(head(at(la, 'America/New_York'))).toMatch(/ Pacific$/);
+    });
+
+    it('goes by the offsets at the time of the share, not the names of the zones', () => {
+      const london = resolveLocation({ ...PUTNEY_RECORD, slug: 'thames', name: 'Thames', tz: 'Europe/London', tzLabel: 'London' }, { waterway: PUTNEY_WATERWAY });
+      // Lisbon and London keep one clock all year. Abidjan is on UTC: an hour behind London in June, level in January.
+      expect(head(at(london, 'Europe/Lisbon'))).not.toMatch(/London/);
+      expect(head(at(london, 'Africa/Abidjan'))).toMatch(/ London$/);
+      const winter = Date.UTC(2026, 0, 15, 12);
+      expect(head(at(london, 'Africa/Abidjan', winter))).not.toMatch(/London/);
+    });
+
+    it('is absent when the device has no zone', () => {
+      expect(at(PUTNEY, '')).toMatch(/^Putney Landing rowing, 12\u00a0PM: /);
+      expect(at(PUTNEY, undefined)).toMatch(/^Putney Landing rowing, 12\u00a0PM: /);
+    });
   });
 });
 
