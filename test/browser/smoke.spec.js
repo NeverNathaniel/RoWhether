@@ -405,6 +405,11 @@ test.describe('smoke', () => {
       await expect(page.locator('#updated')).toHaveText('Refreshing');
       expect(out.held.length, 'the refresh is out').toBeGreaterThan(0);
       await out.release();
+      // The refresh fails for every source, and the copy is past its 24 hours: it no longer stands in for a forecast (P1.9, R1).
+      await expect(page.locator('#verdict')).toHaveText('No data.');
+      await expect(page.locator('#why')).toHaveText('The forecast did not load. Check the connection, then tap Refresh.');
+      await expect(page.locator('#updated')).toHaveText(/^Saved /);
+      await expect(page.locator('#notChecked')).toBeHidden();
     });
 
     // 07 13, 01 16.5: an install that has only the old keys opens on Putney, and the saved
@@ -800,6 +805,109 @@ test.describe('smoke', () => {
       await expect(page.locator('#statusNote')).toHaveText(NOTE);
       await expect(page.locator('#updated')).toHaveText(/^Updated/);
       await expectKept(page, before);
+    });
+  });
+
+  // P1.9 (R1, owner 2026-10-21): a source reads as missing only once a refresh in this visit has
+  // failed for it and its last good fetch is past its limit, and what is not checked is said.
+  test.describe('sources past their limits', () => {
+    const CACHE = 'rowhether-cache-v2:putney-landing', H = 3600e3;
+    const cacheOf = page => page.evaluate(k => JSON.parse(localStorage.getItem(k)), CACHE);
+    // The flow gauge that has gone quiet: every river reading is 2 days old.
+    const quiet = raw => { for (const f of raw.river.features) f.properties.time = new Date(clock - 48 * H).toISOString(); };
+    // A later moment with the fixtures cut there, as the P1.4 check does.
+    async function at(page, later, options) {
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await page.clock.setFixedTime(later);
+      await routeAll(page, scenario, later, options);
+    }
+
+    test('a gauge that has not reported for 2 days is named, its number kept with a note, and left out of the verdict', async ({ page }) => {
+      // Flow limits of 500 and 1,000 cfs, so a flow that is used is the whole verdict.
+      await seedStorage(page, { 'rowhether-settings-v2': JSON.stringify({ 'putney-landing': { saved: 1, values: { flowCaution: 500, flowOff: 1000 } } }), 'rowhether-migrated-v1': '1' });
+      await routeAll(page, scenario, clock);
+      await page.goto('/putney-landing');
+      await ready(page);
+      // A fresh reading is used, and nothing is said about it.
+      await expect(page.locator('#verdict')).toHaveText('Stay off.');
+      await expect(page.locator('#why')).toContainText('High water at 5,929 cfs');
+      await expect(page.locator('#notChecked')).toBeHidden();
+      await expect(page.locator('#facts')).not.toContainText('not used for Go');
+      // The same gauge, quiet for 2 days.
+      await at(page, clock, { edit: quiet });
+      await page.reload();
+      await ready(page);
+      await expect(page.locator('#notChecked')).toHaveText('River flow not checked: the gauge has not reported for 2 days.');
+      await expect(page.locator('#verdict')).toHaveText('Go.');
+      await expect(page.locator('#why')).not.toContainText('High water');
+      await expect(page.locator('#facts')).toContainText('5,929 cfs');
+      await expect(page.locator('#facts')).toContainText('Last reading 2 days ago, not used for Go, Caution or Stay off.');
+    });
+
+    test('keeps the time of each source with the saved forecast', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.goto('/putney-landing');
+      await ready(page);
+      const saved = await cacheOf(page);
+      expect(Object.keys(saved.fetched).sort()).toEqual(Object.keys(saved.data).sort());
+      expect(Object.keys(saved.fetched)).toHaveLength(9);
+      for (const t of Object.values(saved.fetched)) expect(t).toBe(clock);
+      expect(saved.updated).toBe(clock);
+    });
+
+    // Alerts are named at an hour. The refresh asks for them again and gets no answer.
+    for (const [minutes, line] of [[59, null], [61, 'Official alerts not checked: no answer from NWS for 1 hour.'], [120, 'Official alerts not checked: no answer from NWS for 2 hours.']]) {
+      test(`alerts that last answered ${minutes} minutes ago ${line ? 'are named' : 'are not named yet'}, and the verdict stays`, async ({ page }) => {
+        await routeAll(page, scenario, clock);
+        await page.goto('/putney-landing');
+        await ready(page);
+        await at(page, clock + minutes * 60e3);
+        await page.route(/api\.weather\.gov\/alerts/, r => r.abort('failed'));
+        await page.reload();
+        await ready(page);
+        await expect(page.locator('#statusNote')).toContainText('NWS alerts');
+        if (line) await expect(page.locator('#notChecked')).toHaveText(line);
+        else await expect(page.locator('#notChecked')).toBeHidden();
+        await expect(page.locator('#verdict')).toHaveText(/^(Go|Caution|Stay off)\.$/);
+        // The time alerts last answered is kept, and the forecast that did answer is dated.
+        const after = await cacheOf(page);
+        expect(after.fetched.alerts).toBe(clock);
+        expect(after.fetched.wx).toBe(clock + minutes * 60e3);
+      });
+    }
+
+    test('a forecast is drawn whole while the refresh is out, and a source that has not failed is never named, however old', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.goto('/putney-landing');
+      await ready(page);
+      await at(page, clock + 20 * H);
+      const out = await hold(page);
+      await page.reload();
+      await expect(page.locator('#updated')).toHaveText('Refreshing');
+      await expect(page.locator('#verdict')).not.toHaveText('No data.');
+      await expect(page.locator('#notChecked')).toBeHidden();
+      await out.release();
+    });
+
+    // A saved copy from before this step has no times: each source counts as fetched when its forecast was.
+    test('a saved forecast with no fetch times is read as fetched when the forecast was', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.goto('/putney-landing');
+      await ready(page);
+      await page.evaluate(k => { const c = JSON.parse(localStorage.getItem(k)); delete c.fetched; localStorage.setItem(k, JSON.stringify(c)); }, CACHE);
+      // 20 hours on, every source aborted: the copy is within its limit, so it stands.
+      await at(page, clock + 20 * H, { abort: true });
+      await page.reload();
+      await ready(page);
+      await expect(page.locator('#verdict')).not.toHaveText('No data.');
+      await expect(page.locator('#updated')).toHaveText(/^Saved /);
+      // 30 hours on it is past it, and the page says so.
+      await at(page, clock + 30 * H, { abort: true });
+      await page.reload();
+      await expect(page.locator('#verdict')).toHaveText('No data.');
+      await expect(page.locator('#why')).toHaveText('The forecast did not load. Check the connection, then tap Refresh.');
+      const after = await cacheOf(page);
+      expect(after.updated, 'the copy is not dated again').toBe(clock);
     });
   });
 

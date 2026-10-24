@@ -45,12 +45,14 @@ const CORS = { 'access-control-allow-origin': '*' };
 // Route every request the page makes.
 //   scenario  an entry of SCENARIOS (test/fixtures/golden.js)
 //   clock     the moment the page's Date is pinned to; the fixtures are cut there
-//   options   { abort: true } aborts the upstream hosts instead (every source blocked)
+//   options   { abort: true } aborts the upstream hosts instead (every source blocked);
+//             { edit(raw) } changes the responses first, as a gauge that has gone quiet needs
 // The preview server's own origin passes through, except /api/*, which answers
 // 404 as a static host does (so /api/info and /api/suggest report "not here").
 // Any other external host aborts. Returns the requests seen, for assertions.
-export async function routeAll(page, scenario, clock, { abort = false } = {}) {
+export async function routeAll(page, scenario, clock, { abort = false, edit = null } = {}) {
   const raw = scenario.raw(clock);
+  if (edit) edit(raw);
   const seen = { served: [], aborted: [], missing: [] };
   await page.route(/.*/, route => {
     const req = route.request();
