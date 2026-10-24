@@ -227,17 +227,179 @@ test.describe('smoke', () => {
   });
 
   // The click handler, not only shareText(): the title, the text and the link the
-  // share sheet is given (review Z13). A page with no /api/info is production.
-  test('Share this forecast gives the share sheet the title, the text and the link', async ({ page }) => {
-    await page.addInitScript(() => {
+  // share sheet is given (review Z13). A page with no /api/info is production. The link
+  // is the location's page, and the text names the location's zone only for a sharer
+  // in another one (P1.11, 07 6.2), so each group sets the device's zone.
+  test.describe('Share this forecast', () => {
+    const sheet = page => page.addInitScript(() => {
       window.__shared = [];
       Object.defineProperty(navigator, 'share', { configurable: true, value: async data => { window.__shared.push(data); } });
     });
-    await routeAll(page, scenario, clock);
-    await page.goto('/');
-    await ready(page);
-    await page.locator('#shareBtn').click();
-    await expect.poll(() => page.evaluate(() => window.__shared)).toEqual([{ title: 'Putney Landing rowing forecast', text: GOLDEN.share, url: 'https://rowhether.com/' }]);
+    const shared = async page => {
+      await page.locator('#shareBtn').click();
+      await expect.poll(() => page.evaluate(() => window.__shared.length)).toBe(1);
+      return page.evaluate(() => window.__shared[0]);
+    };
+    // The golden text is for 12 PM Eastern, which is the page's clock. A sharer elsewhere adds the zone after the time.
+    const WITH_ZONE = GOLDEN.share.replace(/^([^:]+):/, '$1 Eastern:');
+
+    test.describe('from a device in the location\'s zone', () => {
+      test.use({ timezoneId: 'America/New_York' });
+
+      test('gives the share sheet the title, the text with no zone, and the location\'s page', async ({ page }) => {
+        await sheet(page);
+        await routeAll(page, scenario, clock);
+        // Opened at "/", as an installed copy is: the link is still the location's own page.
+        await page.goto('/');
+        await ready(page);
+        expect(await shared(page)).toEqual({ title: 'Putney Landing rowing forecast', text: GOLDEN.share, url: 'https://rowhether.com/putney-landing' });
+        expect(GOLDEN.share).toMatch(/^Putney Landing rowing, 12 PM: /);
+      });
+    });
+
+    test.describe('from a device in another zone', () => {
+      test.use({ timezoneId: 'America/Chicago' });
+
+      test('says Eastern after the time, and links the same page', async ({ page }) => {
+        await sheet(page);
+        await routeAll(page, scenario, clock);
+        await page.goto('/putney-landing');
+        await ready(page);
+        expect(WITH_ZONE).toMatch(/^Putney Landing rowing, 12 PM Eastern: \S/);
+        expect(await shared(page)).toEqual({ title: 'Putney Landing rowing forecast', text: WITH_ZONE, url: 'https://rowhether.com/putney-landing' });
+      });
+    });
+
+    test.describe('from a device with the same clock under another name', () => {
+      test.use({ timezoneId: 'America/Toronto' });
+
+      test('says no zone', async ({ page }) => {
+        await sheet(page);
+        await routeAll(page, scenario, clock);
+        await page.goto('/putney-landing');
+        await ready(page);
+        expect((await shared(page)).text).toBe(GOLDEN.share);
+      });
+    });
+
+    test.describe('on a dev address', () => {
+      test.use({ timezoneId: 'America/New_York' });
+
+      test('links to the page it is on', async ({ page }) => {
+        await sheet(page);
+        await routeAll(page, scenario, clock);
+        await page.route('**/api/info', r => r.fulfill({ json: { env: 'dev' } }));
+        await page.goto('/putney-landing');
+        await ready(page);
+        await expect(page.locator('#envBadge')).toBeVisible();
+        const here = new URL(page.url());
+        const out = await shared(page);
+        expect(out.url).toBe(`${here.origin}/putney-landing`);
+        expect(out.url).not.toContain('rowhether.com');
+        expect(out.text).toBe(GOLDEN.share);
+      });
+    });
+
+    test.describe('where there is no share sheet', () => {
+      test.use({ timezoneId: 'America/Chicago' });
+
+      test('copies the text and the link together', async ({ page }) => {
+        await page.addInitScript(() => {
+          window.__copied = [];
+          Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
+          Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async t => { window.__copied.push(t); } } });
+        });
+        await routeAll(page, scenario, clock);
+        await page.goto('/putney-landing');
+        await ready(page);
+        await page.locator('#shareBtn').click();
+        await expect.poll(() => page.evaluate(() => window.__copied)).toEqual([`${WITH_ZONE} https://rowhether.com/putney-landing`]);
+      });
+    });
+  });
+
+  // 07 3.2, 01 10.5: each bank label sits on its own side of the river bar, turned with it, upright and
+  // inside the ring. Read from the drawn geometry, in page coordinates, not from the markup.
+  test.describe('the compass bank labels', () => {
+    const geometry = page => page.evaluate(() => {
+      const svg = document.getElementById('compass'), rect = svg.querySelector('.c-river'), ctm = rect.getScreenCTM();
+      const [x0, y0, w, h] = ['x', 'y', 'width', 'height'].map(a => +rect.getAttribute(a));
+      const quad = [[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]].map(([x, y]) => { const p = new DOMPoint(x, y).matrixTransform(ctm); return [p.x, p.y]; });
+      const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      const top = mid(quad[0], quad[1]), bottom = mid(quad[2], quad[3]), centre = mid(top, bottom);
+      const len = Math.hypot(top[0] - bottom[0], top[1] - bottom[1]);
+      const up = [(top[0] - bottom[0]) / len, (top[1] - bottom[1]) / len], left = [up[1], -up[0]];
+      const ring = svg.querySelector('.c-ring').getBoundingClientRect(), rc = [ring.x + ring.width / 2, ring.y + ring.height / 2];
+      // The box and the quad are convex: they are apart when some axis (the box's two, the quad's two) separates them.
+      const apart = (box, q) => [[1, 0], [0, 1], [up[0], up[1]], [left[0], left[1]]].some(([ax, ay]) => {
+        const bs = [[box.left, box.top], [box.right, box.top], [box.right, box.bottom], [box.left, box.bottom]].map(p => p[0] * ax + p[1] * ay);
+        const qs = q.map(p => p[0] * ax + p[1] * ay);
+        return Math.max(...bs) < Math.min(...qs) || Math.max(...qs) < Math.min(...bs);
+      });
+      return [...svg.querySelectorAll('.c-bank')].map(t => {
+        const b = t.getBoundingClientRect(), c = [(b.left + b.right) / 2, (b.top + b.bottom) / 2];
+        const corners = [[b.left, b.top], [b.right, b.top], [b.right, b.bottom], [b.left, b.bottom]];
+        return {
+          text: t.textContent, x: c[0] - centre[0], y: c[1] - centre[1],
+          side: (c[0] - centre[0]) * left[0] + (c[1] - centre[1]) * left[1],
+          clear: apart(b, quad), inside: corners.every(p => Math.hypot(p[0] - rc[0], p[1] - rc[1]) <= ring.width / 2),
+          upright: !t.closest('g[transform]') && !t.getAttribute('transform')
+        };
+      });
+    });
+
+    test('Putney: VT on the left of the river and NH on the right, beside it, upright and inside the ring', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.goto('/putney-landing');
+      await ready(page);
+      await expect(page.locator('#compass .c-bank')).toHaveText(['VT', 'NH']);
+      const [vt, nh] = await geometry(page);
+      // Facing upstream (15 degrees), the left bank is the west one, the right bank the east one.
+      expect(vt.side, 'VT is on the left of the river').toBeGreaterThan(0);
+      expect(nh.side, 'NH is on the right of the river').toBeLessThan(0);
+      expect(vt.x).toBeLessThan(0);
+      expect(nh.x).toBeGreaterThan(0);
+      for (const l of [vt, nh]) {
+        expect(l.clear, `${l.text} is beside the river bar, not over it`).toBe(true);
+        expect(l.inside, `${l.text} is inside the ring`).toBe(true);
+        expect(l.upright, `${l.text} is not turned`).toBe(true);
+      }
+    });
+
+    test('a course at 90 degrees with no banks stored: N above the river and S below it, from the heading', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.route('**/locations/lake-test.json', route => route.fulfill({ json: { ...LAKE_FILE, banks: null } }));
+      await page.goto('/lake-test');
+      await ready(page);
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 90°');
+      await expect(page.locator('#compass .c-bank')).toHaveText(['N', 'S']);
+      const [north, south] = await geometry(page);
+      // Upstream is east. Its left is north (up the page) and its right is south.
+      expect(north.side).toBeGreaterThan(0);
+      expect(south.side).toBeLessThan(0);
+      expect(north.y).toBeLessThan(0);
+      expect(south.y).toBeGreaterThan(0);
+      for (const l of [north, south]) {
+        expect(l.clear, `${l.text} is beside the river bar, not over it`).toBe(true);
+        expect(l.inside, `${l.text} is inside the ring`).toBe(true);
+        expect(l.upright).toBe(true);
+      }
+      // The wind fact says the same words as the labels: still a river, so a bank.
+      await expect(page.locator('#facts')).not.toContainText(/shore/);
+    });
+
+    test('the full forecast of an opened row draws the same turned labels', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.goto('/putney-landing');
+      await ready(page);
+      const row = page.locator('#days details.period').first();
+      await row.locator('summary').click();
+      await row.locator('.forecast').waitFor();
+      const svg = row.locator('.forecast svg[aria-label^="Forecast wind direction"]');
+      await expect(svg).toBeVisible();
+      await expect(svg.locator('.c-bank')).toHaveText(['VT', 'NH']);
+      expect(await svg.locator('.c-bank').evaluateAll(ts => ts.map(t => [t.getAttribute('x'), t.getAttribute('y')]))).toEqual([['-22.8', '-30.9'], ['35.2', '-15.4']]);
+    });
   });
 
   // A section the viewer opened, and a Day by day row, stay open through the
