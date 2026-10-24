@@ -2,8 +2,8 @@
 // to sunset with what stands in the way in words. A day opens to a bar for
 // each factor that matters that day.
 import { HOUR, FACTORS, LIGHT_KEYS, WORD_PLAIN, WATER } from '../../config.js';
-import { esc, hm, r0, rng, localHour, dayKey, weekday, lowerFirst } from '../../format.js';
-import { lvlExcept, sunFor, callRuns, factorRuns, confidence, confidenceText, planSessions } from '../../logic.js';
+import { esc, hm, r0, localMinutes, dayKey, weekday, lowerFirst } from '../../format.js';
+import { lvlExcept, sunFor, callRuns, factorRuns, confidence, confidenceText, planSessions, bound, FLOWING } from '../../logic.js';
 import { loadPlan } from '../../storage.js';
 import { dayLabel, periodTime } from '../days.js';
 import { CHEV } from '../parts.js';
@@ -17,9 +17,6 @@ const TAB = { wind: 'wind', rain: 'rain', storm: 'storms', air: 'air', fog: 'fog
 
 const lowerDay = t => dayLabel(t).replace(/^(Today|Tomorrow)$/, s => s.toLowerCase());
 const shortDay = t => (dayKey(t) === dayKey(Date.now()) ? 'Today' : weekday(t));
-// Minutes after local midnight, to line the days up on one clock. Eastern
-// time is a whole number of hours from UTC, so the minutes match.
-const clockMin = t => localHour(t) * 60 + new Date(t).getUTCMinutes();
 const cap = s => s[0].toUpperCase() + s.slice(1);
 
 export function summary(m) {
@@ -58,9 +55,9 @@ export function render(m, want) {
   if (!days.length) return { day: null, html: head(name, 'No forecast yet.') };
 
   // One clock axis for every day, on whole hours.
-  const a0 = Math.floor(Math.min(...days.map(d => clockMin(d.s.dawn))) / 60) * 60;
-  const a1 = Math.ceil(Math.max(...days.map(d => clockMin(d.s.sunset))) / 60) * 60;
-  const pos = t => Math.max(0, Math.min(100, (clockMin(t) - a0) / (a1 - a0) * 100));
+  const a0 = Math.floor(Math.min(...days.map(d => localMinutes(d.s.dawn))) / 60) * 60;
+  const a1 = Math.ceil(Math.max(...days.map(d => localMinutes(d.s.sunset))) / 60) * 60;
+  const pos = t => Math.max(0, Math.min(100, (localMinutes(t) - a0) / (a1 - a0) * 100));
   const seg = (t0, t1, cls) => `<i class="${cls}" style="left:${pos(t0).toFixed(2)}%;width:${(pos(t1) - pos(t0)).toFixed(2)}%"></i>`;
   const ticks = [];
   for (let mm = Math.ceil(a0 / 180) * 180; mm <= a1; mm += 180) {
@@ -80,7 +77,7 @@ export function render(m, want) {
   const planHtml = sessions.length
     ? `<ol class="windows">${sessions.map((p, i) => {
       const s = sunFor(m, p.key);
-      const bits = [`${WATER.names[p.water]}`, `wind ${rng(p.wmin, p.wmax, ' mph')}`, `gusts ${r0(p.gmax)}`];
+      const bits = [`${WATER.names[p.water]}`, `wind ${m.u.speedRange(p.wmin, p.wmax)}`, `gusts ${r0(p.gmax)}`];
       if (p.pop >= 30) bits.push(`rain chance ${r0(p.pop)}%`);
       const lights = p.start < s.sunrise ? ` Lights until ${hm(s.sunrise)}.` : '';
       return `<li><i aria-hidden="true"></i><span><strong>${esc(dayLabel(p.start))}</strong> ${esc(timeRange(p.start, p.end, m.now))}${i === 0 ? ' <span class="tag">Calmest</span>' : ''}<span class="wdur"> ${esc(cap(bits.join(', ')))}.${lights}</span></span></li>`;
@@ -107,9 +104,15 @@ export function render(m, want) {
     // A day the forecast models disagree on gets a note, so a go there is
     // read as less certain.
     const conf = confidence(d.runs.flatMap(r => r.hs));
-    const shaky = conf && conf.level === 'low' ? `<span class="wi"><i data-lvl="n" aria-hidden="true"></i>${esc(confidenceText(conf))}</span>` : '';
+    const shaky = conf && conf.level === 'low' ? `<span class="wi"><i data-lvl="n" aria-hidden="true"></i>${esc(confidenceText(conf, null, m.u))}</span>` : '';
 
-    const hit = fr.filter(x => x.runs.length), clear = fr.filter(x => !x.runs.length).map(x => x.f);
+    // A factor with no source here cannot be a concern, and is not "no concern": its row says so (07 6.7).
+    const gone = { flow: !bound(m, 'flow'), alert: !bound(m, 'alerts') };
+    const hit = fr.filter(x => x.runs.length), clear = fr.filter(x => !x.runs.length && !gone[x.f.key]).map(x => x.f);
+    const gaps = [
+      gone.flow && ['River', FLOWING.includes(m.loc.waterType) ? 'No river gauge here, so flow is not checked.' : `This is a ${m.loc.waterType}. Flow is not checked.`],
+      gone.alert && ['Alerts', 'Not available here']
+    ].filter(Boolean).map(([n, t]) => `<div class="frow"><span class="fname">${n}</span><span class="wnote">${t}</span></div>`).join('');
     const frows = hit.map(({ f, runs }) => {
       const label = TAB[f.key] ? `<a class="flink" href="#${TAB[f.key]}/${d.key}">${f.name}${CHEV}</a>` : esc(f.name);
       return `<div class="frow"><span class="fname">${label}</span><span class="wbar" aria-hidden="true">${seg(w0, w1, 'track')}${runs.map(r => seg(r.start, r.end, `seg b${r.lvl}`)).join('')}</span></div>`;
@@ -125,7 +128,7 @@ export function render(m, want) {
         <span class="wbar" aria-hidden="true">${bar}</span>
         <span class="wline">${line}${shaky}</span>
       </summary>
-      <div class="wmore">${frows}${notes}</div>
+      <div class="wmore">${frows}${gaps}${notes}</div>
     </details></li>`;
   }).join('');
 

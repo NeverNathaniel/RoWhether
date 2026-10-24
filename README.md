@@ -99,7 +99,7 @@ The form at the bottom of the page sends text to `/api/suggest` on the Worker (`
 
 Protection against abuse: Turnstile on every send, a limit of 3 sends a minute per connection, a 2,000 character cap, and Claude rejecting spam. Claude only fills in the title, summary and details; the original text is always quoted in the issue, and `@mentions` are neutralized so nobody gets pinged.
 
-For local testing with `npm run cf:dev`, put the four values in a `.dev.vars` file (it is git ignored). Cloudflare's Turnstile test keys work there.
+For local testing with `npm run cf:dev`, put the four values in a `.dev.vars` file (it is git ignored). Cloudflare's Turnstile test keys load the widget, but the form is refused with them: the Worker checks the token's action, and the testing secret's answer carries none (`docs/full-app/08-architecture.md` 10.8).
 
 ## Install on a phone
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { handleSuggest, suggestConfig, buildIssue, cleanContext, noMentions } from '../worker/suggest.js';
 import { parseRewrite } from '../worker/claude.js';
 import worker from '../worker/index.js';
+import { verifyTurnstile } from '../worker/turnstile.js';
 
 const ENV = {
   ANTHROPIC_API_KEY: 'k', GITHUB_TOKEN: 't', GITHUB_REPO: 'owner/repo',
@@ -139,5 +140,117 @@ describe('worker routing', () => {
     expect((await (await worker.fetch(new Request('https://row.example/api/suggest'), env)).json()).enabled).toBe(true);
     expect((await worker.fetch(new Request('https://row.example/api/nope'), env)).status).toBe(404);
     expect((await worker.fetch(new Request('https://row.example/api/suggest', { method: 'PUT' }), env)).status).toBe(405);
+  });
+});
+
+// The route as the Worker wires it (FC10). Every handleSuggest test above hands
+// it deps, so the defaults the route takes were never run: production could
+// ask Turnstile for another action, or not ask at all, and all of them passed.
+// These send POST /api/suggest through worker.fetch with the full ENV. Only the
+// global fetch is stood in for: siteverify answers with the action it is given,
+// and every other host gets a 400, so no paid API is reached.
+describe('the suggest route with its own wiring', () => {
+  const VERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+  const send = async action => {
+    const asked = [];
+    vi.stubGlobal('fetch', vi.fn(async (input) => {
+      const url = String(input?.url ?? input);
+      asked.push(url);
+      return url === VERIFY ? new Response(JSON.stringify({ success: true, action })) : new Response('refused by the test', { status: 400 });
+    }));
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const r = await worker.fetch(post(good), ENV);
+      return { status: r.status, body: await r.json(), asked };
+    } finally { vi.unstubAllGlobals(); spy.mockRestore(); }
+  };
+
+  it('refuses a token made for another form, having asked only Turnstile', async () => {
+    const { status, body, asked } = await send('auth');
+    expect(status).toBe(403);
+    expect(body.error).toBe('verification_failed');
+    expect(asked).toEqual([VERIFY]);
+  });
+  it('takes a token made for suggest and goes on to Claude, which the test refuses', async () => {
+    const { status, body, asked } = await send('suggest');
+    expect(status).toBe(502);
+    expect(body.error).toBe('unavailable');
+    expect(asked).toHaveLength(2);
+    expect(asked[0]).toBe(VERIFY);
+    expect(new URL(asked[1]).host).toBe('api.anthropic.com');
+  });
+});
+
+// verifyTurnstile itself: every other test here stubs it through deps. Only
+// Cloudflare's siteverify answer is stood in for; nothing calls the network.
+describe('verifyTurnstile', () => {
+  const VERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+  const answer = (body, init) => vi.fn(async () => new Response(typeof body === 'string' ? body : JSON.stringify(body), init));
+  const verify = async (fetchMock, ...args) => {
+    vi.stubGlobal('fetch', fetchMock);
+    try { return await verifyTurnstile(ENV, 'tok', '1.2.3.4', ...args); } finally { vi.unstubAllGlobals(); }
+  };
+
+  it('accepts a token made for the suggest action', async () => {
+    expect(await verify(answer({ success: true, action: 'suggest' }))).toBe(true);
+  });
+  it('refuses a token made for another action, or for none', async () => {
+    expect(await verify(answer({ success: true, action: 'auth' }))).toBe(false);
+    expect(await verify(answer({ success: true, action: 'Suggest' }))).toBe(false);
+    expect(await verify(answer({ success: true, action: '' }))).toBe(false);
+    expect(await verify(answer({ success: true }))).toBe(false);
+  });
+  it('refuses a failed check, even with the right action', async () => {
+    expect(await verify(answer({ success: false, action: 'suggest', 'error-codes': ['timeout-or-duplicate'] }))).toBe(false);
+    expect(await verify(answer({ success: 'true', action: 'suggest' }))).toBe(false);
+  });
+  it('refuses when siteverify errors, answers badly or cannot be reached', async () => {
+    expect(await verify(answer({ success: true, action: 'suggest' }, { status: 500 }))).toBe(false);
+    expect(await verify(answer('not json'))).toBe(false);
+    expect(await verify(vi.fn(async () => { throw new Error('offline'); }))).toBe(false);
+  });
+  it('sends the secret, the token and the address to siteverify', async () => {
+    const f = answer({ success: true, action: 'suggest' });
+    await verify(f);
+    const [url, init] = f.mock.calls[0];
+    expect(url).toBe(VERIFY);
+    expect(init.method).toBe('POST');
+    expect(init.headers).toEqual({ 'Content-Type': 'application/x-www-form-urlencoded' });
+    expect(String(init.body)).toBe('secret=secret&response=tok&remoteip=1.2.3.4');
+    const g = answer({ success: true, action: 'suggest' });
+    vi.stubGlobal('fetch', g);
+    try { await verifyTurnstile(ENV, 'tok'); } finally { vi.unstubAllGlobals(); }
+    expect(String(g.mock.calls[0][1].body)).toBe('secret=secret&response=tok&remoteip=');
+  });
+  it('checks the action a caller names, and suggest when none is named', async () => {
+    expect(await verify(answer({ success: true, action: 'auth' }), 'auth')).toBe(true);
+    expect(await verify(answer({ success: true, action: 'safe' }), 'safe')).toBe(true);
+    expect(await verify(answer({ success: true, action: 'suggest' }), undefined)).toBe(true);
+    expect(await verify(answer({ success: true, action: 'auth' }), undefined)).toBe(false);
+  });
+  it('refuses a token made for another action than the one named', async () => {
+    expect(await verify(answer({ success: true, action: 'suggest' }), 'auth')).toBe(false);
+    expect(await verify(answer({ success: true, action: 'auth' }), 'report')).toBe(false);
+    expect(await verify(answer({ success: true, action: 'Auth' }), 'auth')).toBe(false);
+    expect(await verify(answer({ success: true, action: '' }), 'auth')).toBe(false);
+    expect(await verify(answer({ success: true }), 'auth')).toBe(false);
+  });
+  it('still refuses a failed check for the action named', async () => {
+    expect(await verify(answer({ success: false, action: 'auth' }), 'auth')).toBe(false);
+  });
+  it('is what keeps a token made for another form from filing a suggestion', async () => {
+    const run = async siteverify => {
+      const d = deps({ verifyTurnstile });
+      vi.stubGlobal('fetch', answer(siteverify));
+      try { return [await handleSuggest(post(good), ENV, d), d]; } finally { vi.unstubAllGlobals(); }
+    };
+    const [ok, filed] = await run({ success: true, action: 'suggest' });
+    expect(ok.status).toBe(200);
+    expect(filed.createIssue).toHaveBeenCalledTimes(1);
+    const [no, refused] = await run({ success: true, action: 'auth' });
+    expect(no.status).toBe(403);
+    expect((await no.json()).error).toBe('verification_failed');
+    expect(refused.rewriteSuggestion).not.toHaveBeenCalled();
+    expect(refused.createIssue).not.toHaveBeenCalled();
   });
 });

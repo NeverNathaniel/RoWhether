@@ -1,0 +1,489 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-03",
+        "value": "2360"
+      },
+      "id": "1c9d0978-baed-42c7-bbbf-cae8c4f7a1c1",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-28",
+        "value": "2270"
+      },
+      "id": "1de94b8c-2f81-43e4-b431-1706aa20ba05",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-09",
+        "value": "1580"
+      },
+      "id": "293c5aba-e81e-4120-94a3-90f36bd38a8e",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-27",
+        "value": "2290"
+      },
+      "id": "2dfce243-e4af-4ef8-8bc4-2146841b92f5",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-15",
+        "value": "6660"
+      },
+      "id": "3760b6bd-ca87-4964-8baa-1c625186ed34",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-17",
+        "value": "4410"
+      },
+      "id": "3f0a8e0d-ef8b-4e1c-9045-f58dbc2f6348",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-12",
+        "value": "1760"
+      },
+      "id": "404edec5-be16-4228-bbff-40c2b7498972",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-23",
+        "value": "2410"
+      },
+      "id": "4798862b-202e-4771-a215-e8a2140cf2b7",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-26",
+        "value": "2010"
+      },
+      "id": "5062d76c-2bcf-4d47-9901-108ca09a5a7a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-04",
+        "value": "2110"
+      },
+      "id": "51e2e63b-40f4-40b8-baa8-00054d2cc738",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-20",
+        "value": "2390"
+      },
+      "id": "5bc39ab0-0adc-4e42-8e7f-e5764ddc6ae6",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-19",
+        "value": "2340"
+      },
+      "id": "6615e9e4-5670-4aa8-8007-dfcdf745fc22",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-02",
+        "value": "2140"
+      },
+      "id": "6bae8091-1bf2-4b09-a970-c76d570bc0ac",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-18",
+        "value": "2530"
+      },
+      "id": "768c27b7-64e0-44c6-83b0-bee6967460c5",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-24",
+        "value": "2120"
+      },
+      "id": "80f6654d-3944-46a4-b54d-5b4b696318f2",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-05",
+        "value": "1890"
+      },
+      "id": "872b313d-86b0-4960-9301-e9ee2cb3b1dc",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-08",
+        "value": "1580"
+      },
+      "id": "8b4111a7-c78e-4b27-a5d5-249a98f76cd0",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-25",
+        "value": "2100"
+      },
+      "id": "9188b8c9-e756-4786-9dc6-e0c0d4870652",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-22",
+        "value": "2230"
+      },
+      "id": "a3de94ff-02c4-43af-a076-89392e89d1a6",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-07",
+        "value": "1600"
+      },
+      "id": "a50880de-13b4-4e87-b80b-5b89d5399016",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-01",
+        "value": "2210"
+      },
+      "id": "ada12b3c-00ba-46da-8888-0f73bd247b9d",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-21",
+        "value": "2600"
+      },
+      "id": "aee90000-63d2-4936-8bb1-4427a82613fb",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-10",
+        "value": "1690"
+      },
+      "id": "af6f50d9-7540-49ab-a038-c6c5db7b14ea",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-30",
+        "value": "3130"
+      },
+      "id": "bc6b25f7-a75d-4345-97cb-6b38590be90a",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-16",
+        "value": "4350"
+      },
+      "id": "c514c213-4962-4836-83f2-e3e92ddb8075",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-14",
+        "value": "5700"
+      },
+      "id": "c68dbeae-b54d-4700-a58c-d82b1d988f34",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-13",
+        "value": "2200"
+      },
+      "id": "e20ba564-1df8-4903-8f26-b5aeb6517c72",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-09-29",
+        "value": "2800"
+      },
+      "id": "e358eba7-4434-45f4-a95a-3de2da2e9ba7",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-06",
+        "value": "1760"
+      },
+      "id": "f0e57aad-370b-4676-b882-a74bd96e253c",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "time": "2026-10-11",
+        "value": "1730"
+      },
+      "id": "fec67662-c45f-41f3-bbbb-11d36c00d089",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.436754934854,
+          43.126189047991
+        ]
+      }
+    }
+  ],
+  "numberReturned": 30,
+  "links": [
+    {
+      "type": "application/geo+json",
+      "rel": "self",
+      "title": "This document as GeoJSON",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/daily/items?f=json&monitoring_location_id=USGS-01154500&parameter_code=00060&statistic_id=00003&time=P30D&limit=100&properties=time,value"
+    },
+    {
+      "rel": "alternate",
+      "type": "application/ld+json",
+      "title": "This document as RDF (JSON-LD)",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/daily/items?f=jsonld&monitoring_location_id=USGS-01154500&parameter_code=00060&statistic_id=00003&time=P30D&limit=100&properties=time,value"
+    },
+    {
+      "type": "text/html",
+      "rel": "alternate",
+      "title": "This document as HTML",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/daily/items?f=html&monitoring_location_id=USGS-01154500&parameter_code=00060&statistic_id=00003&time=P30D&limit=100&properties=time,value"
+    },
+    {
+      "type": "text/csv; charset=utf-8",
+      "rel": "alternate",
+      "title": "This document as CSV",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/daily/items?f=csv&monitoring_location_id=USGS-01154500&parameter_code=00060&statistic_id=00003&time=P30D&limit=100&properties=time,value"
+    },
+    {
+      "type": "application/json",
+      "title": "Daily values",
+      "rel": "collection",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/daily"
+    }
+  ],
+  "timeStamp": "2026-10-18T16:28:26.863995Z"
+}

@@ -13,10 +13,53 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The whole history, so the checks below can reach the base commits.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      # The phase 0 rule that no golden file changes ended with phase 1's first
+      # commit (08 14.1). A commit that changes Putney's output on purpose names
+      # its change ids in a Golden trailer (test/golden/changes.js). This fails a
+      # deleted file, a modified file with no trailer, and a changed path outside
+      # the ids named. A new file passes. It needs no install, so it runs before npm ci.
+      - run: node scripts/golden.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab
+      # A commit that edits a location record, or the waterway file it uses,
+      # raises that record's revision, so an installed copy reads the change
+      # (01 2.1, phase 1 plan R14). The data/ commits since the base added the
+      # files (d2b517b) and raised Putney's revision with its edit (5981f58),
+      # which passes. It needs no install either.
+      - run: node scripts/locations/revisions.mjs check c7967a64f1a9bd80ed2f0e14ee6c7ceb69d5d3ab
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - run: node scripts/budget.mjs
+      # Right after the budget step, not at the end: the Playwright web server
+      # runs npm run build, which empties dist/ and deletes the report.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: budget
+          path: dist/budget-report.json
+      - run: npx wrangler deploy --dry-run --outdir "$RUNNER_TEMP/worker"
+      # Chromium is about 20 s of the run, so it is cached by Playwright's
+      # version (FD7). The cache holds the browser only. The system packages it
+      # needs are not under ~/.cache, so they are installed on every run.
+      - id: playwright
+        run: echo "version=$(npx playwright --version | cut -d ' ' -f 2)" >> "$GITHUB_OUTPUT"
+      - id: browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      # playwright.config.js adds the WebKit projects only when WEBKIT=1, so
+      # this runs the two Chromium projects. Pixel comparisons (@visual) run
+      # on the machine that made the baseline. timing.spec.js loads the page
+      # once here, not five times, since CI sets no baseline to compare with.
+      - run: npx playwright test --grep-invert @visual

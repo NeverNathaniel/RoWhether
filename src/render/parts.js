@@ -1,5 +1,6 @@
 // Small HTML and SVG builders shared by the sections.
-import { esc, hm, hShort } from '../format.js';
+import { esc, hm, hShort, ago } from '../format.js';
+import { isSet, bound, waterSource, waterTemp } from '../logic.js';
 
 // A small chevron after a label that opens a detail view.
 export const CHEV = '<svg class="chev" viewBox="0 0 8 12" aria-hidden="true"><path d="M2 2l4 4-4 4"/></svg>';
@@ -10,7 +11,29 @@ export function fact(label, val, note, lvl, href) {
   return `<div class="fact"${lvl ? ` data-lvl="${lvl}"` : ''}><dt>${dt}</dt><dd><div class="val">${val}</div>${note ? `<div class="note">${esc(note)}</div>` : ''}</dd></div>`;
 }
 
-export function compassSVG(heading, dir, speed) {
+// A source's note, then how old its reading is: "The airfield, 3 mi north. 12 min ago."
+// A row with no note gives the age alone.
+export const readNote = (row, t) => `${row?.note ? row.note + ' ' : ''}${ago(t)}.`;
+
+// A flow reading past its limit is shown, not used (07 6.7).
+export const oldFlow = m => {
+  const a = ago(m.data.river.flow.t).toLowerCase();
+  return `Last reading${a && ` ${a}`}, not used for Go, Caution or Stay off.`;
+};
+
+// The Water fact's note when there is no water temperature to show (07 6.7): the month's
+// typical value, a gauge that did not answer, or no gauge. `tail` ends the last one.
+export const noWater = (m, tail = '') => waterSource(m) === 'typical'
+  ? `Typical for ${new Intl.DateTimeFormat('en-US', { timeZone: m.loc.tz, month: 'long' }).format(m.now)}, about ${m.u.temp(waterTemp(m, { forCold: true }))}. No live reading.`
+  : bound(m, 'water_temp') ? 'Gauge unavailable. Add a dock reading in Settings.' : `No water temperature here. Add a dock reading in Settings${tail}.`;
+
+// The tab already names the view, so the heading is for screen readers and
+// the opening line leads.
+export function head(title, lede) {
+  return `<h2 id="detailTitle" class="vh">${esc(title)}</h2>${lede ? `<p class="lede">${esc(lede)}</p>` : ''}`;
+}
+
+export function compassSVG(heading, banks, dir, speed) {
   let s = '<circle class="c-ring" r="62"/>';
   s += '<text class="c-card" x="0" y="-48" text-anchor="middle">N</text>';
   s += '<text class="c-card" x="52" y="4" text-anchor="middle">E</text>';
@@ -20,8 +43,10 @@ export function compassSVG(heading, dir, speed) {
   s += '<rect class="c-river" x="-10" y="-62" width="20" height="124" rx="4"/>';
   s += '<path class="c-flow" d="M-5 40 L5 40 L0 49 Z"/>';
   s += '</g>';
-  s += '<text class="c-bank" x="-30" y="-24" text-anchor="middle">VT</text>';
-  s += '<text class="c-bank" x="30" y="-24" text-anchor="middle">NH</text>';
+  if (banks) {
+    s += `<text class="c-bank" x="-30" y="-24" text-anchor="middle">${esc(banks.left.short)}</text>`;
+    s += `<text class="c-bank" x="30" y="-24" text-anchor="middle">${esc(banks.right.short)}</text>`;
+  }
   if (speed == null || dir == null) return s;
   if (speed < 1) return s + '<text class="c-calm" x="0" y="5" text-anchor="middle">Calm</text>';
   s += `<g transform="rotate(${dir})"><line class="c-wind" x1="0" y1="-44" x2="0" y2="30"/><path class="c-head" d="M-8 26 L8 26 L0 42 Z"/></g>`;
@@ -42,8 +67,6 @@ export function sparkline(ser) {
 // are drawn as labeled dashed lines. Only the peak is labeled; each column has
 // a hit area carrying its hour's text for the tap readout (data-text), and the
 // hour table below holds every value.
-const isSet = v => v !== '' && v != null && !isNaN(v);
-
 export function precipChart(hs, S, from, describe) {
   const n = hs.length, W = 320, H = 140, top = 22, bottom = 24, left = 2, right = 38;
   const plotW = W - left - right, plotH = H - top - bottom, base = top + plotH;

@@ -1,8 +1,8 @@
 // River: flow at North Walpole over the last 2 days and the NWS forecast for
 // the next 3, then the last 30 days for context.
-import { HOUR, WATER } from '../../config.js';
-import { fmtInt, ago, whenText, monthDay, localHour, weekday, dayKey } from '../../format.js';
-import { flowNow, flowTrend, flowChange, flowForecastPeak, factorLevel } from '../../logic.js';
+import { HOUR, MIN, WATER } from '../../config.js';
+import { fmtInt, esc, ago, whenText, monthDay, localHour, localMinutes, weekday, dayKey } from '../../format.js';
+import { flowNow, flowTrend, flowChange, flowForecastPeak, factorLevel, isSet } from '../../logic.js';
 import { Chart, niceTicks, niceMax } from '../chart.js';
 import { fact } from '../parts.js';
 import { chartWidth, legend, chartBox, hourTable, head } from './common.js';
@@ -11,26 +11,35 @@ export const key = 'river';
 export const name = 'River';
 
 const r100 = v => fmtInt(Math.round(v / 100) * 100);
-const cfs = v => `${fmtInt(v)} cfs`;
+// A flow in the gauge's unit, and rounded to the hundred.
+const flowText = (m, v) => m.u.flow(v, m.loc.flow?.unit);
+const flow100 = (m, v) => flowText(m, Math.round(v / 100) * 100);
 const fcPts = m => (m.data.flowFcst && m.data.flowFcst.pts) || [];
+// The first start of a local hour at or after t. A zone such as India is not on
+// UTC whole hours, so the hour starts are found from the local clock.
+const hourCeil = t => {
+  const start = t - (t % MIN) - (localMinutes(t) % 60) * MIN;
+  return start === t ? t : start + HOUR;
+};
 
 // "Forecast to rise to about 10,300 cfs by Wed 8 PM."
 function outlook(m, fl) {
   const pts = fcPts(m).filter(p => p.t >= m.now);
   if (!pts.length || fl == null) return '';
   const pk = flowForecastPeak(m.data.flowFcst, m.now), last = pts[pts.length - 1];
-  if (pk.v > fl * 1.1) return `Forecast to rise to about ${r100(pk.v)} cfs by ${whenText(pk.t, true)}.`;
-  if (last.v < fl * 0.9) return `Forecast to ease to about ${r100(last.v)} cfs by ${whenText(last.t, true)}.`;
-  return `Forecast to hold near ${r100(fl)} cfs through ${whenText(last.t, true)}.`;
+  if (pk.v > fl * 1.1) return `Forecast to rise to about ${flow100(m, pk.v)} by ${whenText(pk.t, true)}.`;
+  if (last.v < fl * 0.9) return `Forecast to ease to about ${flow100(m, last.v)} by ${whenText(last.t, true)}.`;
+  return `Forecast to hold near ${flow100(m, fl)} through ${whenText(last.t, true)}.`;
 }
 
 export function summary(m) {
   const fl = flowNow(m);
   if (fl == null) return { text: 'Gauge unavailable.', lvl: null };
-  return { text: `${cfs(fl)} now. ${outlook(m, fl)}`.trim(), lvl: factorLevel(m.cur.a, ['flow']).lvl };
+  return { text: `${flowText(m, fl)} now. ${outlook(m, fl)}`.trim(), lvl: factorLevel(m.cur.a, ['flow']).lvl };
 }
 
-// Keep the settings lines in view when the flow is anywhere near them.
+// Keep the settings lines in view when the flow is anywhere near them. A blank
+// limit counts as 0 here and leaves the top as it was.
 function topFor(S, max) {
   let hi = niceMax(max * 1.15);
   if (S.flowCaution <= hi * 1.5) hi = niceMax(Math.max(hi, S.flowCaution * 1.05));
@@ -40,8 +49,8 @@ function topFor(S, max) {
 const kfmt = v => (v >= 1000 ? `${Math.round(v / 100) / 10}K` : String(v));
 
 function settingLines(c, L, S) {
-  c.hline(L, S.flowCaution, 'cthr1', kfmt(S.flowCaution));
-  c.hline(L, S.flowOff, 'cthr2', kfmt(S.flowOff));
+  if (isSet(S.flowCaution)) c.hline(L, S.flowCaution, 'cthr1', kfmt(S.flowCaution));
+  if (isSet(S.flowOff)) c.hline(L, S.flowOff, 'cthr2', kfmt(S.flowOff));
 }
 // Every nth point, counting back from the latest so it is always included.
 const every = (pts, n) => pts.filter((_, i) => (pts.length - 1 - i) % n === 0);
@@ -62,7 +71,7 @@ export function render(m) {
     const t0 = obs.length ? obs[0].t : m.now - 48 * HOUR, t1 = Math.max(fc.length ? fc[fc.length - 1].t : 0, m.now + 6 * HOUR);
     const c = new Chart({ t0, t1, W });
     const hi = topFor(S, Math.max(1000, ...obs.map(p => p.v), ...fc.map(p => p.v)));
-    const L = c.lane(150, 0, hi, 'Flow, cfs');
+    const L = c.lane(150, 0, hi, `Flow, ${m.u.flowUnit(m.loc.flow?.unit)}`);
     settingLines(c, L, S);
     c.grid(L, niceTicks(0, hi), kfmt);
     c.band(L, obs.map(p => ({ t: p.t, lo: 0, hi: p.v })), 'carea');
@@ -70,24 +79,24 @@ export function render(m) {
     if (fc.length) c.line(L, (tNow ? [tNow] : []).concat(fc.filter(p => !tNow || p.t > tNow.t)), 'cfcst');
     const pk = flowForecastPeak(m.data.flowFcst, m.now);
     if (pk && fl != null && pk.v > fl * 1.1) c.note(L, pk.t, pk.v, r100(pk.v));
-    for (let t = Math.ceil(t0 / HOUR) * HOUR; t <= t1; t += HOUR) {
+    for (let t = hourCeil(t0); t <= t1; t += HOUR) {
       if (localHour(t) === 0) c.vline(t, 'cday');
     }
     c.vline(m.now, 'cnow', 'Now');
     const ticks = [];
-    for (let t = Math.ceil(t0 / HOUR) * HOUR; t <= t1; t += HOUR) {
+    for (let t = hourCeil(t0); t <= t1; t += HOUR) {
       if (localHour(t) === 12) ticks.push({ t, text: dayKey(t) === dayKey(m.now) ? 'Today' : weekday(t) });
     }
     c.axis(ticks);
     c.hitsAt([
-      ...every(obs, 8).map(p => ({ t: p.t, text: `${whenText(p.t)}: ${cfs(p.v)}, measured.` })),
-      ...fc.filter(p => !tNow || p.t > tNow.t).map(p => ({ t: p.t, text: `${whenText(p.t)}: about ${r100(p.v)} cfs, NWS forecast.` }))
+      ...every(obs, 8).map(p => ({ t: p.t, text: `${whenText(p.t)}: ${flowText(m, p.v)}, measured.` })),
+      ...fc.filter(p => !tNow || p.t > tNow.t).map(p => ({ t: p.t, text: `${whenText(p.t)}: about ${flow100(m, p.v)}, NWS forecast.` }))
     ]);
     const keys = legend([
       { kind: 'line', text: 'Measured' },
       ...(fc.length ? [{ kind: 'fcst', text: 'NWS forecast' }] : []),
-      ...(S.flowCaution <= hi ? [{ kind: 'dash1', text: `Caution ${fmtInt(S.flowCaution)}` }] : []),
-      ...(S.flowOff <= hi ? [{ kind: 'dash2', text: `Stay off ${fmtInt(S.flowOff)}` }] : [])
+      ...(isSet(S.flowCaution) && S.flowCaution <= hi ? [{ kind: 'dash1', text: `Caution ${fmtInt(S.flowCaution)}` }] : []),
+      ...(isSet(S.flowOff) && S.flowOff <= hi ? [{ kind: 'dash2', text: `Stay off ${fmtInt(S.flowOff)}` }] : [])
     ]);
     near = `<h3 class="dhead">Last 2 days and next 3</h3>
       ${chartBox(c.svg('River flow over the last 2 days and the NWS forecast for the next 3'), { keys, hint: 'Tap the chart for a reading.' })}`;
@@ -100,7 +109,7 @@ export function render(m) {
     const t0 = days[0].t - 12 * HOUR, t1 = Math.max(fc.length ? fc[fc.length - 1].t : 0, tNow ? tNow.t : 0, days[days.length - 1].t + 12 * HOUR);
     const c = new Chart({ t0, t1, W });
     const hi = topFor(S, Math.max(1000, ...days.map(p => p.v), ...fc.map(p => p.v), ...tail.map(p => p.v)));
-    const L = c.lane(120, 0, hi, 'Flow, cfs. Daily mean, then the latest readings');
+    const L = c.lane(120, 0, hi, `Flow, ${m.u.flowUnit(m.loc.flow?.unit)}. Daily mean, then the latest readings`);
     settingLines(c, L, S);
     c.grid(L, niceTicks(0, hi), kfmt);
     const meas = days.concat(every(tail, 4));
@@ -113,12 +122,12 @@ export function render(m) {
     const ticks = days.filter((_, i) => (days.length - 1 - i) % 7 === 0).map(p => ({ t: p.t, text: monthDay(p.t) }));
     c.axis(ticks);
     c.hitsAt([
-      ...days.map(p => ({ t: p.t, text: `${monthDay(p.t)}: ${cfs(Math.round(p.v))}, daily mean.` })),
-      ...every(tail, 8).map(p => ({ t: p.t, text: `${whenText(p.t)}: ${cfs(p.v)}, measured.` })),
-      ...fc.filter(p => !tNow || p.t > tNow.t).map(p => ({ t: p.t, text: `${whenText(p.t)}: about ${r100(p.v)} cfs, NWS forecast.` }))
+      ...days.map(p => ({ t: p.t, text: `${monthDay(p.t)}: ${flowText(m, Math.round(p.v))}, daily mean.` })),
+      ...every(tail, 8).map(p => ({ t: p.t, text: `${whenText(p.t)}: ${flowText(m, p.v)}, measured.` })),
+      ...fc.filter(p => !tNow || p.t > tNow.t).map(p => ({ t: p.t, text: `${whenText(p.t)}: about ${flow100(m, p.v)}, NWS forecast.` }))
     ]);
     month = `<h3 class="dhead">Last 30 days</h3>
-      <p class="dnote">Daily mean from ${fmtInt(lo.v)} cfs on ${monthDay(lo.t)} to ${fmtInt(top.v)} on ${monthDay(top.t)}.</p>
+      <p class="dnote">Daily mean from ${flowText(m, lo.v)} on ${monthDay(lo.t)} to ${fmtInt(top.v)} on ${monthDay(top.t)}.</p>
       ${chartBox(c.svg('Daily mean river flow over the last 30 days'), { hint: 'Tap the chart for a day.' })}`;
   }
 
@@ -126,20 +135,27 @@ export function render(m) {
   if (fl != null) {
     const tr = flowTrend(obs), pct = flowChange(obs);
     const debris = pct != null && pct >= WATER.debrisRise ? ' Rising fast. Watch for floating debris.' : '';
-    f.push(fact('Flow now', cfs(fl), `${tr ? tr + '. ' : ''}${ago(m.data.river.flow.t)}.${debris}`, factorLevel(m.cur.a, ['flow']).lvl));
+    f.push(fact('Flow now', flowText(m, fl), `${tr ? tr + '. ' : ''}${ago(m.data.river.flow.t)}.${debris}`, factorLevel(m.cur.a, ['flow']).lvl));
   }
   const pk = flowForecastPeak(m.data.flowFcst, m.now);
   if (pk) {
     const iss = m.data.flowFcst.issued;
-    f.push(fact('NWS forecast peak', `${r100(pk.v)} cfs`, `Around ${whenText(pk.t, true)}.${iss ? ` Issued ${whenText(iss, true)}.` : ''}`));
+    f.push(fact('NWS forecast peak', flow100(m, pk.v), `Around ${whenText(pk.t, true)}.${iss ? ` Issued ${whenText(iss, true)}.` : ''}`));
   } else {
     f.push(fact('NWS forecast', '--', 'Not available right now.'));
   }
-  f.push(fact('Your settings', `${fmtInt(S.flowCaution)} cfs`, `Caution at ${fmtInt(S.flowCaution)}, stay off at ${fmtInt(S.flowOff)}.${far ? ' Well above the current flow.' : ''}`));
+  // The levels that are set, as "caution at 20,000, stay off at 28,000".
+  const set = [['caution', S.flowCaution], ['stay off', S.flowOff]].filter(l => isSet(l[1]));
+  const said = set.map(l => `${l[0]} at ${fmtInt(l[1])}`).join(', ');
+  f.push(set.length
+    ? fact('Your settings', flowText(m, set[0][1]), `${said[0].toUpperCase()}${said.slice(1)}.${far ? ' Well above the current flow.' : ''}`)
+    : fact('Your settings', '--', 'No flow limits set.'));
 
-  const fcTable = fc.length ? hourTable('NWS forecast', ['Time', 'Flow'], fc.map(p => [whenText(p.t), `${r100(p.v)} cfs`])) : '';
-  const dayTable = days.length ? hourTable('Daily means', ['Day', 'Flow'], days.slice().reverse().map(p => [monthDay(p.t), `${fmtInt(p.v)} cfs`])) : '';
+  const fcTable = fc.length ? hourTable('NWS forecast', ['Time', 'Flow'], fc.map(p => [whenText(p.t), flow100(m, p.v)])) : '';
+  const dayTable = days.length ? hourTable('Daily means', ['Day', 'Flow'], days.slice().reverse().map(p => [monthDay(p.t), flowText(m, p.v)])) : '';
 
+  // The place's own words for how the flow is measured and what its numbers mean.
+  const { flowHow, flowStats } = m.loc.copy, para = t => (t ? `<p>${esc(t)}</p>` : '');
   const html = `${head(name, lede)}
     <div class="panel">
       <dl class="facts">${f.join('')}</dl>
@@ -152,9 +168,9 @@ export function render(m) {
     </div>
     <div class="panel how">
       <h3>How this works</h3>
-      <p>Flow is measured at the USGS gauge at North Walpole, below the Bellows Falls dam, about 16 river miles upstream of the dock. The forecast is from the NWS Northeast River Forecast Center for the same gauge, in 6-hour steps.</p>
+      ${para(flowHow)}
       <p>The latest measured flow is checked against your settings. The forecast is for planning and does not change Go, Caution or Stay off. A rise of ${WATER.debrisRise}% or more in 6 hours adds a floating debris warning.</p>
-      <p>Since 2016 the median day is about 6,900 cfs. 20,000 is roughly the top 10% of days, 28,000 the top 5%.</p>
+      ${para(flowStats)}
     </div>`;
   return { day: null, html };
 }

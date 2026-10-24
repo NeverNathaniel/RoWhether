@@ -1,0 +1,338 @@
+{
+  "model": {
+    "sha256": "da2bc571883312e2701c3aae39ccca9f83ba5b7ebfa643b7945659c764a66f32",
+    "bytes": 102832
+  },
+  "text": {
+    "sha256": "ed3b7bbf370e2c8113daf79290f24191e8d5baf03e17238b40b55b430c40518a",
+    "bytes": 15536
+  },
+  "plans": {
+    "60-any": [],
+    "60-morning": [],
+    "60-afternoon": [],
+    "90-any": [],
+    "90-morning": [],
+    "90-afternoon": [],
+    "120-any": [],
+    "120-morning": [],
+    "120-afternoon": []
+  },
+  "runs": {
+    "sha256": "8e0bf049fbc4cd04e7995d130f90d7abc70ce80f24db096f9f6bc14daada7a36",
+    "bytes": 11456
+  },
+  "parsers": {
+    "sha256": "41723155652fad6041ce60ebc8f6b9367ebe90a7b73d8cb9fe0aaa151c976c13",
+    "bytes": 23933
+  },
+  "views": {
+    "week": {
+      "summary": {"text":"No go period in the next 7 days.","lvl":2},
+      "days": {"null":{"day":null,"length":11201,"sha256":"dd640e2602c371c99e09bb6db0e79115d16675314d0473a35e02b92e02b58367"}}
+    },
+    "wind": {
+      "summary": {"text":"7 mph from SSW now, gusts 13.","lvl":0},
+      "days": {"null":{"day":"2026-06-15","length":18718,"sha256":"efdb6a91ac611bce18239c8cc4f42f0f2c6e3a599bf909e3c19afdfe6e730938"}}
+    },
+    "river": {
+      "summary": {"text":"5,929 cfs now. Forecast to hold near 5,900 cfs through Thu 2 PM.","lvl":0},
+      "days": {"null":{"day":null,"length":33474,"sha256":"ce015d682f64060968d13bdf1ffdcf82cf2408d9ab466fc9f360d7f9dc0a7f63"}}
+    },
+    "storms": {
+      "summary": {"text":"No thunderstorm risk in the next 3 days. 6 NWS alerts active.","lvl":2},
+      "days": {"null":{"day":"2026-06-15","length":17492,"sha256":"6bfb694f8e73a4c061b42b0deb0fc06392d9601fcd566ec136d697fadca403c2"}}
+    },
+    "fog": {
+      "summary": {"text":"Tomorrow morning: fog risk low.","lvl":0},
+      "days": {"null":{"day":"2026-06-16","length":12498,"sha256":"f204657be1a78b8ed0f78d9847c637c7f18ec0701d3a0ebdf0a81d1e11ad0f9b"}}
+    },
+    "temperature": {
+      "summary": {"text":"76°F air now, 68°F water.","lvl":0},
+      "days": {"null":{"day":"2026-06-15","length":11674,"sha256":"482e534eaa933968edb276aa37db0aa8d551947813c355fefdfd832fe6963b4e"}}
+    },
+    "rain": {
+      "summary": {"text":"Under 20% for the next 12 hours.","lvl":0},
+      "days": {"null":{"day":"2026-06-15","length":13304,"sha256":"fb27f07cfc512d9c7a99b6d835fc07026a639722b38c3b754df14471b9ebd891"}}
+    },
+    "light": {
+      "summary": {"text":"Today: first light 4:36 AM, sunset 8:31 PM. 15 h 20 min of daylight.","lvl":null},
+      "days": {"null":{"day":"2026-06-15","length":34422,"sha256":"cdb1c9e6d73eaeb7c92af090bbbe4b8d5598ed2ac4f38acb2031185980767cfb"}}
+    },
+    "air": {
+      "summary": {"text":"AQI 33 now, good.","lvl":0},
+      "days": {"null":{"day":"2026-06-15","length":10628,"sha256":"fe880c3e0b720030ea28216bf64a847f980f0b51ba95079c0b59ee12eaf308ad"}}
+    }
+  },
+  "home": {
+    "alerts": {
+      "innerHTML": "\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Special Weather Statement</strong>\n      \n      \n    </div>\n    <div class=\"alert\" data-lvl=\"2\" role=\"alert\">\n      <strong>Tornado Warning</strong>\n      <p>Tornado Warning until 3 PM</p>\n      <details><summary>Details</summary><pre>A tornado is possible.</pre></details>\n    </div>\n    <div class=\"alert\" data-lvl=\"2\" role=\"alert\">\n      <strong>Small Craft Advisory</strong>\n      <p>Small Craft Advisory</p>\n      <details><summary>Details</summary><pre>Winds to 25 knots.\n\nInexperienced mariners should stay in port.</pre></details>\n    </div>\n    <div class=\"alert\" data-lvl=\"2\" role=\"alert\">\n      <strong>Dense Fog Advisory</strong>\n      <p>Dense Fog Advisory</p>\n      <details><summary>Details</summary><pre>Visibility under a quarter mile.</pre></details>\n    </div>\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Alert</strong>\n      \n      \n    </div>\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Frost Advisory</strong>\n      <p>Starts this minute</p>\n      <details><summary>Details</summary><pre>Frost.</pre></details>\n    </div>",
+      "textContent": "\n    \n      Special Weather Statement\n      \n      \n    \n    \n      Tornado Warning\n      Tornado Warning until 3 PM\n      DetailsA tornado is possible.\n    \n    \n      Small Craft Advisory\n      Small Craft Advisory\n      DetailsWinds to 25 knots.\n\nInexperienced mariners should stay in port.\n    \n    \n      Dense Fog Advisory\n      Dense Fog Advisory\n      DetailsVisibility under a quarter mile.\n    \n    \n      Alert\n      \n      \n    \n    \n      Frost Advisory\n      Starts this minute\n      DetailsFrost.\n    ",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "compass": {
+      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(212)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
+      "textContent": "NESWVTNH",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "compassCap": {
+      "innerHTML": "Wind from SSW. River runs SSW, upstream heading 15°.",
+      "textContent": "Wind from SSW. River runs SSW, upstream heading 15°.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "days": {
+      "innerHTML": {"length":15608,"sha256":"b554e84ab6d415521a9e3c3707c5e0e8f4ff4ff00c3373f2576c32d201f85edc"},
+      "textContent": {"length":6083,"sha256":"7c321e5660c4778683f4f8f7b3fbb31e25ee4f09f81c8c23028549da55056b9d"},
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "facts": {
+      "innerHTML": {"length":4842,"sha256":"5cfaea95f791001571b52e918bbf453ad42d0fea8ace6a76f441aa71758e36d8"},
+      "textContent": "Wind7 mph, gusts 13From SSW. Tailwind rowing upstream, headwind coming back.Water stateLight chopWind runs along the straight, with a long reach to build waves.Air76°FFeels like 75°F. Dew point 56°F.Water68°FNearest main-stem gauge, near Northfield, MA, about 19 mi downstream. 30 min ago.Air plus water144°FAbove the 100 cold-water line.Visibility10+ miFog risk low now and tomorrow morning.Air qualityAQI 33Good. Fine particles 6 µg/m³. A forecast, not a measurement.River flow5,929 cfs Steady over 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 15 min ago.Daylight5:11 AM to 8:31 PMFirst light 4:36 AM, dark by 9:07 PM. Lights required outside sunrise to sunset.Measured at Keene6 mph SW, 75°FMostly Clear. Keene airport, 14 mi east. A check on the model. 7 min ago.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "hero": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {"lvl":2},
+      "style": {},
+      "extra": {}
+    },
+    "holds": {
+      "innerHTML": "No go period in the next 7 days.",
+      "textContent": "No go period in the next 7 days.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "nowPrecip": {
+      "innerHTML": {"length":3434,"sha256":"1fb1f50faf86bab91cf908b41fa5d94c11715f3b79f5d4c1cb439857a852520b"},
+      "textContent": "\n    Precipitation, now to 6 PM\n    5% chance\n    Dry now. Little chance of rain or snow. Under 20% throughout.\n    60%90%12 PM1 PM5%2 PM3 PM4 PM5 PM12 PM: 4% chance.1 PM: 3% chance.2 PM: 5% chance.3 PM: 5% chance.4 PM: 3% chance.5 PM: 2% chance.\n    Tap a column for that hour.\n  ",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "nowSection": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "shareBtn": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "statusNote": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "updated": {
+      "innerHTML": "Updated 11:57 AM",
+      "textContent": "Updated 11:57 AM",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "verdict": {
+      "innerHTML": "Stay off.",
+      "textContent": "Stay off.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "why": {
+      "innerHTML": "Tornado Warning. Small Craft Advisory.<span class=\"cond\">Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.</span>",
+      "textContent": "Tornado Warning. Small Craft Advisory.Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "notChecked": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    }
+  },
+  "forecasts": {
+    "2026-06-15-midday": {
+      "length": 8666,
+      "sha256": "23d3d2c394df62a28e08b17fb63ca5dee6e7259965a8a6ad4214292f2ba35024"
+    },
+    "2026-06-15-afternoon": {
+      "length": 10365,
+      "sha256": "2887a1601ab6389e72a1631a6f6a90b429d33b690c273b7ded614277c9fd90e9"
+    },
+    "2026-06-16-morning": {
+      "length": 10375,
+      "sha256": "68b35029aef40542dcb0411b3f5e9fbfb89ed3a4fef0860b42a6c40d6768b003"
+    },
+    "2026-06-16-midday": {
+      "length": 9352,
+      "sha256": "1719b1ed659e6dc2a7b1e1ff0cc9609a0c79fa247d412eedf04b7265eb1c5fbf"
+    },
+    "2026-06-16-afternoon": {
+      "length": 10339,
+      "sha256": "e82297a3677efc464bc62478ab4be014afbb61e693ed38f31ee48c2c4b51c392"
+    },
+    "2026-06-17-morning": {
+      "length": 10412,
+      "sha256": "4dd17aba7e29b992e65c6f55f33ae1cfede224bcd5fda2f784acb17aeec16a34"
+    },
+    "2026-06-17-midday": {
+      "length": 9339,
+      "sha256": "fc16d16b5d3676cc52e0da881103aa6cbfa0fee77ff8ff6b506408b5ce4591b2"
+    },
+    "2026-06-17-afternoon": {
+      "length": 10357,
+      "sha256": "f90926fcb887c3f0cb06c9d5ea2cee8c191114c4012c6d5d6e2bff3166fd4fa1"
+    },
+    "2026-06-18-morning": {
+      "length": 10385,
+      "sha256": "781c8357adf628310392cf5a8c9933837d985eed3804da51087c90b2888c0aaf"
+    },
+    "2026-06-18-midday": {
+      "length": 9361,
+      "sha256": "9e311e0b9d1c7859533d8cae72ce2dba34edb84d8f7e3ed3fc2353943abd304f"
+    },
+    "2026-06-18-afternoon": {
+      "length": 10376,
+      "sha256": "c85fa0c0805ec7391a802cafc1f3890ed2fb4691da9569b56be5b393e989ae0a"
+    },
+    "2026-06-19-morning": {
+      "length": 10515,
+      "sha256": "67d550052567dde074530cc6d0b3019c37c104cbd1e22b8efe2e83f4b0cbde71"
+    },
+    "2026-06-19-midday": {
+      "length": 9454,
+      "sha256": "c41a48b211e10475972a4bee8f3d48666ca7c69c884ea6ffe26595e3bc92ac0f"
+    },
+    "2026-06-19-afternoon": {
+      "length": 10349,
+      "sha256": "668fe48726f48b748bace910168dcb977408742d2d844699efc4824d8141791b"
+    },
+    "2026-06-20-morning": {
+      "length": 10108,
+      "sha256": "0703a6619cdeabff9cc11a47e29fb87e551fb53f74fc18ac7f58886b2afc555a"
+    },
+    "2026-06-20-midday": {
+      "length": 9021,
+      "sha256": "48dfcf7e7460f218bbc935f045fde6570f83dcc3b867ac891a539b377f8201ad"
+    },
+    "2026-06-20-afternoon": {
+      "length": 10114,
+      "sha256": "f92e55304a05181f9f1813751b71a54ba365406f84f3416062840bdcab061089"
+    },
+    "2026-06-21-morning": {
+      "length": 10027,
+      "sha256": "40e1c504ddf9be56c98b1af176de219e53f33b05313234ebc7f83ccbdb954dbf"
+    },
+    "2026-06-21-midday": {
+      "length": 8953,
+      "sha256": "89be15253cdf04aec0d07ac56acffc21ab6f7a507061bc1074a5727854ce6567"
+    },
+    "2026-06-21-afternoon": {
+      "length": 9968,
+      "sha256": "119c97170e8f6b9051e114a1fd14058e39e6766077acc37209ce69539619e744"
+    }
+  },
+  "status": {
+    "noDataAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "noDataForecast": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "noDataQuiet": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partial": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":2},"style":{},"extra":{}},
+      "holds": {"innerHTML":"No go period in the next 7 days.","textContent":"No go period in the next 7 days.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Stay off.","textContent":"Stay off.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Tornado Warning. Small Craft Advisory.<span class=\"cond\">Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.</span>","textContent":"Tornado Warning. Small Craft Advisory.Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partialAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":2},"style":{},"extra":{}},
+      "holds": {"innerHTML":"No go period in the next 7 days.","textContent":"No go period in the next 7 days.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","textContent":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Stay off.","textContent":"Stay off.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Tornado Warning. Small Craft Advisory.<span class=\"cond\">Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.</span>","textContent":"Tornado Warning. Small Craft Advisory.Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "header": {
+      "loading": "Loading",
+      "notLoaded": "Not loaded",
+      "fresh": "Updated 11:57 AM",
+      "cached": "Saved 11:57 AM",
+      "failed": "Saved 11:57 AM"
+    }
+  },
+  "share": "Putney Landing rowing, 12 PM: Stay off. Tornado Warning. Small Craft Advisory. Wind 7 mph from SSW, gusts 13. Light chop. 76°F air, 68°F water. No go period in the next 7 days."
+}

@@ -1,0 +1,72 @@
+{
+  "model": null,
+  "parsers": {
+    "sha256": "34ffa8488875ced06c5d5fb7cda7b7a95df2857e5bb3360b583fc7b370a73e48",
+    "bytes": 22784
+  },
+  "home": {
+    "hero": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {"lvl":""},
+      "style": {},
+      "extra": {}
+    },
+    "holds": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "shareBtn": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "updated": {
+      "innerHTML": "Updated 5:57 AM",
+      "textContent": "Updated 5:57 AM",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "verdict": {
+      "innerHTML": "No data.",
+      "textContent": "No data.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "why": {
+      "innerHTML": "The forecast did not load. Check the connection, then tap Refresh.",
+      "textContent": "The forecast did not load. Check the connection, then tap Refresh.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "notChecked": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    }
+  }
+}

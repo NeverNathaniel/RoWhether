@@ -1,0 +1,338 @@
+{
+  "model": {
+    "sha256": "f7dd728effb630801526d81dda6b14412305edfa9a135d6cb408a23c37c3ee62",
+    "bytes": 115204
+  },
+  "text": {
+    "sha256": "2fcdbb6ea16f7d1f58ace3cbdd7e08ec57cfd6678041fd45a6704e3772055a98",
+    "bytes": 16532
+  },
+  "plans": {
+    "60-any": [],
+    "60-morning": [],
+    "60-afternoon": [],
+    "90-any": [],
+    "90-morning": [],
+    "90-afternoon": [],
+    "120-any": [],
+    "120-morning": [],
+    "120-afternoon": []
+  },
+  "runs": {
+    "sha256": "e8dea7745796299e5c140d03e19c16f2bc48ba623df105d28f340a2802b053e1",
+    "bytes": 15149
+  },
+  "parsers": {
+    "sha256": "2b4ecb73d7ad49c1c3afb411044a89e371060bc3813b9b856fd147af0277cf85",
+    "bytes": 24891
+  },
+  "views": {
+    "week": {
+      "summary": {"text":"No go period in the next 7 days.","lvl":2},
+      "days": {"null":{"day":null,"length":20973,"sha256":"14231e474491a52973a9fe3b231ed32ebeb527b15294ff169dfc4966543ecab8"}}
+    },
+    "wind": {
+      "summary": {"text":"14 mph from SSW now, gusts 23.","lvl":1},
+      "days": {"null":{"day":"2026-04-14","length":20526,"sha256":"81eb99da68a956922fd1ea8f61eadab2a3b400eee09ad14b2d947c9ce778b1e4"}}
+    },
+    "river": {
+      "summary": {"text":"30,500 cfs now. Forecast to ease to about 19,700 cfs by Fri 8 AM.","lvl":2},
+      "days": {"null":{"day":null,"length":33974,"sha256":"a5b12159665b48a17a55e8f4bcaf5053a8aa87feb7b8c875e7ce6312dc42b0b2"}}
+    },
+    "storms": {
+      "summary": {"text":"Thunderstorms possible from tomorrow 12 PM. 2 NWS alerts active.","lvl":1},
+      "days": {"null":{"day":"2026-04-14","length":15636,"sha256":"98b716eeb092eef7ac271c3f9be1991ab42ef881ddb3659c2c17e57a68f4b81e"}}
+    },
+    "fog": {
+      "summary": {"text":"Tomorrow morning: fog risk low.","lvl":0},
+      "days": {"null":{"day":"2026-04-15","length":12322,"sha256":"3284ec151ed9b2066149998cf6bfd9ffa0f3240ba458d72c6fa630af0e7041d8"}}
+    },
+    "temperature": {
+      "summary": {"text":"57°F air now, 41°F water.","lvl":1},
+      "days": {"null":{"day":"2026-04-14","length":11390,"sha256":"1fa4cd542642f2ee2569807c8463da985951566337e2c2132095ce303418a1ad"}}
+    },
+    "rain": {
+      "summary": {"text":"65% chance around 5 PM, rain.","lvl":1},
+      "days": {"null":{"day":"2026-04-14","length":13225,"sha256":"50a3673b8347b1f1f45b66cfdd7cc45b41c3ab08aaef534447f4f014f5c43969"}}
+    },
+    "light": {
+      "summary": {"text":"Today: first light 5:41 AM, sunset 7:31 PM. 13 h 20 min of daylight.","lvl":null},
+      "days": {"null":{"day":"2026-04-14","length":33647,"sha256":"4f5313e3dfb48e3c25cd00b75a65c10b5d8b342d9555f2da7b35e453f25032e6"}}
+    },
+    "air": {
+      "summary": {"text":"AQI 229 now, very unhealthy.","lvl":2},
+      "days": {"null":{"day":"2026-04-14","length":10865,"sha256":"10c27a3517a460e3f0173c7f56d6d888cdc1aec9a5fa46a814b6e4cf1202081d"}}
+    }
+  },
+  "home": {
+    "alerts": {
+      "innerHTML": "\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Flood Watch</strong>\n      <p>Flood Watch issued April 14 at 5:12AM EDT until April 16 at 8:00AM EDT by NWS Albany NY</p>\n      <details><summary>Details</summary><pre>* WHAT...Flooding caused by excessive rainfall and snowmelt is possible.\n\n* WHERE...Portions of southern Vermont, including Windham County.\n\n* IMPACTS...Excessive runoff may result in flooding of rivers, creeks and other low-lying and flood-prone locations.\n\nYou should monitor later forecasts and be alert for possible Flood Warnings. Those living in areas prone to flooding should be prepared to take action should flooding develop.</pre></details>\n    </div>\n    <div class=\"alert\" data-lvl=\"2\" role=\"alert\">\n      <strong>Wind Advisory</strong>\n      <p>Wind Advisory issued April 14 at 5:12AM EDT until April 16 at 6:00PM EDT by NWS Albany NY</p>\n      <details><summary>Details</summary><pre>* WHAT...West winds 15 to 25 mph with gusts up to 40 mph expected.\n\n* WHERE...Windham County.\n\nWinds this strong can blow around unsecured objects. Boats on open water should secure moorings.</pre></details>\n    </div>",
+      "textContent": "\n    \n      Flood Watch\n      Flood Watch issued April 14 at 5:12AM EDT until April 16 at 8:00AM EDT by NWS Albany NY\n      Details* WHAT...Flooding caused by excessive rainfall and snowmelt is possible.\n\n* WHERE...Portions of southern Vermont, including Windham County.\n\n* IMPACTS...Excessive runoff may result in flooding of rivers, creeks and other low-lying and flood-prone locations.\n\nYou should monitor later forecasts and be alert for possible Flood Warnings. Those living in areas prone to flooding should be prepared to take action should flooding develop.\n    \n    \n      Wind Advisory\n      Wind Advisory issued April 14 at 5:12AM EDT until April 16 at 6:00PM EDT by NWS Albany NY\n      Details* WHAT...West winds 15 to 25 mph with gusts up to 40 mph expected.\n\n* WHERE...Windham County.\n\nWinds this strong can blow around unsecured objects. Boats on open water should secure moorings.\n    ",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "compass": {
+      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(205)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
+      "textContent": "NESWVTNH",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "compassCap": {
+      "innerHTML": "Wind from SSW. River runs SSW, upstream heading 15°.",
+      "textContent": "Wind from SSW. River runs SSW, upstream heading 15°.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "days": {
+      "innerHTML": {"length":15582,"sha256":"032be2f1b55d9ec939617152d5821003db0c5b836469b50bcdb144e6e3e15d90"},
+      "textContent": {"length":6057,"sha256":"c1cdf8fd7e132466cabf8d73b59af5aa5535492543059e4af6506b6ba85a58e1"},
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "facts": {
+      "innerHTML": {"length":5143,"sha256":"ee07b2f34406690301c38ed20fb7d5e7dbef30fe460bb9a6de154f7849996d51"},
+      "textContent": "Wind14 mph, gusts 23From SSW. Tailwind rowing upstream, headwind coming back. Chop builds along the straight. Wind against current steepens it.Water stateRough waterWind runs along the straight, with a long reach to build waves. Wind against the current steepens it. River rising fast. Watch for floating debris.Air57°FFeels like 53°F. Dew point 46°F.Water41°FNearest main-stem gauge, near Northfield, MA, about 19 mi downstream. 30 min ago.Air plus water99°FUnder 100. Dress for immersion and row with a launch.Visibility10+ miFog risk low now and tomorrow morning.Air qualityAQI 229Very unhealthy. Fine particles 8 µg/m³. A forecast, not a measurement.River flow30,500 cfs Rising, up 26% in 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 15 min ago.Daylight6:11 AM to 7:31 PMFirst light 5:41 AM, dark by 8:01 PM. Lights required outside sunrise to sunset.Measured at Keene12 mph SW, 56°FMostly Cloudy. Keene airport, 14 mi east. A check on the model. 7 min ago.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "hero": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {"lvl":2},
+      "style": {},
+      "extra": {}
+    },
+    "holds": {
+      "innerHTML": "No go period in the next 7 days.",
+      "textContent": "No go period in the next 7 days.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "nowPrecip": {
+      "innerHTML": {"length":3545,"sha256":"32a3389bec22d364aa1a74d98aa7f6e25f83d27be44e943669ae6280cd345017"},
+      "textContent": "\n    Precipitation, now to 6 PM\n    65% chance\n    Dry now. Most likely 4 PM to 6 PM. Rain, about 0.12 in.\n    60%90%12 PM1 PM2 PM3 PM4 PM65%5 PM12 PM: 26% chance.1 PM: 27% chance.2 PM: 23% chance.3 PM: 50% chance, rain, about 0.02 in.4 PM: 60% chance, rain, about 0.04 in.5 PM: 65% chance, rain, about 0.06 in.\n    Tap a column for that hour.\n  ",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "nowSection": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "shareBtn": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "statusNote": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "updated": {
+      "innerHTML": "Updated 11:57 AM",
+      "textContent": "Updated 11:57 AM",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "verdict": {
+      "innerHTML": "Stay off.",
+      "textContent": "Stay off.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "why": {
+      "innerHTML": "High water at 30,500 cfs. Air quality AQI 229, very unhealthy.<span class=\"cond\">Wind 14 mph from SSW, gusts 23. Rough water. 57°F air, 41°F water.</span>",
+      "textContent": "High water at 30,500 cfs. Air quality AQI 229, very unhealthy.Wind 14 mph from SSW, gusts 23. Rough water. 57°F air, 41°F water.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "notChecked": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    }
+  },
+  "forecasts": {
+    "2026-04-14-midday": {
+      "length": 8988,
+      "sha256": "f1d0ea04dee9acc3f774ed68783faf6dffaf9777ff01cf188529cf81348012c5"
+    },
+    "2026-04-14-afternoon": {
+      "length": 9780,
+      "sha256": "af783cae401dc826975fe7cff176b20685237ce2a44029ddc79e612979be397c"
+    },
+    "2026-04-15-morning": {
+      "length": 9740,
+      "sha256": "52c74d3bbf150f380dc1c0763bc944ca8c096e9e0a4fc8de46847d8d41e8df82"
+    },
+    "2026-04-15-midday": {
+      "length": 9648,
+      "sha256": "fefca9530d6fdf4b79d6f035e02dd09585cd3e87473ed745474abf98a1d7c8c0"
+    },
+    "2026-04-15-afternoon": {
+      "length": 9848,
+      "sha256": "d3b09e4b94216caebc8fdc93c968f4a16ec31a572c6655e7aa5ed033c8a14ae2"
+    },
+    "2026-04-16-morning": {
+      "length": 9630,
+      "sha256": "cbbc8722e9177337a2994d338132c98e7c7bd716e3f551958169580f25ba03d8"
+    },
+    "2026-04-16-midday": {
+      "length": 9616,
+      "sha256": "357df17b00c9029f6510f6d1b8e02ef1d6e8ac60921228e061444d60234cfc7d"
+    },
+    "2026-04-16-afternoon": {
+      "length": 9619,
+      "sha256": "4900bac83a153e47879c4ef8a87b2be7f9f3532f233765d73c87468c47a1616a"
+    },
+    "2026-04-17-morning": {
+      "length": 9476,
+      "sha256": "318bf4bd5211db8c6d6ee50cba153bcee541ec9166a524a7e5ab77d359886637"
+    },
+    "2026-04-17-midday": {
+      "length": 9415,
+      "sha256": "cea4ab340fb0358a329df7ccbe5d6c5c7e5ac23f6873636a9c74106b7c02448d"
+    },
+    "2026-04-17-afternoon": {
+      "length": 9400,
+      "sha256": "d3816f4b42eb3880351563aaf588eaf9cf2ff1ab334a152f0ded352b5e454d57"
+    },
+    "2026-04-18-morning": {
+      "length": 9388,
+      "sha256": "1447ff66c2bc2233a87700528e8579af67070cd98021495d013669f9ad3b1464"
+    },
+    "2026-04-18-midday": {
+      "length": 9482,
+      "sha256": "2cf0002cf16771d662ef8cd367131139f139430f1b262c3f0c7e7e6c2e7b7ce5"
+    },
+    "2026-04-18-afternoon": {
+      "length": 9460,
+      "sha256": "eefc2875681ccb8e6a777f5f95a6ec79384be7fd058ba27ccda3e94ebf9194a8"
+    },
+    "2026-04-19-morning": {
+      "length": 9341,
+      "sha256": "bb5b1c3628a37d539308f7d576b97ab9deb36e65d23a557f3c6c290dabfdffeb"
+    },
+    "2026-04-19-midday": {
+      "length": 9522,
+      "sha256": "f6b407a789b973590a529f62c08db9be8a4fd9ae4610823f0905c44400146452"
+    },
+    "2026-04-19-afternoon": {
+      "length": 9566,
+      "sha256": "9b6baa67bd7e151bf76504870b3f41ee2addcd268edabbcaa04ed5bf67f95bfe"
+    },
+    "2026-04-20-morning": {
+      "length": 9447,
+      "sha256": "dbe2e976da774ae5cd0e77bee2219962f0a0c1f3d76e9034d46b77e2d5f77610"
+    },
+    "2026-04-20-midday": {
+      "length": 9452,
+      "sha256": "f45356d696ea0cadd924eab863f63115d514829ebc69e31d552cb0e781ac8c87"
+    },
+    "2026-04-20-afternoon": {
+      "length": 9315,
+      "sha256": "5720bc4c50cdf54199dd7d0b9d8c494deccd5e7c62db470fde0bf3c5f5b119ca"
+    }
+  },
+  "status": {
+    "noDataAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "noDataForecast": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "noDataQuiet": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partial": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":2},"style":{},"extra":{}},
+      "holds": {"innerHTML":"No go period in the next 7 days.","textContent":"No go period in the next 7 days.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Stay off.","textContent":"Stay off.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"High water at 30,500 cfs. Air quality AQI 229, very unhealthy.<span class=\"cond\">Wind 14 mph from SSW, gusts 23. Rough water. 57°F air, 41°F water.</span>","textContent":"High water at 30,500 cfs. Air quality AQI 229, very unhealthy.Wind 14 mph from SSW, gusts 23. Rough water. 57°F air, 41°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partialAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":2},"style":{},"extra":{}},
+      "holds": {"innerHTML":"No go period in the next 7 days.","textContent":"No go period in the next 7 days.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","textContent":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Stay off.","textContent":"Stay off.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"High water at 30,500 cfs. Air quality AQI 229, very unhealthy.<span class=\"cond\">Wind 14 mph from SSW, gusts 23. Rough water. 57°F air, 41°F water.</span>","textContent":"High water at 30,500 cfs. Air quality AQI 229, very unhealthy.Wind 14 mph from SSW, gusts 23. Rough water. 57°F air, 41°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "header": {
+      "loading": "Loading",
+      "notLoaded": "Not loaded",
+      "fresh": "Updated 11:57 AM",
+      "cached": "Saved 11:57 AM",
+      "failed": "Saved 11:57 AM"
+    }
+  },
+  "share": "Putney Landing rowing, 12 PM: Stay off. High water at 30,500 cfs. Air quality AQI 229, very unhealthy. Wind 14 mph from SSW, gusts 23. Rough water. 57°F air, 41°F water. No go period in the next 7 days."
+}

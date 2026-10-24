@@ -8,8 +8,8 @@ const LABEL = 'Share this forecast';
 
 export function shareText(now = Date.now()) {
   const why = $('why').innerText.replace(/\s*\n\s*/g, ' ').trim();
-  const parts = [$('verdict').textContent.trim(), why, $('holds').textContent.trim()].filter(Boolean);
-  return `Putney Landing rowing, ${hm(now)}: ${parts.join(' ')}`;
+  const parts = [$('verdict').textContent.trim(), why, $('holds').textContent.trim(), $('notChecked').textContent.trim()].filter(Boolean);
+  return `${app.loc.name} rowing, ${hm(now)}: ${parts.join(' ')}`;
 }
 
 export function initShare() {
@@ -22,7 +22,7 @@ export function initShare() {
     const url = env && env !== 'production' ? location.origin + location.pathname : SITE_URL;
     const text = shareText();
     try {
-      if (navigator.share) { await navigator.share({ title: 'Putney Landing rowing forecast', text, url }); return; }
+      if (navigator.share) { await navigator.share({ title: `${app.loc.name} rowing forecast`, text, url }); return; }
       await navigator.clipboard.writeText(`${text} ${url}`);
       flash('Copied');
     } catch (e) {

@@ -1,0 +1,287 @@
+{
+  "alerts": [
+    [],
+    [],
+    [
+      {
+        "event": "Alert",
+        "headline": "",
+        "desc": "",
+        "instr": "",
+        "start": 0,
+        "end": 8640000000000000,
+        "lvl": 1
+      }
+    ],
+    [
+      {
+        "event": "Alert",
+        "headline": "",
+        "desc": "",
+        "instr": "",
+        "start": 0,
+        "end": 8640000000000000,
+        "lvl": 1
+      }
+    ],
+    [
+      {
+        "event": "Flood Watch",
+        "headline": "",
+        "desc": "",
+        "instr": "",
+        "start": 1776175200000,
+        "end": 1776261600000,
+        "lvl": 1
+      }
+    ],
+    [
+      {
+        "event": "Flood Watch",
+        "headline": "",
+        "desc": "",
+        "instr": "",
+        "start": 1776178800000,
+        "end": 1776258000000,
+        "lvl": 1
+      }
+    ],
+    [
+      {
+        "event": "High Wind Warning",
+        "headline": "",
+        "desc": "",
+        "instr": "",
+        "start": 0,
+        "end": 8640000000000000,
+        "lvl": 2
+      }
+    ]
+  ],
+  "speed": [
+    null,
+    null,
+    null,
+    null,
+    6.21371,
+    22.369400000000002,
+    6.21371,
+    0,
+    6.21371
+  ],
+  "obs": [
+    {
+      "t": null,
+      "tempF": null,
+      "wind": null,
+      "gust": null,
+      "dir": null,
+      "text": ""
+    },
+    {
+      "t": null,
+      "tempF": null,
+      "wind": null,
+      "gust": null,
+      "dir": null,
+      "text": ""
+    },
+    {
+      "t": 1776181980000,
+      "tempF": 50,
+      "wind": 11.184678,
+      "gust": null,
+      "dir": 250,
+      "text": "Cloudy"
+    },
+    {
+      "t": 1776181980000,
+      "tempF": null,
+      "wind": 11.184700000000001,
+      "gust": 17.89552,
+      "dir": null,
+      "text": ""
+    },
+    {
+      "t": null,
+      "tempF": 32,
+      "wind": null,
+      "gust": null,
+      "dir": null,
+      "text": ""
+    }
+  ],
+  "river": [
+    {},
+    {},
+    {
+      "flow": {
+        "v": 12000,
+        "t": 1776181500000
+      },
+      "waterC": {
+        "v": 8.5,
+        "t": 1776181500000
+      }
+    },
+    {},
+    {
+      "flow": {
+        "v": 2,
+        "t": 1776181500000
+      }
+    },
+    {
+      "flow": {
+        "v": 0,
+        "t": 1776181500000
+      }
+    }
+  ],
+  "flow": [
+    [],
+    [],
+    [
+      {
+        "t": 1776175200000,
+        "v": 90
+      },
+      {
+        "t": 1776178800000,
+        "v": 100
+      },
+      {
+        "t": 1776182400000,
+        "v": 0
+      }
+    ]
+  ],
+  "flowDays": [
+    [],
+    [
+      {
+        "t": 1775836800000,
+        "v": 8000
+      },
+      {
+        "t": 1776009600000,
+        "v": 9000
+      }
+    ]
+  ],
+  "flowFcst": [
+    {
+      "issued": null,
+      "pts": []
+    },
+    {
+      "issued": null,
+      "pts": []
+    },
+    {
+      "issued": 1776168000000,
+      "pts": [
+        {"t":1776168000000,"v":11100},
+        {"t":1776189600000,"v":12400},
+        {"t":1776254400000,"v":0}
+      ]
+    },
+    {
+      "issued": null,
+      "pts": [
+        {"t":1776189600000,"v":12400}
+      ]
+    },
+    {
+      "issued": null,
+      "pts": [
+        {"t":1776189600000,"v":3}
+      ]
+    }
+  ],
+  "aq": [
+    [],
+    [],
+    [
+      {
+        "t": 1000,
+        "aqi": 10,
+        "pm25": 1.5
+      },
+      {
+        "t": 2000,
+        "aqi": null,
+        "pm25": 2
+      }
+    ],
+    [
+      {
+        "t": 1000,
+        "aqi": 10,
+        "pm25": null
+      },
+      {
+        "t": 2000,
+        "aqi": 20,
+        "pm25": null
+      }
+    ],
+    [
+      {
+        "t": 1000,
+        "aqi": null,
+        "pm25": 3
+      },
+      {
+        "t": 2000,
+        "aqi": null,
+        "pm25": 4
+      }
+    ],
+    [
+      {
+        "t": 1000,
+        "aqi": 0,
+        "pm25": 0
+      }
+    ]
+  ],
+  "models": [
+    {
+      "ids": [],
+      "hours": []
+    },
+    {
+      "ids": [],
+      "hours": []
+    },
+    {
+      "ids": [
+        "gfs_seamless",
+        "icon_seamless"
+      ],
+      "hours": [
+        {"t":1000,"wind":[5,7],"precip":[0.1,null]},
+        {"t":2000,"wind":[null,8],"precip":[0,null]}
+      ]
+    },
+    {
+      "ids": [
+        "ecmwf_ifs025"
+      ],
+      "hours": [
+        {"t":1000,"wind":[null],"precip":[0.2]}
+      ]
+    },
+    {
+      "ids": [
+        "gem_seamless"
+      ],
+      "hours": [
+        {"t":1000,"wind":[1],"precip":[null]},
+        {"t":2000,"wind":[null],"precip":[0]},
+        {"t":3000,"wind":[null],"precip":[0.3]}
+      ]
+    }
+  ]
+}

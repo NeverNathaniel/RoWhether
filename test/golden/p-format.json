@@ -1,0 +1,684 @@
+{
+  "times": {
+    "midnightEDT": {
+      "iso": "2026-10-18T04:00:00.000Z",
+      "dayKey": "2026-10-18",
+      "hm": "12 AM",
+      "hShort": "12 AM",
+      "weekday": "Sun",
+      "monthDay": "Oct 18",
+      "localHour": 0,
+      "long": "Sun, Oct 18",
+      "dayWord": "Today",
+      "dayWordLower": "today",
+      "whenText": "12 AM",
+      "whenLower": "12 AM"
+    },
+    "lastSecondBefore": {
+      "iso": "2026-10-18T03:59:59.000Z",
+      "dayKey": "2026-10-17",
+      "hm": "11:59 PM",
+      "hShort": "11 PM",
+      "weekday": "Sat",
+      "monthDay": "Oct 17",
+      "localHour": 23,
+      "long": "Sat, Oct 17",
+      "dayWord": "Sat",
+      "dayWordLower": "Sat",
+      "whenText": "Sat 11:59 PM",
+      "whenLower": "Sat 11:59 PM"
+    },
+    "noonEDT": {
+      "iso": "2026-10-18T16:00:00.000Z",
+      "dayKey": "2026-10-18",
+      "hm": "12 PM",
+      "hShort": "12 PM",
+      "weekday": "Sun",
+      "monthDay": "Oct 18",
+      "localHour": 12,
+      "long": "Sun, Oct 18",
+      "dayWord": "Today",
+      "dayWordLower": "today",
+      "whenText": "12 PM",
+      "whenLower": "12 PM"
+    },
+    "halfPast": {
+      "iso": "2026-10-18T16:30:00.000Z",
+      "dayKey": "2026-10-18",
+      "hm": "12:30 PM",
+      "hShort": "12 PM",
+      "weekday": "Sun",
+      "monthDay": "Oct 18",
+      "localHour": 12,
+      "long": "Sun, Oct 18",
+      "dayWord": "Today",
+      "dayWordLower": "today",
+      "whenText": "12:30 PM",
+      "whenLower": "12:30 PM"
+    },
+    "fivePast": {
+      "iso": "2026-10-18T09:05:00.000Z",
+      "dayKey": "2026-10-18",
+      "hm": "5:05 AM",
+      "hShort": "5 AM",
+      "weekday": "Sun",
+      "monthDay": "Oct 18",
+      "localHour": 5,
+      "long": "Sun, Oct 18",
+      "dayWord": "Today",
+      "dayWordLower": "today",
+      "whenText": "5:05 AM",
+      "whenLower": "5:05 AM"
+    },
+    "oneMinuteToNoon": {
+      "iso": "2026-10-18T15:59:00.000Z",
+      "dayKey": "2026-10-18",
+      "hm": "11:59 AM",
+      "hShort": "11 AM",
+      "weekday": "Sun",
+      "monthDay": "Oct 18",
+      "localHour": 11,
+      "long": "Sun, Oct 18",
+      "dayWord": "Today",
+      "dayWordLower": "today",
+      "whenText": "11:59 AM",
+      "whenLower": "11:59 AM"
+    },
+    "elevenPM": {
+      "iso": "2026-10-19T03:00:00.000Z",
+      "dayKey": "2026-10-18",
+      "hm": "11 PM",
+      "hShort": "11 PM",
+      "weekday": "Sun",
+      "monthDay": "Oct 18",
+      "localHour": 23,
+      "long": "Sun, Oct 18",
+      "dayWord": "Today",
+      "dayWordLower": "today",
+      "whenText": "11 PM",
+      "whenLower": "11 PM"
+    },
+    "springBefore": {
+      "iso": "2026-03-08T06:59:59.000Z",
+      "dayKey": "2026-03-08",
+      "hm": "1:59 AM",
+      "hShort": "1 AM",
+      "weekday": "Sun",
+      "monthDay": "Mar 8",
+      "localHour": 1,
+      "long": "Sun, Mar 8",
+      "dayWord": "Sun",
+      "dayWordLower": "Sun",
+      "whenText": "Sun 1:59 AM",
+      "whenLower": "Sun 1:59 AM"
+    },
+    "springAfter": {
+      "iso": "2026-03-08T07:00:00.000Z",
+      "dayKey": "2026-03-08",
+      "hm": "3 AM",
+      "hShort": "3 AM",
+      "weekday": "Sun",
+      "monthDay": "Mar 8",
+      "localHour": 3,
+      "long": "Sun, Mar 8",
+      "dayWord": "Sun",
+      "dayWordLower": "Sun",
+      "whenText": "Sun 3 AM",
+      "whenLower": "Sun 3 AM"
+    },
+    "springNoon": {
+      "iso": "2026-03-08T16:00:00.000Z",
+      "dayKey": "2026-03-08",
+      "hm": "12 PM",
+      "hShort": "12 PM",
+      "weekday": "Sun",
+      "monthDay": "Mar 8",
+      "localHour": 12,
+      "long": "Sun, Mar 8",
+      "dayWord": "Sun",
+      "dayWordLower": "Sun",
+      "whenText": "Sun 12 PM",
+      "whenLower": "Sun 12 PM"
+    },
+    "springMidnight": {
+      "iso": "2026-03-08T05:00:00.000Z",
+      "dayKey": "2026-03-08",
+      "hm": "12 AM",
+      "hShort": "12 AM",
+      "weekday": "Sun",
+      "monthDay": "Mar 8",
+      "localHour": 0,
+      "long": "Sun, Mar 8",
+      "dayWord": "Sun",
+      "dayWordLower": "Sun",
+      "whenText": "Sun 12 AM",
+      "whenLower": "Sun 12 AM"
+    },
+    "springNextMidnight": {
+      "iso": "2026-03-09T04:00:00.000Z",
+      "dayKey": "2026-03-09",
+      "hm": "12 AM",
+      "hShort": "12 AM",
+      "weekday": "Mon",
+      "monthDay": "Mar 9",
+      "localHour": 0,
+      "long": "Mon, Mar 9",
+      "dayWord": "Mon",
+      "dayWordLower": "Mon",
+      "whenText": "Mon 12 AM",
+      "whenLower": "Mon 12 AM"
+    },
+    "fallBefore": {
+      "iso": "2026-11-01T05:59:59.000Z",
+      "dayKey": "2026-11-01",
+      "hm": "1:59 AM",
+      "hShort": "1 AM",
+      "weekday": "Sun",
+      "monthDay": "Nov 1",
+      "localHour": 1,
+      "long": "Sun, Nov 1",
+      "dayWord": "Sun",
+      "dayWordLower": "Sun",
+      "whenText": "Sun 1:59 AM",
+      "whenLower": "Sun 1:59 AM"
+    },
+    "fallRepeat": {
+      "iso": "2026-11-01T06:00:00.000Z",
+      "dayKey": "2026-11-01",
+      "hm": "1 AM",
+      "hShort": "1 AM",
+      "weekday": "Sun",
+      "monthDay": "Nov 1",
+      "localHour": 1,
+      "long": "Sun, Nov 1",
+      "dayWord": "Sun",
+      "dayWordLower": "Sun",
+      "whenText": "Sun 1 AM",
+      "whenLower": "Sun 1 AM"
+    },
+    "fallLater": {
+      "iso": "2026-11-01T07:00:00.000Z",
+      "dayKey": "2026-11-01",
+      "hm": "2 AM",
+      "hShort": "2 AM",
+      "weekday": "Sun",
+      "monthDay": "Nov 1",
+      "localHour": 2,
+      "long": "Sun, Nov 1",
+      "dayWord": "Sun",
+      "dayWordLower": "Sun",
+      "whenText": "Sun 2 AM",
+      "whenLower": "Sun 2 AM"
+    },
+    "fallMidnight": {
+      "iso": "2026-11-01T04:00:00.000Z",
+      "dayKey": "2026-11-01",
+      "hm": "12 AM",
+      "hShort": "12 AM",
+      "weekday": "Sun",
+      "monthDay": "Nov 1",
+      "localHour": 0,
+      "long": "Sun, Nov 1",
+      "dayWord": "Sun",
+      "dayWordLower": "Sun",
+      "whenText": "Sun 12 AM",
+      "whenLower": "Sun 12 AM"
+    },
+    "fallNextMidnight": {
+      "iso": "2026-11-02T05:00:00.000Z",
+      "dayKey": "2026-11-02",
+      "hm": "12 AM",
+      "hShort": "12 AM",
+      "weekday": "Mon",
+      "monthDay": "Nov 2",
+      "localHour": 0,
+      "long": "Mon, Nov 2",
+      "dayWord": "Mon",
+      "dayWordLower": "Mon",
+      "whenText": "Mon 12 AM",
+      "whenLower": "Mon 12 AM"
+    },
+    "newYearEve": {
+      "iso": "2026-12-31T04:59:59.000Z",
+      "dayKey": "2026-12-30",
+      "hm": "11:59 PM",
+      "hShort": "11 PM",
+      "weekday": "Wed",
+      "monthDay": "Dec 30",
+      "localHour": 23,
+      "long": "Wed, Dec 30",
+      "dayWord": "Wed",
+      "dayWordLower": "Wed",
+      "whenText": "Wed 11:59 PM",
+      "whenLower": "Wed 11:59 PM"
+    },
+    "newYear": {
+      "iso": "2026-12-31T05:00:00.000Z",
+      "dayKey": "2026-12-31",
+      "hm": "12 AM",
+      "hShort": "12 AM",
+      "weekday": "Thu",
+      "monthDay": "Dec 31",
+      "localHour": 0,
+      "long": "Thu, Dec 31",
+      "dayWord": "Thu",
+      "dayWordLower": "Thu",
+      "whenText": "Thu 12 AM",
+      "whenLower": "Thu 12 AM"
+    },
+    "newYearUTC": {
+      "iso": "2027-01-01T00:00:00.000Z",
+      "dayKey": "2026-12-31",
+      "hm": "7 PM",
+      "hShort": "7 PM",
+      "weekday": "Thu",
+      "monthDay": "Dec 31",
+      "localHour": 19,
+      "long": "Thu, Dec 31",
+      "dayWord": "Thu",
+      "dayWordLower": "Thu",
+      "whenText": "Thu 7 PM",
+      "whenLower": "Thu 7 PM"
+    },
+    "leapDay": {
+      "iso": "2028-02-29T17:00:00.000Z",
+      "dayKey": "2028-02-29",
+      "hm": "12 PM",
+      "hShort": "12 PM",
+      "weekday": "Tue",
+      "monthDay": "Feb 29",
+      "localHour": 12,
+      "long": "Tue, Feb 29",
+      "dayWord": "Tue",
+      "dayWordLower": "Tue",
+      "whenText": "Tue 12 PM",
+      "whenLower": "Tue 12 PM"
+    },
+    "epoch": {
+      "iso": "1970-01-01T00:00:00.000Z",
+      "dayKey": "1969-12-31",
+      "hm": "7 PM",
+      "hShort": "7 PM",
+      "weekday": "Wed",
+      "monthDay": "Dec 31",
+      "localHour": 19,
+      "long": "Wed, Dec 31",
+      "dayWord": "Wed",
+      "dayWordLower": "Wed",
+      "whenText": "Wed 7 PM",
+      "whenLower": "Wed 7 PM"
+    },
+    "julyNoon": {
+      "iso": "2026-07-04T16:00:00.000Z",
+      "dayKey": "2026-07-04",
+      "hm": "12 PM",
+      "hShort": "12 PM",
+      "weekday": "Sat",
+      "monthDay": "Jul 4",
+      "localHour": 12,
+      "long": "Sat, Jul 4",
+      "dayWord": "Sat",
+      "dayWordLower": "Sat",
+      "whenText": "Sat 12 PM",
+      "whenLower": "Sat 12 PM"
+    },
+    "januaryNoon": {
+      "iso": "2027-01-15T17:00:00.000Z",
+      "dayKey": "2027-01-15",
+      "hm": "12 PM",
+      "hShort": "12 PM",
+      "weekday": "Fri",
+      "monthDay": "Jan 15",
+      "localHour": 12,
+      "long": "Fri, Jan 15",
+      "dayWord": "Fri",
+      "dayWordLower": "Fri",
+      "whenText": "Fri 12 PM",
+      "whenLower": "Fri 12 PM"
+    }
+  },
+  "halfHours": "12 AM|12:30 AM|1 AM|1:30 AM|2 AM|2:30 AM|3 AM|3:30 AM|4 AM|4:30 AM|5 AM|5:30 AM|6 AM|6:30 AM|7 AM|7:30 AM|8 AM|8:30 AM|9 AM|9:30 AM|10 AM|10:30 AM|11 AM|11:30 AM|12 PM|12:30 PM|1 PM|1:30 PM|2 PM|2:30 PM|3 PM|3:30 PM|4 PM|4:30 PM|5 PM|5:30 PM|6 PM|6:30 PM|7 PM|7:30 PM|8 PM|8:30 PM|9 PM|9:30 PM|10 PM|10:30 PM|11 PM|11:30 PM",
+  "hShort": "12 AM|1 AM|2 AM|3 AM|4 AM|5 AM|6 AM|7 AM|8 AM|9 AM|10 AM|11 AM|12 PM|1 PM|2 PM|3 PM|4 PM|5 PM|6 PM|7 PM|8 PM|9 PM|10 PM|11 PM",
+  "dayWords": [
+    [
+      -2,
+      "Fri",
+      "Fri 11 AM"
+    ],
+    [
+      -1,
+      "Sat",
+      "Sat 11 AM"
+    ],
+    [
+      0,
+      "Today",
+      "11 AM"
+    ],
+    [
+      1,
+      "Tomorrow",
+      "tomorrow 11 AM"
+    ],
+    [
+      2,
+      "Tue",
+      "Tue 11 AM"
+    ],
+    [
+      3,
+      "Wed",
+      "Wed 11 AM"
+    ],
+    [
+      4,
+      "Thu",
+      "Thu 11 AM"
+    ],
+    [
+      5,
+      "Fri",
+      "Fri 11 AM"
+    ],
+    [
+      6,
+      "Sat",
+      "Sat 11 AM"
+    ],
+    [
+      7,
+      "Sun",
+      "Sun 11 AM"
+    ],
+    [
+      8,
+      "Mon",
+      "Mon 11 AM"
+    ]
+  ],
+  "ago": {
+    "none": "",
+    "zero": "Just now",
+    "sec29": "Just now",
+    "sec30": "1 min ago",
+    "sec31": "1 min ago",
+    "min59": "59 min ago",
+    "min60": "1 hr ago",
+    "min89": "1 hr ago",
+    "min90": "2 hr ago",
+    "h47": "47 hr ago",
+    "h48": "2 days ago",
+    "h60": "3 days ago",
+    "h100": "4 days ago",
+    "future": "Just now"
+  },
+  "visText": [
+    [
+      null,
+      "--"
+    ],
+    [
+      0,
+      "0.00 mi"
+    ],
+    [
+      100,
+      "0.06 mi"
+    ],
+    [
+      402,
+      "0.25 mi"
+    ],
+    [
+      1609,
+      "1.00 mi"
+    ],
+    [
+      1609.34,
+      "1.0 mi"
+    ],
+    [
+      1610,
+      "1.0 mi"
+    ],
+    [
+      8000,
+      "5.0 mi"
+    ],
+    [
+      16092,
+      "10.0 mi"
+    ],
+    [
+      16093.4,
+      "10+ mi"
+    ],
+    [
+      16094,
+      "10+ mi"
+    ],
+    [
+      24140,
+      "10+ mi"
+    ]
+  ],
+  "rng": [
+    [
+      [
+        3,
+        3,
+        " mph"
+      ],
+      "3 mph"
+    ],
+    [
+      [
+        3.4,
+        3.6,
+        " mph"
+      ],
+      "3 to 4 mph"
+    ],
+    [
+      [
+        2.5,
+        3.5,
+        ""
+      ],
+      "3 to 4"
+    ],
+    [
+      [
+        null,
+        null,
+        ""
+      ],
+      "null"
+    ],
+    [
+      [
+        1,
+        null,
+        " mph"
+      ],
+      "1 to null mph"
+    ],
+    [
+      [
+        -3,
+        4,
+        "°F"
+      ],
+      "-3 to 4°F"
+    ],
+    [
+      [
+        10,
+        10.4,
+        " mph"
+      ],
+      "10 mph"
+    ]
+  ],
+  "card": [
+    [
+      null,
+      "--"
+    ],
+    [
+      null,
+      "--"
+    ],
+    [
+      0,
+      "N"
+    ],
+    [
+      11.24,
+      "N"
+    ],
+    [
+      11.25,
+      "NNE"
+    ],
+    [
+      22.5,
+      "NNE"
+    ],
+    [
+      33.75,
+      "NE"
+    ],
+    [
+      348.74,
+      "NNW"
+    ],
+    [
+      348.75,
+      "N"
+    ],
+    [
+      359.9,
+      "N"
+    ],
+    [
+      360,
+      "N"
+    ],
+    [
+      371.25,
+      "NNE"
+    ],
+    [
+      -10,
+      "N"
+    ],
+    [
+      -11.25,
+      "N"
+    ],
+    [
+      720,
+      "N"
+    ],
+    [
+      "90",
+      "E"
+    ]
+  ],
+  "numbers": {
+    "r0": [
+      [
+        "null",
+        null
+      ],
+      [
+        "undefined",
+        null
+      ],
+      [
+        "NaN",
+        null
+      ],
+      [
+        "",
+        0
+      ],
+      [
+        "12.5",
+        13
+      ],
+      [
+        "0.5",
+        1
+      ],
+      [
+        "1.5",
+        2
+      ],
+      [
+        "2.5",
+        3
+      ],
+      [
+        "-0.5",
+        0
+      ],
+      [
+        "-1.5",
+        -1
+      ],
+      [
+        "2.4999",
+        2
+      ]
+    ],
+    "fmtInt": [
+      [
+        0,
+        "0"
+      ],
+      [
+        999.4,
+        "999"
+      ],
+      [
+        999.5,
+        "1,000"
+      ],
+      [
+        1000,
+        "1,000"
+      ],
+      [
+        22249.5,
+        "22,250"
+      ],
+      [
+        1234567,
+        "1,234,567"
+      ],
+      [
+        -1500,
+        "-1,500"
+      ]
+    ]
+  },
+  "text": {
+    "esc": "&lt;a href=&quot;x&quot;&gt;Tom &amp; &#39;Jerry&#39;&lt;/a&gt;",
+    "escNull": [
+      "",
+      "",
+      "0",
+      ""
+    ],
+    "lowerFirst": [
+      "wind",
+      "°F",
+      "",
+      null,
+      "a",
+      "aBC"
+    ]
+  }
+}

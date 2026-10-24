@@ -8,3 +8,8 @@
   Cache-Control: no-cache
 /manifest.webmanifest
   Cache-Control: no-cache
+
+# The curated location files are not hashed, so a browser may keep one for an
+# hour at most. The service worker precaches them.
+/locations/*
+  Cache-Control: public, max-age=3600

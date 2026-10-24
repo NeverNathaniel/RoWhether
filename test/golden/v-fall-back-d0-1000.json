@@ -1,0 +1,375 @@
+{
+  "model": {
+    "sha256": "e670bef232a15830fde9c0ce52b3cf3e70f0516d333066328a3f58a5566733f4",
+    "bytes": 95110
+  },
+  "text": {
+    "sha256": "397be6cdd94f68d69327777b0d1e8206409e6481708b0d9a2da3a48ab1d12129",
+    "bytes": 21713
+  },
+  "plans": {
+    "60-any": [
+      {"key":"2026-11-04","start":1793811600000,"end":1793815200000,"score":6.651834829177304,"water":0,"wmin":5.6,"wmax":5.6,"gmax":11.2,"pop":0,"hs":[1793811600000]},
+      {"key":"2026-11-06","start":1793970000000,"end":1793973600000,"score":8.003662289381971,"water":1,"wmin":5.4,"wmax":5.4,"gmax":11,"pop":26,"hs":[1793970000000]},
+      {"key":"2026-11-05","start":1793887200000,"end":1793890800000,"score":8.302021705671173,"water":1,"wmin":7,"wmax":7,"gmax":13,"pop":9,"hs":[1793887200000]},
+      {"key":"2026-10-31","start":1793455200000,"end":1793458800000,"score":8.561535844798293,"water":1,"wmin":7.1,"wmax":7.1,"gmax":13.9,"pop":10,"hs":[1793455200000]}
+    ],
+    "60-morning": [
+      {"key":"2026-11-06","start":1793970000000,"end":1793973600000,"score":8.003662289381971,"water":1,"wmin":5.4,"wmax":5.4,"gmax":11,"pop":26,"hs":[1793970000000]},
+      {"key":"2026-11-05","start":1793887200000,"end":1793890800000,"score":8.302021705671173,"water":1,"wmin":7,"wmax":7,"gmax":13,"pop":9,"hs":[1793887200000]},
+      {"key":"2026-10-31","start":1793455200000,"end":1793458800000,"score":8.561535844798293,"water":1,"wmin":7.1,"wmax":7.1,"gmax":13.9,"pop":10,"hs":[1793455200000]}
+    ],
+    "60-afternoon": [
+      {"key":"2026-11-04","start":1793811600000,"end":1793815200000,"score":6.651834829177304,"water":0,"wmin":5.6,"wmax":5.6,"gmax":11.2,"pop":0,"hs":[1793811600000]},
+      {"key":"2026-10-31","start":1793478600000,"end":1793482200000,"score":10.985501608513525,"water":1,"wmin":7,"wmax":7.4,"gmax":14.5,"pop":14,"hs":[1793476800000,1793480400000]},
+      {"key":"2026-11-05","start":1793905200000,"end":1793908800000,"score":12.834495029834368,"water":2,"wmin":9.3,"wmax":9.3,"gmax":17.2,"pop":10,"hs":[1793905200000]}
+    ],
+    "90-any": [
+      {"key":"2026-11-04","start":1793811600000,"end":1793817000000,"score":6.938840744050837,"water":1,"wmin":5.5,"wmax":5.6,"gmax":11.2,"pop":2,"hs":[1793811600000,1793815200000]},
+      {"key":"2026-11-06","start":1793970000000,"end":1793975400000,"score":9.265331265641693,"water":1,"wmin":5.4,"wmax":7.6,"gmax":14.8,"pop":26,"hs":[1793970000000,1793973600000]},
+      {"key":"2026-11-05","start":1793887200000,"end":1793892600000,"score":9.44054240046114,"water":1,"wmin":7,"wmax":7.8,"gmax":16,"pop":9,"hs":[1793887200000,1793890800000]},
+      {"key":"2026-10-31","start":1793455200000,"end":1793460600000,"score":9.795825675414326,"water":1,"wmin":7.1,"wmax":8.3,"gmax":16.1,"pop":14,"hs":[1793455200000,1793458800000]}
+    ],
+    "90-morning": [
+      {"key":"2026-11-06","start":1793970000000,"end":1793975400000,"score":9.265331265641693,"water":1,"wmin":5.4,"wmax":7.6,"gmax":14.8,"pop":26,"hs":[1793970000000,1793973600000]},
+      {"key":"2026-11-05","start":1793887200000,"end":1793892600000,"score":9.44054240046114,"water":1,"wmin":7,"wmax":7.8,"gmax":16,"pop":9,"hs":[1793887200000,1793890800000]},
+      {"key":"2026-10-31","start":1793455200000,"end":1793460600000,"score":9.795825675414326,"water":1,"wmin":7.1,"wmax":8.3,"gmax":16.1,"pop":14,"hs":[1793455200000,1793458800000]}
+    ],
+    "90-afternoon": [
+      {"key":"2026-11-04","start":1793811600000,"end":1793817000000,"score":6.938840744050837,"water":1,"wmin":5.5,"wmax":5.6,"gmax":11.2,"pop":2,"hs":[1793811600000,1793815200000]},
+      {"key":"2026-10-31","start":1793476800000,"end":1793482200000,"score":10.985501608513525,"water":1,"wmin":7,"wmax":7.4,"gmax":14.5,"pop":14,"hs":[1793476800000,1793480400000]}
+    ],
+    "120-any": [
+      {"key":"2026-11-04","start":1793811600000,"end":1793818800000,"score":6.938840744050837,"water":1,"wmin":5.5,"wmax":5.6,"gmax":11.2,"pop":2,"hs":[1793811600000,1793815200000]},
+      {"key":"2026-11-06","start":1793970000000,"end":1793977200000,"score":9.265331265641693,"water":1,"wmin":5.4,"wmax":7.6,"gmax":14.8,"pop":26,"hs":[1793970000000,1793973600000]},
+      {"key":"2026-11-05","start":1793887200000,"end":1793894400000,"score":9.44054240046114,"water":1,"wmin":7,"wmax":7.8,"gmax":16,"pop":9,"hs":[1793887200000,1793890800000]},
+      {"key":"2026-10-31","start":1793455200000,"end":1793462400000,"score":9.795825675414326,"water":1,"wmin":7.1,"wmax":8.3,"gmax":16.1,"pop":14,"hs":[1793455200000,1793458800000]}
+    ],
+    "120-morning": [
+      {"key":"2026-11-06","start":1793970000000,"end":1793977200000,"score":9.265331265641693,"water":1,"wmin":5.4,"wmax":7.6,"gmax":14.8,"pop":26,"hs":[1793970000000,1793973600000]},
+      {"key":"2026-11-05","start":1793887200000,"end":1793894400000,"score":9.44054240046114,"water":1,"wmin":7,"wmax":7.8,"gmax":16,"pop":9,"hs":[1793887200000,1793890800000]},
+      {"key":"2026-10-31","start":1793455200000,"end":1793462400000,"score":9.795825675414326,"water":1,"wmin":7.1,"wmax":8.3,"gmax":16.1,"pop":14,"hs":[1793455200000,1793458800000]}
+    ],
+    "120-afternoon": [
+      {"key":"2026-11-04","start":1793811600000,"end":1793818800000,"score":6.938840744050837,"water":1,"wmin":5.5,"wmax":5.6,"gmax":11.2,"pop":2,"hs":[1793811600000,1793815200000]},
+      {"key":"2026-10-31","start":1793475000000,"end":1793482200000,"score":11.815767174909286,"water":2,"wmin":7,"wmax":9.2,"gmax":16.8,"pop":14,"hs":[1793473200000,1793476800000,1793480400000]}
+    ]
+  },
+  "runs": {
+    "sha256": "ff8283f31de2ef4c1c297e091fdd8a48c48a045e6f0c9d68a3e91417082817f7",
+    "bytes": 12383
+  },
+  "parsers": {
+    "sha256": "6ede41949832a319984aaeabcb307733a24c9ab2e435b8d0961f2d059f9f9c59",
+    "bytes": 21910
+  },
+  "views": {
+    "week": {
+      "summary": {"text":"Go now.","lvl":0},
+      "days": {"null":{"day":null,"length":15049,"sha256":"c11da34d887f949e3eb6f9aff91a2af44a90df55526a200e0e8df046d6e7021d"}}
+    },
+    "wind": {
+      "summary": {"text":"7 mph from SW now, gusts 13.","lvl":0},
+      "days": {"null":{"day":"2026-10-31","length":15553,"sha256":"051b8d0be739d5ddaebaa9e7ccfe824c0575435939a9d8579f59c99a96ea3dd5"}}
+    },
+    "river": {
+      "summary": {"text":"4,361 cfs now. Forecast to rise to about 6,000 cfs by Mon 1 AM.","lvl":0},
+      "days": {"null":{"day":null,"length":32626,"sha256":"a6e3582773a05130745ea6b0a0cd4979cbb7dda036028d8ec3d2b6c22c402b8a"}}
+    },
+    "storms": {
+      "summary": {"text":"No thunderstorm risk in the next 3 days.","lvl":0},
+      "days": {"null":{"day":"2026-10-31","length":12250,"sha256":"0e55c72979c47af8822f9bdc6923b034b626c00bc577c44b17b9d65bfa2b4d9b"}}
+    },
+    "fog": {
+      "summary": {"text":"This morning: steam fog possible, lifting about 6 AM.","lvl":"p"},
+      "days": {"null":{"day":"2026-10-31","length":13417,"sha256":"2f48a410f9a37e5a3039b7f9e365199959c0ce8a01733d3c64b32498f6c42962"}}
+    },
+    "temperature": {
+      "summary": {"text":"52°F air now, 52°F water.","lvl":0},
+      "days": {"null":{"day":"2026-10-31","length":10234,"sha256":"d471cb7aeb873ffdeea585e287f5896d4574656ac5c816de9eb9b4fa1309028a"}}
+    },
+    "rain": {
+      "summary": {"text":"Under 20% for the next 12 hours.","lvl":0},
+      "days": {"null":{"day":"2026-10-31","length":10910,"sha256":"607ff4c3a4ee29e5d395f3c9e0b4ac6c8ccc94f1ade2b18dcf44a81f3dc8f803"}}
+    },
+    "light": {
+      "summary": {"text":"Today: first light 6:54 AM, sunset 5:45 PM. 10 h 21 min of daylight.","lvl":null},
+      "days": {"null":{"day":"2026-10-31","length":32481,"sha256":"aae48e4ae9ac3d90646b7d48e8b2f246397fc3aafbbfe1d4df410619f0ea7887"}}
+    },
+    "air": {
+      "summary": {"text":"AQI 36 now, good.","lvl":0},
+      "days": {"null":{"day":"2026-10-31","length":9017,"sha256":"d252e03e1fba0416dcd959b44ecb6bbc7fc8b089ce1f20c84fa6e61702f2628b"}}
+    }
+  },
+  "home": {
+    "alerts": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "compass": {
+      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-30\" y=\"-24\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"30\" y=\"-24\" text-anchor=\"middle\">NH</text><g transform=\"rotate(214)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
+      "textContent": "NESWVTNH",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "compassCap": {
+      "innerHTML": "Wind from SW. River runs SSW, upstream heading 15°.",
+      "textContent": "Wind from SW. River runs SSW, upstream heading 15°.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "days": {
+      "innerHTML": {"length":15765,"sha256":"e2175c09fe8635e247976ba93d2617dd0f25458a9d65214415c78e86e9e25965"},
+      "textContent": {"length":6245,"sha256":"3b9f0995c0ef62856e2383b2d31e7f8b36cc64183f4161bbd627483add41ab9b"},
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "facts": {
+      "innerHTML": {"length":4922,"sha256":"c06a003915a7275077b9ab84e563fbee90fc6fa09106d0a1dce87d8c754b3083"},
+      "textContent": "Wind7 mph, gusts 13From SW. Tailwind rowing upstream, headwind coming back.Water stateLight chopWind runs along the straight, with a long reach to build waves.Air52°FFeels like 50°F. Dew point 38°F.Water52°FNearest main-stem gauge, near Northfield, MA, about 19 mi downstream. 30 min ago.Air plus water104°FAbove the 100 cold-water line.Visibility10+ miFog risk low now. This morning: steam fog possible, lifting about 6 AM. Water 52°F under 41°F air.Air qualityAQI 36Good. Fine particles 7 µg/m³. A forecast, not a measurement.River flow4,361 cfs Steady over 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 15 min ago.Daylight7:24 AM to 5:45 PMFirst light 6:54 AM, dark by 6:14 PM. Lights required outside sunrise to sunset.Measured at Keene6 mph SW, 51°FPartly Cloudy. Keene airport, 14 mi east. A check on the model. 7 min ago.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "hero": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {"lvl":0},
+      "style": {},
+      "extra": {}
+    },
+    "holds": {
+      "innerHTML": "Holds until about 12 PM, then gusts build.",
+      "textContent": "Holds until about 12 PM, then gusts build.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "nowPrecip": {
+      "innerHTML": {"length":3444,"sha256":"5e45728170cfa0bed8f3f149a36a8d6e00c87f91538148fa07cd8ad200bfa177"},
+      "textContent": "\n    Precipitation, now to 4 PM\n    14% chance\n    Dry now. Little chance of rain or snow. Under 20% throughout.\n    60%90%10 AM14%11 AM12 PM1 PM2 PM3 PM10 AM: 10% chance.11 AM: 14% chance.12 PM: 10% chance.1 PM: 11% chance.2 PM: 12% chance.3 PM: 10% chance.\n    Tap a column for that hour.\n  ",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "nowSection": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "shareBtn": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "statusNote": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "updated": {
+      "innerHTML": "Updated 9:57 AM",
+      "textContent": "Updated 9:57 AM",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "verdict": {
+      "innerHTML": "Go.",
+      "textContent": "Go.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "why": {
+      "innerHTML": "Wind 7 mph from SW, gusts 13. Light chop. 52°F air, 52°F water.",
+      "textContent": "Wind 7 mph from SW, gusts 13. Light chop. 52°F air, 52°F water.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "notChecked": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    }
+  },
+  "forecasts": {
+    "2026-10-31-midday": {
+      "length": 9335,
+      "sha256": "34d919e3a209019bcc6ba26ce0663023f132654a1b243df46af938491b2c28d5"
+    },
+    "2026-10-31-afternoon": {
+      "length": 8716,
+      "sha256": "353f8b1ae0088d6cc91377f2ab2901e0ddaef9d0d6fe5f0d35b5543fa57d9144"
+    },
+    "2026-11-01-morning": {
+      "length": 9609,
+      "sha256": "10bb39d165a8d587052304e598014de96df1acb12173decd1c6849172650b5c4"
+    },
+    "2026-11-01-midday": {
+      "length": 9767,
+      "sha256": "0ed45cb20952e6e2c9fd7096ce991a8837e3cccd984172cbb3c6aae82106e291"
+    },
+    "2026-11-01-afternoon": {
+      "length": 8112,
+      "sha256": "6cc1c2dc5a92ec578ac739bb2517303a9d7eab328e2eb5cc3a86a87253ae96f4"
+    },
+    "2026-11-02-morning": {
+      "length": 9448,
+      "sha256": "2612b6322b8eb99945b343748eca7d5ea2e0e299685f3ad25436b8c27e1fa5e8"
+    },
+    "2026-11-02-midday": {
+      "length": 9437,
+      "sha256": "c0113dbdc117079a1a60e058fa87ec866524919fe3e0130b8b99b07d8785973a"
+    },
+    "2026-11-02-afternoon": {
+      "length": 8051,
+      "sha256": "0fe86cde3c8b667a2dad5c9b8a10ed1f79c3cc12d320fc6ff2039d397d7120ed"
+    },
+    "2026-11-03-morning": {
+      "length": 9530,
+      "sha256": "3a29aff59d5385c265e425fc3789e6ba3b23df570895add387533690bbc6a30a"
+    },
+    "2026-11-03-midday": {
+      "length": 9340,
+      "sha256": "c5dfb7c27c273d7de853ceda3e749f751e5469a18adbcf7b2bdcaa7a81c352b9"
+    },
+    "2026-11-03-afternoon": {
+      "length": 7892,
+      "sha256": "0133aec69cf7da4811d8404323c7b53294481378b66d85383b62d5bc92015a78"
+    },
+    "2026-11-04-morning": {
+      "length": 9427,
+      "sha256": "7f2db260dfdc1683c682f157deefbb69c181543206c929d9965fdfd6068f9465"
+    },
+    "2026-11-04-midday": {
+      "length": 9369,
+      "sha256": "d90760befd22b6ae889f74e77fba8a106af27e3d16b90206834d648bec466f8d"
+    },
+    "2026-11-04-afternoon": {
+      "length": 7955,
+      "sha256": "744765785f19b6940129807e2efd1308817a83c7d590e53c8e1b42bca00d69ce"
+    },
+    "2026-11-05-morning": {
+      "length": 8749,
+      "sha256": "21663ba374364dbdaefaea6d7e7f17c162901cff13c35222ebfa94759cdb2de8"
+    },
+    "2026-11-05-midday": {
+      "length": 9105,
+      "sha256": "bcef04736e615348bf5b2eef67d772b47b8c6a7cb82c51ff3ee5d6891b76cc8b"
+    },
+    "2026-11-05-afternoon": {
+      "length": 7697,
+      "sha256": "38e8a51c3718fe30f1064b0262f5147116ab6e453a65776c33758a99c8c80b01"
+    },
+    "2026-11-06-morning": {
+      "length": 8738,
+      "sha256": "005f2b9feb32e99960ad1020bb65a5f3899d38fce752965e7088379a9b13c56b"
+    },
+    "2026-11-06-midday": {
+      "length": 9199,
+      "sha256": "c0ad8bc49e1504fda6f19a1ac1601de43f52c84d0e130036d055fe5cbe0be89b"
+    },
+    "2026-11-06-afternoon": {
+      "length": 7603,
+      "sha256": "b063f02619cbc6718bab3cdd4417418556a740cd24b32ea310fe7107440c8ebd"
+    }
+  },
+  "status": {
+    "noDataAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "noDataForecast": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "noDataQuiet": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partial": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":0},"style":{},"extra":{}},
+      "holds": {"innerHTML":"Holds until about 12 PM, then gusts build.","textContent":"Holds until about 12 PM, then gusts build.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Go.","textContent":"Go.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Wind 7 mph from SW, gusts 13. Light chop. 52°F air, 52°F water.","textContent":"Wind 7 mph from SW, gusts 13. Light chop. 52°F air, 52°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partialAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":0},"style":{},"extra":{}},
+      "holds": {"innerHTML":"Holds until about 12 PM, then gusts build.","textContent":"Holds until about 12 PM, then gusts build.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","textContent":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Go.","textContent":"Go.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Wind 7 mph from SW, gusts 13. Light chop. 52°F air, 52°F water.","textContent":"Wind 7 mph from SW, gusts 13. Light chop. 52°F air, 52°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "header": {
+      "loading": "Loading",
+      "notLoaded": "Not loaded",
+      "fresh": "Updated 9:57 AM",
+      "cached": "Saved 9:57 AM",
+      "failed": "Saved 9:57 AM"
+    }
+  },
+  "share": "Putney Landing rowing, 10 AM: Go. Wind 7 mph from SW, gusts 13. Light chop. 52°F air, 52°F water. Holds until about 12 PM, then gusts build."
+}

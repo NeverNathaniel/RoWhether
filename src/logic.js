@@ -1,22 +1,23 @@
 // The call logic. Pure functions over a model built from fetched data and settings.
 // Nothing here touches the DOM or storage, so it can be unit tested.
 import SunCalc from 'suncalc';
-import { LOC, HOUR, MIN, LIGHT_KEYS, FOG, PERIODS, WATER, AQI, CONFIDENCE } from './config.js';
-import { dayKey, localHour, hm, r0, fmtInt, cToF } from './format.js';
+import { HOUR, MIN, LIGHT_KEYS, FOG, PERIODS, WATER, AQI, CONFIDENCE } from './config.js';
+import { zoneFormat, hm, r0, cToF } from './format.js';
+import { unitFormat } from './units.js';
 
 // ---------- Sun ----------
 export function sunFor(m, key) {
   if (m.sunCache[key]) return m.sunCache[key];
   const d = m.days.find(x => x.key === key);
   if (!d) return null;
-  const st = SunCalc.getTimes(new Date(d.t + 12 * HOUR), LOC.lat, LOC.lon);
+  const st = SunCalc.getTimes(new Date(d.t + 12 * HOUR), m.loc.lat, m.loc.lon);
   const s = { dawn: +st.dawn, sunrise: +st.sunrise, sunset: +st.sunset, dusk: +st.dusk };
   m.sunCache[key] = s;
   return s;
 }
 // Sun times for any date, not just forecast days. t is any time that day.
-export function sunOn(t) {
-  const st = SunCalc.getTimes(new Date(t), LOC.lat, LOC.lon);
+export function sunOn(loc, t) {
+  const st = SunCalc.getTimes(new Date(t), loc.lat, loc.lon);
   return { dawn: +st.dawn, sunrise: +st.sunrise, noon: +st.solarNoon, sunset: +st.sunset, dusk: +st.dusk };
 }
 // The UV index in words (WHO categories).
@@ -24,7 +25,7 @@ export function uvWord(v) {
   return v < 3 ? 'Low' : v < 6 ? 'Moderate' : v < 8 ? 'High' : v < 11 ? 'Very high' : 'Extreme';
 }
 export function lightAt(m, t) {
-  const s = sunFor(m, dayKey(t));
+  const s = sunFor(m, m.fmt.dayKey(t));
   if (!s) return 'day';
   if (t < s.dawn || t > s.dusk) return 'dark';
   if (t < s.sunrise || t > s.sunset) return 'twilight';
@@ -32,12 +33,33 @@ export function lightAt(m, t) {
 }
 
 // ---------- River and water ----------
+// A reading taken at t may be used when the limit is blank or t is within it. A time
+// that cannot be read is not fresh (01 15.7).
+const fresh = (t, maxAgeH, now) => maxAgeH == null || now - t <= maxAgeH * HOUR;
+// The latest flow reading, which the fact shows.
 export function flowNow(m) { return m.data.river && m.data.river.flow ? m.data.river.flow.v : null; }
+// The flow Go, Caution and Stay off use: the latest reading while it is within the
+// location's maxAgeH, else null.
+export function flowForCall(m) {
+  const r = m.data.river?.flow;
+  return r && fresh(r.t, m.loc.flow?.maxAgeH, m.now) ? r.v : null;
+}
 export function waterOverridden(S) { return !isNaN(parseFloat(S.waterOverride)); }
-export function waterTemp(m) {
-  const o = parseFloat(m.S.waterOverride);
-  if (!isNaN(o)) return o;
-  return m.data.river && m.data.river.waterC ? cToF(m.data.river.waterC.v) : null;
+// Whether the location has a source for a role. An info row is shown, never used (01 4.2).
+export const bound = (m, role) => Object.values(m.loc.sources || {}).flat().some(r => r.role === role && r.mode !== 'info');
+// Where the water temperature comes from: your reading, a gauge reading within the
+// location's maxAgeH, or this month's typical value when the record has a table of them (01 11.4).
+export function waterSource(m) {
+  if (waterOverridden(m.S)) return 'you';
+  const r = m.data.river?.waterC, w = m.loc.waterTemp;
+  if (r && fresh(r.t, w.maxAgeH, m.now)) return 'gauge';
+  return w.fallback === 'monthly' && w.monthly ? 'typical' : null;
+}
+// In °F. The typical value only when forCold asks for it: steam fog never uses it.
+export function waterTemp(m, { forCold = false } = {}) {
+  const s = waterSource(m);
+  return s === 'you' ? parseFloat(m.S.waterOverride) : s === 'gauge' ? cToF(m.data.river.waterC.v)
+    : s === 'typical' && forCold ? m.loc.waterTemp.monthly[+m.fmt.dayKey(m.now).slice(5, 7) - 1] : null;
 }
 // Percent change in flow over the last 6 hours of the series, or null.
 export function flowChange(ser) {
@@ -59,19 +81,27 @@ export function flowTrend(ser) {
 
 // ---------- Wind vs. course ----------
 export function relWind(dir, heading) { return ((dir - heading + 540) % 360) - 180; } // 0 = wind from upstream
+// The flow steps where wind against the current steepens chop, highest first.
+const againstSteps = m => (m.loc.flow && m.loc.flow.against) || [];
+// Wind from the right of the upstream heading (rel > 0) comes off the right bank.
+function crosswind(banks, rel) {
+  if (!banks) return 'Crosswind.';
+  return `Crosswind off the ${(rel > 0 ? banks.right : banks.left).name} ${banks.word}.`;
+}
 export function windVsCourse(m, dir, speed) {
   if (speed == null || dir == null) return '';
   if (Math.round(speed) < 3) return 'Near calm on the course.';
-  const rel = relWind(dir, m.S.heading);
+  const course = m.loc.course;
+  const rel = relWind(dir, course.heading);
   const c = Math.cos(rel * Math.PI / 180);
   const along = Math.abs(speed * c);
   let s;
   if (c >= 0.5) s = 'Headwind rowing upstream, tailwind coming back.';
   else if (c <= -0.5) s = 'Tailwind rowing upstream, headwind coming back.';
-  else s = rel > 0 ? 'Crosswind off the New Hampshire bank.' : 'Crosswind off the Vermont bank.';
-  if (Math.abs(c) >= 0.5 && along >= 8) s += ' Chop builds along the straight.';
-  const f = flowNow(m);
-  if (c <= -0.5 && along >= 8 && f != null && f >= 10000) s += ' Wind against current steepens it.';
+  else s = crosswind(m.loc.banks, rel);
+  if (Math.abs(c) >= 0.5 && along >= 8) s += ` Chop builds along the ${course.reachWord || 'course'}.`;
+  const f = flowForCall(m);
+  if (c <= -0.5 && along >= 8 && f != null && f >= Math.min(...againstSteps(m).map(([cfs]) => cfs))) s += ' Wind against current steepens it.';
   return s;
 }
 export function meanDir(hs) {
@@ -86,18 +116,18 @@ export function angDev(a, b) { return Math.abs(((a - b + 540) % 360) - 180); }
 // raised when the wind blows upstream against a strong current.
 export function chopWind(m, h) {
   if (h.wind == null || h.dir == null) return null;
-  const rel = relWind(h.dir, m.S.heading) * Math.PI / 180;
+  const rel = relWind(h.dir, m.loc.course.heading) * Math.PI / 180;
   const along = Math.abs(h.wind * Math.cos(rel)), cross = Math.abs(h.wind * Math.sin(rel));
-  let e = along + WATER.cross * cross;
+  let e = along + m.loc.water.cross * cross;
   const against = Math.cos(rel) <= -0.5;
-  const f = flowNow(m);
+  const f = flowForCall(m), steps = againstSteps(m);
   if (against && f != null) {
-    const k = WATER.against.find(([cfs]) => f >= cfs);
+    const k = steps.find(([cfs]) => f >= cfs);
     if (k) e *= k[1];
   }
   // Same split as windVsCourse(): within 60° of the course is along it.
   const axis = Math.abs(Math.cos(rel)) >= 0.5 ? 'along' : 'cross';
-  return { e, along, cross, axis, against: against && f != null && WATER.against.some(([cfs]) => f >= cfs) };
+  return { e, along, cross, axis, against: against && f != null && steps.some(([cfs]) => f >= cfs) };
 }
 
 // Water state for an hour, given the chop wind of this and the two prior hours.
@@ -111,9 +141,10 @@ export function waterState(m, h, prev) {
 }
 
 // True when the river rose fast enough recently to bring down debris.
+// A reading past its limit rules it out. With no reading the series speaks, as it did.
 export function debrisLikely(m) {
   const pct = flowChange(m.data.flow);
-  return pct != null && pct >= WATER.debrisRise;
+  return pct != null && pct >= WATER.debrisRise && (flowNow(m) == null || flowForCall(m) != null);
 }
 
 // One sentence on why the water is the way it is.
@@ -183,7 +214,7 @@ export function fogRisk(m, h) {
   if (FOG.codes.includes(h.code) || (h.vis != null && h.vis < 1609.34)) {
     hits.push({ risk: 2, type: 'model', why: 'The forecast model shows fog.' });
   }
-  const early = localHour(h.t) <= FOG.lastHour;
+  const early = m.fmt.localHour(h.t) <= FOG.lastHour;
   if (early && h.temp != null && h.dew != null && h.wind != null) {
     const spread = h.temp - h.dew;
     const v = FOG.valley;
@@ -197,7 +228,7 @@ export function fogRisk(m, h) {
     if (wt != null) {
       const diff = wt - h.temp, rh = relHumidity(h.temp, h.dew);
       const st = FOG.steam;
-      const why = `Water ${r0(wt)}°F under ${r0(h.temp)}°F air.`;
+      const why = `Water ${m.u.temp(wt)} under ${m.u.temp(h.temp)} air.`;
       if (diff >= st.likely.diff && h.wind <= st.likely.wind && rh >= st.likely.rh) hits.push({ risk: 2, type: 'steam', why });
       else if (diff >= st.possible.diff && h.wind <= st.possible.wind && rh >= st.possible.rh) hits.push({ risk: 1, type: 'steam', why });
     }
@@ -212,12 +243,12 @@ export function fogRisk(m, h) {
 export function morningFog(m, key) {
   const s = sunFor(m, key);
   if (!s) return null;
-  const hs = m.hours.filter(h => dayKey(h.t) === key && h.t + HOUR > s.dawn - HOUR && localHour(h.t) <= FOG.lastHour);
+  const hs = m.hours.filter(h => m.fmt.dayKey(h.t) === key && h.t + HOUR > s.dawn - HOUR && m.fmt.localHour(h.t) <= FOG.lastHour);
   const foggy = hs.map(h => ({ h, f: fogRisk(m, h) })).filter(x => x.f.risk > 0);
   if (!foggy.length) return null;
   const top = foggy.reduce((a, b) => (b.f.risk > a.f.risk ? b : a)).f;
   const last = foggy[foggy.length - 1].h;
-  return { ...top, until: last.t + HOUR, lingers: localHour(last.t) === FOG.lastHour };
+  return { ...top, until: last.t + HOUR, lingers: m.fmt.localHour(last.t) === FOG.lastHour };
 }
 
 // "lifting about 9 AM" or "lingering into late morning"
@@ -228,11 +259,14 @@ export function fogLift(mf) {
 // The next morning that has not finished yet, with its fog (or null fog).
 export function nextMorning(m) {
   for (const d of m.days) {
-    const end = m.hours.find(h => dayKey(h.t) === d.key && localHour(h.t) === FOG.lastHour + 1);
+    const end = m.hours.find(h => m.fmt.dayKey(h.t) === d.key && m.fmt.localHour(h.t) === FOG.lastHour + 1);
     if (end && end.t > m.now) return { key: d.key, t: end.t, fog: morningFog(m, d.key) };
   }
   return null;
 }
+
+// A limit is set unless it is blank, which turns that level off.
+export const isSet = v => v !== '' && v != null && !isNaN(v);
 
 // Level for one hour (or the current moment): 0 go, 1 caution, 2 stay off.
 // The level is the worst of its reasons.
@@ -251,45 +285,45 @@ export function assess(m, h, lightT) {
   else if ([71, 73, 75, 77, 85, 86].includes(c)) add(1, 'snow', 'Snow');
   if (h.precip != null && h.precip >= 0.15) add(1, 'rain', 'Heavy rain');
   if (h.pop != null) {
-    const pop = Math.round(h.pop), on = v => v !== '' && v != null && !isNaN(v);
-    if (on(S.rainOff) && pop >= S.rainOff) add(2, 'pop', `Rain chance ${pop}%`);
-    else if (on(S.rainCaution) && pop >= S.rainCaution) add(1, 'pop', `Rain chance ${pop}%`);
+    const pop = Math.round(h.pop);
+    if (isSet(S.rainOff) && pop >= S.rainOff) add(2, 'pop', `Rain chance ${pop}%`);
+    else if (isSet(S.rainCaution) && pop >= S.rainCaution) add(1, 'pop', `Rain chance ${pop}%`);
   }
 
   const w = r0(h.wind), g = r0(h.gust);
   if (w != null) {
-    if (w >= S.windOff) add(2, 'wind', `Wind ${w} mph`);
-    else if (w >= S.windCaution) add(1, 'wind', `Wind ${w} mph`);
+    if (w >= S.windOff) add(2, 'wind', `Wind ${m.u.speed(h.wind)}`);
+    else if (w >= S.windCaution) add(1, 'wind', `Wind ${m.u.speed(h.wind)}`);
   }
   if (g != null) {
-    if (g >= S.gustOff) add(2, 'gust', `Gusts to ${g} mph`);
-    else if (g >= S.gustCaution) add(1, 'gust', `Gusts to ${g} mph`);
+    if (g >= S.gustOff) add(2, 'gust', `Gusts to ${m.u.speed(h.gust)}`);
+    else if (g >= S.gustCaution) add(1, 'gust', `Gusts to ${m.u.speed(h.gust)}`);
   }
 
   const vm = h.vis != null ? h.vis / 1609.34 : null;
-  if (vm != null && vm < 0.25) add(2, 'fog', 'Fog, visibility under a quarter mile');
-  else if (vm != null && vm < 1) add(1, 'fog', `Visibility ${vm.toFixed(1)} mi`);
+  if (vm != null && vm < 0.25) add(2, 'fog', `Fog, visibility under ${m.u.visOff}`);
+  else if (vm != null && vm < 1) add(1, 'fog', `Visibility ${m.u.vis(h.vis)}`);
   else {
     const fr = fogRisk(m, h);
     if (fr.risk === 2) add(1, 'fog', fr.text);
   }
 
-  if (h.temp != null && h.temp < 32) add(2, 'freeze', `Below freezing at ${r0(h.temp)}°F, ice on docks and oarlocks`);
-  const wt = waterTemp(m);
+  if (h.temp != null && h.temp < 32) add(2, 'freeze', `Below freezing at ${m.u.temp(h.temp)}, ice on docks and oarlocks`);
+  const wt = waterTemp(m, { forCold: true });
   if (wt != null && h.temp != null) {
     const sum = Math.round(h.temp + wt);
-    if (sum < S.coldCombined) add(1, 'cold', `Cold water, air plus water ${sum}°F`);
+    if (sum < S.coldCombined) add(1, 'cold', `Cold water, air plus water ${m.u.tempSum(h.temp + wt)}`);
   }
-  const f = flowNow(m);
+  const f = flowForCall(m);
   if (f != null) {
-    if (f >= S.flowOff) add(2, 'flow', `High water at ${fmtInt(f)} cfs`);
-    else if (f >= S.flowCaution) add(1, 'flow', `Elevated flow at ${fmtInt(f)} cfs`);
+    if (isSet(S.flowOff) && f >= S.flowOff) add(2, 'flow', `High water at ${m.u.flow(f, m.loc.flow?.unit)}`);
+    else if (isSet(S.flowCaution) && f >= S.flowCaution) add(1, 'flow', `Elevated flow at ${m.u.flow(f, m.loc.flow?.unit)}`);
   }
   if (h.aqi != null) {
-    const q = Math.round(h.aqi), on = v => v !== '' && v != null && !isNaN(v);
-    const text = `Air quality AQI ${q}, ${aqiWord(q).toLowerCase()}`;
-    if (on(S.aqiOff) && q >= S.aqiOff) add(2, 'aqi', text);
-    else if (on(S.aqiCaution) && q >= S.aqiCaution) add(1, 'aqi', text);
+    const q = Math.round(h.aqi);
+    const text = `Air quality ${m.u.aqi(h.aqi)}, ${aqiWord(q).toLowerCase()}`;
+    if (isSet(S.aqiOff) && q >= S.aqiOff) add(2, 'aqi', text);
+    else if (isSet(S.aqiCaution) && q >= S.aqiCaution) add(1, 'aqi', text);
   }
   for (const a of m.alerts) {
     if (h.t >= a.start && h.t < a.end) add(a.lvl, 'alert', a.event);
@@ -299,14 +333,44 @@ export function assess(m, h, lightT) {
 }
 export const lvlExcept = (a, keys) => a.reasons.filter(x => !keys.includes(x.key)).reduce((m, x) => Math.max(m, x.lvl), 0);
 
+// ---------- What is not checked ----------
+// The factors that could change the level and are not checked here or now (01 8.4): flow
+// where a river, tidal or canal location has no gauge, or its latest reading is past its
+// limit; alerts where there is no feed, or none that answered lately. Each is
+// { key, why: 'none' | 'old', since }, since being when the source last answered.
+export const FLOWING = ['river', 'tidal', 'canal'];
+export function notChecked(m) {
+  const out = [], r = m.data.river?.flow;
+  if (!bound(m, 'flow')) { if (FLOWING.includes(m.loc.waterType)) out.push({ key: 'flow', why: 'none' }); }
+  else if (r && flowForCall(m) == null) out.push({ key: 'flow', why: 'old', since: r.t });
+  if (!bound(m, 'alerts')) out.push({ key: 'alerts', why: 'none' });
+  else if (m.stale.has('alerts')) out.push({ key: 'alerts', why: 'old', since: m.stale.get('alerts') });
+  return out;
+}
+// "Not checked here: river flow, official alerts." for the ones with no source, then a
+// sentence for each that is old. Ages under 48 hours are in hours, then in days.
+export function notCheckedText(items, now) {
+  const span = since => {
+    const h = Math.floor((now - since) / HOUR);
+    return !Number.isFinite(since) ? '' : ` for ${h < 48 ? `${h} hour${h === 1 ? '' : 's'}` : `${Math.floor(h / 24)} days`}`;
+  };
+  const none = items.filter(x => x.why === 'none').map(x => (x.key === 'flow' ? 'river flow' : 'official alerts'));
+  return [none.length && `Not checked here: ${none.join(', ')}.`, ...items.filter(x => x.why === 'old').map(x =>
+    (x.key === 'flow' ? `River flow not checked: the gauge has not reported${span(x.since)}.` : `Official alerts not checked: no answer from NWS${span(x.since)}.`))].filter(Boolean).join(' ');
+}
+
 // ---------- Model ----------
-// Build everything the UI needs from raw data and settings. Returns null if
-// there is no usable forecast.
-export function buildModel(data, S, now = Date.now()) {
+// Build everything the UI needs from a location, raw data and settings.
+// Returns null if there is no usable forecast. units is { system, wind }; club
+// is read by a later step.
+export function buildModel(loc, all, S, now = Date.now(), { units, club, stale = new Map() } = {}) {
+  // A source past its limit after a failed refresh reads as missing. Alerts stay, each
+  // in force by its own end time, and the gauge's own reading time decides its use (P1.9).
+  const data = stale.size ? Object.fromEntries(Object.entries(all).filter(([k]) => !stale.has(k) || ['alerts', 'river', 'flow'].includes(k))) : all;
   const d = data.wx;
   if (!d || !d.hourly || !d.daily) return null;
   const m = {
-    S, data, now, sunCache: {},
+    loc, fmt: zoneFormat(loc.tz), u: unitFormat(units), S, data, now, stale, sunCache: {},
     alerts: (data.alerts || []).filter(a => a.end > now),
     hours: [], days: [], h72: [], cur: null
   };
@@ -335,7 +399,7 @@ export function buildModel(data, S, now = Date.now()) {
   });
   const D = d.daily;
   m.days = D.time.map((s, i) => ({
-    t: s * 1000, key: dayKey(s * 1000 + 12 * HOUR), sunrise: D.sunrise[i] * 1000, sunset: D.sunset[i] * 1000,
+    t: s * 1000, key: m.fmt.dayKey(s * 1000 + 12 * HOUR), sunrise: D.sunrise[i] * 1000, sunset: D.sunset[i] * 1000,
     hi: D.temperature_2m_max[i], lo: D.temperature_2m_min[i], pop: D.precipitation_probability_max[i],
     uvMax: D.uv_index_max ? D.uv_index_max[i] : null
   }));
@@ -343,7 +407,9 @@ export function buildModel(data, S, now = Date.now()) {
   const chops = m.hours.map(h => chopWind(m, h));
   m.hours.forEach((h, i) => { h.water = waterState(m, h, [chops[i - 1], chops[i - 2]]); });
 
-  const h0 = Math.floor(now / HOUR) * HOUR;
+  // The hour that contains now comes first. Forecast hours start on the zone's
+  // own hours, which are not always UTC whole hours (08 9.2).
+  const h0 = (m.hours.find(h => now < h.t + HOUR) || { t: Infinity }).t;
   m.h72 = m.hours.filter(h => h.t >= h0).slice(0, 72);
   if (!m.h72.length) return null;
 
@@ -361,7 +427,7 @@ export function buildModel(data, S, now = Date.now()) {
   m.cur.water = waterState(m, m.cur, [chopWind(m, m.hours[bi - 1] || base), chopWind(m, m.hours[bi - 2] || base)]);
 
   for (const day of m.days) day.periods = periodsFor(m, day);
-  const s = sunFor(m, dayKey(now));
+  const s = sunFor(m, m.fmt.dayKey(now));
   m.daytime = !!s && now >= s.dawn && now < s.sunset;
   m.next = m.days.flatMap(d => d.periods).find(p => !p.past) || null;
   return m;
@@ -382,8 +448,8 @@ function periodWater(hs) {
 export function periodsFor(m, day) {
   const s = sunFor(m, day.key);
   if (!s) return [];
-  const dayHours = m.hours.filter(h => dayKey(h.t) === day.key);
-  const clock = hr => { const h = dayHours.find(x => localHour(x.t) === hr); return h ? h.t : null; };
+  const dayHours = m.hours.filter(h => m.fmt.dayKey(h.t) === day.key);
+  const clock = hr => { const h = dayHours.find(x => m.fmt.localHour(x.t) === hr); return h ? h.t : null; };
   const edge = v => (v === 'dawn' ? s.dawn : v === 'sunset' ? s.sunset : clock(v));
 
   return PERIODS.map(p => {
@@ -425,7 +491,7 @@ export function periodsFor(m, day) {
 export function rowingHours(m, key) {
   const s = sunFor(m, key);
   if (!s) return [];
-  return m.hours.filter(h => dayKey(h.t) === key && h.t + HOUR > s.dawn && h.t < s.sunset);
+  return m.hours.filter(h => m.fmt.dayKey(h.t) === key && h.t + HOUR > s.dawn && h.t < s.sunset);
 }
 
 // The worst level among an hour's reasons with these keys, and that reason.
@@ -541,14 +607,15 @@ export function confidence(hs) {
 }
 
 // "Low confidence: models differ by about 9 mph on wind." only limits it to
-// 'wind' or 'rain', and the level then follows that one alone.
-export function confidenceText(c, only = null) {
+// 'wind' or 'rain', and the level then follows that one alone. It has no model,
+// so the units come as an argument.
+export function confidenceText(c, only = null, u = unitFormat()) {
   if (!c) return '';
   const C = CONFIDENCE, wind = only === 'rain' ? 0 : c.wind, rain = only === 'wind' ? 0 : c.rain;
   const level = wind > C.low.wind || rain > C.low.rain ? 'low' : wind > C.medium.wind || rain > C.medium.rain ? 'medium' : 'high';
   const lead = { high: 'High confidence', medium: 'Medium confidence', low: 'Low confidence' }[level];
   const parts = [];
-  if (wind > C.medium.wind) parts.push(`models differ by about ${Math.round(wind)} mph on wind`);
+  if (wind > C.medium.wind) parts.push(`models differ by about ${u.speed(wind)} on wind`);
   if (rain > C.medium.rain) parts.push('models split on rain');
   return parts.length ? `${lead}: ${parts.join(', and ')}.` : `${lead}: the ${c.n} models agree.`;
 }
@@ -563,13 +630,16 @@ const PLAN_STEP = 30 * MIN;
 // lower is calmer.
 export function planSessions(m, minutes, when = 'any') {
   const L = minutes * MIN, out = [];
+  // The next half hour on the local clock. A dawn and the live clock carry
+  // seconds and milliseconds, which the step drops (08 9.2).
+  const step = t => t - (m.fmt.localMinutes(t) % 30) * MIN - (t % MIN) + PLAN_STEP;
   for (const d of m.days) {
-    const noon = m.hours.find(h => dayKey(h.t) === d.key && localHour(h.t) === 12);
+    const noon = m.hours.find(h => m.fmt.dayKey(h.t) === d.key && m.fmt.localHour(h.t) === 12);
     if (!noon) continue;
     let best = null;
     for (const r of callRuns(m, d.key)) {
       if (r.lvl !== 0) continue;
-      for (let t0 = r.start; t0 + L <= r.end; t0 = Math.floor(t0 / PLAN_STEP) * PLAN_STEP + PLAN_STEP) {
+      for (let t0 = r.start; t0 + L <= r.end; t0 = step(t0)) {
         if (when === 'morning' && t0 + L > noon.t) break;
         if (when === 'afternoon' && t0 < noon.t) continue;
         const hs = r.hs.filter(h => h.t < t0 + L && h.t + HOUR > t0);
