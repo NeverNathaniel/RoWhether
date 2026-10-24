@@ -14,29 +14,49 @@ export { SCENARIOS };
 // name has no match, which the host answers with no `results`.
 const WORCESTER = JSON.parse(readFileSync(new URL('../fixtures/sources/geocode-worcester.json', import.meta.url), 'utf8'));
 
-// Which response each upstream request gets, by host and path. The wx and
-// models requests share one path (the forecast endpoint) and differ only in the
-// models parameter, so that one is told apart by the query.
-const UPSTREAM = {
-  'api.open-meteo.com': {
-    '/v1/forecast': (raw, url) => (url.searchParams.has('models') ? raw.models : raw.wx)
-  },
-  'air-quality-api.open-meteo.com': { '/v1/air-quality': raw => raw.aq },
-  'api.weather.gov': {
-    '/alerts/active': raw => raw.alerts,
-    '/stations/KEEN/observations/latest': raw => raw.obs
-  },
-  'api.waterdata.usgs.gov': {
-    '/ogcapi/v1/collections/latest-continuous/items': raw => raw.river,
-    '/ogcapi/v1/collections/continuous/items': raw => raw.flow,
-    '/ogcapi/v1/collections/daily/items': raw => raw.flowDays
-  },
-  'api.water.noaa.gov': {
-    '/nwps/v1/gauges/WLPN3/stageflow/forecast': raw => raw.flowFcst
-  },
-  'geocoding-api.open-meteo.com': {
-    '/v1/search': (raw, url) => (/^worcester$/i.test(url.searchParams.get('name') || '') ? WORCESTER : { generationtime_ms: 0.05 })
+// The USGS latest answer for the gauges and parameters a request names (P1.12). A reading
+// the scenario has for that gauge and parameter goes out as it is. For any other pair it is
+// the scenario's first reading of that parameter under the requested gauge id. Putney's own
+// request gets the scenario's four readings back, so its numbers do not move.
+function latestFor(river, url) {
+  const list = name => (url.searchParams.get(name) || '').split(',').filter(Boolean);
+  const features = [];
+  for (const id of list('monitoring_location_id')) {
+    for (const code of list('parameter_code')) {
+      const own = river.features.find(f => f.properties.monitoring_location_id === id && f.properties.parameter_code === code);
+      const base = own || river.features.find(f => f.properties.parameter_code === code);
+      if (!base) continue;
+      features.push(own ? base : { ...base, id: `${id}-${code}`, properties: { ...base.properties, monitoring_location_id: id, time_series_id: `${id}-${code}` } });
+    }
   }
+  return { ...river, numberReturned: features.length, features };
+}
+
+// Which response each upstream request gets, by host and path: a string is one path, a
+// pattern is any station or gauge id in it. Every curated location is answered from the
+// same scenario (P1.12), so its own ids are read and not matched. The wx and models
+// requests share one path (the forecast endpoint) and differ only in the models
+// parameter, so that one is told apart by the query.
+const UPSTREAM = {
+  'api.open-meteo.com': [
+    ['/v1/forecast', (raw, url) => (url.searchParams.has('models') ? raw.models : raw.wx)]
+  ],
+  'air-quality-api.open-meteo.com': [['/v1/air-quality', raw => raw.aq]],
+  'api.weather.gov': [
+    ['/alerts/active', raw => raw.alerts],
+    [/^\/stations\/[A-Z0-9]+\/observations\/latest$/, raw => raw.obs]
+  ],
+  'api.waterdata.usgs.gov': [
+    ['/ogcapi/v1/collections/latest-continuous/items', (raw, url) => latestFor(raw.river, url)],
+    ['/ogcapi/v1/collections/continuous/items', raw => raw.flow],
+    ['/ogcapi/v1/collections/daily/items', raw => raw.flowDays]
+  ],
+  'api.water.noaa.gov': [
+    [/^\/nwps\/v1\/gauges\/[A-Z0-9]+\/stageflow\/forecast$/, raw => raw.flowFcst]
+  ],
+  'geocoding-api.open-meteo.com': [
+    ['/v1/search', (raw, url) => (/^worcester$/i.test(url.searchParams.get('name') || '') ? WORCESTER : { generationtime_ms: 0.05 })]
+  ]
 };
 
 const LOCAL = new Set(['localhost', '127.0.0.1', '[::1]']);
@@ -65,7 +85,7 @@ export async function routeAll(page, scenario, clock, { abort = false, edit = nu
     if (req.method() === 'OPTIONS' && table) {
       return route.fulfill({ status: 204, headers: { ...CORS, 'access-control-allow-methods': 'GET', 'access-control-allow-headers': '*' } });
     }
-    const pick = !abort && table && table[url.pathname];
+    const pick = !abort && table?.find(([path]) => (path instanceof RegExp ? path.test(url.pathname) : path === url.pathname))?.[1];
     if (!pick) {
       (table && !abort ? seen.missing : seen.aborted).push(url.href);
       return route.abort('failed');
