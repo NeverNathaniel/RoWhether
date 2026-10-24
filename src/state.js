@@ -9,6 +9,7 @@ export const app = {
   settings: null,  // the limits in force: the location's, then the viewer's
   data: {},        // last good response per source
   errors: {},      // sources that failed on the latest refresh
+  fetched: {},     // time of each source's last good fetch, by slot
   updated: null,   // time of the last good forecast
   fromCache: false,
   model: null,     // output of buildModel()
@@ -37,7 +38,7 @@ export function applyOverrides(o) {
 // Opens a location: everything held for the one before goes. A record of null
 // leaves no location open, for a page that has none.
 export function openLocation(record, overrides) {
-  Object.assign(app, { record, data: {}, errors: {}, updated: null, fromCache: false, model: null, openPeriods: new Set(), detailDay: null, homeScroll: 0, token: app.token + 1 });
+  Object.assign(app, { record, data: {}, errors: {}, fetched: {}, updated: null, fromCache: false, model: null, openPeriods: new Set(), detailDay: null, homeScroll: 0, token: app.token + 1 });
   if (!record) { Object.assign(app, { loc: null, defaults: null, settings: null }); return; }
   applyOverrides(overrides);
   // Nothing overridden: the limits, and the course heading when the course has one.
@@ -48,11 +49,16 @@ export function openLocation(record, overrides) {
 // only if that is still the one open, so a slow answer never reaches another place.
 export function takeRefresh(token, { data, errors }) {
   if (token !== app.token) return false;
+  const now = Date.now();
   app.errors = errors;
   Object.assign(app.data, data);
-  if (!errors.wx) { app.updated = Date.now(); app.fromCache = false; }
+  for (const k of Object.keys(data)) app.fetched[k] = now;
+  if (!errors.wx) { app.updated = now; app.fromCache = false; }
   return true;
 }
+// When each source of a saved copy was fetched. A copy from before the times were kept
+// has none: each source counts as fetched when the forecast was (P1.9).
+export const fetchedOf = c => Object.fromEntries(Object.keys(c.data).map(k => [k, Number.isFinite(c.fetched?.[k]) ? c.fetched[k] : c.updated]));
 // Whether a refresh may start: a location is open and none is running for it.
 // A location opened while another's refresh runs gets its own at once.
 export const canRefresh = () => !!app.loc && app.refreshing !== app.token;

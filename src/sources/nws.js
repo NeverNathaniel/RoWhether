@@ -1,5 +1,6 @@
 // National Weather Service adapters: active alerts at a point and the latest
 // observation at a station. Pure: no DOM, no storage.
+import { HOUR } from '../config.js';
 import { cToF } from '../format.js';
 
 // Whole event names that are Stay off, beside the patterns below: the marine
@@ -56,7 +57,7 @@ export function parseObs(d) {
 
 export const alerts = {
   key: 'nws-alerts', slot: 'alerts', regions: ['US'], via: 'browser', hosts: ['https://api.weather.gov'],
-  refreshMs: null, staleMs: null,
+  refreshMs: null, staleMs: HOUR,
   // The row's ref is `zones:<code>,<code>` or `point:<lat>,<lon>` (01 4.4). Any
   // other form reads the location's own point. The dock point goes along for the
   // polygon rule in parseAlerts.
@@ -71,7 +72,7 @@ export const alerts = {
 
 export const obs = {
   key: 'nws-obs', slot: 'obs', regions: ['US'], via: 'browser', hosts: ['https://api.weather.gov'],
-  refreshMs: null, staleMs: null,
+  refreshMs: null, staleMs: 3 * HOUR,
   bind: ([row]) => ({ station: row.ref }),
   url: b => `https://api.weather.gov/stations/${b.params.station}/observations/latest`,
   parse: parseObs,

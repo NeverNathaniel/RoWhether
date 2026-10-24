@@ -5,7 +5,7 @@ import './styles/app.css';
 import { registerSW } from 'virtual:pwa-register';
 
 import { REFRESH_MS, MIN, DEFAULT_SLUG } from './config.js';
-import { app, $, openLocation, takeRefresh, canRefresh } from './state.js';
+import { app, $, openLocation, takeRefresh, canRefresh, fetchedOf } from './state.js';
 import { fetchAll } from './data.js';
 import { loadCache, saveCache, loadPlan, savePlan, loadOverrides, saveRecord, touchCache, trimCaches, saveLast, pushRecent, dismissPickHint } from './storage.js';
 import { cachedRecord, fetchRecord, newerRecord } from './locations.js';
@@ -53,7 +53,7 @@ async function refresh() {
   $('updated').textContent = 'Refreshing';
   try {
     if (takeRefresh(token, await fetchAll(app.loc))) {
-      saveCache(app.loc.slug, app.data, app.updated);
+      saveCache(app.loc.slug, app.data, app.updated, [], app.fetched);
       trimCaches(app.loc.slug);
       render();
       loadReports();
@@ -95,7 +95,7 @@ function enter(record, keepAddress, note) {
   showTab();
   const cached = loadCache(slug);
   if (cached) {
-    Object.assign(app, { data: cached.data, updated: cached.updated, fromCache: true });
+    Object.assign(app, { data: cached.data, updated: cached.updated, fetched: fetchedOf(cached), fromCache: true });
     render();
   }
   refresh();

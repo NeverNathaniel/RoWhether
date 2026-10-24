@@ -444,6 +444,23 @@ describe('cache, plan, install and the reminder', () => {
     expect(loadCache('bad')).toBeNull();
   });
 
+  // P1.9: the time each source was last fetched is kept with the forecast. An entry from before
+  // has none, and loads as it did (the page counts each source as fetched when the forecast was).
+  it('keeps when each source was fetched with the saved forecast, and loads an entry that has none', () => {
+    use({ 'rowhether-migrated-v1': '1' });
+    saveCache('putney-landing', { wx: { a: 1 }, alerts: [] }, 123, [], { wx: 120, alerts: 100 });
+    expect(JSON.parse(ls.map.get('rowhether-cache-v2:putney-landing'))).toEqual({ data: { wx: { a: 1 }, alerts: [] }, updated: 123, fetched: { wx: 120, alerts: 100 } });
+    expect(loadCache('putney-landing')).toEqual({ data: { wx: { a: 1 }, alerts: [] }, updated: 123, fetched: { wx: 120, alerts: 100 } });
+    ls.map.set('rowhether-cache-v2:old', '{"data":{"wx":{"a":1}},"updated":5}');
+    expect(loadCache('old')).toEqual({ data: { wx: { a: 1 } }, updated: 5 });
+  });
+
+  it('writes the times and keeps a location protected when both are given', () => {
+    use({ 'rowhether-migrated-v1': '1' });
+    saveCache('lake-z', {}, 9, ['lake-a'], { wx: 8 });
+    expect(JSON.parse(ls.map.get('rowhether-cache-v2:lake-z')).fetched).toEqual({ wx: 8 });
+  });
+
   it('keeps Plan a row, as before, under the new key', () => {
     use({ 'rowhether-migrated-v1': '1' });
     expect(loadPlan()).toEqual({ minutes: 90, when: 'any' });

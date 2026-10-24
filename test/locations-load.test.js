@@ -316,12 +316,69 @@ describe('the state of the open location', () => {
       expect(app.fromCache).toBe(false);
     });
 
+    // P1.9: the time of each source's last good fetch, for the staleness rule.
+    it('dates each source that answered, and keeps the time of one that failed', () => {
+      const { app } = state;
+      state.openLocation(PUTNEY_FILE, {});
+      app.data = { wx: 'old', alerts: 'old alerts' };
+      app.fetched = { wx: 100, alerts: 100 };
+      expect(state.takeRefresh(app.token, answer({ wx: 'new', obs: 'o' }, { alerts: true }))).toBe(true);
+      expect(app.fetched).toEqual({ wx: NOW, alerts: 100, obs: NOW });
+    });
+
+    it('dates the sources even when the forecast itself failed', () => {
+      const { app } = state;
+      state.openLocation(PUTNEY_FILE, {});
+      app.fetched = { wx: 100 };
+      expect(state.takeRefresh(app.token, answer({ alerts: 'a' }, { wx: true }))).toBe(true);
+      expect(app.fetched).toEqual({ wx: 100, alerts: NOW });
+    });
+
+    it('does not date a source for a location that is no longer open', () => {
+      const { app } = state;
+      state.openLocation(PUTNEY_FILE, {});
+      const token = app.token;
+      state.openLocation(lake(), {});
+      expect(state.takeRefresh(token, answer({ wx: 'late' }))).toBe(false);
+      expect(app.fetched).toEqual({});
+    });
+
     it('does not date or unmark a copy when the forecast itself failed', () => {
       const { app } = state;
       state.openLocation(PUTNEY_FILE, {});
       Object.assign(app, { data: { wx: 'old' }, updated: 5, fromCache: true });
       expect(state.takeRefresh(app.token, answer({ alerts: 'a' }, { wx: true }))).toBe(true);
       expect(app).toMatchObject({ data: { wx: 'old', alerts: 'a' }, updated: 5, fromCache: true, errors: { wx: true } });
+    });
+  });
+
+  describe('fetchedOf', () => {
+    it('takes the times a saved copy kept, and gives a source with none the time of the forecast', () => {
+      expect(state.fetchedOf({ data: { wx: 1, alerts: 2, obs: 3 }, updated: 50, fetched: { wx: 40, alerts: 30 } })).toEqual({ wx: 40, alerts: 30, obs: 50 });
+    });
+
+    it('counts every source as fetched when the forecast was, for a copy from before the times were kept', () => {
+      expect(state.fetchedOf({ data: { wx: 1, river: 2 }, updated: 50 })).toEqual({ wx: 50, river: 50 });
+    });
+
+    it('does not take a time that is not a number', () => {
+      expect(state.fetchedOf({ data: { wx: 1, river: 2, obs: 3 }, updated: 50, fetched: { wx: 'x', river: null, obs: Infinity } })).toEqual({ wx: 50, river: 50, obs: 50 });
+    });
+
+    it('is empty for a copy with no data', () => {
+      expect(state.fetchedOf({ data: {}, updated: 50 })).toEqual({});
+    });
+  });
+
+  describe('openLocation and the fetch times', () => {
+    it('clears the times of the place that was open', () => {
+      const { app } = state;
+      state.openLocation(PUTNEY_FILE, {});
+      app.fetched = { wx: 5 };
+      state.openLocation(lake(), {});
+      expect(app.fetched).toEqual({});
+      state.openLocation(null);
+      expect(app.fetched).toEqual({});
     });
   });
 

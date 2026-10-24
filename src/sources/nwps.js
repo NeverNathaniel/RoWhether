@@ -1,5 +1,6 @@
 // NWS National Water Prediction Service adapter: the river forecast for a
 // gauge. Pure: no DOM, no storage.
+import { HOUR } from '../config.js';
 
 // NWS stage and flow forecast. Flow is the secondary series, usually in kcfs.
 // Missing values come as -999.
@@ -14,7 +15,7 @@ export function parseFlowForecast(d) {
 
 export const riverForecast = {
   key: 'nwps-forecast', slot: 'flowFcst', regions: ['US'], via: 'browser', hosts: ['https://api.water.noaa.gov'],
-  refreshMs: null, staleMs: null,
+  refreshMs: null, staleMs: 24 * HOUR,
   bind: ([row]) => ({ lid: row.ref }),
   url: b => `https://api.water.noaa.gov/nwps/v1/gauges/${b.params.lid}/stageflow/forecast`,
   parse: parseFlowForecast,

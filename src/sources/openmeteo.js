@@ -1,6 +1,6 @@
 // Open-Meteo adapters: the forecast, air quality and the model comparison. Like
 // every module in src/sources/, pure: no DOM, no storage.
-import { MODELS } from '../config.js';
+import { MODELS, HOUR } from '../config.js';
 
 const num = v => (v == null || v === '' || isNaN(v) ? null : +v);
 
@@ -31,7 +31,7 @@ export function parseModels(d, b) {
 // The three have no stored row: Open-Meteo at the location's point (01 4.1).
 export const forecast = {
   key: 'om-forecast', slot: 'wx', regions: ['*'], via: 'browser', hosts: ['https://api.open-meteo.com'],
-  refreshMs: null, staleMs: null,
+  refreshMs: null, staleMs: 24 * HOUR,
   bind: () => ({}),
   url: (b, loc) => 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
     latitude: loc.lat, longitude: loc.lon,
@@ -47,7 +47,7 @@ export const forecast = {
 
 export const airQuality = {
   key: 'om-aq', slot: 'aq', regions: ['*'], via: 'browser', hosts: ['https://air-quality-api.open-meteo.com'],
-  refreshMs: null, staleMs: null,
+  refreshMs: null, staleMs: 24 * HOUR,
   bind: () => ({}),
   url: (b, loc) => 'https://air-quality-api.open-meteo.com/v1/air-quality?' + new URLSearchParams({
     latitude: loc.lat, longitude: loc.lon, hourly: 'us_aqi,pm2_5',
@@ -59,7 +59,7 @@ export const airQuality = {
 
 export const models = {
   key: 'om-models', slot: 'models', regions: ['*'], via: 'browser', hosts: ['https://api.open-meteo.com'],
-  refreshMs: null, staleMs: null,
+  refreshMs: null, staleMs: 24 * HOUR,
   bind: () => ({ models: MODELS.map(x => x.id) }),
   url: (b, loc) => 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
     latitude: loc.lat, longitude: loc.lon, hourly: 'wind_speed_10m,precipitation',

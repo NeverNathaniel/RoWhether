@@ -149,9 +149,9 @@ export function loadCache(slug) {
 // again, up to 3 times, then gives up quietly. `slug` itself is never dropped.
 const QUOTA_RETRIES = 3;
 const isQuota = e => e?.name === 'QuotaExceededError' || e?.name === 'NS_ERROR_DOM_QUOTA_REACHED';
-export function saveCache(slug, data, updated, protect = []) {
+export function saveCache(slug, data, updated, protect = [], fetched) {
   try {
-    const json = JSON.stringify({ data, updated });
+    const json = JSON.stringify({ data, updated, fetched });
     for (let tries = 0; tries <= QUOTA_RETRIES; tries++) {
       try { localStorage.setItem(KEYS.cache(slug), json); return; } catch (e) {
         if (!isQuota(e) || tries === QUOTA_RETRIES || dropOldest(slug, protect) === null) return;

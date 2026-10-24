@@ -1,5 +1,6 @@
 // USGS water data adapters (OGC API): the latest readings, the last 48 hours of
 // flow and 30 days of daily means. Pure: no DOM, no storage.
+import { HOUR } from '../config.js';
 const USGS_OGC = 'https://api.waterdata.usgs.gov/ogcapi/v1';
 const HOST = 'https://api.waterdata.usgs.gov';
 // Discharge in cfs and water temperature in °C.
@@ -63,7 +64,7 @@ const dayId = (rows, loc) => ({ ...flowId(rows), tz: rows[0].tz || loc.tz });
 
 export const latest = {
   key: 'usgs-latest', slot: 'river', regions: ['US'], via: 'browser', hosts: [HOST],
-  refreshMs: null, staleMs: null,
+  refreshMs: null, staleMs: 24 * HOUR,
   bind: rows => ({ flow: rows.find(r => r.role === 'flow')?.ref, temp: rows.find(r => r.role === 'water_temp')?.ref }),
   // The flow gauge first, then the temperature gauge, and each one's parameter. A
   // gauge that serves both is listed once. Without `limit` the service answers
@@ -78,7 +79,7 @@ export const latest = {
 
 export const recent = {
   key: 'usgs-recent', slot: 'flow', regions: ['US'], via: 'browser', hosts: [HOST],
-  refreshMs: null, staleMs: null,
+  refreshMs: null, staleMs: 24 * HOUR,
   bind: flowId,
   url: b => `${USGS_OGC}/collections/continuous/items?monitoring_location_id=${b.params.id}&parameter_code=${Q}&time=P2D&limit=1000&properties=time,value&f=json`,
   parse: parseFlow,
@@ -87,7 +88,7 @@ export const recent = {
 
 export const daily = {
   key: 'usgs-daily', slot: 'flowDays', regions: ['US'], via: 'browser', hosts: [HOST],
-  refreshMs: null, staleMs: null,
+  refreshMs: null, staleMs: 7 * 24 * HOUR,
   bind: dayId,
   url: b => `${USGS_OGC}/collections/daily/items?monitoring_location_id=${b.params.id}&parameter_code=${Q}&statistic_id=00003&time=P30D&limit=100&properties=time,value&f=json`,
   parse: parseFlowDays,

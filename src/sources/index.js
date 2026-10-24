@@ -48,6 +48,19 @@ export function bindingsFor(loc, now = Date.now()) {
   return out;
 }
 
+// The slots a refresh in this visit failed for whose last good fetch is older than
+// the adapter's staleMs (02, 08 K9), each with that time, or null when it was never
+// held. A slot with no failure is not stale, however old: a saved forecast is
+// drawn whole at start. A time that cannot be read is not fresh.
+export function staleSlots(bindings, fetched, errors, now) {
+  const out = new Map();
+  for (const b of bindings) {
+    const t = fetched?.[b.slot], max = ADAPTERS[b.adapter]?.staleMs;
+    if (errors?.[b.slot] && max != null && !(now - t <= max)) out.set(b.slot, t ?? null);
+  }
+  return out;
+}
+
 // What the failure note calls a source: "Could not reach ...". Without a
 // binding it names the slot's own source.
 export function labelFor(slot, binding) {

@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
 import { resolveLocation } from '../src/location.js';
-import { MODELS } from '../src/config.js';
+import { MODELS, HOUR } from '../src/config.js';
 import { cToF } from '../src/format.js';
-import { SLOT_ORDER, ADAPTERS, PROVIDERS, bindingsFor, labelFor } from '../src/sources/index.js';
+import { SLOT_ORDER, ADAPTERS, PROVIDERS, bindingsFor, labelFor, staleSlots } from '../src/sources/index.js';
 import * as nws from '../src/sources/nws.js';
 import * as usgs from '../src/sources/usgs.js';
 import * as nwps from '../src/sources/nwps.js';
@@ -225,11 +225,14 @@ describe('the adapters', () => {
     ]);
   });
 
-  it('follow the Adapter typedef, with phase 0 timing left empty', () => {
+  // 02's catalog: how long a source's last good fetch stands before the hero names it.
+  const STALE_H = { 'om-forecast': 24, 'om-aq': 24, 'om-models': 24, 'nws-alerts': 1, 'nws-obs': 3, 'usgs-latest': 24, 'usgs-recent': 24, 'usgs-daily': 7 * 24, 'nwps-forecast': 24 };
+
+  it('follow the Adapter typedef, with a staleMs each and refresh pacing left empty', () => {
     for (const a of all) {
       expect(a.via).toBe('browser');
       expect(a.refreshMs).toBeNull();
-      expect(a.staleMs).toBeNull();
+      expect(a.staleMs, a.key).toBe(STALE_H[a.key] * HOUR);
       expect(a.hosts.length).toBeGreaterThan(0);
       for (const f of ['bind', 'url', 'parse', 'label']) expect(typeof a[f]).toBe('function');
       // discover and attribution are phase 1.
@@ -244,6 +247,47 @@ describe('the adapters', () => {
       'https://air-quality-api.open-meteo.com', 'https://api.open-meteo.com', 'https://api.water.noaa.gov',
       'https://api.waterdata.usgs.gov', 'https://api.weather.gov'
     ]);
+  });
+});
+
+describe('staleSlots', () => {
+  const bs = bindingsFor(PUTNEY), NOW = Date.UTC(2026, 5, 15, 16);
+  const all = (t, miss = {}) => Object.fromEntries(bs.map(b => [b.slot, t]).filter(([k]) => !(k in miss)));
+  const failed = (...slots) => Object.fromEntries(slots.map(k => [k, true]));
+  const stale = (fetched, errors, now = NOW) => [...staleSlots(bs, fetched, errors, now).keys()];
+
+  it('is empty when no refresh in this visit has failed, however old the saved copy is', () => {
+    expect(stale(all(NOW - 400 * 24 * HOUR), {})).toEqual([]);
+    expect(stale(all(NOW - 400 * 24 * HOUR), undefined)).toEqual([]);
+  });
+
+  it('names a failed slot only once its last good fetch is past its staleMs, at each slot\'s edge', () => {
+    for (const [slot, h] of [['alerts', 1], ['obs', 3], ['wx', 24], ['aq', 24], ['models', 24], ['river', 24], ['flow', 24], ['flowFcst', 24], ['flowDays', 7 * 24]]) {
+      expect(stale(all(NOW - h * HOUR), failed(slot)), `${slot} at its limit`).toEqual([]);
+      expect(stale(all(NOW - h * HOUR - 1), failed(slot)), `${slot} 1 ms past it`).toEqual([slot]);
+    }
+  });
+
+  it('names only the slots that failed', () => {
+    const t = NOW - 30 * HOUR;
+    expect(stale(all(t), failed('wx', 'river'))).toEqual(['wx', 'river']);
+    expect(stale(all(t), failed('alerts'))).toEqual(['alerts']);
+  });
+
+  it('gives each slot its fetch time, and null for one never held', () => {
+    const t = NOW - 5 * HOUR;
+    expect(staleSlots(bs, all(t), failed('alerts'), NOW).get('alerts')).toBe(t);
+    expect(staleSlots(bs, all(t, { alerts: 1 }), failed('alerts'), NOW).get('alerts')).toBeNull();
+  });
+
+  it('reads a time that cannot be read as not fresh', () => {
+    expect(stale({ ...all(NOW), obs: NaN }, failed('obs'))).toEqual(['obs']);
+    expect(stale({ ...all(NOW), obs: 'x' }, failed('obs'))).toEqual(['obs']);
+    expect(stale(undefined, failed('obs'))).toEqual(['obs']);
+  });
+
+  it('leaves out a failure for a slot the location has no source for', () => {
+    expect(stale(all(0), failed('tide'))).toEqual([]);
   });
 });
 
