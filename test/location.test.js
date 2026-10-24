@@ -457,6 +457,14 @@ describe('a location with no banks stored', () => {
     for (const t of ['lake', 'reservoir', 'harbor']) expect(generated(r => { r.waterType = t; }).banks.word).toBe('shore');
   });
 
+  it('gets them from a record that leaves the field out, as it may (01 table: not required)', () => {
+    const r = rec(x => { delete x.banks; });
+    expect('banks' in r).toBe(false);
+    expect(validateLocation(r, W)).toEqual([]);
+    expect(resolveLocation(r, { waterway: PUTNEY_WATERWAY }).banks).toEqual(autoBanks(15));
+    expect(resolveLocation(r, { waterway: PUTNEY_WATERWAY, overrides: { heading: 330 } }).banks).toEqual(autoBanks(330));
+  });
+
   it('gets none from a course with no heading', () => {
     expect(generated(r => { r.course = { kind: 'polyline', points: [[42.96, -72.52], [42.97, -72.51]], reachWord: null, confirmed: false }; }).banks).toBeNull();
     expect(generated(r => { r.course = { kind: 'none', reachWord: null, confirmed: false }; }).banks).toBeNull();

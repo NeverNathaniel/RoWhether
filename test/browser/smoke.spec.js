@@ -385,7 +385,19 @@ test.describe('smoke', () => {
         expect(l.inside, `${l.text} is inside the ring`).toBe(true);
         expect(l.upright).toBe(true);
       }
-      // The wind fact says the same words as the labels: still a river, so a bank.
+    });
+
+    // The wind at the pinned clock is from the south-south-west, a crosswind on a course at 120 degrees (a tailwind at 90,
+    // where the fact has no bank to name), so here the sentence and the labels must say the same generated banks.
+    test('a course at 120 degrees with no banks stored: the wind fact names the same generated bank, a bank and not a shore', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.route('**/locations/lake-test.json', route => route.fulfill({ json: { ...LAKE_FILE, course: { ...LAKE_FILE.course, heading: 120 }, banks: null } }));
+      await page.goto('/lake-test');
+      await ready(page);
+      await expect(page.locator('#compassCap')).toContainText('upstream heading 120°');
+      // Facing upstream (120), the left side faces 30 (northeast) and the right 210 (southwest).
+      await expect(page.locator('#compass .c-bank')).toHaveText(['NE', 'SW']);
+      await expect(page.locator('#facts')).toContainText('From SSW. Crosswind off the southwest bank.');
       await expect(page.locator('#facts')).not.toContainText(/shore/);
     });
 
