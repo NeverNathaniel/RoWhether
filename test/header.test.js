@@ -4,11 +4,11 @@
 // which is neither the dock's zone nor the viewer's in these cases, so a line that
 // reads the machine's zone fails.
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { linkText } from '../src/format.js';
+import { linkText, setZone } from '../src/format.js';
 import { app } from '../src/state.js';
 import { PUTNEY, PUTNEY_RECORD } from '../src/putney.js';
 import { resolveLocation } from '../src/location.js';
-import { subtitleText, renderPlace } from '../src/render/header.js';
+import { subtitleText, renderPlace, renderHeader, savedLabel } from '../src/render/header.js';
 import { installFakeDom, uninstallFakeDom } from './helpers/fakedom.js';
 
 const NY = 'America/New_York';
@@ -25,7 +25,8 @@ const place = (over = {}) => resolveLocation({ ...PUTNEY_RECORD, ...over }, { wa
 afterEach(() => {
   uninstallFakeDom();
   vi.useRealTimers();
-  app.loc = null;
+  setZone(NY);
+  Object.assign(app, { loc: null, updated: null, errors: {}, fromCache: false });
 });
 
 describe('linkText', () => {
@@ -186,5 +187,76 @@ describe('renderPlace', () => {
     expect(draw(place({ copy: { description: 'Rowing.' } })).el('credits').hidden).toBe(true);
     const dom = draw(place({ copy: { credits: 'From <b>NWS</b> [Open-Meteo](https://open-meteo.com/) [x](javascript:alert(1)).' } }));
     expect(dom.el('credits').innerHTML).toBe('From &lt;b&gt;NWS&lt;/b&gt; <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> [x](javascript:alert(1)).');
+  });
+});
+
+// 6:41 AM in New York (EDT) on October `day` 2026, and `now` at noon on the 22nd.
+const AM = day => Date.UTC(2026, 9, day, 10, 41);
+const NBSP = '\u00a0';
+
+describe('savedLabel', () => {
+  it('says only the time for a copy from today, and the day for an earlier one', () => {
+    expect(savedLabel(AM(22), OCT)).toBe(`Saved 6:41${NBSP}AM`);
+    // Yesterday (a Wednesday) and the sixth day before (a Friday): the weekday.
+    expect(savedLabel(AM(21), OCT)).toBe(`Saved Wed 6:41${NBSP}AM`);
+    expect(savedLabel(AM(16), OCT)).toBe(`Saved Fri 6:41${NBSP}AM`);
+    // The seventh day before would read as the same weekday as today: the date.
+    expect(savedLabel(AM(15), OCT)).toBe(`Saved Oct 15, 6:41${NBSP}AM`);
+    expect(savedLabel(AM(1), OCT)).toBe(`Saved Oct 1, 6:41${NBSP}AM`);
+  });
+
+  it('counts days in the location zone, not the machine zone or UTC', () => {
+    // 11:30 PM on the 21st in New York is the 22nd in UTC and the 22nd in Auckland.
+    const lateYesterday = Date.UTC(2026, 9, 22, 3, 30);
+    const justAfterMidnight = Date.UTC(2026, 9, 22, 4, 15);
+    expect(savedLabel(lateYesterday, justAfterMidnight)).toBe(`Saved Wed 11:30${NBSP}PM`);
+    // The same two instants a quarter hour apart on one New York day.
+    expect(savedLabel(Date.UTC(2026, 9, 22, 4, 5), justAfterMidnight)).toBe(`Saved 12:05${NBSP}AM`);
+    // Seen from a location in Auckland the same two instants are on one day.
+    setZone('Pacific/Auckland');
+    expect(savedLabel(lateYesterday, justAfterMidnight)).toBe(`Saved 4:30${NBSP}PM`);
+  });
+
+  it('counts whole days across the clock change on Nov 1, 2026', () => {
+    const now = Date.UTC(2026, 10, 2, 17); // Mon Nov 2, noon EST
+    expect(savedLabel(Date.UTC(2026, 10, 1, 17), now)).toBe(`Saved Sun 12${NBSP}PM`);
+    expect(savedLabel(Date.UTC(2026, 9, 31, 3, 30), now)).toBe(`Saved Fri 11:30${NBSP}PM`);
+    expect(savedLabel(Date.UTC(2026, 9, 27, 16), now)).toBe(`Saved Tue 12${NBSP}PM`);
+    expect(savedLabel(Date.UTC(2026, 9, 26, 16), now)).toBe(`Saved Oct 26, 12${NBSP}PM`);
+  });
+
+  it('takes a copy from a few minutes ahead of the clock as today', () => {
+    expect(savedLabel(OCT + 5 * 60e3, OCT)).toBe(`Saved 12:05${NBSP}PM`);
+  });
+});
+
+describe('renderHeader', () => {
+  function draw(state, now = OCT) {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
+    Object.assign(app, { updated: null, errors: {}, fromCache: false }, state);
+    const dom = installFakeDom({ width: 390 });
+    renderHeader();
+    return dom.el('updated').textContent;
+  }
+
+  it('says Loading, Not loaded, Updated and Saved', () => {
+    expect(draw({})).toBe('Loading');
+    expect(draw({ errors: { wx: true } })).toBe('Not loaded');
+    expect(draw({ updated: AM(22) })).toBe(`Updated 6:41${NBSP}AM`);
+    expect(draw({ updated: AM(22), fromCache: true })).toBe(`Saved 6:41${NBSP}AM`);
+    expect(draw({ updated: AM(22), errors: { wx: true } })).toBe(`Saved 6:41${NBSP}AM`);
+    expect(draw({ updated: AM(20), fromCache: true })).toBe(`Saved Tue 6:41${NBSP}AM`);
+    expect(draw({ updated: AM(10), errors: { wx: true } })).toBe(`Saved Oct 10, 6:41${NBSP}AM`);
+  });
+
+  it('says only Saved for another source failing, and keeps Updated without a day', () => {
+    expect(draw({ updated: AM(22), errors: { river: true } })).toBe(`Updated 6:41${NBSP}AM`);
+    // A fresh forecast is from today, but the label never carries a day.
+    expect(draw({ updated: AM(21) })).toBe(`Updated 6:41${NBSP}AM`);
+  });
+
+  it('is the one the page draws: no other label says Saved data from', () => {
+    for (const state of [{ updated: AM(22), fromCache: true }, { updated: AM(1), errors: { wx: true } }]) expect(draw(state)).not.toMatch(/data from/);
   });
 });

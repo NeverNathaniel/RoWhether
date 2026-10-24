@@ -63,6 +63,47 @@ test.describe('the header', () => {
     expect(box.weight).toBe('700');
   });
 
+  // 07 4.3 measured "Saved data from 10:41 AM" (163 px) wrapping Settings onto a second row at 360 px. The
+  // row has room for a label of 123 px (320 px of content, the two buttons 176 px, two gaps and a margin).
+  // "Saved 6:41 AM" (82 px) and a weekday with a whole hour ("Saved Sun 12 PM", 110 px) fit. A weekday with
+  // minutes ("Saved Wed 12:59 PM", 133 px) and the dated form for a copy a week old or more ("Saved Jun 7,
+  // 10:41 AM", 141 px) do not, so Settings takes a second row, as it did for every saved copy. The title, the
+  // label and the page width hold for all of them.
+  test('stays one title line and one actions row at 360 px, with Updated and with Saved', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 844 });
+    await page.goto('/putney-landing');
+    await ready(page);
+    const state = async what => {
+      expect(await lines(page, '#locName'), `${what}: the title wraps`).toBe(1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), `${what}: the page scrolls sideways`).toBeLessThanOrEqual(0);
+      const ys = await Promise.all(['#updated', '#refreshBtn', '#settingsBtn'].map(s => mid(page, s)));
+      return Math.max(...ys) - Math.min(...ys);
+    };
+    await expect(page.locator('#updated')).toHaveText(/^Updated /);
+    expect(await state('Updated')).toBeLessThan(3);
+
+    // The saved copy from this noon, from yesterday, from a Wednesday at the widest time of day, and from a week ago.
+    for (const [ago, pattern, oneRow] of [
+      [0, /^Saved 12\sPM$/, true],
+      [DAY, /^Saved Sun 12\sPM$/, true],
+      [5 * DAY - 59 * 60e3, /^Saved Wed 12:59\sPM$/, false],
+      [8 * DAY + 79 * 60e3, /^Saved Jun 7, 10:41\sAM$/, false]
+    ]) {
+      await page.evaluate(([t]) => { const k = 'rowhether-cache-v2:putney-landing'; const c = JSON.parse(localStorage.getItem(k)); c.updated = t; localStorage.setItem(k, JSON.stringify(c)); }, [clock - ago]);
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await routeAll(page, scenario, clock, { abort: true });
+      await page.reload();
+      await ready(page);
+      await expect(page.locator('#updated')).toHaveText(pattern);
+      const spread = await state(await page.locator('#updated').textContent());
+      if (oneRow) expect(spread, 'the actions are on one row').toBeLessThan(3);
+      // The label itself is one line, and both buttons are on the screen.
+      expect(await lines(page, '#updated')).toBe(1);
+      await expect(page.locator('#refreshBtn')).toBeInViewport();
+      await expect(page.locator('#settingsBtn')).toBeInViewport();
+    }
+  });
+
   test('the title, the line and the badge for a location the owner has not confirmed on site', async ({ page }) => {
     await serve(page, { 'lake-test': record('lake-test', { name: 'Lake Test', status: 'published', subtitle: 'A lake.', tz: 'America/New_York', tzLabel: 'Eastern' }) });
     await page.goto('/lake-test');

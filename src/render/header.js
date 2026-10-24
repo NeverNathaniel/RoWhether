@@ -2,13 +2,19 @@
 // render. renderPlace() draws the place once, each time a location opens (or
 // none is open): its name, subtitle, badge, credits and the install sentence.
 import { app, $ } from '../state.js';
-import { hm, linkText } from '../format.js';
+import { hm, dayKey, weekday, monthDay, linkText } from '../format.js';
+
+// "Saved 6:41 AM", with the day when the copy is from an earlier one in the
+// location's zone: "Saved Mon 6:41 AM" for the six days before, then "Saved Oct 14, 6:41 AM".
+export function savedLabel(t, now) {
+  const ago = (Date.parse(dayKey(now)) - Date.parse(dayKey(t))) / 864e5;
+  return `Saved ${ago < 1 ? '' : ago < 7 ? `${weekday(t)} ` : `${monthDay(t)}, `}${hm(t)}`;
+}
 
 export function renderHeader() {
   const u = $('updated');
   if (!app.updated) { u.textContent = app.errors.wx ? 'Not loaded' : 'Loading'; return; }
-  const label = app.errors.wx || app.fromCache ? 'Saved data from' : 'Updated';
-  u.textContent = `${label} ${hm(app.updated)}`;
+  u.textContent = app.errors.wx || app.fromCache ? savedLabel(app.updated, Date.now()) : `Updated ${hm(app.updated)}`;
 }
 
 // The zone's own word for itself, or the offset from UTC in minutes.

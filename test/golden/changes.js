@@ -18,4 +18,12 @@
 // An id is never widened after its commit. A step that finds a golden path moving
 // outside its planned ids adds a new id, with its source section, in the same
 // commit, and says so in its progress entry.
-export const CHANGES = {};
+export const CHANGES = {
+  saved: {
+    why: '07 3.2 and 6.7: the header says "Saved 6:41 AM" in place of "Saved data from 6:41 AM" (with the day when the copy is older; owner, 2026-10-21, R1).',
+    step: 'P1.5',
+    // What moved: the 19 main cases and the variants with a model. The probes and v-june-stale-forecast, which has none, do not.
+    files: ['april-*', 'fall-back-*', 'june-calm-*', 'october-fog-*', 'v-*'],
+    paths: ['status.header.cached', 'status.header.failed']
+  }
+};
