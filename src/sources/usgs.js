@@ -1,6 +1,6 @@
 // USGS water data adapters (OGC API): the latest readings, the last 48 hours of
 // flow and 30 days of daily means. Pure: no DOM, no storage.
-const USGS_OGC = 'https://api.waterdata.usgs.gov/ogcapi/v0';
+const USGS_OGC = 'https://api.waterdata.usgs.gov/ogcapi/v1';
 const HOST = 'https://api.waterdata.usgs.gov';
 // Discharge in cfs and water temperature in °C.
 const Q = '00060', TEMP = '00010';
@@ -8,12 +8,15 @@ const Q = '00060', TEMP = '00010';
 export function parseRiver(d, b) {
   const { flow, temp } = b.params;
   const out = {};
+  // A gauge can list several series for one parameter, some of them ended years
+  // ago: the newest reading is kept, and the later one when two share a time.
+  const put = (k, v, t) => { if (!(out[k]?.t > t)) out[k] = { v, t }; };
   for (const f of d.features || []) {
     const p = f.properties || {};
     const v = parseFloat(p.value), t = Date.parse(p.time);
     if (isNaN(v) || !p.monitoring_location_id) continue;
-    if (p.monitoring_location_id === flow && p.parameter_code === Q) out.flow = { v, t };
-    if (p.monitoring_location_id === temp && p.parameter_code === TEMP) out.waterC = { v, t };
+    if (p.monitoring_location_id === flow && p.parameter_code === Q) put('flow', v, t);
+    if (p.monitoring_location_id === temp && p.parameter_code === TEMP) put('waterC', v, t);
   }
   return out;
 }
@@ -41,10 +44,12 @@ export const latest = {
   key: 'usgs-latest', slot: 'river', regions: ['US'], via: 'browser', hosts: [HOST],
   refreshMs: null, staleMs: null,
   bind: rows => ({ flow: rows.find(r => r.role === 'flow')?.ref, temp: rows.find(r => r.role === 'water_temp')?.ref }),
-  // The flow gauge first, then the temperature gauge, and each one's parameter.
+  // The flow gauge first, then the temperature gauge, and each one's parameter. A
+  // gauge that serves both is listed once. Without `limit` the service answers
+  // 10 readings at most, and a gauge can list more series than that.
   url: b => {
     const have = [[b.params.flow, Q], [b.params.temp, TEMP]].filter(g => g[0]);
-    return `${USGS_OGC}/collections/latest-continuous/items?monitoring_location_id=${have.map(g => g[0]).join(',')}&parameter_code=${have.map(g => g[1]).join(',')}&f=json`;
+    return `${USGS_OGC}/collections/latest-continuous/items?monitoring_location_id=${[...new Set(have.map(g => g[0]))].join(',')}&parameter_code=${have.map(g => g[1]).join(',')}&f=json&limit=50`;
   },
   parse: parseRiver,
   label: () => 'USGS river gauges'

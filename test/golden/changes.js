@@ -44,5 +44,12 @@ export const CHANGES = {
       // Everything the variant draws from that one advisory's level.
       'forecasts.**', 'home.**', 'model.**', 'parsers.**', 'runs.**', 'share', 'status.**', 'views.**'
     ]
+  },
+  'usgs-v1': {
+    why: 'USGS /ogcapi/v1 (02 Decision, 08 K10, plan section 10): the three USGS requests move from v0 to v1, and the latest one lists each gauge once and asks for up to 50 readings.',
+    step: 'P1.8',
+    files: ['april-*', 'fall-back-*', 'june-calm-*', 'october-fog-*'],
+    // river (latest), flow (48 hours) and flowDays (daily means).
+    paths: ['sources.3.1', 'sources.4.1', 'sources.5.1']
   }
 };

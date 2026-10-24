@@ -35,7 +35,16 @@ describe('bindingsFor(PUTNEY)', () => {
   });
 
   it('writes the river request with the flow gauge, then the temperature gauge', () => {
-    expect(by(bs, 'river').url).toBe('https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items?monitoring_location_id=USGS-01154500,USGS-01161280&parameter_code=00060,00010&f=json');
+    expect(by(bs, 'river').url).toBe('https://api.waterdata.usgs.gov/ogcapi/v1/collections/latest-continuous/items?monitoring_location_id=USGS-01154500,USGS-01161280&parameter_code=00060,00010&f=json&limit=50');
+  });
+
+  it('asks the USGS OGC API for version 1, and the latest request for up to 50 readings', () => {
+    expect(by(bs, 'flow').url).toBe('https://api.waterdata.usgs.gov/ogcapi/v1/collections/continuous/items?monitoring_location_id=USGS-01154500&parameter_code=00060&time=P2D&limit=1000&properties=time,value&f=json');
+    expect(by(bs, 'flowDays').url).toBe('https://api.waterdata.usgs.gov/ogcapi/v1/collections/daily/items?monitoring_location_id=USGS-01154500&parameter_code=00060&statistic_id=00003&time=P30D&limit=100&properties=time,value&f=json');
+    for (const slot of ['river', 'flow', 'flowDays']) expect(by(bs, slot).url, slot).not.toContain('/ogcapi/v0/');
+    expect(by(bs, 'river').url).toMatch(/&limit=50$/);
+    // The two ids stay in params as they were: the config probe records them.
+    expect(by(bs, 'river').params).toEqual({ flow: 'USGS-01154500', temp: 'USGS-01161280' });
   });
 
   it('names the Keene station and the river forecast gauge', () => {
@@ -94,6 +103,14 @@ describe('a location with other sources', () => {
     expect(by(bindingsFor(flowOnly), 'river').url).toContain('monitoring_location_id=USGS-01154500&parameter_code=00060&f=json');
     const tempOnly = locOf(() => {}, { ...PUTNEY_WATERWAY, sources: [] });
     expect(by(bindingsFor(tempOnly), 'river').url).toContain('monitoring_location_id=USGS-01161280&parameter_code=00010&f=json');
+  });
+
+  it('lists a gauge once when its flow and its water temperature both come from it', () => {
+    const waterway = clone(PUTNEY_WATERWAY);
+    waterway.sources[0].ref = 'USGS-01646500';
+    const b = by(bindingsFor(locOf(r => { r.sources[2].ref = 'USGS-01646500'; }, waterway)), 'river');
+    expect(b.url).toBe('https://api.waterdata.usgs.gov/ogcapi/v1/collections/latest-continuous/items?monitoring_location_id=USGS-01646500&parameter_code=00060,00010&f=json&limit=50');
+    expect(b.params).toEqual({ flow: 'USGS-01646500', temp: 'USGS-01646500' });
   });
 
   it('builds every request from its own point, zone, stations and gauges', () => {
@@ -431,6 +448,46 @@ describe('the parsers', () => {
     // A location with no temperature gauge takes no temperature, even from a reading with no gauge id.
     const noTemp = { features: [at('USGS-1', '00060', '5'), f({ parameter_code: '00010', value: '4' })] };
     expect(usgs.parseRiver(noTemp, { params: { flow: 'USGS-1' } })).toEqual({ flow: { v: 5, t } });
+  });
+
+  // USGS-01646500 lists five series of water temperature, and four of them ended in 2019.
+  // The response is as the latest-continuous request of the binding gets it, recorded 2026-10-24.
+  describe('a gauge that lists several series for one parameter', () => {
+    const raw = recorded('usgs-latest-01646500');
+    const both = () => {
+      const waterway = clone(PUTNEY_WATERWAY);
+      waterway.sources[0].ref = 'USGS-01646500';
+      return by(bindingsFor(locOf(r => { r.sources[2].ref = 'USGS-01646500'; }, waterway)), 'river');
+    };
+
+    it('keeps the 2026 temperature of the recorded answer, not a series from 2019', () => {
+      const temps = raw.features.filter(f => f.properties.parameter_code === '00010');
+      expect(temps.map(f => f.properties.time.slice(0, 4)).sort()).toEqual(['2019', '2019', '2019', '2019', '2026']);
+      // Today's last-match loop would take the last of them, a 2019 reading, because they are not in time order.
+      expect(temps.at(-1).properties.time.slice(0, 4)).toBe('2019');
+      const b = both(), t = Date.parse('2026-10-24T08:50:00+00:00');
+      expect(b.parse(raw)).toEqual({ flow: { v: 3690, t }, waterC: { v: 14.6, t } });
+    });
+
+    const at = (code, value, time) => ({ properties: { monitoring_location_id: 'USGS-1', parameter_code: code, value, time } });
+    const parse = features => usgs.parseRiver({ features }, { params: { flow: 'USGS-1', temp: 'USGS-1' } });
+
+    it('keeps the newest reading whatever the order, per parameter', () => {
+      const old = at('00010', '24', '2019-10-01T16:15:00+00:00'), cur = at('00010', '14.6', '2026-10-24T08:50:00+00:00');
+      const f1 = at('00060', '3000', '2026-10-24T08:00:00+00:00'), f2 = at('00060', '3100', '2026-10-24T08:45:00+00:00');
+      for (const order of [[old, cur, f1, f2], [cur, old, f2, f1], [f2, old, f1, cur]]) {
+        const got = parse(order);
+        expect(got.waterC.v).toBe(14.6);
+        expect(got.flow.v).toBe(3100);
+      }
+    });
+
+    it('keeps the later of two readings that share a time, as before, and one with a time that cannot be read', () => {
+      const t = '2026-10-24T08:50:00+00:00';
+      expect(parse([at('00060', '1', t), at('00060', '2', t)]).flow.v).toBe(2);
+      expect(parse([at('00060', '1', 'nope'), at('00060', '2', t)]).flow.v).toBe(2);
+      expect(parse([at('00060', '1', t), at('00060', '2', 'nope')]).flow.v).toBe(2);
+    });
   });
 
   it('read the compared models from the binding, with MODELS as the default', () => {

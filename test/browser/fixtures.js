@@ -26,11 +26,7 @@ const UPSTREAM = {
     '/alerts/active': raw => raw.alerts,
     '/stations/KEEN/observations/latest': raw => raw.obs
   },
-  // Both versions of the OGC API, for the step that moves the requests from v0 to v1.
   'api.waterdata.usgs.gov': {
-    '/ogcapi/v0/collections/latest-continuous/items': raw => raw.river,
-    '/ogcapi/v0/collections/continuous/items': raw => raw.flow,
-    '/ogcapi/v0/collections/daily/items': raw => raw.flowDays,
     '/ogcapi/v1/collections/latest-continuous/items': raw => raw.river,
     '/ogcapi/v1/collections/continuous/items': raw => raw.flow,
     '/ogcapi/v1/collections/daily/items': raw => raw.flowDays
