@@ -16,7 +16,7 @@ import * as week from '../src/render/detail/week.js';
 import { bindingsFor, staleSlots } from '../src/sources/index.js';
 import { renderNow } from '../src/render/now.js';
 import { forecastPanel } from '../src/render/forecast.js';
-import { compassSVG } from '../src/render/parts.js';
+import { compassSVG, noWater } from '../src/render/parts.js';
 import * as wind from '../src/render/detail/wind.js';
 import * as river from '../src/render/detail/river.js';
 import * as temperature from '../src/render/detail/temperature.js';
@@ -553,6 +553,13 @@ describe('a source that is absent here or past its limit', () => {
       const { dom } = screen(TYPICAL, NOW, { data: { river: { flow: { v: 6000, t: NOW } } } });
       renderNow();
       expect(dom.el('facts').textContent).toContain('Water--Typical for June, about 61°F. No live reading.');
+    });
+
+    it("names the month in the location's zone, as it reads the value", () => {
+      // 2 PM on 30 June at Putney is 6 AM on 1 July in Auckland, the zone these tests run in.
+      const now = Date.UTC(2026, 5, 30, 18), river = { flow: { v: 6000, t: now } };
+      const m = buildModel(TYPICAL, { wx: wx(across, 3, Date.UTC(2026, 5, 30, 4)), river }, effectiveSettings(TYPICAL), now);
+      expect(noWater(m)).toBe('Typical for June, about 61°F. No live reading.');
     });
 
     it('puts the dock reading ahead of all of it', () => {
