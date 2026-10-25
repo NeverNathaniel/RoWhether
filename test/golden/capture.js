@@ -216,8 +216,8 @@ export function capture(scenario, clock, settings, { loc = PUTNEY, width = 390, 
     for (const d of m.days) sunFor[d.key] = L.sunFor(m, d.key);
     out.text = {
       course,
-      water: m.h72.map(h => [h.t, L.waterWhy(h.water)]),
-      waterNow: L.waterWhy(m.cur.water),
+      water: m.h72.map(h => [h.t, L.waterWhy(h.water, m)]),
+      waterNow: L.waterWhy(m.cur.water, m),
       debris: L.debrisLikely(m),
       fog: m.hours.map(h => ({ t: h.t, ...fog(L.fogRisk(m, h)) })).filter(x => x.risk),
       morning,
