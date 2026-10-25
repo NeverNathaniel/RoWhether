@@ -230,6 +230,124 @@ test.describe('boathouse-row', () => {
   });
 });
 
+// ---------- Still water (P1.13; 01 9.7, 10.5, 15.9) ----------
+// A lake or a reservoir has no current: no River tab, no flow, and a compass that draws the lake.
+const LAKES = ['lake-quinsigamond', 'lake-natoma', 'lake-carnegie'];
+
+test.describe('still water', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+    await routeAll(page, scenario, clock);
+  });
+
+  test('has no River tab, and an address ending #river opens Now and takes the hash out of the address', async ({ page }) => {
+    for (const slug of LAKES) {
+      await page.goto(`/${slug}#river`);
+      await ready(page);
+      await expect(page.locator('#tabs a[data-tab="river"]'), slug).toHaveCount(0);
+      await expect(page.locator('#tabs a[aria-current="page"]'), slug).toHaveText('Now');
+      await expect(page.locator('#home'), slug).toBeVisible();
+      await expect(page.locator('#detail'), slug).toBeHidden();
+      const at = new URL(page.url());
+      expect([at.pathname, at.hash], slug).toEqual([`/${slug}`, '']);
+    }
+  });
+
+  test("Carnegie's compass draws the lake and the Wind fact says only the direction", async ({ page }) => {
+    await page.goto('/lake-carnegie');
+    await ready(page);
+    const lake = page.locator('#compass ellipse.c-river');
+    await expect(lake).toHaveCount(1);
+    expect(await lake.evaluate(e => [e.getAttribute('rx'), e.getAttribute('ry'), e.getAttribute('transform')])).toEqual(['50', '6', 'rotate(-55)']);
+    // No river bar, no flow arrow and no bank labels; the wind arrow is there.
+    await expect(page.locator('#compass .c-bank, #compass .c-flow, #compass rect')).toHaveCount(0);
+    await expect(page.locator('#compass .c-wind')).toHaveCount(1);
+    await expect(page.locator('#compassCap')).toHaveText('Wind from SSW across about 1.9 mi of open water.');
+    await expect(fact(page, 'Wind').locator('.note')).toHaveText('From SSW.');
+    await expect(page.locator('#compass')).toHaveAttribute('aria-label', 'Wind direction relative to the lake');
+  });
+
+  test('draws the lake in the full forecast of an opened row, with no river words', async ({ page }) => {
+    await page.goto('/lake-carnegie');
+    await ready(page);
+    const row = page.locator('#days details.period').first();
+    await row.locator('summary').click();
+    await row.locator('.forecast').waitFor();
+    const svg = row.locator('.forecast svg[aria-label="Forecast wind direction relative to the lake"]');
+    await expect(svg.locator('ellipse.c-river')).toHaveCount(1);
+    await expect(svg.locator('.c-bank, .c-flow, rect')).toHaveCount(0);
+    await expect(row.locator('.forecast figcaption')).toHaveText('Wind mostly from SSW across about 0.8 mi of open water.');
+    await expect(row.locator('.forecast')).not.toContainText(/River runs|upstream heading|River flow/);
+  });
+
+  test('the Wind tab at Carnegie has no arrows and no Course column, and says why', async ({ page }) => {
+    await page.goto('/lake-carnegie#wind');
+    await ready(page);
+    await tabDrawn(page, 'wind');
+    const body = page.locator('#detailBody');
+    await expect(body.locator('.carrow')).toHaveCount(0);
+    await expect(body.locator('th', { hasText: 'Course' })).toHaveCount(0);
+    await expect(body.locator('th', { hasText: 'Water' })).toHaveCount(1);
+    await expect(body.locator('.how')).toContainText('Head and crosswind are not shown because no course is set here.');
+    await expect(body).not.toContainText(/Headwind|Tailwind|upstream|NaN|undefined/);
+  });
+
+  test('the Wind tab at Quinsigamond, which has a heading, keeps its arrows and its Course column', async ({ page }) => {
+    await page.goto('/lake-quinsigamond#wind');
+    await ready(page);
+    await tabDrawn(page, 'wind');
+    const body = page.locator('#detailBody');
+    expect(await body.locator('.carrow').count()).toBeGreaterThan(0);
+    await expect(body.locator('th', { hasText: 'Course' })).toHaveCount(1);
+    await expect(body.locator('.how')).toContainText('The course heading is 166°, set in Settings.');
+    await expect(body).not.toContainText(/NaN|undefined/);
+  });
+
+  test('a heading course on a lake draws the course bar and shore labels, with no flow arrow and no river line', async ({ page }) => {
+    await page.goto('/lake-quinsigamond');
+    await ready(page);
+    await expect(page.locator('#compass .c-bank')).toHaveText(['E', 'W']);
+    await expect(page.locator('#compass rect.c-river')).toHaveCount(1);
+    await expect(page.locator('#compass .c-flow, #compass ellipse')).toHaveCount(0);
+    await expect(page.locator('#compassCap')).toHaveText(/^Wind from \w+ across about \d\.\d mi of open water\.$/);
+    await expect(page.locator('#compassCap')).not.toContainText('River runs');
+  });
+
+  for (const [slug, what] of [['lake-carnegie', 'lake'], ['lake-quinsigamond', 'lake'], ['lake-natoma', 'reservoir']]) {
+    test(`the Week view's opened day at ${slug} says "This is a ${what}. Flow is not checked."`, async ({ page }) => {
+      await page.goto(`/${slug}#week`);
+      await ready(page);
+      await tabDrawn(page, 'week');
+      const day = page.locator('#detailBody details.wday').first();
+      await day.locator('summary').click();
+      await expect(day.locator('.wmore')).toContainText(`This is a ${what}. Flow is not checked.`);
+      await expect(day.locator('.wmore')).not.toContainText('No river gauge here');
+    });
+  }
+
+  test('Natoma, for a viewer in Eastern time, says Pacific and shows every time in Pacific', async ({ page }) => {
+    await page.goto('/lake-natoma');
+    await ready(page);
+    await expect(page.locator('#sub')).toHaveText('Lake Natoma above Nimbus Dam. Releases from Folsom Dam can change the current. All times Pacific, 3 hours behind you.');
+    // The clock is noon in Eastern time and 9 AM at the lake.
+    await expect(page.locator('#updated')).toHaveText('Updated 9 AM');
+    // Sunrise and sunset are the lake's, in Pacific time: 8:41 AM to 11:32 PM would be the same instants in Eastern.
+    await expect(fact(page, 'Daylight').locator('.val')).toHaveText('5:41 AM to 8:32 PM');
+  });
+
+  test('the town search for Worcester, on the real list, offers Lake Quinsigamond within 50 km', async ({ page }) => {
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await page.locator('#picker .pk-q').fill('worcester');
+    await page.getByRole('button', { name: 'Worcester, Massachusetts, United States' }).click();
+    await expect(page.locator('#picker .pk-found h3')).toHaveText('Near Worcester, Massachusetts');
+    await expect(page.locator('#picker .pk-found .pk-name')).toHaveText(['Lake Quinsigamond']);
+    await page.getByRole('button', { name: 'Worcester, Western Cape, South Africa' }).click();
+    await expect(page.locator('#picker .pk-found')).toHaveText('No locations within 50 km of Worcester, Western Cape.');
+  });
+});
+
 // R9: a slow answer for one place never lands in another, and a switch starts its own refresh.
 // Putney is opened and its nine answers are held. Hanover is picked from the sheet: its own
 // requests are answered at once, and its page is drawn from its own record. The answers for

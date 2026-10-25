@@ -344,3 +344,77 @@ test.describe('settings built from the location', () => {
     for (const b of ['#resetSet', '#setForm button[value="cancel"]', '#setForm button[value="save"]']) await expect(page.locator(b)).toBeVisible();
   });
 });
+
+// P1.13: the dialog at still water has no flow fields (a lake has no gauge), and no Course field when the
+// lake has no course set. Its limits, Save and Reset work as they do at a river.
+test.describe('settings at still water', () => {
+  const LIMITS = FIELDS.filter(k => !['heading', 'flowCaution', 'flowOff'].includes(k));
+  const stored = (page, slug) => page.evaluate(s => JSON.parse(localStorage.getItem('rowhether-settings-v2') || '{}')[s]?.values ?? null, slug);
+  const read = (page, names) => page.evaluate(ns => ns.map(n => document.querySelector(`#setForm [name="${n}"]`).value), names);
+
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+    await routeAll(page, scenario, clock);
+  });
+
+  test('at Carnegie, a lake with no course, has no Course and no flow fields, and Save keeps only what differs', async ({ page }) => {
+    await page.goto('/lake-carnegie');
+    await ready(page);
+    await expect(page.locator('#setNudge p')).toHaveText('Set your own limits in Settings. Until you do, Go, Caution and Stay off use starting values for wind, gusts, rain and cold water.');
+    await expect(page.locator('#verdict')).toHaveText('Go.');
+    await openSettings(page);
+    await expect(page.locator('#setIntro')).toHaveText('Match these to your program, boat class and coach coverage. Saved in this browser for Lake Carnegie.');
+    await expect(page.locator('#setCourse')).toBeHidden();
+    await expect(field(page, 'heading')).toBeDisabled();
+    await expect(page.locator('#setFlow')).toBeHidden();
+    await expect(page.locator('#setForm [name="flowCaution"], #setForm [name="flowOff"]')).toHaveCount(0);
+    for (const k of LIMITS) await expect(field(page, k), k).toHaveCount(1);
+    expect(await read(page, LIMITS)).toEqual(['10', '15', '18', '25', '60', '90', '100', '', '151', '201']);
+
+    // The wind of the day is 7 mph: a caution line of 6 makes it Caution, and only that line is stored.
+    await field(page, 'windCaution').fill('6');
+    await expect(page.locator('#own-windCaution')).toHaveText('Your setting. Location default 10.');
+    await page.locator('#setForm button[value="save"]').click();
+    await expect(page.locator('#settings')).toBeHidden();
+    await expect(page.locator('#verdict')).toHaveText('Caution.');
+    await expect.poll(() => stored(page, 'lake-carnegie')).toEqual({ windCaution: 6 });
+    await page.reload();
+    await ready(page);
+    await expect(page.locator('#verdict')).toHaveText('Caution.');
+    await openSettings(page);
+    expect(await read(page, LIMITS)).toEqual(['6', '15', '18', '25', '60', '90', '100', '', '151', '201']);
+
+    // Use location defaults puts every box back, and Save then stores nothing.
+    await page.locator('#resetSet').click();
+    expect(await read(page, LIMITS)).toEqual(['10', '15', '18', '25', '60', '90', '100', '', '151', '201']);
+    await page.locator('#setForm button[value="save"]').click();
+    await expect(page.locator('#settings')).toBeHidden();
+    await expect(page.locator('#verdict')).toHaveText('Go.');
+    await expect.poll(() => stored(page, 'lake-carnegie')).toEqual({});
+  });
+
+  test('at Quinsigamond, a lake with a heading, shows the Course field and still no flow fields', async ({ page }) => {
+    await page.goto('/lake-quinsigamond');
+    await ready(page);
+    await openSettings(page);
+    await expect(page.locator('#setCourse')).toBeVisible();
+    await expect(field(page, 'heading')).toBeEnabled();
+    await expect(field(page, 'heading')).toHaveValue('166');
+    await expect(page.locator('#setFlow')).toBeHidden();
+    await expect(page.locator('#setForm [name="flowCaution"], #setForm [name="flowOff"]')).toHaveCount(0);
+    await field(page, 'heading').fill('200');
+    await page.locator('#setForm button[value="save"]').click();
+    await expect(page.locator('#settings')).toBeHidden();
+    await expect(page.locator('#compass g[transform="rotate(200)"] rect.c-river')).toHaveCount(1);
+    await expect.poll(() => stored(page, 'lake-quinsigamond')).toEqual({ heading: 200 });
+  });
+
+  test('at Natoma, which reads a water temperature and no flow, has no flow fields either', async ({ page }) => {
+    await page.goto('/lake-natoma');
+    await ready(page);
+    await openSettings(page);
+    await expect(page.locator('#setFlow')).toBeHidden();
+    await expect(field(page, 'waterOverride')).toHaveCount(1);
+    await expect(field(page, 'waterOverride')).toHaveAttribute('placeholder', 'Use gauge');
+  });
+});
