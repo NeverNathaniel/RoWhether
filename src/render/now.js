@@ -4,7 +4,7 @@ import { app, $ } from '../state.js';
 import { r0, card, hm, dayKey, dayWord } from '../format.js';
 import { precipKind, rateWord, fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, aqiWord, flowForCall, bound } from '../logic.js';
 import { sourceRow } from '../location.js';
-import { fact, compassSVG, sparkline, readNote, oldFlow, noWater } from './parts.js';
+import { fact, compassOf, compassCap, sparkline, readNote, oldFlow, noWater } from './parts.js';
 import { precipBlock } from './precip.js';
 
 // Fog now if there is any, otherwise the outlook for the next morning.
@@ -45,13 +45,10 @@ export function renderNow() {
   // Current conditions are only shown in daylight.
   $('nowSection').hidden = !m.daytime;
   if (!m.daytime) return;
-  const heading = m.loc.course.heading;
   const lvlOf = key => { const x = a.reasons.find(r => r.key === key); return x ? x.lvl : 0; };
 
-  $('compass').innerHTML = compassSVG(heading, m.loc.banks, cur.dir, cur.wind);
-  $('compassCap').textContent = cur.wind != null
-    ? `Wind from ${card(cur.dir)}. River runs ${card(heading + 180)}, upstream heading ${heading}°.`
-    : '';
+  $('compass').innerHTML = compassOf(m, cur.dir, cur.wind);
+  $('compassCap').textContent = cur.wind != null ? compassCap(m, `Wind from ${card(cur.dir)}`, cur.dir) : '';
 
   const f = [];
   const windLvl = Math.max(lvlOf('wind'), lvlOf('gust'));
@@ -59,7 +56,7 @@ export function renderNow() {
 
   if (cur.water) {
     const debris = debrisLikely(m) ? ' River rising fast. Watch for floating debris.' : '';
-    f.push(fact('Water state', WATER.names[cur.water.lvl], waterWhy(cur.water) + debris, 0, '#wind'));
+    f.push(fact('Water state', WATER.names[cur.water.lvl], waterWhy(cur.water, m) + debris, 0, '#wind'));
   }
 
   f.push(fact('Air', m.u.temp(cur.temp), `Feels like ${m.u.temp(cur.feels)}. Dew point ${m.u.temp(cur.dew)}.`, lvlOf('freeze'), '#temperature'));

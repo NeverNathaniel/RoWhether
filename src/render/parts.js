@@ -1,6 +1,7 @@
 // Small HTML and SVG builders shared by the sections.
-import { esc, hm, hShort, ago } from '../format.js';
-import { isSet, bound, waterSource, waterTemp } from '../logic.js';
+import { esc, hm, hShort, ago, card } from '../format.js';
+import { isSet, bound, waterSource, waterTemp, still } from '../logic.js';
+import { fetchAt } from '../location.js';
 
 // A small chevron after a label that opens a detail view.
 export const CHEV = '<svg class="chev" viewBox="0 0 8 12" aria-hidden="true"><path d="M2 2l4 4-4 4"/></svg>';
@@ -33,17 +34,26 @@ export function head(title, lede) {
   return `<h2 id="detailTitle" class="vh">${esc(title)}</h2>${lede ? `<p class="lede">${esc(lede)}</p>` : ''}`;
 }
 
-export function compassSVG(heading, banks, dir, speed) {
+// `heading` is null with no course set, and `water` then shapes the lake.
+export function compassSVG(heading, banks, dir, speed, water) {
   let s = '<circle class="c-ring" r="62"/>';
   s += '<text class="c-card" x="0" y="-48" text-anchor="middle">N</text>';
   s += '<text class="c-card" x="52" y="4" text-anchor="middle">E</text>';
   s += '<text class="c-card" x="0" y="56" text-anchor="middle">S</text>';
   s += '<text class="c-card" x="-52" y="4" text-anchor="middle">W</text>';
-  s += `<g transform="rotate(${heading})">`;
-  s += '<rect class="c-river" x="-10" y="-62" width="20" height="124" rx="4"/>';
-  s += '<path class="c-flow" d="M-5 40 L5 40 L0 49 Z"/>';
-  s += '</g>';
-  if (banks) {
+  if (heading == null) {
+    // No course: the lake as an ellipse along its axis, or a circle when only a size is known (01 10.5).
+    const k = water?.lake;
+    if (k) s += `<ellipse class="c-river" rx="50" ry="${Math.max(6, Math.round(500 * k.widthM / k.lengthM) / 10)}" transform="rotate(${k.axis - 90})"/>`;
+    else if (typeof water?.fetchM === 'number') s += '<circle class="c-river" r="50"/>';
+  } else {
+    s += `<g transform="rotate(${heading})">`;
+    s += '<rect class="c-river" x="-10" y="-62" width="20" height="124" rx="4"/>';
+    // Still water has no current for the arrow to show.
+    if (water?.mode !== 'fetch') s += '<path class="c-flow" d="M-5 40 L5 40 L0 49 Z"/>';
+    s += '</g>';
+  }
+  if (banks && heading != null) {
     // Each label sits beside the river where it is turned to, 24 up and 30 out, and its text stays upright (01 10.5).
     const a = heading * Math.PI / 180, c = Math.cos(a), n = Math.sin(a), r = v => Math.round(v * 10) / 10;
     for (const [b, x] of [[banks.left, -30], [banks.right, 30]]) s += `<text class="c-bank" x="${r(x * c + 24 * n)}" y="${r(x * n - 24 * c)}" text-anchor="middle">${esc(b.short)}</text>`;
@@ -52,6 +62,15 @@ export function compassSVG(heading, banks, dir, speed) {
   if (speed < 1) return s + '<text class="c-calm" x="0" y="5" text-anchor="middle">Calm</text>';
   s += `<g transform="rotate(${dir})"><line class="c-wind" x1="0" y1="-44" x2="0" y2="30"/><path class="c-head" d="M-8 26 L8 26 L0 42 Z"/></g>`;
   return s;
+}
+
+// The compass of the place shown, and the line under it: the wind, then the river's heading, or
+// on still water how far the wind has to build waves, where that depends on the direction.
+export const compassOf = (m, dir, speed) => compassSVG(m.loc.course.heading, m.loc.banks, dir, speed, m.loc.water);
+export function compassCap(m, lead, dir) {
+  const { course: c, water: w } = m.loc;
+  if (!still(m.loc)) return `${lead}. River runs ${card(c.heading + 180)}, upstream heading ${c.heading}°.`;
+  return `${lead}${dir != null && (w.lake || Array.isArray(w.fetchM)) ? ` across about ${m.u.waterDist(fetchAt(w, dir))} of open water` : ''}.`;
 }
 
 export function sparkline(ser) {

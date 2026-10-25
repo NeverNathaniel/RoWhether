@@ -147,7 +147,7 @@ test.describe('the header', () => {
   // later is covered without a new line here.
   test('fits the name of every built location in two lines at 360 px, on the real records', async ({ page }) => {
     const { locations } = JSON.parse(readFileSync(new URL('../../dist/locations/index.json', import.meta.url), 'utf8'));
-    expect(locations.map(l => l.slug)).toEqual(expect.arrayContaining(['putney-landing', 'hanover-boathouse', 'boathouse-row']));
+    expect(locations.map(l => l.slug)).toEqual(expect.arrayContaining(['putney-landing', 'hanover-boathouse', 'boathouse-row', 'lake-quinsigamond', 'lake-natoma', 'lake-carnegie']));
     await page.setViewportSize({ width: 360, height: 844 });
     for (const { slug, name } of locations) {
       await page.goto(`/${slug}`);
@@ -441,10 +441,11 @@ test.describe('the first visit to "/"', () => {
     for (const id of ['tabs', 'actions', 'home', 'detail', 'credits']) await expect(page.locator(`#${id}`), id).toBeHidden();
     await expect(page.locator('#refreshBtn')).toBeHidden();
     await expect(page.locator('#settingsBtn')).toBeHidden();
-    // The built list: the groups by region name, each place with its town and water (P1.12).
-    await expect(page.locator('#notFound .pk-group')).toHaveText(['New Hampshire', 'Pennsylvania', 'Vermont']);
+    // The built list: the groups by region name, each place with its town and water (P1.12, P1.13).
+    await expect(page.locator('#notFound .pk-group')).toHaveText(['California', 'Massachusetts', 'New Hampshire', 'New Jersey', 'Pennsylvania', 'Vermont']);
     await expect(page.locator('#notFound .pk-row')).toHaveText([
-      /Hanover boathouse\s*Hanover, NH\. Connecticut River\./, /Boathouse Row\s*Philadelphia, PA\. Schuylkill River\./, /Putney Landing\s*Putney, VT\. Connecticut River\./
+      /Lake Natoma\s*Gold River, CA\./, /Lake Quinsigamond\s*Shrewsbury, MA\./, /Hanover boathouse\s*Hanover, NH\. Connecticut River\./, /Lake Carnegie\s*Princeton, NJ\./,
+      /Boathouse Row\s*Philadelphia, PA\. Schuylkill River\./, /Putney Landing\s*Putney, VT\. Connecticut River\./
     ]);
     await expect(page.locator('#notFound .pk-here')).toHaveCount(0);
     // The list is long: it is not read out when the page draws it (07 12.3).
@@ -740,12 +741,13 @@ test.describe('an address with no location', () => {
   test('has the search under its words, filled in with the address, and picking from it opens the location (R9)', async ({ page }) => {
     const bad = watchConsole(page);
     const seen = await routeAll(page, scenario, clock);
-    await page.goto('/lake-quinsigamond');
+    // An address no record is at (Lake Quinsigamond was one until P1.13 gave it a record).
+    await page.goto('/lake-nowhere');
     await expect(page.locator('#notFound h2')).toHaveText('No location here');
-    await expect(page.locator('#notFound')).toContainText('No location at rowhether.com/lake-quinsigamond.');
+    await expect(page.locator('#notFound')).toContainText('No location at rowhether.com/lake-nowhere.');
     const q = page.locator('#notFound .pk-q');
-    await expect(q).toHaveValue('lake quinsigamond');
-    await expect(page.locator('#notFound .pk-found')).toContainText('Nothing matches "lake quinsigamond". Check the spelling, or search for a town.');
+    await expect(q).toHaveValue('lake nowhere');
+    await expect(page.locator('#notFound .pk-found')).toContainText('Nothing matches "lake nowhere". Check the spelling, or search for a town.');
     // Nothing else is on the page: no list of every location, no tabs.
     await expect(page.locator('#notFound h3')).toHaveCount(0);
     await expect(page.locator('#tabs')).toBeHidden();

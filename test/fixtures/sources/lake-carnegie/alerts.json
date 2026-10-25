@@ -1,0 +1,125 @@
+{
+  "@context": [
+    "https://geojson.org/geojson-ld/geojson-context.jsonld",
+    {
+      "@version": "1.1",
+      "wx": "https://api.weather.gov/ontology#",
+      "@vocab": "https://api.weather.gov/ontology#"
+    }
+  ],
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.c46161d41c47e7d8a041d52d645f85f1d6ce5fc6.002.1",
+      "type": "Feature",
+      "geometry": null,
+      "properties": {
+        "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.c46161d41c47e7d8a041d52d645f85f1d6ce5fc6.002.1",
+        "@type": "wx:Alert",
+        "id": "urn:oid:2.49.0.1.840.0.c46161d41c47e7d8a041d52d645f85f1d6ce5fc6.002.1",
+        "areaDesc": "Middlesex; Western Monmouth; Eastern Monmouth; Mercer; Salem; Gloucester; Camden; Northwestern Burlington; Ocean; Cumberland; Atlantic; Cape May; Southeastern Burlington",
+        "geocode": {
+          "SAME": [
+            "034023",
+            "034025",
+            "034021",
+            "034033",
+            "034015",
+            "034007",
+            "034005",
+            "034029",
+            "034011",
+            "034001",
+            "034009"
+          ],
+          "UGC": [
+            "NJZ012",
+            "NJZ013",
+            "NJZ014",
+            "NJZ015",
+            "NJZ016",
+            "NJZ017",
+            "NJZ018",
+            "NJZ019",
+            "NJZ020",
+            "NJZ021",
+            "NJZ022",
+            "NJZ023",
+            "NJZ027"
+          ]
+        },
+        "affectedZones": [
+          "https://api.weather.gov/zones/forecast/NJZ012",
+          "https://api.weather.gov/zones/forecast/NJZ013",
+          "https://api.weather.gov/zones/forecast/NJZ014",
+          "https://api.weather.gov/zones/forecast/NJZ015",
+          "https://api.weather.gov/zones/forecast/NJZ016",
+          "https://api.weather.gov/zones/forecast/NJZ017",
+          "https://api.weather.gov/zones/forecast/NJZ018",
+          "https://api.weather.gov/zones/forecast/NJZ019",
+          "https://api.weather.gov/zones/forecast/NJZ020",
+          "https://api.weather.gov/zones/forecast/NJZ021",
+          "https://api.weather.gov/zones/forecast/NJZ022",
+          "https://api.weather.gov/zones/forecast/NJZ023",
+          "https://api.weather.gov/zones/forecast/NJZ027"
+        ],
+        "references": [],
+        "sent": "2026-10-24T14:04:00-04:00",
+        "effective": "2026-10-24T14:04:00-04:00",
+        "onset": "2026-10-25T00:00:00-04:00",
+        "expires": "2026-10-25T05:00:00-04:00",
+        "ends": "2026-10-25T09:00:00-04:00",
+        "status": "Actual",
+        "messageType": "Alert",
+        "category": "Met",
+        "severity": "Minor",
+        "certainty": "Likely",
+        "urgency": "Expected",
+        "event": "Frost Advisory",
+        "sender": "w-nws.webmaster@noaa.gov",
+        "senderName": "NWS Mount Holly NJ",
+        "headline": "Frost Advisory issued October 24 at 2:04PM EDT until October 25 at 9:00AM EDT by NWS Mount Holly NJ",
+        "description": "* WHAT...Temperatures as low as 32 degrees will result in frost\nformation.\n\n* WHERE...Portions of central, northern, and southern New Jersey.\n\n* WHEN...From midnight tonight to 9 AM EDT Sunday.\n\n* IMPACTS...Frost could harm sensitive outdoor vegetation. Sensitive\noutdoor plants may be killed if left uncovered.",
+        "instruction": "Take steps now to protect tender plants from the cold.",
+        "response": "Prepare",
+        "note": null,
+        "parameters": {
+          "AWIPSidentifier": [
+            "NPWPHI"
+          ],
+          "WMOidentifier": [
+            "WWUS71 KPHI 241804"
+          ],
+          "NWSheadline": [
+            "FROST ADVISORY IN EFFECT FROM MIDNIGHT TONIGHT TO 9 AM EDT SUNDAY"
+          ],
+          "BLOCKCHANNEL": [
+            "EAS",
+            "NWEM",
+            "CMAS"
+          ],
+          "VTEC": [
+            "/O.NEW.KPHI.FR.Y.0010.261025T0400Z-261025T1300Z/"
+          ],
+          "eventEndingTime": [
+            "2026-10-25T09:00:00-04:00"
+          ]
+        },
+        "scope": "Public",
+        "code": "IPAWSv1.0",
+        "language": "en-US",
+        "web": "http://www.weather.gov",
+        "eventCode": {
+          "SAME": [
+            "NWS"
+          ],
+          "NationalWeatherService": [
+            "FRY"
+          ]
+        }
+      }
+    }
+  ],
+  "title": "Current watches, warnings, and advisories",
+  "updated": "2026-10-24T20:01:17+00:00"
+}

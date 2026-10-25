@@ -2,8 +2,8 @@
 // Shown when a Day by day row is opened.
 import { WORD_PLAIN, LIGHT_KEYS, WATER } from '../config.js';
 import { esc, hm, r0, card, dayKey } from '../format.js';
-import { fogLift, waterWhy, debrisLikely, flowNow, flowTrend, flowForecastAt, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept, aqiWord, flowForCall } from '../logic.js';
-import { fact, compassSVG, sparkline, oldFlow, noWater } from './parts.js';
+import { fogLift, waterWhy, debrisLikely, flowNow, flowTrend, flowForecastAt, waterTemp, waterOverridden, windVsCourse, sunFor, angDev, lvlExcept, aqiWord, flowForCall, still } from '../logic.js';
+import { fact, compassOf, compassCap, sparkline, oldFlow, noWater } from './parts.js';
 import { precipBlock } from './precip.js';
 
 function hoursTable(p, u) {
@@ -18,7 +18,7 @@ function hoursTable(p, u) {
 }
 
 export function forecastPanel(m, p) {
-  const S = m.S, hs = p.hs, { heading } = m.loc.course;
+  const S = m.S, hs = p.hs;
   const maxLvl = keys => Math.max(0, ...hs.flatMap(h => h.a.reasons.filter(x => keys.includes(x.key)).map(x => x.lvl)));
   const nums = k => hs.map(h => h[k]).filter(v => v != null && !isNaN(v));
   const shifting = hs.length > 1 && Math.max(...hs.map(h => angDev(h.dir, p.dir))) > 60;
@@ -33,7 +33,7 @@ export function forecastPanel(m, p) {
     const w = p.water;
     const range = w.min < w.max ? `${WATER.names[w.min]} at times, ${WATER.names[w.max].toLowerCase()} around ${hm(w.peakT)}. ` : '';
     const debris = p.dayKey === dayKey(m.now) && debrisLikely(m) ? ' River rising fast. Watch for floating debris.' : '';
-    f.push(fact('Water state', WATER.names[w.max], range + waterWhy(w.peak) + debris, 0, `#wind/${p.dayKey}`));
+    f.push(fact('Water state', WATER.names[w.max], range + waterWhy(w.peak, m) + debris, 0, `#wind/${p.dayKey}`));
   }
 
   f.push(fact('Air', m.u.tempRange(p.tmin, p.tmax),
@@ -82,8 +82,8 @@ export function forecastPanel(m, p) {
   return `<div class="forecast">
     <div class="now-grid">
       <figure class="compass">
-        <svg viewBox="-70 -70 140 140" role="img" aria-label="Forecast wind direction relative to the river">${compassSVG(heading, m.loc.banks, p.dir, p.avgWind)}</svg>
-        <figcaption>${shifting ? 'Wind shifting during this period.' : `Wind mostly from ${card(p.dir)}.`} River runs ${card(heading + 180)}, upstream heading ${heading}°.</figcaption>
+        <svg viewBox="-70 -70 140 140" role="img" aria-label="Forecast wind direction relative to the ${still(m.loc) ? 'lake' : 'river'}">${compassOf(m, p.dir, p.avgWind)}</svg>
+        <figcaption>${compassCap(m, shifting ? 'Wind shifting during this period' : `Wind mostly from ${card(p.dir)}`, shifting ? null : p.dir)}</figcaption>
       </figure>
       <div>
         <dl class="facts">${f.join('')}</dl>

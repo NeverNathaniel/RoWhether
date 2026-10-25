@@ -20,7 +20,7 @@ vi.mock('../src/units.js', async importOriginal => {
   const MARK = {
     speed: v => `S(${v})`, speedRange: (a, b) => `SR(${a},${b})`, temp: v => `T(${v})`, tempRange: (a, b) => `TR(${a},${b})`,
     tempSum: v => `TS(${v})`, tempDiff: v => `TD(${v})`, precip: v => `P(${v})`, rate: v => `R(${v})`,
-    vis: v => `V(${v})`, dist: v => `D(${v})`, flow: (v, unit) => `F(${v} ${String(unit).toUpperCase()})`, stage: v => `G(${v})`, aqi: v => `Q(${v})`,
+    vis: v => `V(${v})`, waterDist: v => `W(${v})`, dist: v => `D(${v})`, flow: (v, unit) => `F(${v} ${String(unit).toUpperCase()})`, stage: v => `G(${v})`, aqi: v => `Q(${v})`,
     flowUnit: unit => `FU(${String(unit).toUpperCase()})`,
     speedUnit: 'SU', tempUnit: 'TU', rateUnit: 'RU', visUnit: 'VU', visOff: 'VO', visCaution: 'VC'
   };
@@ -42,6 +42,13 @@ const PLAIN = resolveLocation({
 const METRIC = resolveLocation({
   ...PUTNEY_RECORD, slug: 'plain-m3s', copy: {}, flow: { ...PUTNEY_RECORD.flow, unit: 'm3s' }, sources: PUTNEY_RECORD.sources.map(noNote)
 }, { waterway: { ...PUTNEY_WATERWAY, sources: PUTNEY_WATERWAY.sources.map(noNote) } });
+
+// A lake with no course, no gauge and no notes: the distances it writes are the open water's.
+const LAKE_PLAIN = resolveLocation({
+  ...PUTNEY_RECORD, slug: 'plain-lake', copy: {}, waterType: 'lake', flow: null, banks: null, course: { kind: 'none' },
+  thresholds: { ...PUTNEY_RECORD.thresholds, flowCaution: undefined, flowOff: undefined, basis: undefined },
+  water: { mode: 'fetch', lake: { axis: 35, lengthM: 4800, widthM: 200 } }, sources: PUTNEY_RECORD.sources.filter(x => x.role === 'alerts').map(noNote)
+});
 
 // One string per piece of output the capture draws: the home screen, every view, every full forecast, the share text.
 function drawn(c, loc = PLAIN) {
@@ -166,5 +173,18 @@ describe('a helper with no model writes through the units it is given', () => {
   it('periodSummary writes the wind and the temperature ranges', () => {
     const p = { wmin: 6, wmax: 11, dir: 270, gmax: 17, tmin: 40, tmax: 55, pop: 20 };
     expect(periodSummary(p, given)).toBe('Wind GSR(6,11) W, gusts 17. GTR(40,55). Rain 20%.');
+  });
+});
+
+describe('still water writes its distances through m.u (P1.13)', () => {
+  const noon = CASES.find(c => c.name === 'june-calm-1200-default');
+
+  it('names the open water by waterDist in the compass caption, the water state and each full forecast, and types no mile', () => {
+    const { strings } = drawn(noon, LAKE_PLAIN);
+    const text = [...strings.values()].join('\n');
+    expect(US_UNIT.exec(text) && text.slice(US_UNIT.exec(text).index - 60, US_UNIT.exec(text).index + 40)).toBeNull();
+    expect(strings.get('home/compassCap.textContent.txt')).toMatch(/^Wind from \w+ across about W\([\d.]+\) of open water\.$/);
+    expect(strings.get('home/facts.innerHTML.html')).toMatch(/Wind from the \w+ (has about|crosses only about) W\([\d.]+\) of /);
+    expect([...strings].filter(([name, t]) => name.startsWith('forecasts/') && /across about W\([\d.]+\) of open water/.test(t)).length).toBeGreaterThan(0);
   });
 });

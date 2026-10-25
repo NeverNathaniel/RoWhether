@@ -4,12 +4,13 @@
 // as literals, so the golden files cannot tell a line that still has them from
 // one that reads the location. A place with other values can.
 import { describe, it, expect, afterEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { HOUR, MIN } from '../src/config.js';
 import { setZone } from '../src/format.js';
 import { effectiveSettings, resolveLocation, sourceRow } from '../src/location.js';
 import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
 import { app } from '../src/state.js';
-import { buildModel } from '../src/logic.js';
+import { buildModel, still } from '../src/logic.js';
 import { renderHero, renderNoData } from '../src/render/hero.js';
 import * as fog from '../src/render/detail/fog.js';
 import * as week from '../src/render/detail/week.js';
@@ -18,9 +19,12 @@ import { renderNow } from '../src/render/now.js';
 import { forecastPanel } from '../src/render/forecast.js';
 import { compassSVG, noWater } from '../src/render/parts.js';
 import * as wind from '../src/render/detail/wind.js';
+import { MODULES } from '../src/render/detail/views.js';
+import { viewsFor } from '../src/render/detail/index.js';
 import * as river from '../src/render/detail/river.js';
 import * as temperature from '../src/render/detail/temperature.js';
 import { shareText, initShare } from '../src/share.js';
+import { renderPlace } from '../src/render/header.js';
 import { installFakeDom, uninstallFakeDom } from './helpers/fakedom.js';
 import { wx, T0 } from './helpers/forecast.js';
 
@@ -33,6 +37,12 @@ const LAKE = resolveLocation({
 }, { waterway: PUTNEY_WATERWAY });
 // A record with no banks has them generated from its heading (P1.11), so a place with none is one taken off after.
 const NO_BANKS = { ...resolveLocation({ ...PUTNEY_RECORD, slug: 'lake-y', course: { ...PUTNEY_RECORD.course, heading: 100 }, banks: null }, { waterway: PUTNEY_WATERWAY }), banks: null };
+
+// A place on still water with the water it is given, a course of 166 degrees and banks made from it.
+const still1 = water => resolveLocation({
+  ...PUTNEY_RECORD, slug: 'still-x', waterType: 'lake', flow: null, sources: PUTNEY_RECORD.sources.filter(x => x.role === 'alerts'),
+  course: { kind: 'heading', heading: 166, reachWord: null, confirmed: false }, banks: null, water: { mode: 'fetch', ...water }
+});
 
 // A place with its own gauges and station, its own words for the river, a flow
 // in cubic metres a second, and a name. Putney's notes name Northfield, North
@@ -743,5 +753,233 @@ describe('a source that is absent here or past its limit', () => {
       expect(html).not.toMatch(/Not available here|flow is not checked|Flow is not checked/);
       expect(/No concerns from ([^.]*)\./.exec(html)[1]).toMatch(/river/);
     });
+  });
+});
+
+// ---------- Still water on screen (P1.13; 01 9.3, 10.5) ----------
+describe('still water', () => {
+  const readJson = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'));
+  const place = slug => resolveLocation(readJson(`data/locations/${slug}.json`), { waterway: readJson(`data/waterways/${slug}.json`) });
+  const SLUGS = ['lake-quinsigamond', 'lake-natoma', 'lake-carnegie'];
+  const LAKES = Object.fromEntries(SLUGS.map(s => [s, place(s)]));
+  // What a lake is given: no flow of any kind, and at Natoma a water temperature from its river gauge row.
+  const NOFLOW = { river: undefined, flow: undefined, flowDays: undefined, flowFcst: undefined };
+  const dataFor = slug => (slug === 'lake-natoma' ? { ...NOFLOW, river: { waterC: { v: 20, t: NOW } } } : NOFLOW);
+  const lakeScreen = slug => screen(LAKES[slug], NOW, { data: dataFor(slug) });
+  const carnegie = LAKES['lake-carnegie'];
+  const ellipse = svg => { const m = /<ellipse class="c-river" rx="([^"]+)" ry="([^"]+)" transform="rotate\(([^)]+)\)"\/>/.exec(svg); return m && { rx: +m[1], ry: +m[2], turn: +m[3] }; };
+
+  describe('the compass with no course', () => {
+    it("draws the lake as an ellipse along its axis, with rx 50 and ry 6 for Carnegie's 200 by 4,800 m", () => {
+      const svg = compassSVG(undefined, null, 200, 8, carnegie.water);
+      expect(svg).toContain('<ellipse class="c-river" rx="50" ry="6" transform="rotate(-55)"/>');
+      // The wind arrow is drawn as for a river.
+      expect(svg).toContain('<g transform="rotate(200)"><line class="c-wind"');
+    });
+
+    it('lies along the axis: its long side, laid east and turned, points at the bearing of the axis', () => {
+      for (const axis of [0, 31, 35, 90, 166, 179]) {
+        const e = ellipse(compassSVG(null, null, null, null, { lake: { axis, lengthM: 6000, widthM: 600 } }));
+        expect((90 + e.turn + 720) % 360, `axis ${axis}`).toBe(axis);
+        expect(e.rx).toBeGreaterThan(e.ry);
+      }
+    });
+
+    it('draws ry as 50 times the width over the length, to one decimal, and at least 6', () => {
+      const ry = (lengthM, widthM) => ellipse(compassSVG(null, null, null, null, { lake: { axis: 0, lengthM, widthM } })).ry;
+      expect([ry(1000, 500), ry(1000, 300), ry(6600, 1000), ry(1000, 100), ry(6600, 370), ry(4800, 200)]).toEqual([25, 15, 7.6, 6, 6, 6]);
+    });
+
+    it('draws no river bar, no flow arrow and no bank labels, whatever banks it is given', () => {
+      const svg = compassSVG(undefined, { word: 'shore', left: { short: 'W', name: 'west' }, right: { short: 'E', name: 'east' } }, 200, 8, carnegie.water);
+      expect(svg).not.toMatch(/c-bank|c-flow|<rect class="c-river"|<g transform="rotate\(-?[\d.]+\)"><rect/);
+    });
+
+    it('draws a circle of radius 50 when only a size is known, and no shape at all when there is neither', () => {
+      expect(compassSVG(undefined, null, null, null, { fetchM: 2000 })).toContain('<circle class="c-river" r="50"/>');
+      expect(compassSVG(undefined, null, null, null, { fetchM: 2000, lake: null })).not.toContain('<ellipse');
+      for (const water of [{ fetchM: null }, { fetchM: Array(16).fill(500) }, {}, undefined]) {
+        expect(compassSVG(undefined, null, null, null, water), JSON.stringify(water)).not.toMatch(/<ellipse|<circle class="c-river"|<rect/);
+      }
+    });
+
+    it('still draws the course bar and the shore labels for a heading course on still water, without the flow arrow of a river', () => {
+      const q = LAKES['lake-quinsigamond'];
+      const svg = compassSVG(q.course.heading, q.banks, null, null, q.water);
+      expect(svg).toContain('<g transform="rotate(166)"><rect class="c-river"');
+      expect(svg).toContain('c-bank');
+      expect(svg).not.toMatch(/<ellipse|c-flow/);
+      // A river keeps its arrow, with or without the water it is given.
+      expect(compassSVG(15, PUTNEY.banks, null, null, PUTNEY.water)).toContain('c-flow');
+      expect(compassSVG(15, PUTNEY.banks, null, null)).toContain('c-flow');
+    });
+
+    it("leaves a river's compass as it was, with or without a water argument", () => {
+      expect(compassSVG(15, PUTNEY.banks, 200, 8, PUTNEY.water)).toBe(compassSVG(15, PUTNEY.banks, 200, 8));
+    });
+  });
+
+  describe('On the water now', () => {
+    it("at Carnegie draws the lake and says only the direction and the fetch across it, with no river words", () => {
+      const { dom } = lakeScreen('lake-carnegie');
+      renderNow();
+      expect(ellipse(dom.el('compass').innerHTML)).toEqual({ rx: 50, ry: 6, turn: -55 });
+      expect(dom.el('compass').innerHTML).not.toMatch(/c-bank|c-flow/);
+      // The wind of the fixture at noon is from 190 degrees, 155 off the axis: a short reach.
+      expect(dom.el('compassCap').textContent).toBe('Wind from S across about 0.3 mi of open water.');
+      const wind = dom.el('facts').textContent;
+      expect(wind).toMatch(/Wind\d+ mph, gusts \d+From S\.(?!\s*(Headwind|Tailwind|Crosswind|Near calm))/);
+      expect(wind).not.toMatch(/Headwind|Tailwind|Crosswind|upstream|River runs/);
+      expect(dom.el('facts').textContent).toContain('Wind from the S crosses only about 0.3 mi of water, so chop stays small.');
+    });
+
+    it('says the length of the reach from the lake for each lake, along the wind of the day', () => {
+      const caps = SLUGS.map(slug => { const { dom } = lakeScreen(slug); renderNow(); return dom.el('compassCap').textContent; });
+      expect(caps[0]).toBe('Wind from S across about 0.6 mi of open water.');
+      expect(caps[1]).toBe('Wind from S across about 0.4 mi of open water.');
+      expect(caps[2]).toBe('Wind from S across about 0.3 mi of open water.');
+    });
+
+    it('says only the direction when the fetch is one size for every direction, and when it is the reference', () => {
+      for (const water of [{ fetchM: 2000 }, {}]) {
+        const { dom } = screen(still1(water), NOW, { data: NOFLOW });
+        renderNow();
+        expect(dom.el('compassCap').textContent, JSON.stringify(water)).toBe('Wind from S.');
+      }
+    });
+
+    it('says the open water for 16 measured distances, from the nearest', () => {
+      const water = { fetchM: Array.from({ length: 16 }, (_, i) => 800 + i * 400) };
+      const { dom } = screen(still1(water), NOW, { data: NOFLOW });
+      renderNow();
+      // 190 degrees rounds to the 8th bin (180), 800 + 8 * 400 = 4,000 m.
+      expect(dom.el('compassCap').textContent).toBe('Wind from S across about 2.5 mi of open water.');
+    });
+
+    it('keeps the river line on a river and on a river with banks, where the heading is named', () => {
+      const { dom } = screen(PUTNEY);
+      renderNow();
+      expect(dom.el('compassCap').textContent).toBe('Wind from S. River runs SSW, upstream heading 15°.');
+    });
+
+    it('has no river words and no broken value for any of the three lakes', () => {
+      for (const slug of SLUGS) {
+        const { dom } = lakeScreen(slug);
+        renderNow();
+        const text = [dom.el('compass').innerHTML, dom.el('compassCap').textContent, dom.el('facts').textContent, dom.el('nowPrecip').textContent].join('\n');
+        expect(text, slug).not.toMatch(BROKEN);
+        expect(text, slug).not.toMatch(/River runs|River rising|upstream heading/);
+        expect(dom.el('facts').textContent, slug).not.toContain('River flow');
+      }
+    });
+
+    it('labels the compass for the lake, once the place is drawn, and for the river again after a lake', () => {
+      const dom = installFakeDom({ width: 390 });
+      app.deviceTz = 'America/New_York';
+      renderPlace(carnegie);
+      expect(dom.el('compass').getAttribute('aria-label')).toBe('Wind direction relative to the lake');
+      renderPlace(PUTNEY);
+      expect(dom.el('compass').getAttribute('aria-label')).toBe('Wind direction relative to the river');
+      renderPlace(LAKES['lake-natoma']);
+      expect(dom.el('compass').getAttribute('aria-label')).toBe('Wind direction relative to the lake');
+      renderPlace(null);
+      expect(dom.el('compass').getAttribute('aria-label')).toBe('Wind direction relative to the lake');
+    });
+  });
+
+  describe('a full forecast', () => {
+    // A wind from 190 degrees all day, so a period has one direction and says "mostly".
+    const steady = { wx: wx(() => ({ wind: 8, gust: 10, dir: 190 }), 3, T0) };
+    const panels = (slug, data = steady) => { const { m } = screen(LAKES[slug], NOW, { data: { ...dataFor(slug), ...data } }); return m.days.flatMap(d => d.periods).filter(p => !p.past).map(p => forecastPanel(m, p)); };
+
+    it('at Carnegie draws the lake and says how far the wind reaches, with no river words', () => {
+      const [html] = panels('lake-carnegie');
+      expect(html).toContain('<ellipse class="c-river" rx="50" ry="6" transform="rotate(-55)"/>');
+      expect(html).toContain('aria-label="Forecast wind direction relative to the lake"');
+      expect(html).toMatch(/<figcaption>Wind mostly from S across about 0\.3 mi of open water\.<\/figcaption>/);
+      expect(html).not.toMatch(/River runs|upstream heading|Headwind|Tailwind|Crosswind/);
+    });
+
+    it('says the wind is shifting without a distance, since it has no one direction', () => {
+      const { m } = screen(LAKES['lake-carnegie'], NOW, { data: NOFLOW });
+      const p = m.days.flatMap(d => d.periods).find(x => !x.past);
+      const html = forecastPanel(m, { ...p, hs: p.hs.map((h, i) => ({ ...h, dir: i % 2 ? 10 : 190 })), dir: 190 });
+      expect(html).toContain('<figcaption>Wind shifting during this period.</figcaption>');
+    });
+
+    it("keeps Putney's river caption and label", () => {
+      const { m } = screen(PUTNEY);
+      const html = forecastPanel(m, m.days.flatMap(d => d.periods).find(x => !x.past));
+      expect(html).toContain('aria-label="Forecast wind direction relative to the river"');
+      expect(html).toMatch(/<figcaption>Wind (mostly from \w+|shifting during this period)\. River runs SSW, upstream heading 15°\.<\/figcaption>/);
+    });
+
+    it('has no river words and no broken value, in any period of any day, for any of the three lakes, steady wind or shifting', () => {
+      for (const slug of SLUGS) {
+        const list = [...panels(slug), ...panels(slug, {})];
+        expect(list.length, slug).toBeGreaterThanOrEqual(6);
+        for (const html of list) {
+          expect(html, slug).not.toMatch(BROKEN);
+          expect(html, slug).not.toMatch(/River runs|River rising|upstream heading/);
+        }
+      }
+    });
+  });
+
+  describe('every view', () => {
+    it('draws for each lake with no undefined, no NaN and no "River runs"', () => {
+      for (const slug of SLUGS) {
+        const { m } = lakeScreen(slug);
+        const keys = viewsFor(LAKES[slug]).map(v => v.key);
+        expect(keys, slug).toHaveLength(8);
+        for (const key of keys) {
+          for (const day of [null, m.days[1].key]) {
+            const html = MODULES[key].render(m, day).html;
+            expect(html, `${slug} ${key}`).not.toMatch(BROKEN);
+            expect(html, `${slug} ${key}`).not.toMatch(/River runs|upstream heading/);
+          }
+        }
+      }
+    });
+
+    it("keeps Putney's river words in the views and the full forecast", () => {
+      const { m } = screen(PUTNEY);
+      expect(wind.render(m).html).toContain('with the river running up the page');
+      expect(forecastPanel(m, m.days.flatMap(d => d.periods).find(x => !x.past))).toContain('River runs SSW');
+    });
+  });
+
+  describe('the Wind view', () => {
+    it('at Carnegie draws no wind arrows and no Course column, and says why in How this works', () => {
+      const html = wind.render(lakeScreen('lake-carnegie').m).html;
+      expect(html).not.toMatch(/carrow|Direction on the course/);
+      expect(html).not.toContain('<th scope="col">Course</th>');
+      expect(html).not.toMatch(/Headwind|Tailwind|Cross\b/);
+      expect(html).toContain('Head and crosswind are not shown because no course is set here.');
+      expect(html).not.toMatch(/course heading is|upstream|river running/);
+      expect(html).not.toMatch(BROKEN);
+      // The table still has its other columns, and its water column.
+      expect(html).toContain('<th scope="col">From</th><th scope="col">Water</th>');
+    });
+
+    it('at Quinsigamond, which has a heading, draws the arrows and the Course column', () => {
+      const html = wind.render(lakeScreen('lake-quinsigamond').m).html;
+      expect(html).toContain('class="carrow"');
+      expect(html).toContain('<th scope="col">From</th><th scope="col">Course</th><th scope="col">Water</th>');
+      expect(html).toContain('The course heading is 166°, set in Settings.');
+      expect(html).not.toMatch(BROKEN);
+    });
+
+    it('explains the chop of still water by the fetch, and the river\'s chop by the straight', () => {
+      expect(wind.render(lakeScreen('lake-carnegie').m).html).toMatch(/It follows the wind and how far the wind has blown over open water, which is called fetch: a longer reach builds bigger waves\. It blends the last three hours, since chop takes time to build and settle\./);
+      const river = wind.render(screen(PUTNEY).m).html;
+      expect(river).toContain('Wind along the straight counts fully and crosswind counts for less. It blends the last three hours, since chop takes time to build and settle, and goes up when wind blows against a strong current.');
+      expect(river).not.toContain('fetch');
+    });
+  });
+
+  it('reads the lakes as still water and Putney as not', () => {
+    expect(SLUGS.map(s => still(LAKES[s]))).toEqual([true, true, true]);
+    expect(still(PUTNEY)).toBe(false);
   });
 });

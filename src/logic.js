@@ -2,7 +2,8 @@
 // Nothing here touches the DOM or storage, so it can be unit tested.
 import SunCalc from 'suncalc';
 import { HOUR, MIN, LIGHT_KEYS, FOG, PERIODS, WATER, AQI, CONFIDENCE } from './config.js';
-import { zoneFormat, hm, r0, cToF } from './format.js';
+import { zoneFormat, hm, r0, cToF, card } from './format.js';
+import { fetchAt, fetchFactor } from './location.js';
 import { unitFormat } from './units.js';
 
 // ---------- Sun ----------
@@ -88,8 +89,11 @@ function crosswind(banks, rel) {
   if (!banks) return 'Crosswind.';
   return `Crosswind off the ${(rel > 0 ? banks.right : banks.left).name} ${banks.word}.`;
 }
+// Still water: no current, and the fetch sets the chop (01 9.3).
+export const still = loc => loc.water.mode === 'fetch';
+// No sentence with no course set (01 10.1): the lake has no head or crosswind.
 export function windVsCourse(m, dir, speed) {
-  if (speed == null || dir == null) return '';
+  if (speed == null || dir == null || m.loc.course.kind !== 'heading') return '';
   if (Math.round(speed) < 3) return 'Near calm on the course.';
   const course = m.loc.course;
   const rel = relWind(dir, course.heading);
@@ -99,7 +103,7 @@ export function windVsCourse(m, dir, speed) {
   if (c >= 0.5) s = 'Headwind rowing upstream, tailwind coming back.';
   else if (c <= -0.5) s = 'Tailwind rowing upstream, headwind coming back.';
   else s = crosswind(m.loc.banks, rel);
-  if (Math.abs(c) >= 0.5 && along >= 8) s += ` Chop builds along the ${course.reachWord || 'course'}.`;
+  if (Math.abs(c) >= 0.5 && along >= 8 && !still(m.loc)) s += ` Chop builds along the ${course.reachWord || 'course'}.`;
   const f = flowForCall(m);
   if (c <= -0.5 && along >= 8 && f != null && f >= Math.min(...againstSteps(m).map(([cfs]) => cfs))) s += ' Wind against current steepens it.';
   return s;
@@ -116,6 +120,10 @@ export function angDev(a, b) { return Math.abs(((a - b + 540) % 360) - 180); }
 // raised when the wind blows upstream against a strong current.
 export function chopWind(m, h) {
   if (h.wind == null || h.dir == null) return null;
+  if (still(m.loc)) {
+    const w = m.loc.water, fetchM = fetchAt(w, h.dir);
+    return { e: h.wind * fetchFactor(w, fetchM), fetchM, dir: h.dir, against: false };
+  }
   const rel = relWind(h.dir, m.loc.course.heading) * Math.PI / 180;
   const along = Math.abs(h.wind * Math.cos(rel)), cross = Math.abs(h.wind * Math.sin(rel));
   let e = along + m.loc.water.cross * cross;
@@ -137,7 +145,7 @@ export function waterState(m, h, prev) {
   const es = [now.e, ...prev.map(p => (p ? p.e : now.e))];
   const eff = es.reduce((a, e, i) => a + e * WATER.blend[i], 0);
   const lvl = WATER.levels.filter(x => eff >= x).length;
-  return { lvl, eff, now: now.e, axis: now.axis, against: now.against };
+  return { lvl, eff, now: now.e, axis: now.axis, against: now.against, ...(now.fetchM && { fetchM: now.fetchM, dir: now.dir }) };
 }
 
 // True when the river rose fast enough recently to bring down debris.
@@ -148,10 +156,14 @@ export function debrisLikely(m) {
 }
 
 // One sentence on why the water is the way it is.
-export function waterWhy(ws) {
+export function waterWhy(ws, m) {
   if (!ws) return '';
   const parts = [];
-  if (ws.lvl === 0) parts.push(ws.now < 3 ? 'Little wind on the water.' : 'Not enough wind along the straight to build chop.');
+  if (ws.fetchM != null) {
+    const open = ws.fetchM >= 1000, dist = m.u.waterDist(ws.fetchM), from = card(ws.dir);
+    parts.push(ws.lvl === 0 && ws.now < 3 && open ? 'Little wind on the water.'
+      : open ? `Wind from the ${from} has about ${dist} of open water to build waves.` : `Wind from the ${from} crosses only about ${dist} of water, so chop stays small.`);
+  } else if (ws.lvl === 0) parts.push(ws.now < 3 ? 'Little wind on the water.' : 'Not enough wind along the straight to build chop.');
   else if (ws.axis === 'along') parts.push('Wind runs along the straight, with a long reach to build waves.');
   else parts.push('Mostly crosswind. It only crosses the width of the river, so chop stays smaller.');
   if (ws.eff < ws.now * 0.8) parts.push('Building.');

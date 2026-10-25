@@ -1,0 +1,60 @@
+{
+  "v": 1,
+  "id": "aaa14756-a9cd-4270-8ae7-6db7d94445b8",
+  "slug": "lake-natoma",
+  "name": "Lake Natoma",
+  "shortName": "Natoma",
+  "subtitle": "Lake Natoma above Nimbus Dam. Releases from Folsom Dam can change the current.",
+  "locality": "Gold River, CA",
+  "waterway": "lake-natoma",
+  "lat": 38.63453,
+  "lon": -121.21918,
+  "tz": "America/Los_Angeles",
+  "tzLabel": null,
+  "country": "US",
+  "region": "US-CA",
+  "waterType": "reservoir",
+  "course": {
+    "kind": "heading",
+    "heading": 31,
+    "reachWord": null,
+    "confirmed": false,
+    "note": "Estimate along the lake from the aquatic center. Not checked on the water."
+  },
+  "banks": null,
+  "thresholds": {
+    "windCaution": 10, "windOff": 15, "gustCaution": 18, "gustOff": 25,
+    "rainCaution": 60, "rainOff": 90, "coldCombined": 100,
+    "aqiCaution": 151, "aqiOff": 201
+  },
+  "aqiScale": "us",
+  "flow": null,
+  "water": { "mode": "fetch", "refFetchM": 2000, "lake": { "axis": 31, "lengthM": 9700, "widthM": 230 }, "fetchM": null },
+  "fog": null,
+  "waterTemp": { "fallback": "none", "maxAgeH": 72 },
+  "tide": null,
+  "daylight": null,
+  "copy": {
+    "description": "Go, caution or stay off: rowing conditions on Lake Natoma, Gold River, CA.",
+    "credits": "Forecast from [Open-Meteo](https://open-meteo.com/). Alerts and Mather airport observations from the [National Weather Service, Sacramento](https://www.weather.gov/sto/). Water temperature from USGS gauge [11446500 at Fair Oaks](https://waterdata.usgs.gov/monitoring-location/USGS-11446500/). Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo."
+  },
+  "launchNotes": null,
+  "status": "published",
+  "sources": [
+    {
+      "role": "alerts", "adapter": "nws-alerts", "ref": "zones:CAZ154,CAC067", "label": "NWS"
+    },
+    {
+      "role": "obs", "adapter": "nws-obs", "ref": "KMHR", "label": "Mather",
+      "note": "Mather airport, 6 mi southwest. A check on the model.",
+      "siteLat": 38.55996, "siteLon": -121.28397, "distanceM": 10023, "relation": "nearby"
+    },
+    {
+      "role": "water_temp", "mode": "primary", "adapter": "usgs-ogc", "ref": "USGS-11446500",
+      "params": { "parameterCode": "00010" }, "unit": "degC", "tz": "America/Los_Angeles",
+      "label": "Fair Oaks",
+      "note": "USGS gauge on the American River just below Nimbus Dam, about 0.5 mi west. It measures water leaving the lake.",
+      "siteLat": 38.63544, "siteLon": -121.22769, "distanceM": 746, "relation": "downstream"
+    }
+  ]
+}

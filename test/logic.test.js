@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { HOUR, MIN } from '../src/config.js';
 import { dayKey, localHour, lowerFirst } from '../src/format.js';
-import { precipKind, rateWord, precipSummary, buildModel, sunOn, uvWord, rowingHours, callRuns, factorRuns, worstReasons, aqiWord, confidence, confidenceText, planSessions, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity, flowNow, flowForCall, waterTemp, waterSource, waterOverridden, bound, notChecked, notCheckedText } from '../src/logic.js';
+import { precipKind, rateWord, precipSummary, buildModel, sunOn, uvWord, rowingHours, callRuns, factorRuns, worstReasons, aqiWord, confidence, confidenceText, planSessions, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity, flowNow, flowForCall, waterTemp, waterSource, waterOverridden, bound, notChecked, notCheckedText, still } from '../src/logic.js';
 import { parseAlerts, parseObs, alertLevel } from '../src/sources/nws.js';
 import { parseRiver, parseFlow, parseFlowDays } from '../src/sources/usgs.js';
 import { parseFlowForecast } from '../src/sources/nwps.js';
@@ -9,6 +10,7 @@ import { parseAQ, parseModels } from '../src/sources/openmeteo.js';
 import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
 import { resolveLocation, effectiveSettings } from '../src/location.js';
 import { bindingsFor } from '../src/sources/index.js';
+import { viewsFor } from '../src/render/detail/index.js';
 import { T0, wx } from './helpers/forecast.js';
 
 // Putney's limits as the app holds them, without the heading (it lives in the course).
@@ -1094,5 +1096,170 @@ describe('what is not checked', () => {
       expect(t({ key: 'flow', why: 'old', since: NOON - 50 * H }, { key: 'alerts', why: 'none' }, { key: 'alerts', why: 'old', since: NOON - 3 * H }))
         .toBe('Not checked here: official alerts. River flow not checked: the gauge has not reported for 2 days. Official alerts not checked: no answer from NWS for 3 hours.');
     });
+  });
+});
+
+// ---------- Still water (P1.13; 01 9.3) ----------
+const readJson = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'));
+const lakeRecord = slug => readJson(`data/locations/${slug}.json`);
+const lakeLoc = slug => resolveLocation(lakeRecord(slug), { waterway: readJson(`data/waterways/${slug}.json`) });
+// A place on still water with the water the test gives it, a heading course or none, in Eastern time.
+const still1 = (water, course = { kind: 'heading', heading: 166, reachWord: null, confirmed: false }) => resolveLocation({
+  ...lakeRecord('lake-quinsigamond'), course, banks: null, water: { mode: 'fetch', ...water }
+}, { waterway: readJson('data/waterways/lake-quinsigamond.json') });
+const lakeModel = (loc, over) => buildModel(loc, { wx: wx(over), river: {} }, effectiveSettings(loc), NOON);
+
+describe('chop on still water (01 9.3)', () => {
+  const chop = (water, wind, dir) => chopWind(lakeModel(still1(water)), { wind, dir });
+
+  it('takes a share of the wind that grows with the fetch: 0.27 at 150 m, 1.0 at 2 km, 2.0 at 10 km', () => {
+    expect([150, 2000, 10000].map(f => +(chop({ fetchM: f }, 10, 0).e / 10).toFixed(2))).toEqual([0.27, 1, 2]);
+  });
+
+  it('floors the share at a quarter and caps it at 2', () => {
+    expect(chop({ fetchM: 20 }, 10, 0).e).toBe(2.5);
+    expect(chop({ fetchM: 80000 }, 10, 0).e).toBe(20);
+  });
+
+  it('has no current: no multiplier at any flow, and no along or cross', () => {
+    const m = buildModel(still1({ fetchM: 2000 }), { wx: wx(() => ({ wind: 10, dir: 166 })), river: { flow: { v: 90000, t: NOON } } }, { ...SETTINGS, flowCaution: 20000 }, NOON);
+    const c = chopWind(m, { wind: 10, dir: 166 });
+    expect(c).toEqual({ e: 10, fetchM: 2000, dir: 166, against: false });
+  });
+
+  it("builds more chop along Quinsigamond's long axis than across it, from its 6,600 by 370 m ellipse", () => {
+    const m = lakeModel(lakeLoc('lake-quinsigamond'));
+    const along = chopWind(m, { wind: 12, dir: 166 }), across = chopWind(m, { wind: 12, dir: 76 });
+    expect(Math.round(along.fetchM)).toBe(6600);
+    expect(Math.round(across.fetchM)).toBe(370);
+    expect(along.e).toBeCloseTo(12 * Math.sqrt(3.3), 6);
+    expect(across.e).toBeCloseTo(12 * Math.sqrt(0.185), 6);
+    expect(along.e).toBeGreaterThan(2 * across.e);
+  });
+
+  it('keeps the fetch and the wind direction in the water state, and nothing of a river', () => {
+    const m = lakeModel(still1({ fetchM: 2000 }), () => ({ wind: 12, dir: 225 }));
+    const w = hourAt(m, 12).water;
+    expect(w).toMatchObject({ lvl: 2, fetchM: 2000, dir: 225, against: false });
+    expect(w.axis).toBeUndefined();
+    // Putney's water state has none of it.
+    const river = hourAt(model(() => ({ wind: 12, dir: 225 })), 12).water;
+    expect(Object.keys(river).sort()).toEqual(['against', 'axis', 'eff', 'lvl', 'now']);
+    expect(still(PUTNEY)).toBe(false);
+    expect(still(still1({}))).toBe(true);
+  });
+
+  it('keeps the levels at 5, 9 and 13 mph of chop wind: a 2 km fetch is as Putney reads along the straight', () => {
+    const lvl = u => hourAt(lakeModel(still1({ fetchM: 2000 }), () => ({ wind: u, dir: 0 })), 12).water.lvl;
+    expect([4, 7, 10, 14].map(lvl)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('has no chop from a heading course alone: the same wind from any side gives the same chop on a size class', () => {
+    const e = d => chopWind(lakeModel(still1({ fetchM: 750 })), { wind: 10, dir: d }).e;
+    expect([e(0), e(100), e(166), e(250)].every(v => v === e(0))).toBe(true);
+  });
+});
+
+describe('what the water state says on still water', () => {
+  const why = (water, wind, dir, course) => {
+    const m = lakeModel(still1(water, course), () => ({ wind, dir }));
+    return waterWhy(hourAt(m, 12).water, m);
+  };
+
+  it('says how much open water the wind has to build waves, from 1,000 m', () => {
+    expect(why({ fetchM: 2414 }, 12, 225)).toBe('Wind from the SW has about 1.5 mi of open water to build waves.');
+    expect(why({ fetchM: 1000 }, 14, 270)).toBe('Wind from the W has about 0.6 mi of open water to build waves.');
+  });
+
+  it('says the water is short, under 1,000 m, and chop stays small', () => {
+    expect(why({ fetchM: 600 }, 12, 315)).toBe('Wind from the NW crosses only about 0.4 mi of water, so chop stays small.');
+    expect(why({ fetchM: 999 }, 12, 315)).toBe('Wind from the NW crosses only about 0.6 mi of water, so chop stays small.');
+  });
+
+  it('says there is little wind only where the fetch is long enough for that to be the reason', () => {
+    expect(why({ fetchM: 2000 }, 2, 225)).toBe('Little wind on the water.');
+    expect(why({ fetchM: 600 }, 2, 225)).toMatch(/^Wind from the SW crosses only about 0\.4 mi/);
+  });
+
+  it('takes its distance from the ellipse of the lake, along the wind', () => {
+    const m = lakeModel(lakeLoc('lake-quinsigamond'), () => ({ wind: 12, dir: 166 }));
+    expect(waterWhy(hourAt(m, 12).water, m)).toBe('Wind from the SSE has about 4.1 mi of open water to build waves.');
+  });
+
+  it('says the same on a course with no heading, and says Building while chop builds', () => {
+    const m = lakeModel(still1({ fetchM: 2000 }, { kind: 'none' }), (i, t) => (t >= NOON ? { wind: 12, dir: 225 } : { wind: 1, dir: 225 }));
+    expect(waterWhy(hourAt(m, 12).water, m)).toBe('Wind from the SW has about 1.2 mi of open water to build waves. Building.');
+  });
+
+  it("leaves a river's sentences as they were, whatever it is given besides the state", () => {
+    const m = model(() => ({ wind: 14, dir: 105 }));
+    expect(waterWhy(hourAt(m, 12).water, m)).toMatch(/^Mostly crosswind/);
+    expect(waterWhy(hourAt(m, 12).water)).toMatch(/^Mostly crosswind/);
+  });
+});
+
+describe('wind against the course on still water', () => {
+  const course = { kind: 'heading', heading: 166, reachWord: null, confirmed: false };
+
+  it('gives no sentence with no course set, at any speed, since a lake has no head or crosswind', () => {
+    const m = lakeModel(still1({ fetchM: 2000 }, { kind: 'none' }));
+    for (const speed of [0, 2, 6, 12, 30]) expect(windVsCourse(m, 200, speed), String(speed)).toBe('');
+    expect(windVsCourse(m, null, 8)).toBe('');
+  });
+
+  it('gives the head or crosswind sentence on a heading course, without the river\'s chop line', () => {
+    const m = lakeModel(still1({ fetchM: 2000 }, course));
+    expect(windVsCourse(m, 166, 12)).toBe('Headwind rowing upstream, tailwind coming back.');
+    expect(windVsCourse(m, 346, 12)).toBe('Tailwind rowing upstream, headwind coming back.');
+    // The banks are shores, named by the compass: the right side of a 166 degree heading faces 256 (west).
+    expect(windVsCourse(m, 256, 12)).toBe('Crosswind off the west shore.');
+    expect(windVsCourse(m, 76, 12)).toBe('Crosswind off the east shore.');
+    expect(windVsCourse(m, 200, 2)).toBe('Near calm on the course.');
+  });
+
+  it("still adds a river's chop line on a river, as before", () => {
+    const m = model(() => ({ wind: 12, dir: 15 }));
+    expect(windVsCourse(m, 15, 12)).toBe('Headwind rowing upstream, tailwind coming back. Chop builds along the straight.');
+  });
+});
+
+describe('the three lakes have no river', () => {
+  const SLUGS = ['lake-quinsigamond', 'lake-natoma', 'lake-carnegie'];
+
+  it('are still water, with no flow binding, no flow limit and no River tab', () => {
+    for (const slug of SLUGS) {
+      const loc = lakeLoc(slug);
+      expect([slug, still(loc), loc.sources.flow, loc.flow], slug).toEqual([slug, true, undefined, null]);
+      expect(viewsFor(loc).map(v => v.key), slug).toEqual(['week', 'wind', 'storms', 'fog', 'temperature', 'rain', 'light', 'air']);
+      const slots = bindingsFor(loc, NOON).map(b => b.slot);
+      for (const slot of ['flow', 'flowDays', 'flowFcst']) expect(slots, `${slug} ${slot}`).not.toContain(slot);
+      expect(effectiveSettings(loc), slug).toMatchObject({ flowCaution: '', flowOff: '' });
+    }
+    // Natoma reads a water temperature from its river gauge row and nothing else of the river.
+    expect(bindingsFor(lakeLoc('lake-natoma'), NOON).map(b => b.slot)).toContain('river');
+    expect(bindingsFor(lakeLoc('lake-quinsigamond'), NOON).map(b => b.slot)).not.toContain('river');
+  });
+
+  it('give no flow reason and no debris warning, and name no river source as missing', () => {
+    for (const slug of SLUGS) {
+      const m = lakeModel(lakeLoc(slug), (i, t) => ({ wind: 8 + (i % 5), dir: 100 + (i % 7) * 20 }));
+      expect(m.hours.every(h => h.a.reasons.every(r => r.key !== 'flow')), slug).toBe(true);
+      expect(debrisLikely(m), slug).toBe(false);
+      expect(notChecked(m).map(x => x.key), slug).not.toContain('flow');
+    }
+  });
+
+  it('read every hour as water, with a chop level and the fetch', () => {
+    for (const slug of SLUGS) {
+      const m = lakeModel(lakeLoc(slug), () => ({ wind: 9, dir: 250 }));
+      expect(m.hours.every(h => h.water && h.water.fetchM > 0 && !Number.isNaN(h.water.eff)), slug).toBe(true);
+      expect(m.cur.water.fetchM, slug).toBeGreaterThan(0);
+    }
+  });
+
+  it("do not change Putney's chop: the same hour gives the same numbers through a river's formula", () => {
+    const m = model(() => ({ wind: 10, dir: 195 }));
+    const c = chopWind(m, { wind: 10, dir: 195 });
+    expect(c).toEqual({ e: 10, along: 10, cross: expect.closeTo(0, 6), axis: 'along', against: false });
   });
 });

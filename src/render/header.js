@@ -3,6 +3,7 @@
 // none is open): its name, subtitle, badge, credits and the install sentence.
 import { app, $ } from '../state.js';
 import { hm, dayKey, weekday, monthDay, linkText } from '../format.js';
+import { still } from '../logic.js';
 
 // "Saved 6:41 AM", with the day when the copy is from an earlier one in the
 // location's zone: "Saved Mon 6:41 AM" for the six days before, then "Saved Oct 14, 6:41 AM".
@@ -52,6 +53,7 @@ export function renderPlace(loc) {
   $('locBadges').hidden = loc?.status !== 'published';
   $('credits').hidden = !credits;
   $('credits').innerHTML = linkText(credits);
+  if (loc) $('compass').setAttribute('aria-label', `Wind direction relative to the ${still(loc) ? 'lake' : 'river'}`);
   // The install bar says where the app opens (07 6.4).
   $('installText').textContent = `Add RoWhether to your home screen. ${loc ? `It opens on ${name} in one tap.` : 'It opens full screen in one tap.'}`;
   document.title = loc ? `${name} rowing conditions` : name;

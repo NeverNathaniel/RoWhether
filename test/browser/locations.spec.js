@@ -13,10 +13,13 @@ const scenario = SCENARIOS['june-calm'];
 const clock = scenario.clock(12);
 const BUILT = JSON.parse(readFileSync(new URL('../../dist/locations/index.json', import.meta.url), 'utf8')).locations;
 const RIVER_TABS = ['Now', 'Week', 'Wind', 'River', 'Storms', 'Fog', 'Temperature', 'Rain', 'Light', 'Air'];
+// Still water has no River tab (01 9.7).
+const LAKE_TABS = RIVER_TABS.filter(t => t !== 'River');
 
-// What each location shows (plan 4.1). `station`, `gauge` and `lid` are the ids its requests carry,
-// `obs` is the name its observation goes by, `flow` is whether it has a River flow fact, and
-// `credits` are the links under the footer's first sentence (Putney's are in picker.spec.js).
+// What each location shows (plan 4.1). `station`, `gauge` and `lid` are the ids its requests carry
+// (a lake has no `lid`, and only Natoma has a `gauge`, for its water temperature), `obs` is the name
+// its observation goes by, `flow` is whether it has a River flow fact, and `credits` are the links
+// under the footer's first sentence (Putney's are in picker.spec.js).
 const PLACES = {
   'putney-landing': {
     name: 'Putney Landing', sub: 'Connecticut River at the Putney Rowing Club docks. All times Eastern.', badge: false,
@@ -42,6 +45,25 @@ const PLACES = {
       ['01474500 at Philadelphia', 'https://waterdata.usgs.gov/monitoring-location/USGS-01474500/'],
       ['NWS Middle Atlantic River Forecast Center', 'https://water.noaa.gov/gauges/padp1']
     ]
+  },
+  'lake-quinsigamond': {
+    name: 'Lake Quinsigamond', sub: 'Lake Quinsigamond at the Donahue Rowing Center. All times Eastern.', badge: true,
+    tabs: LAKE_TABS, flow: false, obs: 'Worcester', station: 'KORH',
+    credits: [['Open-Meteo', 'https://open-meteo.com/'], ['National Weather Service, Boston', 'https://www.weather.gov/box/']]
+  },
+  'lake-natoma': {
+    name: 'Lake Natoma', sub: 'Lake Natoma above Nimbus Dam. Releases from Folsom Dam can change the current. All times Pacific, 3 hours behind you.', badge: true,
+    tabs: LAKE_TABS, flow: false, obs: 'Mather', station: 'KMHR', gauge: 'USGS-11446500',
+    credits: [
+      ['Open-Meteo', 'https://open-meteo.com/'],
+      ['National Weather Service, Sacramento', 'https://www.weather.gov/sto/'],
+      ['11446500 at Fair Oaks', 'https://waterdata.usgs.gov/monitoring-location/USGS-11446500/']
+    ]
+  },
+  'lake-carnegie': {
+    name: 'Lake Carnegie', sub: 'Lake Carnegie at the Shea Rowing Center. All times Eastern.', badge: true,
+    tabs: LAKE_TABS, flow: false, obs: 'Trenton', station: 'KTTN',
+    credits: [['Open-Meteo', 'https://open-meteo.com/'], ['National Weather Service, Mount Holly', 'https://www.weather.gov/phi/']]
   }
 };
 
@@ -85,9 +107,12 @@ for (const [slug, p] of Object.entries(PLACES)) {
       expect(seen.aborted).toEqual([]);
       expect(seen.missing).toEqual([]);
       expect(seen.served, 'its own station').toContain(`https://api.weather.gov/stations/${p.station}/observations/latest`);
-      expect(seen.served, 'its own river forecast point').toContain(`https://api.water.noaa.gov/nwps/v1/gauges/${p.lid}/stageflow/forecast`);
+      // A river asks for its forecast point and its gauge's three answers (the latest reading, the 48 hour series
+      // and the daily means). Still water asks for neither, and a lake with a water temperature gauge asks for its latest reading alone.
+      if (p.lid) expect(seen.served, 'its own river forecast point').toContain(`https://api.water.noaa.gov/nwps/v1/gauges/${p.lid}/stageflow/forecast`);
+      else expect(seen.served.filter(u => new URL(u).hostname === 'api.water.noaa.gov'), 'no river forecast').toEqual([]);
       const usgs = seen.served.filter(u => new URL(u).hostname === 'api.waterdata.usgs.gov');
-      expect(usgs, 'the latest reading, the 48 hour series and the daily means').toHaveLength(3);
+      expect(usgs).toHaveLength(p.flow ? 3 : p.gauge ? 1 : 0);
       for (const u of usgs) expect(u, 'its own gauge').toMatch(new RegExp(`monitoring_location_id=${p.gauge}[&,]`));
     });
 
@@ -220,9 +245,9 @@ test.describe('switching between the real locations', () => {
     await expect.poll(() => out.held.length).toBe(9);
     expect(out.held.map(r => r.request().url()).filter(u => /KLEB|USGS-01144500|WLBN3/.test(u)), 'nothing of Hanover is held').toEqual([]);
 
-    // The sheet lists the three built locations, by region.
+    // The sheet lists the built locations, by region.
     await page.locator('#locBtn').click();
-    await expect(page.locator('#picker .pk-group')).toHaveText(['New Hampshire', 'Pennsylvania', 'Vermont']);
+    await expect(page.locator('#picker .pk-group')).toHaveText(['California', 'Massachusetts', 'New Hampshire', 'New Jersey', 'Pennsylvania', 'Vermont']);
     await page.locator('#picker a[href="/hanover-boathouse"]').click();
     await ready(page);
     await expect(page.locator('#locName')).toHaveText('Hanover boathouse');

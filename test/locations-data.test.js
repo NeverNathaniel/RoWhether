@@ -562,8 +562,9 @@ describe('the river test locations', () => {
   });
 
   it('say "Not confirmed on site": every record but Putney is published, with a course nobody has checked', () => {
+    // A record with no course (Lake Carnegie's) has nothing to confirm, and reads as unconfirmed.
     for (const { rec } of REAL.filter(x => x.rec.slug !== 'putney-landing')) {
-      expect([rec.slug, rec.status, rec.course.confirmed]).toEqual([rec.slug, 'published', false]);
+      expect([rec.slug, rec.status, rec.course.confirmed === true]).toEqual([rec.slug, 'published', false]);
     }
   });
 
@@ -683,5 +684,147 @@ describe('the river test locations', () => {
     for (const slug of RIVERS) {
       expect([slug, loc(slug).flow.maxAgeH, loc(slug).flow.staleSwitchH, loc(slug).waterTemp.maxAgeH]).toEqual([slug, 24, 6, 72]);
     }
+  });
+});
+
+// P1.13: the lake and reservoir records (plan 4.6, 4.7, 4.9), with what the services answered on 2026-10-24.
+describe('the lake and reservoir test locations', () => {
+  const REAL = collectLocations(ROOT);
+  const LAKES = ['lake-carnegie', 'lake-natoma', 'lake-quinsigamond'];
+  const entry = slug => REAL.find(x => x.rec.slug === slug);
+  const loc = slug => resolveLocation(entry(slug).rec, { waterway: entry(slug).waterway });
+  const bindings = slug => Object.fromEntries(bindingsFor(loc(slug), Date.UTC(2026, 5, 15, 16)).map(b => [b.slot, b]));
+  const recorded = (slug, name) => readJson(`test/fixtures/sources/${slug}/${name}.json`);
+  const at = iso => Date.parse(iso);
+  const metres = (a, b, c, d) => {
+    const r = x => x * Math.PI / 180, h = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2;
+    return 2 * 6371000 * Math.asin(Math.sqrt(h));
+  };
+
+  it('are listed with their place, water and region', () => {
+    const got = Object.fromEntries(summaries(REAL).filter(s => LAKES.includes(s.slug)).map(s => [s.slug, s]));
+    expect(Object.keys(got).sort()).toEqual(LAKES);
+    expect(got['lake-quinsigamond']).toEqual({
+      slug: 'lake-quinsigamond', name: 'Lake Quinsigamond', shortName: 'Quinsigamond', locality: 'Shrewsbury, MA', waterway: 'Lake Quinsigamond',
+      lat: 42.29043, lon: -71.75505, tz: 'America/New_York', country: 'US', region: 'US-MA', waterType: 'lake', status: 'published', revision: 1
+    });
+    expect(got['lake-natoma']).toEqual({
+      slug: 'lake-natoma', name: 'Lake Natoma', shortName: 'Natoma', locality: 'Gold River, CA', waterway: 'Lake Natoma',
+      lat: 38.63453, lon: -121.21918, tz: 'America/Los_Angeles', country: 'US', region: 'US-CA', waterType: 'reservoir', status: 'published', revision: 1
+    });
+    expect(got['lake-carnegie']).toEqual({
+      slug: 'lake-carnegie', name: 'Lake Carnegie', shortName: 'Carnegie', locality: 'Princeton, NJ', waterway: 'Lake Carnegie',
+      lat: 40.33932, lon: -74.65048, tz: 'America/New_York', country: 'US', region: 'US-NJ', waterType: 'lake', status: 'published', revision: 1
+    });
+    expect(Object.fromEntries(LAKES.map(s => [s, entry(s).waterway.regions]))).toEqual({ 'lake-carnegie': ['US-NJ'], 'lake-natoma': ['US-CA'], 'lake-quinsigamond': ['US-MA'] });
+    expect(entry('lake-natoma').waterway.reach).toBe('Folsom Dam to Nimbus Dam');
+  });
+
+  it('are still water: the fetch mode, the shape of the lake from its outline, and the reference fetch of 2 km', () => {
+    const shape = Object.fromEntries(LAKES.map(s => [s, loc(s).water]));
+    expect(shape['lake-quinsigamond']).toMatchObject({ mode: 'fetch', refFetchM: 2000, fetchM: null, lake: { axis: 166, lengthM: 6600, widthM: 370 } });
+    expect(shape['lake-natoma']).toMatchObject({ mode: 'fetch', refFetchM: 2000, fetchM: null, lake: { axis: 31, lengthM: 9700, widthM: 230 } });
+    expect(shape['lake-carnegie']).toMatchObject({ mode: 'fetch', refFetchM: 2000, fetchM: null, lake: { axis: 35, lengthM: 4800, widthM: 200 } });
+  });
+
+  it("give Quinsigamond and Natoma a heading along the lake with shores made from it, and Carnegie no course", () => {
+    const q = loc('lake-quinsigamond'), n = loc('lake-natoma'), c = loc('lake-carnegie');
+    expect([q.course.kind, q.course.heading, q.course.confirmed]).toEqual(['heading', 166, false]);
+    expect([n.course.kind, n.course.heading, n.course.confirmed]).toEqual(['heading', 31, false]);
+    // The right side faces heading + 90: 256 is west and 121 is south-east.
+    expect([q.banks.word, q.banks.left.name, q.banks.right.name]).toEqual(['shore', 'east', 'west']);
+    expect([n.banks.word, n.banks.left.name, n.banks.right.name, n.banks.right.short]).toEqual(['shore', 'northwest', 'southeast', 'SE']);
+    expect([c.course.kind, c.course.heading, c.banks]).toEqual(['none', undefined, null]);
+  });
+
+  it('have no flow binding, no flow limit and no flow words, and Natoma a water temperature row only', () => {
+    for (const slug of LAKES) {
+      const l = loc(slug), t = entry(slug).rec.thresholds;
+      expect([slug, l.flow, l.sources.flow, l.sources.flowDays, l.sources.flowFcst, 'flowCaution' in t, 'basis' in t, 'flowStats' in l.copy, 'flowHow' in l.copy]).toEqual([slug, null, undefined, undefined, undefined, false, false, false, false]);
+      expect(effectiveSettings(l), slug).toEqual({ ...GLOBAL_DEFAULTS, flowCaution: '', flowOff: '' });
+    }
+    expect(loc('lake-natoma').sources.river.map(r => [r.role, r.adapter, r.ref, r.params.parameterCode, r.tz, r.relation])).toEqual([['water_temp', 'usgs-ogc', 'USGS-11446500', '00010', 'America/Los_Angeles', 'downstream']]);
+    expect(loc('lake-quinsigamond').sources.river).toBeUndefined();
+    expect(loc('lake-carnegie').sources.river).toBeUndefined();
+  });
+
+  it('count a water temperature for 72 hours, and have none to fall back on', () => {
+    for (const slug of LAKES) expect([slug, loc(slug).waterTemp.maxAgeH, loc(slug).waterTemp.fallback, loc(slug).waterTemp.monthly]).toEqual([slug, 72, 'none', null]);
+  });
+
+  it('ask each service for the place, the zones, the station and the gauge named in the record', () => {
+    const q = bindings('lake-quinsigamond'), n = bindings('lake-natoma'), c = bindings('lake-carnegie');
+    expect(Object.keys(q)).toEqual(['wx', 'alerts', 'obs', 'aq', 'models']);
+    expect(Object.keys(c)).toEqual(['wx', 'alerts', 'obs', 'aq', 'models']);
+    expect(Object.keys(n)).toEqual(['wx', 'alerts', 'obs', 'river', 'aq', 'models']);
+    expect(q.alerts.url).toBe('https://api.weather.gov/alerts/active?zone=MAZ012,MAC027');
+    expect(q.obs.url).toBe('https://api.weather.gov/stations/KORH/observations/latest');
+    expect(n.alerts.url).toBe('https://api.weather.gov/alerts/active?zone=CAZ154,CAC067');
+    expect(n.obs.url).toBe('https://api.weather.gov/stations/KMHR/observations/latest');
+    expect(n.river.url).toBe('https://api.waterdata.usgs.gov/ogcapi/v1/collections/latest-continuous/items?monitoring_location_id=USGS-11446500&parameter_code=00010&f=json&limit=50');
+    expect(c.alerts.url).toBe('https://api.weather.gov/alerts/active?zone=NJZ015,NJC021,NJZ012,NJC023');
+    expect(c.obs.url).toBe('https://api.weather.gov/stations/KTTN/observations/latest');
+    for (const [b, lat, lon, tz] of [[q, 42.29043, -71.75505, 'America/New_York'], [n, 38.63453, -121.21918, 'America/Los_Angeles'], [c, 40.33932, -74.65048, 'America/New_York']]) {
+      for (const slot of ['wx', 'aq', 'models']) {
+        const u = new URL(b[slot].url);
+        expect([slot, u.searchParams.get('latitude'), u.searchParams.get('longitude'), u.searchParams.get('timezone')]).toEqual([slot, String(lat), String(lon), tz]);
+      }
+    }
+  });
+
+  // Natoma's station is the nearest the NWS lists that has reported with a wind in the last 3 hours (02, step 5).
+  // KMHR had been quiet for 8 hours when the plan was written, so it named KSAC. It reported again on 2026-10-24.
+  it("name the nearest station that reported with a wind, as Natoma's is KMHR and not KSAC", () => {
+    const o = entry('lake-natoma').rec.sources.find(r => r.role === 'obs');
+    expect([o.ref, o.label, o.distanceM, o.siteLat, o.siteLon, o.relation]).toEqual(['KMHR', 'Mather', 10023, 38.55996, -121.28397, 'nearby']);
+    expect(o.note).toBe('Mather airport, 6 mi southwest. A check on the model.');
+    expect(entry('lake-natoma').rec.copy.credits).toContain('Alerts and Mather airport observations from the [National Weather Service, Sacramento](https://www.weather.gov/sto/).');
+    expect(entry('lake-natoma').rec.copy.credits).not.toMatch(/KSAC|Executive/);
+  });
+
+  it("put each station's distance where the record says it is, from the dock to the station", () => {
+    for (const slug of [...LAKES, 'hanover-boathouse', 'boathouse-row']) {
+      const { rec } = entry(slug);
+      for (const r of rec.sources.filter(x => x.siteLat != null)) {
+        expect(Math.abs(metres(rec.lat, rec.lon, r.siteLat, r.siteLon) - r.distanceM), `${slug} ${r.ref}`).toBeLessThan(25);
+      }
+    }
+  });
+
+  // Recorded 2026-10-24 between 19:53 and 20:02 UTC with the requests above.
+  it('read the recorded answers as data: the stations, the water temperature below the dam and the alerts', () => {
+    expect(bindings('lake-quinsigamond').obs.parse(recorded('lake-quinsigamond', 'obs'))).toMatchObject({ t: at('2026-10-24T19:35:00Z'), dir: 290, text: 'Clear' });
+    expect(bindings('lake-quinsigamond').obs.parse(recorded('lake-quinsigamond', 'obs')).wind).toBeCloseTo(5.544 * 0.621371, 6);
+    // KMHR gave a wind speed and no direction (variable): the reading is kept, with no direction.
+    const mather = bindings('lake-natoma').obs.parse(recorded('lake-natoma', 'obs'));
+    expect(mather).toMatchObject({ t: at('2026-10-24T18:55:00Z'), dir: null, text: 'Clear' });
+    expect(mather.wind).toBeCloseTo(7.56 * 0.621371, 6);
+    expect(bindings('lake-carnegie').obs.parse(recorded('lake-carnegie', 'obs'))).toMatchObject({ t: at('2026-10-24T19:35:00Z'), wind: 0, dir: 0, text: 'Clear' });
+    // Fair Oaks answers 00010 alone: a temperature and no flow.
+    expect(bindings('lake-natoma').river.parse(recorded('lake-natoma', 'latest'))).toEqual({ waterC: { v: 15.7, t: at('2026-10-24T19:45:00Z') } });
+    expect(bindings('lake-quinsigamond').alerts.parse(recorded('lake-quinsigamond', 'alerts'))).toEqual([]);
+    expect(bindings('lake-natoma').alerts.parse(recorded('lake-natoma', 'alerts'))).toEqual([]);
+    // A frost advisory for Mercer and Middlesex among others, with no polygon: it applies to the dock.
+    expect(bindings('lake-carnegie').alerts.parse(recorded('lake-carnegie', 'alerts')).map(a => [a.event, a.lvl])).toEqual([['Frost Advisory', 1]]);
+  });
+
+  it("credit the office, the station and the gauge each lake reads, with a link, and name nothing of another place", () => {
+    const links = slug => [...entry(slug).rec.copy.credits.matchAll(/\[([^\]]+)\]\((https:\/\/[^)]+)\)/g)].map(m => [m[1], m[2]]);
+    expect(links('lake-quinsigamond')).toEqual([['Open-Meteo', 'https://open-meteo.com/'], ['National Weather Service, Boston', 'https://www.weather.gov/box/']]);
+    expect(links('lake-natoma')).toEqual([
+      ['Open-Meteo', 'https://open-meteo.com/'], ['National Weather Service, Sacramento', 'https://www.weather.gov/sto/'],
+      ['11446500 at Fair Oaks', 'https://waterdata.usgs.gov/monitoring-location/USGS-11446500/']
+    ]);
+    expect(links('lake-carnegie')).toEqual([['Open-Meteo', 'https://open-meteo.com/'], ['National Weather Service, Mount Holly', 'https://www.weather.gov/phi/']]);
+    for (const slug of LAKES) {
+      const { rec } = entry(slug);
+      expect(JSON.stringify([rec.copy, rec.subtitle]), slug).not.toMatch(/Putney|Connecticut|Albany|Gray|Vermont|New Hampshire|North Walpole|Northfield|Keene|river forecast/i);
+    }
+  });
+
+  it('say what a Natoma rower needs to know in the line under the name: releases can change the current', () => {
+    expect(entry('lake-natoma').rec.subtitle).toBe('Lake Natoma above Nimbus Dam. Releases from Folsom Dam can change the current.');
+    expect(entry('lake-natoma').rec.tzLabel).toBeNull();
+    expect(loc('lake-natoma').tz).toBe('America/Los_Angeles');
   });
 });
