@@ -1158,6 +1158,36 @@ describe('chop on still water (01 9.3)', () => {
     const e = d => chopWind(lakeModel(still1({ fetchM: 750 })), { wind: 10, dir: d }).e;
     expect([e(0), e(100), e(166), e(250)].every(v => v === e(0))).toBe(true);
   });
+
+  // Gate P1.13: the survivor of "fetch read for the opposite wind". An ellipse and one distance are the same
+  // from either end, so only 16 measured distances tell which way the wind is taken.
+  it('reads the fetch for the direction the wind comes from: with 16 measured distances, the nearest to it', () => {
+    // North first and clockwise: 6,000 m of water to the east (index 4), 300 m to the west (index 12), 2,000 m elsewhere.
+    const f = Array(16).fill(2000); f[4] = 6000; f[12] = 300;
+    const m = lakeModel(still1({ fetchM: f }));
+    expect(chopWind(m, { wind: 10, dir: 90 })).toMatchObject({ fetchM: 6000, dir: 90 });
+    expect(chopWind(m, { wind: 10, dir: 270 })).toMatchObject({ fetchM: 300, dir: 270 });
+    expect(chopWind(m, { wind: 10, dir: 100 }).fetchM).toBe(6000);
+    expect(chopWind(m, { wind: 10, dir: 90 }).e).toBeCloseTo(10 * Math.sqrt(3), 6);
+    expect(chopWind(m, { wind: 10, dir: 270 }).e).toBeCloseTo(10 * Math.sqrt(0.15), 6);
+    // The sentence names the same side: the wind from the east has 3.7 miles to build waves.
+    const east = lakeModel(still1({ fetchM: f }), () => ({ wind: 12, dir: 90 }));
+    expect(waterWhy(hourAt(east, 12).water, east)).toBe('Wind from the E has about 3.7 mi of open water to build waves.');
+  });
+
+  // Gate P1.13: the survivor of "still water for any water that is not a river". P1.14 and P1.15 add the tidal and
+  // canal places, and they keep the river's formula (01 9.4, 9.5), so only the fetch mode is still.
+  it('is the river formula, with no fetch, on a tidal reach and on a canal: only the fetch mode is still water', () => {
+    for (const waterType of ['tidal', 'canal']) {
+      const loc = resolveLocation({ ...PUTNEY_RECORD, waterType, water: {} }, { waterway: PUTNEY_WATERWAY });
+      expect([waterType, loc.water.mode, still(loc)], waterType).toEqual([waterType, waterType, false]);
+      const m = buildModel(loc, { wx: wx(() => ({ wind: 10, dir: 15 })), river: RIVER }, { ...SETTINGS }, NOON);
+      const c = chopWind(m, { wind: 10, dir: 15 });
+      expect(c, waterType).toEqual({ e: 10, along: 10, cross: expect.closeTo(0, 6), axis: 'along', against: false });
+      expect(hourAt(m, 12).water.fetchM, waterType).toBeUndefined();
+      expect(windVsCourse(m, 15, 12), waterType).toBe('Headwind rowing upstream, tailwind coming back. Chop builds along the straight.');
+    }
+  });
 });
 
 describe('what the water state says on still water', () => {
