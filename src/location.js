@@ -107,12 +107,13 @@ export function validateSlug(slug, { field = 'slug', min = 3, max = 48, reserved
   return [bad(field, 'reserved', 'That address is reserved.')];
 }
 
-function checkCourse(p, c) {
+function checkCourse(p, c, type) {
   if (!isObj(c)) return missing(p, 'course');
   pick(p, 'course.kind', c.kind, ['heading', 'polyline', 'none'], true);
-  // The wind code reads course.heading, which only a heading course has. Phase 1
-  // lifts this when courseSegments() draws the other kinds.
-  if (c.kind === 'polyline' || c.kind === 'none') fail(p, 'course.kind', 'unsupported', 'Only a course with one heading can be drawn until phase 1.');
+  // Still water may have no course. A river, tidal reach or canal has a way to row, and
+  // the wind code reads course.heading. A course drawn as a line comes in phase 3, with the map.
+  if (c.kind === 'none' && WATER_MODES[type] !== 'fetch') fail(p, 'course.kind', 'unsupported', 'Only a lake, reservoir or harbor can have no course.');
+  if (c.kind === 'polyline') fail(p, 'course.kind', 'unsupported', 'A course drawn as a line comes in phase 3.');
   if (c.kind === 'heading' && (!isNum(c.heading) || c.heading < 0 || c.heading >= 360)) fail(p, 'course.heading', 'range', 'Use degrees from 0 to 359.');
   if (c.kind === 'polyline') {
     if (!Array.isArray(c.points) || c.points.length < 2 || c.points.length > 50) fail(p, 'course.points', 'length', 'Use 2 to 50 points.');
@@ -187,6 +188,16 @@ function checkWater(p, w) {
   if (!isObj(w)) return fail(p, 'water', 'value', 'Use an object.');
   pick(p, 'water.mode', w.mode, MODE_NAMES, true);
   num(p, 'water.cross', w.cross, 0, 1);
+  // Still water (01 9.3): the reference fetch, the lake's ellipse, and one fetch or 16 (N, NNE, ... NNW).
+  if ('refFetchM' in w) num(p, 'water.refFetchM', w.refFetchM, 1, 100000, true);
+  const k = w.lake, f = w.fetchM;
+  if (k != null && !isObj(k)) fail(p, 'water.lake', 'value', 'Use an object.');
+  else if (k != null) {
+    num(p, 'water.lake.axis', k.axis, 0, 179, true);
+    num(p, 'water.lake.lengthM', k.lengthM, 50, 50000, true);
+    num(p, 'water.lake.widthM', k.widthM, 10, isNum(k.lengthM) ? k.lengthM : 50000, true);
+  }
+  if (f != null && !(Array.isArray(f) ? f.length === 16 && f.every(v => isNum(v) && v > 0) : isNum(f) && f > 0)) fail(p, 'water.fetchM', 'value', 'Use one distance in metres, or 16 from north round to NNW.');
 }
 
 function checkWaterTemp(p, w) {
@@ -260,7 +271,7 @@ export function validateLocation(rec, { waterway = null } = {}) {
   country(p, 'country', rec.country);
   if (rec.region != null && !(typeof rec.region === 'string' && REGION.test(rec.region))) fail(p, 'region', 'format', 'Use an ISO 3166-2 code such as US-VT.');
   pick(p, 'waterType', rec.waterType, WATER_TYPES, true);
-  checkCourse(p, rec.course);
+  checkCourse(p, rec.course, rec.waterType);
   checkBanks(p, rec.banks);
   checkThresholds(p, rec.thresholds);
   pick(p, 'aqiScale', rec.aqiScale, ['us', 'eu'], true);
@@ -347,6 +358,19 @@ const toward = deg => { const short = card(Math.round(deg / 45) * 45); return { 
 // The banks of a course with none stored (01 10.4). Facing upstream, the right side faces
 // heading + 90 and the left the opposite: a 15 degree heading gives west and east.
 export const autoBanks = (heading, word = 'bank') => ({ word, left: toward(heading - 90), right: toward(heading + 90) });
+
+// How far the wind has to build waves (01 9.3), in metres, for wind from `dir`: the nearest of 16
+// measured distances, else the chord of the lake's ellipse along the wind, else one distance for
+// every direction, else the reference.
+const REF_FETCH_M = 2000;
+export function fetchAt(w, dir) {
+  const { fetchM: f, lake: k } = w;
+  if (Array.isArray(f)) return f[Math.round((((dir % 360) + 360) % 360) / 22.5) % 16];
+  if (k) { const a = (dir - k.axis) * Math.PI / 180; return 1 / Math.hypot(Math.cos(a) / k.lengthM, Math.sin(a) / k.widthM); }
+  return f ?? w.refFetchM ?? REF_FETCH_M;
+}
+// Chop wind as a share of the wind: the square root of the fetch over the reference, 0.25 to 2 (01 9.3).
+export const fetchFactor = (w, fetchM) => Math.min(2, Math.max(0.25, Math.sqrt(fetchM / (w.refFetchM ?? REF_FETCH_M))));
 
 // The location the app reads: the record, its waterway's sources, and the
 // viewer's course heading. A personal heading applies only to a course that is

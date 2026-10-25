@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
-import { validateLocation, validateWaterway, validateSlug, isSlug, RESERVED_SLUGS, resolveSources, resolveLocation, autoBanks, effectiveSettings, overridesOf, flowBasis, ignoredFlowNote } from '../src/location.js';
+import { validateLocation, validateWaterway, validateSlug, isSlug, RESERVED_SLUGS, resolveSources, resolveLocation, autoBanks, fetchAt, fetchFactor, effectiveSettings, overridesOf, flowBasis, ignoredFlowNote } from '../src/location.js';
 import { GLOBAL_DEFAULTS, PERIODS, WATER, FOG } from '../src/config.js';
 import { zoneFormat } from '../src/format.js';
 
@@ -133,6 +133,24 @@ describe('validateLocation', () => {
       ['heading 360', r => { r.course.heading = 360; }, 'course.heading', 'range'],
       ['unknown course kind', r => { r.course.kind = 'loop'; }, 'course.kind', 'value'],
       ['a none course on a river', r => { r.course = { kind: 'none' }; }, 'course.kind', 'unsupported'],
+      ['a none course on a tidal reach', r => { r.waterType = 'tidal'; r.course = { kind: 'none' }; }, 'course.kind', 'unsupported'],
+      ['a none course on a canal', r => { r.waterType = 'canal'; r.course = { kind: 'none' }; }, 'course.kind', 'unsupported'],
+      ['a lake that is not an object', r => { r.water.lake = 'big'; }, 'water.lake', 'value'],
+      ['a lake axis of 180', r => { r.water.lake = { axis: 180, lengthM: 3000, widthM: 600 }; }, 'water.lake.axis', 'range'],
+      ['a lake axis below 0', r => { r.water.lake = { axis: -1, lengthM: 3000, widthM: 600 }; }, 'water.lake.axis', 'range'],
+      ['a lake with no axis', r => { r.water.lake = { lengthM: 3000, widthM: 600 }; }, 'water.lake.axis', 'required'],
+      ['a lake 49 m long', r => { r.water.lake = { axis: 10, lengthM: 49, widthM: 20 }; }, 'water.lake.lengthM', 'range'],
+      ['a lake 50,001 m long', r => { r.water.lake = { axis: 10, lengthM: 50001, widthM: 600 }; }, 'water.lake.lengthM', 'range'],
+      ['a lake with no length', r => { r.water.lake = { axis: 10, widthM: 600 }; }, 'water.lake.lengthM', 'required'],
+      ['a lake 9 m wide', r => { r.water.lake = { axis: 10, lengthM: 3000, widthM: 9 }; }, 'water.lake.widthM', 'range'],
+      ['a lake wider than it is long', r => { r.water.lake = { axis: 10, lengthM: 300, widthM: 400 }; }, 'water.lake.widthM', 'range'],
+      ['a fetch of 15 distances', r => { r.water.fetchM = Array(15).fill(500); }, 'water.fetchM', 'value'],
+      ['a fetch of 17 distances', r => { r.water.fetchM = Array(17).fill(500); }, 'water.fetchM', 'value'],
+      ['a fetch of 0', r => { r.water.fetchM = 0; }, 'water.fetchM', 'value'],
+      ['a fetch that is text', r => { r.water.fetchM = '500'; }, 'water.fetchM', 'value'],
+      ['a distance of 0 among 16', r => { r.water.fetchM = [...Array(15).fill(500), 0]; }, 'water.fetchM', 'value'],
+      ['a reference fetch of 0', r => { r.water.refFetchM = 0; }, 'water.refFetchM', 'range'],
+      ['a reference fetch left null', r => { r.water.refFetchM = null; }, 'water.refFetchM', 'required'],
       ['a polyline, drawn from phase 3', r => { r.course = { kind: 'polyline', points: [[42.96, -72.52], [42.97, -72.51]] }; }, 'course.kind', 'unsupported'],
       ['polyline of 1 point', r => { r.course = { kind: 'polyline', points: [[42.96, -72.52]] }; }, 'course.points', 'length'],
       ['polyline of 51 points', r => { r.course = { kind: 'polyline', points: Array.from({ length: 51 }, (_, i) => [42.96 + i / 1000, -72.52]) }; }, 'course.points', 'length'],
@@ -199,6 +217,16 @@ describe('validateLocation', () => {
       ['blank rain and aqi levels, null or empty', r => { r.thresholds.rainCaution = null; r.thresholds.aqiOff = ''; }],
       ['no flow limits', r => { delete r.thresholds.flowCaution; delete r.thresholds.flowOff; delete r.thresholds.basis; r.flow = null; }],
       ['no banks', r => { r.banks = null; }],
+      ['a lake with no course', r => { r.waterType = 'lake'; r.course = { kind: 'none' }; }],
+      ['a reservoir with no course', r => { r.waterType = 'reservoir'; r.course = { kind: 'none' }; }],
+      ['a harbor with no course', r => { r.waterType = 'harbor'; r.course = { kind: 'none' }; }],
+      ['a lake of 50 m by 10 m at axis 0', r => { r.water.lake = { axis: 0, lengthM: 50, widthM: 10 }; }],
+      ['a lake as wide as it is long at axis 179', r => { r.water.lake = { axis: 179, lengthM: 800, widthM: 800 }; }],
+      ['a lake 50,000 m long', r => { r.water.lake = { axis: 90, lengthM: 50000, widthM: 10 }; }],
+      ['one fetch for every direction', r => { r.water.fetchM = 2000; }],
+      ['16 fetches', r => { r.water.fetchM = Array.from({ length: 16 }, (_, i) => 100 + i); }],
+      ['a fetch and a lake left null', r => { r.water.fetchM = null; r.water.lake = null; }],
+      ['a reference fetch', r => { r.water.refFetchM = 1500; }],
       ['a discharge in cubic metres a second', r => { r.flow.unit = 'm3s'; }],
       ['a second obs row as a fallback', r => { r.sources.push(row('obs', { mode: 'fallback', priority: 1 })); }],
       ['a retired row beside a primary', r => { r.sources.push(row('obs', { status: 'retired' })); }],
@@ -474,6 +502,79 @@ describe('a location with no banks stored', () => {
     const own = resolveLocation(PUTNEY_RECORD, { waterway: PUTNEY_WATERWAY, overrides: { heading: 330 } });
     expect(own.banks).toEqual(PUTNEY_RECORD.banks);
     expect(own.banks.left.short).toBe('VT');
+  });
+});
+
+describe('fetchAt and fetchFactor (01 9.3)', () => {
+  const lake = { lake: { axis: 0, lengthM: 3000, widthM: 600 } };
+
+  it('is the chord of the lake along the wind: 3,000, 1,412, 832, 647 and 600 m at 0, 22.5, 45, 67.5 and 90 degrees', () => {
+    expect([0, 22.5, 45, 67.5, 90].map(d => Math.round(fetchAt(lake, d)))).toEqual([3000, 1412, 832, 647, 600]);
+  });
+
+  it('measures from the axis and is the same from either end of it, in a lake that does not run north', () => {
+    const w = { lake: { axis: 40, lengthM: 3000, widthM: 600 } };
+    expect([40, 220, 130, 310, 85, 265].map(d => Math.round(fetchAt(w, d)))).toEqual([3000, 3000, 600, 600, 832, 832]);
+    // A wind direction past a full turn is the same direction.
+    expect(fetchAt(w, 400)).toBeCloseTo(fetchAt(w, 40), 6);
+  });
+
+  it('takes one distance for every direction', () => {
+    expect([0, 100, 250, 359].map(d => fetchAt({ fetchM: 750 }, d))).toEqual([750, 750, 750, 750]);
+  });
+
+  it('takes the nearest of 16 distances, north first and clockwise, and wraps past north', () => {
+    const f = Array.from({ length: 16 }, (_, i) => 100 + i), at = d => fetchAt({ fetchM: f }, d);
+    expect([0, 22.5, 90, 180, 270, 337.5].map(at)).toEqual([100, 101, 104, 108, 112, 115]);
+    expect([11, 12, 348, 349, 350, 360, 382.5, -10].map(at)).toEqual([100, 101, 115, 100, 100, 100, 101, 100]);
+  });
+
+  it('takes the reference when it has nothing else: 2 km, or the record\'s own', () => {
+    expect(fetchAt({}, 90)).toBe(2000);
+    expect(fetchAt({ refFetchM: 1500 }, 90)).toBe(1500);
+    expect(fetchAt({ fetchM: null, lake: null, refFetchM: null }, 5)).toBe(2000);
+  });
+
+  it('prefers 16 measured distances to the lake, and the lake to one distance', () => {
+    const f16 = Array(16).fill(321);
+    expect(fetchAt({ fetchM: f16, ...lake }, 0)).toBe(321);
+    expect(Math.round(fetchAt({ fetchM: 900, ...lake }, 0))).toBe(3000);
+  });
+
+  it('is a share of the wind that grows with the square root of the fetch: 0.27 at 150 m, 1.0 at 2 km, 2.0 at 8 km and over', () => {
+    const f = (m, w = {}) => +fetchFactor(w, m).toFixed(2);
+    expect([150, 300, 750, 2000, 5000, 8000, 10000, 50000].map(m => f(m))).toEqual([0.27, 0.39, 0.61, 1, 1.58, 2, 2, 2]);
+  });
+
+  it('never falls under a quarter, and takes its reference from the record', () => {
+    expect(fetchFactor({}, 25)).toBe(0.25);
+    expect(fetchFactor({}, 0)).toBe(0.25);
+    expect(fetchFactor({ refFetchM: 1000 }, 1000)).toBe(1);
+    expect(fetchFactor({ refFetchM: 8000 }, 2000)).toBe(0.5);
+    expect(fetchFactor({ refFetchM: null }, 2000)).toBe(1);
+  });
+});
+
+describe('a course with no heading', () => {
+  const lake = rec(r => { r.waterType = 'lake'; r.course = { kind: 'none', confirmed: false }; r.banks = null; r.water = { mode: 'fetch', refFetchM: 2000, lake: { axis: 35, lengthM: 4800, widthM: 200 }, fetchM: null }; });
+
+  it('resolves with no heading, no banks and the shape of the lake', () => {
+    expect(validateLocation(lake, W)).toEqual([]);
+    const l = resolveLocation(lake, { waterway: PUTNEY_WATERWAY });
+    expect(l.course).toMatchObject({ kind: 'none', segments: [], confirmed: false });
+    expect(l.course.heading).toBeUndefined();
+    expect(l.banks).toBeNull();
+    expect(l.water).toMatchObject({ mode: 'fetch', refFetchM: 2000, lake: { axis: 35, lengthM: 4800, widthM: 200 }, fetchM: null });
+  });
+
+  it("ignores the viewer's heading, which has nothing to turn", () => {
+    expect(resolveLocation(lake, { waterway: PUTNEY_WATERWAY, overrides: { heading: 20 } }).course.heading).toBeUndefined();
+  });
+
+  it('reads a lake or a reservoir as still water and a river, a tidal reach and a canal as flowing (01 9.1)', () => {
+    for (const [t, mode] of [['lake', 'fetch'], ['reservoir', 'fetch'], ['harbor', 'fetch'], ['river', 'river'], ['tidal', 'tidal'], ['canal', 'canal']]) {
+      expect(resolveLocation(rec(r => { r.waterType = t; delete r.water; }), W).water.mode, t).toBe(mode);
+    }
   });
 });
 

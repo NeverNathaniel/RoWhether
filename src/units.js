@@ -5,6 +5,7 @@ import { r0, rng, fmtFlow, visText } from './format.js';
 
 const same = v => v;
 const deg = v => `${r0(v)}°F`;
+const miles = m => `${(m / 1609.34).toFixed(1)} mi`;
 
 export function unitFormat({ system = 'us', wind = 'auto' } = {}) {
   // Nothing picks another system yet. Refuse one rather than put US numbers
@@ -26,7 +27,9 @@ export function unitFormat({ system = 'us', wind = 'auto' } = {}) {
     visUnit: 'miles',
     // vis is the visibility a reason names; dist is the visibility in a fact or
     // a table (08 14.2 P0.12 keeps visText for it).
-    vis: m => `${(m / 1609.34).toFixed(1)} mi`,
+    vis: miles,
+    // How far the wind blows over still water (01 9.3).
+    waterDist: miles,
     dist: visText,
     flow: fmtFlow,
     // The unit word of a gauge's title ("Flow, cfs"), for the units fmtFlow knows.

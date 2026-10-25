@@ -86,6 +86,21 @@ describe('unitFormat, US', () => {
     expect(u.vis(1045.9)).toBe('0.6 mi'); // 0.6499 miles: a mile taken as 1609 m rounds it up to 0.7
   });
 
+  it('writes the stretch of open water in miles with one decimal, from metres (01 9.3)', () => {
+    expect(u.waterDist(2414)).toBe('1.5 mi');
+    expect(u.waterDist(600)).toBe('0.4 mi'); // 0.373 rounds up
+    expect(u.waterDist(1000)).toBe('0.6 mi');
+    expect(u.waterDist(999)).toBe('0.6 mi');
+    expect(u.waterDist(160)).toBe('0.1 mi');
+    expect(u.waterDist(6600)).toBe('4.1 mi');
+    expect(u.waterDist(16093.4)).toBe('10.0 mi');
+    expect(u.waterDist(0)).toBe('0.0 mi');
+    // It is a word of its own: the visibility has another rule above a mile.
+    expect(u.waterDist(8000)).toBe('5.0 mi');
+    expect(u.dist(8000)).toBe('5.0 mi');
+    expect(u.waterDist(1000)).not.toBe(u.dist(1000));
+  });
+
   it('writes a distance as visText() does: two decimals under a mile, one under ten, 10+ above', () => {
     expect(u.dist(1000)).toBe('0.62 mi');
     expect(u.dist(402.3)).toBe('0.25 mi');
@@ -191,7 +206,7 @@ describe('unitFormat, US', () => {
   it('has the names 07 7.7 prints, and no others but the words the reasons and the views use', () => {
     expect(Object.keys(u).sort()).toEqual([
       'aqi', 'dist', 'flow', 'flowUnit', 'precip', 'rate', 'rateUnit', 'speed', 'speedRange', 'speedUnit', 'stage', 'system', 'temp',
-      'tempDiff', 'tempRange', 'tempSum', 'tempUnit', 'toF', 'toFDiff', 'toFSum', 'toIn', 'toMph', 'vis', 'visCaution', 'visOff', 'visUnit', 'windUnit'
+      'tempDiff', 'tempRange', 'tempSum', 'tempUnit', 'toF', 'toFDiff', 'toFSum', 'toIn', 'toMph', 'vis', 'visCaution', 'visOff', 'visUnit', 'waterDist', 'windUnit'
     ]);
   });
 
