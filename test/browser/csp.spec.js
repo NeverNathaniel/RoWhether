@@ -124,3 +124,16 @@ test('a lake and a tidal location, the privacy page and a missing address raise 
   await expect(page.locator('#notFound .pk-q')).toBeVisible();
   expect(seen).toEqual([]);
 });
+
+// The owner's page (P1.18): its chunk, its stylesheet and its request to /api/admin/metrics are all the app's own address.
+test('the owner page raises no violation: its chunk, its stylesheet and its request are allowed', async ({ page, baseURL }) => {
+  await page.clock.setFixedTime(clock);
+  await routeAll(page, scenario, clock);
+  const answer = { env: 'production', days: 7, from: '2026-10-20', to: '2026-10-26', truncated: false, totals: { opens: 5, firsts: 1, standalone: 2 }, prior: { opens: 4, firsts: 1, standalone: 1 }, locations: [{ slug: 'putney-landing', opens: 5, series: [0, 0, 1, 1, 1, 1, 1] }] };
+  await page.route('**/api/admin/metrics*', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(answer) }));
+  const seen = await enforce(page, baseURL);
+  await page.goto('/admin');
+  await expect(page.locator('#notFound table.hours')).toBeVisible();
+  expect(await page.evaluate(() => [...document.styleSheets].some(s => /\/assets\/admin-[^/]+\.css$/.test(s.href || ''))), 'the page has its stylesheet').toBe(true);
+  expect(seen).toEqual([]);
+});

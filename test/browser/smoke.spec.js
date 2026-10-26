@@ -1711,6 +1711,7 @@ test.describe('the owner page at /admin', () => {
       await expect(page.locator('#notFound table.hours')).toBeVisible();
       await expect(page.locator('#locName')).toHaveText('Admin');
       await expect(page).toHaveTitle('Admin');
+      await expect(page.locator('#tabs')).toBeVisible();
       await expect(page.locator('#tabs a')).toHaveText(['Metrics']);
       await expect(page.locator('#tabs a')).toHaveAttribute('aria-current', 'page');
       await expect(page.locator('#sub')).toContainText('Owner tools.');
@@ -1744,6 +1745,7 @@ test.describe('the owner page at /admin', () => {
     await expect(page.locator('#notFound')).toContainText('The metrics page is not set up here.');
     await expect(page.locator('#retryBtn')).toHaveCount(0);
     await expect(page.locator('#notFound table')).toHaveCount(0);
+    await expect(page.locator('#tabs')).toBeVisible();
     await expect(page.locator('#tabs a')).toHaveText(['Metrics']);
   });
 
@@ -1851,10 +1853,16 @@ test.describe('the owner page at /admin', () => {
     await expect(page.locator('#sub')).not.toContainText('Owner tools');
     await expect(page.locator('#notFound')).toBeHidden();
     await expect(page).toHaveTitle('Putney Landing rowing conditions');
-    // And Back from there is the owner's page again, drawn afresh.
+    // And Back from there is the owner's page again, drawn afresh, and Forward is the forecast with its own name and tabs again.
     await page.goBack();
     await expect(page.locator('#notFound table.hours')).toBeVisible();
     await expect(page.locator('#locName')).toHaveText('Admin');
+    await page.goForward();
+    await ready(page);
+    await expect(page.locator('#locName')).toHaveText('Putney Landing');
+    await expect(page.locator('#tabs a')).toHaveCount(10);
+    await expect(page.locator('#sub')).not.toContainText('Owner tools');
+    await expect(page).toHaveTitle('Putney Landing rowing conditions');
   });
 
   test.describe('with the service worker', () => {
