@@ -1204,3 +1204,75 @@ describe('tidal water', () => {
     });
   });
 });
+
+// ---------- Canal and harbor water (P1.15; 01 9.5, 9.6) ----------
+describe('harbor water', () => {
+  const TIDE_ROW = { role: 'tide', mode: 'primary', adapter: 'nwps', ref: 'GTND2', unit: 'ft', label: 'Georgetown' };
+  // A place on a harbor: fetch water with a heading course, and a tide row or none.
+  const harbor = (withTide = true) => resolveLocation({
+    ...PUTNEY_RECORD, slug: 'harbor-x', waterType: 'harbor', flow: null, banks: null,
+    sources: [...PUTNEY_RECORD.sources.filter(x => x.role === 'alerts'), ...(withTide ? [TIDE_ROW] : [])],
+    course: { kind: 'heading', heading: 166, reachWord: null, confirmed: false }, water: { fetchM: 2414 }
+  });
+  const SWELL = 'Swell from open water is not included.';
+  const HEIGHTS = 'The tide forecast has heights only, so the tide\'s current is not counted.';
+
+  it('says in the Wind view that swell is not included, and explains its chop by the fetch', () => {
+    for (const withTide of [true, false]) {
+      const html = wind.render(screen(harbor(withTide), NOW, { data: withTide ? { tide: tide() } : {} }).m).html;
+      expect(html, String(withTide)).toContain(SWELL);
+      expect(html).toContain('It follows the wind and how far the wind has blown over open water, which is called fetch');
+      expect(html).not.toContain('against a strong current');
+      expect(html).not.toMatch(BROKEN);
+    }
+  });
+
+  it('says the tide has heights only where the harbor has a tide row, and not where it has none', () => {
+    expect(wind.render(screen(harbor(true), NOW, { data: { tide: tide() } }).m).html).toContain(HEIGHTS);
+    expect(wind.render(screen(harbor(false), NOW).m).html).not.toContain(HEIGHTS);
+  });
+
+  it('says nothing of swell at a river, a lake or a tidal reach', () => {
+    expect(wind.render(screen(PUTNEY).m).html).not.toContain('Swell');
+    expect(wind.render(screen(still1({ fetchM: 2000 })).m).html).not.toContain('Swell');
+    const tidal = resolveLocation({ ...PUTNEY_RECORD, slug: 'tidal-x', waterType: 'tidal', water: { mode: 'tidal', cross: 0.4 }, sources: [...PUTNEY_RECORD.sources, TIDE_ROW] }, { waterway: PUTNEY_WATERWAY });
+    const html = wind.render(screen(tidal, NOW, { data: { tide: tide() } }).m).html;
+    expect(html).not.toContain('Swell');
+    expect(html).toContain(HEIGHTS);
+  });
+
+  it('has the Tide fact with the tide in the water state on Now, with a tide row', () => {
+    const { dom } = screen(harbor(), NOW, { data: { tide: tide() } });
+    renderNow();
+    const text = dom.el('facts').textContent;
+    expect(text).toContain('Tide4.0 ft rising');
+    expect(text).toMatch(/Wind from the \w+ has about 1\.5 mi of open water to build waves\. (Building\. )?Flood tide, rising until about 3 PM\./);
+  });
+
+  it('has no Tide fact and no tide words on Now without a tide row', () => {
+    const { dom } = screen(harbor(false), NOW);
+    renderNow();
+    expect(dom.el('facts').textContent).not.toMatch(/Tide|tide/);
+  });
+});
+
+describe('canal water', () => {
+  // Putney's record as a canal: its gauge and the river's steps for wind against the current stay in it.
+  const canal = resolveLocation({ ...PUTNEY_RECORD, slug: 'canal-x', waterType: 'canal', water: {} }, { waterway: PUTNEY_WATERWAY });
+
+  it('does not say in the Wind view that chop goes up against a strong current, as a river does', () => {
+    const html = wind.render(screen(canal).m).html;
+    expect(html).toContain('Wind along the straight counts fully and crosswind counts for less. It blends the last three hours, since chop takes time to build and settle.');
+    expect(html).not.toContain('against a strong current');
+    expect(html).not.toContain('Swell');
+    expect(wind.render(screen(PUTNEY).m).html).toContain('and goes up when wind blows against a strong current.');
+  });
+
+  it('says the canal on Now where the wind crosses it, and nothing of a current', () => {
+    const { dom } = screen(canal, NOW, { data: { wx: wx(() => ({ wind: 14, dir: 105 }), 3, T0) } });
+    renderNow();
+    const text = dom.el('facts').textContent;
+    expect(text).toContain('Mostly crosswind. It only crosses the width of the canal, so chop stays smaller.');
+    expect(text).not.toMatch(/against the current|steepens/);
+  });
+});

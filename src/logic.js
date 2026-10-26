@@ -84,8 +84,8 @@ export function flowTrend(ser) {
 export function relWind(dir, heading) { return ((dir - heading + 540) % 360) - 180; } // 0 = wind from upstream
 // The flow steps where wind against the current steepens chop, highest first. A tidal
 // reach has none: its current turns with the tide, and a river's step would point the
-// wrong way on a flood (01 9.4).
-const againstSteps = m => (m.loc.water.mode !== 'tidal' && m.loc.flow && m.loc.flow.against) || [];
+// wrong way on a flood (01 9.4). A canal has none either, even with a gauge (01 9.5).
+const againstSteps = m => (!['tidal', 'canal'].includes(m.loc.water.mode) && m.loc.flow && m.loc.flow.against) || [];
 // Wind from the right of the upstream heading (rel > 0) comes off the right bank.
 function crosswind(banks, rel) {
   if (!banks) return 'Crosswind.';
@@ -147,7 +147,7 @@ export function waterState(m, h, prev) {
   const es = [now.e, ...prev.map(p => (p ? p.e : now.e))];
   const eff = es.reduce((a, e, i) => a + e * WATER.blend[i], 0);
   const lvl = WATER.levels.filter(x => eff >= x).length;
-  const tide = m.loc.water.mode === 'tidal' && tideAt(m, h.t);
+  const tide = (m.loc.water.mode === 'tidal' || m.loc.waterType === 'harbor' && bound(m, 'tide')) && tideAt(m, h.t);
   return { lvl, eff, now: now.e, axis: now.axis, against: now.against, ...(now.fetchM && { fetchM: now.fetchM, dir: now.dir }), ...(tide && { tide }) };
 }
 
@@ -168,7 +168,7 @@ export function waterWhy(ws, m) {
       : open ? `Wind from the ${from} has about ${dist} of open water to build waves.` : `Wind from the ${from} crosses only about ${dist} of water, so chop stays small.`);
   } else if (ws.lvl === 0) parts.push(ws.now < 3 ? 'Little wind on the water.' : 'Not enough wind along the straight to build chop.');
   else if (ws.axis === 'along') parts.push('Wind runs along the straight, with a long reach to build waves.');
-  else parts.push('Mostly crosswind. It only crosses the width of the river, so chop stays smaller.');
+  else parts.push(`Mostly crosswind. It only crosses the width of the ${m?.loc.water.mode === 'canal' ? 'canal' : 'river'}, so chop stays smaller.`);
   if (ws.eff < ws.now * 0.8) parts.push('Building.');
   else if (ws.eff > ws.now * 1.25 && ws.lvl > 0) parts.push('Settling after earlier wind.');
   if (ws.against && ws.lvl > 0) parts.push('Wind against the current steepens it.');

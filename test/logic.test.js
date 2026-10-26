@@ -1484,3 +1484,123 @@ describe('tidal water (01 9.4)', () => {
     });
   });
 });
+
+// ---------- Canal and harbor water (P1.15; 01 9.5, 9.6) ----------
+// No curated place is a canal or a harbor yet, so these are made from a record that is and the water type that is.
+const TIDE_ROW = { role: 'tide', mode: 'primary', adapter: 'nwps', ref: 'GTND2', unit: 'ft', label: 'Georgetown' };
+// Putney's record as a canal: its gauge, its limits and the river's steps for wind against the current stay in it.
+const canalLoc = (extra = {}) => place({ slug: 'canal-x', waterType: 'canal', water: {}, ...extra });
+// A place on a harbor, with a tide row or without one, and the fetch the test gives it.
+const harborLoc = (water = { fetchM: 2414 }, withTide = true) => {
+  const rec = lakeRecord('lake-quinsigamond');
+  return resolveLocation({ ...rec, slug: 'harbor-x', waterType: 'harbor', water, sources: [...rec.sources, ...(withTide ? [TIDE_ROW] : [])] }, { waterway: readJson('data/waterways/lake-quinsigamond.json') });
+};
+const harborModel = (loc, over = () => ({ wind: 10, dir: 225 }), data = {}) => buildModel(loc, { wx: wx(over), river: {}, tide: tide(), ...data }, effectiveSettings(loc), NOON);
+
+describe('canal water (01 9.5)', () => {
+  const at = (loc, flow, over = () => ({ wind: 8, dir: 195 })) => buildModel(loc, { wx: wx(over), river: { ...RIVER, flow: { v: flow, t: NOON } } }, effectiveSettings(loc), NOON);
+  const along = (loc, flow) => chopWind(at(loc, flow), { wind: 8, dir: 195 });
+
+  it('is a canal by its water type, with a flow binding and the river\'s steps in its record', () => {
+    const loc = canalLoc();
+    expect([loc.waterType, loc.water.mode, still(loc), bound(at(loc, 6000), 'flow')]).toEqual(['canal', 'canal', false, true]);
+    expect(loc.flow.against).toEqual([[20000, 1.4], [10000, 1.25]]);
+  });
+
+  it('has the river formula with the crosswind weight and no wind against the current multiplier, at any flow', () => {
+    // From downstream along the 15 degree course: a river over 20,000 cfs makes 8 mph into 11.2, and over 10,000 into 10.
+    expect(along(place(), 30000)).toMatchObject({ e: 8 * 1.4, against: true });
+    expect(along(place(), 12000)).toMatchObject({ e: 8 * 1.25, against: true });
+    for (const flow of [0, 6000, 10000, 12000, 20000, 30000, 90000]) expect(along(canalLoc(), flow), `${flow} cfs`).toMatchObject({ e: 8, against: false });
+    // Crosswind counts for 0.4 of it, as on a river.
+    const cross = chopWind(at(canalLoc(), 30000), { wind: 10, dir: 105 });
+    expect(cross).toMatchObject({ axis: 'cross', against: false });
+    expect(cross.e).toBeCloseTo(4, 9);
+    // The record's own crosswind weight is used, not another.
+    expect(chopWind(at(canalLoc({ water: { cross: 0.25 } }), 30000), { wind: 10, dir: 105 }).e).toBeCloseTo(2.5, 9);
+  });
+
+  it('says nothing of a current in the hour\'s water words or the wind sentence', () => {
+    const m = at(canalLoc(), 30000);
+    expect(hourAt(m, 12).water).toMatchObject({ against: false });
+    expect(waterWhy(hourAt(m, 12).water, m)).not.toMatch(/current/);
+    // Wind from downstream, over the river's 20,000 cfs: a river adds "Wind against current steepens it."
+    expect(windVsCourse(m, 195, 10)).toBe('Tailwind rowing upstream, headwind coming back. Chop builds along the straight.');
+    expect(windVsCourse(at(place(), 30000), 195, 10)).toBe('Tailwind rowing upstream, headwind coming back. Chop builds along the straight. Wind against current steepens it.');
+  });
+
+  it('says the canal, not the river, where the water state says what the wind crosses', () => {
+    const m = at(canalLoc(), 6000, () => ({ wind: 14, dir: 105 }));
+    expect(waterWhy(hourAt(m, 12).water, m)).toBe('Mostly crosswind. It only crosses the width of the canal, so chop stays smaller.');
+    const r = at(place(), 6000, () => ({ wind: 14, dir: 105 }));
+    expect(waterWhy(hourAt(r, 12).water, r)).toBe('Mostly crosswind. It only crosses the width of the river, so chop stays smaller.');
+    // A tidal reach is a river for this: the sentence names the river.
+    const t = tideModel(() => ({ wind: 14, dir: 105 }));
+    expect(waterWhy(hourAt(t, 12).water, t)).toMatch(/^Mostly crosswind. It only crosses the width of the river, so chop stays smaller\./);
+    // The sentences that do not name the water are the river's.
+    const along1 = at(canalLoc(), 6000, () => ({ wind: 10, dir: 15 })), calm = at(canalLoc(), 6000, () => ({ wind: 1, dir: 15 }));
+    expect(waterWhy(hourAt(along1, 12).water, along1)).toMatch(/^Wind runs along the straight, with a long reach to build waves\./);
+    expect(waterWhy(hourAt(calm, 12).water, calm)).toBe('Little wind on the water.');
+  });
+
+  it('keeps its flow reasons and its debris warning: it is only the multiplier that goes', () => {
+    const m = at(canalLoc(), 30000);
+    expect(hourAt(m, 12).a.reasons.map(r => [r.key, r.lvl])).toContainEqual(['flow', 2]);
+    const rise = buildModel(canalLoc(), { wx: wx(), river: RIVER, flow: Array.from({ length: 25 }, (_, i) => ({ t: T0 + i * 30 * MIN, v: 5000 + 125 * i })) }, effectiveSettings(canalLoc()), NOON);
+    expect(debrisLikely(rise)).toBe(true);
+  });
+});
+
+describe('harbor water (01 9.6)', () => {
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(NOON); });
+  afterEach(() => vi.useRealTimers());
+
+  it('is fetch mode: the chop is the wind times the share its fetch gives, as on a lake, and no current', () => {
+    const loc = harborLoc({ fetchM: 750 });
+    expect([loc.waterType, loc.water.mode, still(loc)]).toEqual(['harbor', 'fetch', true]);
+    const chop = chopWind(harborModel(loc), { wind: 10, dir: 225 });
+    expect(chop).toMatchObject({ fetchM: 750, against: false });
+    expect(chop.e).toBeCloseTo(10 * Math.sqrt(750 / 2000), 9);
+    expect(chop.e).toBe(chopWind(lakeModel(still1({ fetchM: 750 })), { wind: 10, dir: 225 }).e);
+    expect(chop).not.toHaveProperty('along');
+    // A harbor with no fetch of its own has the reference fetch, as a lake does.
+    expect(chopWind(harborModel(harborLoc({})), { wind: 10, dir: 225 }).e).toBe(10);
+  });
+
+  it('adds the tide to the water state and its words when it has a tide binding', () => {
+    const m = harborModel(harborLoc());
+    const rising = hourAt(m, 12).water, falling = hourAt(m, 16).water;
+    expect([rising.tide.rising, falling.tide.rising]).toEqual([true, false]);
+    expect(waterWhy(rising, m)).toBe('Wind from the SW has about 1.5 mi of open water to build waves. Flood tide, rising until about 3 PM.');
+    expect(waterWhy(falling, m)).toBe('Wind from the SW has about 1.5 mi of open water to build waves. Ebb tide, falling until about 9 PM.');
+    expect(m.cur.water.tide).toBeTruthy();
+    // And the tide changes nothing in the verdict.
+    const none = harborModel(harborLoc(), undefined, { tide: undefined });
+    expect(m.hours.map(h => [h.a.lvl, h.a.reasons])).toEqual(none.hours.map(h => [h.a.lvl, h.a.reasons]));
+  });
+
+  it('has no tide in the water state without a tide binding, whatever tide data it is handed, and no sentence', () => {
+    const m = harborModel(harborLoc({ fetchM: 2414 }, false));
+    expect(bound(m, 'tide')).toBe(false);
+    expect(hourAt(m, 12).water.tide).toBeUndefined();
+    expect(waterWhy(hourAt(m, 12).water, m)).toBe('Wind from the SW has about 1.5 mi of open water to build waves.');
+  });
+
+  it('gives a lake or a reservoir no tide in the water state, though it has a tide row', () => {
+    for (const waterType of ['lake', 'reservoir']) {
+      const rec = lakeRecord('lake-quinsigamond');
+      const loc = resolveLocation({ ...rec, waterType, water: { fetchM: 2414 }, sources: [...rec.sources, TIDE_ROW] }, { waterway: readJson('data/waterways/lake-quinsigamond.json') });
+      const m = harborModel(loc);
+      expect(bound(m, 'tide'), waterType).toBe(true);
+      expect(hourAt(m, 12).water.tide, waterType).toBeUndefined();
+      expect(waterWhy(hourAt(m, 12).water, m), waterType).not.toMatch(/tide/i);
+    }
+  });
+
+  it('has the Tide tab and the tide forecast by its tide row only', () => {
+    expect(viewsFor(harborLoc()).map(v => v.key).slice(0, 3)).toEqual(['week', 'wind', 'tide']);
+    expect(viewsFor(harborLoc({ fetchM: 2414 }, false)).map(v => v.key)).not.toContain('tide');
+    expect(bindingsFor(harborLoc(), NOON).map(b => b.slot)).toContain('tide');
+    expect(bindingsFor(harborLoc({ fetchM: 2414 }, false), NOON).map(b => b.slot)).not.toContain('tide');
+  });
+});

@@ -2,7 +2,7 @@
 // gusts against the settings, direction relative to the course, and water state.
 import { HOUR, WATER, WORD_PLAIN } from '../../config.js';
 import { hm, r0, card, dayKey, esc } from '../../format.js';
-import { factorLevel, worstOf, relWind, windVsCourse, sunFor, confidence, confidenceText, still } from '../../logic.js';
+import { factorLevel, worstOf, relWind, windVsCourse, sunFor, confidence, confidenceText, still, bound } from '../../logic.js';
 import { Chart, niceTicks, niceMax } from '../chart.js';
 import { dayLabel } from '../days.js';
 import { mid, chartWidth, weekDays, pickDay, weekStrip, legend, chartBox, hourTicks, tickEvery, lvlDot, hourTable, head } from './common.js';
@@ -46,7 +46,7 @@ const hourText = (m, h) =>
   `${hm(h.t)}: ${m.u.speed(h.wind)} from ${card(h.dir)}, gusts ${r0(h.gust)}. ${windVsCourse(m, h.dir, h.wind)}${h.water ? ` ${WATER.names[h.water.lvl]}.` : ''}${modelRange(h, m.u)}`;
 
 export function render(m, want) {
-  const S = m.S, W = chartWidth(), days = weekDays(m), day = pickDay(m, want, days), course = m.loc.course.kind === 'heading', tidal = m.loc.water.mode === 'tidal';
+  const S = m.S, W = chartWidth(), days = weekDays(m), day = pickDay(m, want, days), course = m.loc.course.kind === 'heading', tidal = m.loc.water.mode === 'tidal', harbor = m.loc.waterType === 'harbor', canal = m.loc.water.mode === 'canal';
   const lede = summary(m).text;
   if (!day) return { day, html: head(name, 'No forecast yet.') };
 
@@ -122,7 +122,7 @@ export function render(m, want) {
       <h3>How this works</h3>
       <p>Sustained wind and gusts are checked against your settings. Caution at ${m.u.speed(S.windCaution)} wind or ${m.u.speed(S.gustCaution)} gusts, stay off at ${S.windOff} or ${S.gustOff}.</p>
       <p>${course ? `Arrows show where the wind is blowing, with the river running up the page. An arrow pointing down is a headwind rowing upstream. The course heading is ${m.loc.course.heading}°, set in Settings.` : 'Head and crosswind are not shown because no course is set here.'}</p>
-      <p>Water state is information only and does not change Go, Caution or Stay off. ${still(m.loc) ? 'It follows the wind and how far the wind has blown over open water, which is called fetch: a longer reach builds bigger waves.' : 'Wind along the straight counts fully and crosswind counts for less.'} It blends the last three hours, since chop takes time to build and settle${still(m.loc) || tidal ? '' : ', and goes up when wind blows against a strong current'}.${tidal ? ' The tide forecast has heights only, so the tide\'s current is not counted.' : ''}</p>
+      <p>Water state is information only and does not change Go, Caution or Stay off. ${still(m.loc) ? 'It follows the wind and how far the wind has blown over open water, which is called fetch: a longer reach builds bigger waves.' : 'Wind along the straight counts fully and crosswind counts for less.'} It blends the last three hours, since chop takes time to build and settle${still(m.loc) || tidal || canal ? '' : ', and goes up when wind blows against a strong current'}.${tidal || harbor && bound(m, 'tide') ? ' The tide forecast has heights only, so the tide\'s current is not counted.' : ''}${harbor ? ' Swell from open water is not included.' : ''}</p>
       <p>Shaded hours before sunrise need lights.</p>
     </div>`;
   return { day, html };
