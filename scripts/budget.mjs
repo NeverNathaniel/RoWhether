@@ -23,6 +23,10 @@
 // precaches it or not as LAZY says. Each chunk's gzip size is printed. It has
 // no size budget (08 11.2).
 //
+// Main JS is the main script plus any other script the page loads or preloads
+// (P1.14): a bundler that splits the main script into a chunk the page loads at
+// start would otherwise take those bytes out of the count and out of the budget.
+//
 // The report is written even when the check fails, so CI can upload it.
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { gzipSync, constants } from 'node:zlib';
@@ -131,18 +135,19 @@ function locationProblems(distinct) {
 }
 
 // The lazy chunks. P1.5 moved the suggestion form out of the main script to make
-// room (07 10.3, plan 7.3); P1.6 added the picker; P1.14 and P1.18 add tide and admin.
-const LAZY = [{ name: 'views', precache: true }, { name: 'suggest-form', precache: true }, { name: 'picker', precache: true }];
+// room (07 10.3, plan 7.3); P1.6 added the picker; P1.14 added tide; P1.18 adds admin.
+const LAZY = [{ name: 'views', precache: true }, { name: 'suggest-form', precache: true }, { name: 'picker', precache: true }, { name: 'tide', precache: true }];
 
 // The files the page loads or preloads: its scripts, and its modulepreload and
 // preload links. A lazy chunk is read with import() and is in none of them.
-function pageFiles(html) {
+function pagePaths(html) {
   const urls = [...html.matchAll(/<script\b[^>]*>/gi)].map((m) => attr(m[0], 'src'));
   for (const m of html.matchAll(/<link\b[^>]*>/gi)) {
     if (/(^|\s)(module)?preload(\s|$)/i.test(attr(m[0], 'rel') || '')) urls.push(attr(m[0], 'href'));
   }
-  return urls.filter(Boolean).map((u) => posix.basename(distPath(u)));
+  return urls.filter(Boolean).map(distPath);
 }
+const pageFiles = (html) => pagePaths(html).map((p) => posix.basename(p));
 
 // Each lazy chunk's files, and what is wrong with them as a list of sentences.
 function lazyChunks(assets, html, distinct) {
@@ -176,7 +181,15 @@ for (const key of ['js', 'css', 'html', 'precacheKiB']) {
 
 const htmlBuf = Buffer.from(readText(join(DIST, 'index.html')));
 const main = mainFiles(htmlBuf.toString('utf8'));
-const jsBuf = readFileSync(join(DIST, main.js));
+// The main script and the other scripts the page loads or preloads, each as a file under dist/.
+const startJs = [...new Set([main.js, ...pagePaths(htmlBuf.toString('utf8')).filter((f) => f.endsWith('.js'))])];
+const jsBufs = startJs.map((f) => {
+  try {
+    return readFileSync(join(DIST, f));
+  } catch {
+    return fail(`dist/index.html loads ${f}, which is not in dist/.`);
+  }
+});
 const cssBuf = readFileSync(join(DIST, main.css));
 
 const entries = precacheEntries(readText(join(DIST, 'sw.js')));
@@ -192,7 +205,7 @@ const assets = readdirSync(join(DIST, 'assets'), { withFileTypes: true })
   .sort((a, b) => a.file.localeCompare(b.file));
 
 const checks = [
-  { name: 'Main JS', file: main.js, raw: jsBuf.length, value: gzipSize(jsBuf), limit: budget.js, unit: 'B' },
+  { name: 'Main JS', file: startJs.length > 1 ? `${startJs.join(' and ')}` : main.js, raw: jsBufs.reduce((n, b) => n + b.length, 0), value: jsBufs.reduce((n, b) => n + gzipSize(b), 0), limit: budget.js, unit: 'B' },
   { name: 'CSS', file: main.css, raw: cssBuf.length, value: gzipSize(cssBuf), limit: budget.css, unit: 'B' },
   { name: 'HTML', file: 'index.html', raw: htmlBuf.length, value: gzipSize(htmlBuf), limit: budget.html, unit: 'B' },
   { name: 'Precache', file: `${entries.length} entries, ${distinct.length} distinct`, raw: precacheBytes, value: precacheBytes / KIB, limit: budget.precacheKiB, unit: 'KiB' }
@@ -219,7 +232,7 @@ const width = Math.max(...assets.map((a) => a.file.length));
 console.log(`\nFiles in dist/assets (${assets.length}):`);
 console.log(`${'file'.padEnd(width)}  ${'raw B'.padStart(9)}  ${'gzip B'.padStart(9)}`);
 for (const a of assets) {
-  const tag = a.file === main.js || a.file === main.css ? '  main' : lazy.chunks.some((c) => c.file === a.file) ? '  lazy' : '';
+  const tag = startJs.includes(a.file) || a.file === main.css ? '  main' : lazy.chunks.some((c) => c.file === a.file) ? '  lazy' : '';
   console.log(`${a.file.padEnd(width)}  ${fmt(a.raw).padStart(9)}  ${fmt(a.gzip).padStart(9)}${tag}`);
 }
 
@@ -229,7 +242,7 @@ const report = {
   ok: over.length === 0 && places.problems.length === 0 && lazy.problems.length === 0,
   budget: { js: budget.js, css: budget.css, html: budget.html, precacheKiB: budget.precacheKiB },
   main: {
-    js: { file: main.js, raw: checks[0].raw, gzip: checks[0].value },
+    js: { file: main.js, files: startJs, raw: checks[0].raw, gzip: checks[0].value },
     css: { file: main.css, raw: checks[1].raw, gzip: checks[1].value },
     html: { file: 'index.html', raw: checks[2].raw, gzip: checks[2].value }
   },

@@ -1,4 +1,5 @@
-import { HOUR } from '../../src/config.js';
+import { HOUR, MIN } from '../../src/config.js';
+import { parseTide } from '../../src/sources/nwps.js';
 
 // A forecast to build a model from in the unit tests, in the shape Open-Meteo
 // answers.
@@ -29,4 +30,14 @@ export function wx(over = () => ({}), days = 3, start = T0) {
     D.temperature_2m_max.push(80); D.temperature_2m_min.push(60); D.precipitation_probability_max.push(0);
   }
   return { hourly: H, daily: D };
+}
+
+// The tide forecast of a tidal place as the model reads it (P1.14): 72 hourly heights from `start`,
+// h = 4 + 1.6 sin(2 pi i / 12) to a tenth unless `fn(i)` says otherwise. From midnight that gives highs of
+// 5.6 ft at 3 AM and 3 PM and lows of 2.4 ft at 9 AM and 9 PM, with 5.4 and 2.6 ft in the hours either side.
+export function tide(fn = i => 4 + 1.6 * Math.sin(2 * Math.PI * i / 12), start = T0, unit = 'ft') {
+  return parseTide({
+    primaryName: 'Tide Height', primaryUnits: unit, issuedTime: new Date(start - 5 * MIN).toISOString(),
+    data: Array.from({ length: 72 }, (_, i) => ({ validTime: new Date(start + i * HOUR).toISOString(), primary: Math.round(fn(i) * 10) / 10, secondary: -999 }))
+  }, { label: 'Georgetown' });
 }

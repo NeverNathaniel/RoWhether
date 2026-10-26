@@ -1,4 +1,4 @@
-// P1.2a: the nine detail views are one lazy chunk. renderDetail() draws the
+// P1.2a: nine of the ten detail views are one lazy chunk (the tenth, Tide, is a chunk of its own, P1.14). renderDetail() draws the
 // view's name and "Loading." until the view's module has arrived, imports it
 // once, and draws when it lands. The loads here are stand-ins that the test
 // settles by hand, on a fake page; the real import is the browser checks'.
@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url';
 import { installFakeDom, uninstallFakeDom } from './helpers/fakedom.js';
 
 const SRC = fileURLToPath(new URL('../src/', import.meta.url));
-const ORDER = ['week', 'wind', 'river', 'storms', 'fog', 'temperature', 'rain', 'light', 'air'];
+const ORDER = ['week', 'wind', 'tide', 'river', 'storms', 'fog', 'temperature', 'rain', 'light', 'air'];
+// The views that are one chunk: all but Tide, which has a chunk of its own.
+const SHARED = ORDER.filter(k => k !== 'tide');
 const flush = () => new Promise(done => setTimeout(done, 0));
 
 let app, VIEWS, renderDetail, dom;
@@ -41,23 +43,23 @@ beforeEach(async () => {
 afterEach(() => uninstallFakeDom());
 
 describe('the view registry', () => {
-  it('lists the nine views in tab order', () => {
+  it('lists the ten views in tab order, Tide after Wind', () => {
     expect(VIEWS.map(v => v.key)).toEqual(ORDER);
   });
 
-  it('gives each view the key and name its module carries, and loads that module from views.js', async () => {
+  it('gives each view the key and name its module carries, and loads that module from views.js, but Tide from tide.js', async () => {
     const { MODULES } = await import('../src/render/detail/views.js');
-    expect(Object.keys(MODULES).sort()).toEqual([...ORDER].sort());
+    expect(Object.keys(MODULES).sort()).toEqual([...SHARED].sort());
     for (const v of VIEWS) {
       const mod = await v.load();
-      expect(mod, v.key).toBe(MODULES[v.key]);
+      expect(mod, v.key).toBe(v.key === 'tide' ? await import('../src/render/detail/tide.js') : MODULES[v.key]);
       expect([mod.key, mod.name], v.key).toEqual([v.key, v.name]);
       expect(typeof mod.summary).toBe('function');
       expect(typeof mod.render).toBe('function');
     }
   });
 
-  it('is the only place in src/ that imports a view module', () => {
+  it('is the only place in src/ that imports a view module: views.js the nine, the registry Tide', () => {
     const views = new Set(ORDER.map(k => join(SRC, 'render/detail', `${k}.js`)));
     const files = [];
     (function walk(dir) {
@@ -74,8 +76,8 @@ describe('the view registry', () => {
         if (views.has(resolve(dirname(file), m[1]))) importers.push(`${file.slice(SRC.length)} imports ${m[1]}`);
       }
     }
-    expect(importers.every(x => x.startsWith('render/detail/views.js '))).toBe(true);
-    expect(importers).toHaveLength(ORDER.length);
+    expect(importers.filter(x => x.startsWith('render/detail/views.js ')).map(x => x.split(' imports ')[1].replace(/^\.\/|\.js$/g, '')).sort()).toEqual([...SHARED].sort());
+    expect(importers.filter(x => !x.startsWith('render/detail/views.js '))).toEqual(['render/detail/index.js imports ./tide.js']);
   });
 });
 
@@ -216,6 +218,6 @@ describe('renderDetail with a lazy module', () => {
     const loads = hold();
     renderDetail();
     expect(body().written).toBe(false);
-    expect(Object.values(loads).map(l => l.calls)).toEqual(new Array(9).fill(0));
+    expect(Object.values(loads).map(l => l.calls)).toEqual(new Array(ORDER.length).fill(0));
   });
 });

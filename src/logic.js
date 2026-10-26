@@ -82,8 +82,10 @@ export function flowTrend(ser) {
 
 // ---------- Wind vs. course ----------
 export function relWind(dir, heading) { return ((dir - heading + 540) % 360) - 180; } // 0 = wind from upstream
-// The flow steps where wind against the current steepens chop, highest first.
-const againstSteps = m => (m.loc.flow && m.loc.flow.against) || [];
+// The flow steps where wind against the current steepens chop, highest first. A tidal
+// reach has none: its current turns with the tide, and a river's step would point the
+// wrong way on a flood (01 9.4).
+const againstSteps = m => (m.loc.water.mode !== 'tidal' && m.loc.flow && m.loc.flow.against) || [];
 // Wind from the right of the upstream heading (rel > 0) comes off the right bank.
 function crosswind(banks, rel) {
   if (!banks) return 'Crosswind.';
@@ -145,7 +147,8 @@ export function waterState(m, h, prev) {
   const es = [now.e, ...prev.map(p => (p ? p.e : now.e))];
   const eff = es.reduce((a, e, i) => a + e * WATER.blend[i], 0);
   const lvl = WATER.levels.filter(x => eff >= x).length;
-  return { lvl, eff, now: now.e, axis: now.axis, against: now.against, ...(now.fetchM && { fetchM: now.fetchM, dir: now.dir }) };
+  const tide = m.loc.water.mode === 'tidal' && tideAt(m, h.t);
+  return { lvl, eff, now: now.e, axis: now.axis, against: now.against, ...(now.fetchM && { fetchM: now.fetchM, dir: now.dir }), ...(tide && { tide }) };
 }
 
 // True when the river rose fast enough recently to bring down debris.
@@ -169,7 +172,30 @@ export function waterWhy(ws, m) {
   if (ws.eff < ws.now * 0.8) parts.push('Building.');
   else if (ws.eff > ws.now * 1.25 && ws.lvl > 0) parts.push('Settling after earlier wind.');
   if (ws.against && ws.lvl > 0) parts.push('Wind against the current steepens it.');
+  if (ws.tide?.until) parts.push(`${ws.tide.rising ? 'Flood tide, rising' : 'Ebb tide, falling'} until about ${m.fmt.hm(ws.tide.until.t)}.`);
   return parts.join(' ');
+}
+
+// ---------- Tide ----------
+// Tide is information only: no reason in assess() (README row 10). The forecast is hourly
+// heights and the highs and lows between them (parseTide).
+// The highs and lows from `from` up to `to`.
+export const tideEvents = (m, from, to) => (m.data.tide?.events || []).filter(e => e.t >= from && e.t < to);
+// The height at t between the hourly points, whether the water is rising, and the next high
+// or low after t. With heights only, rising water is flood and falling is ebb (01 9.4). Null
+// outside the forecast.
+export function tideAt(m, t) {
+  const s = m.data.tide?.series || [];
+  if (!s.length || t < s[0].t || t > s[s.length - 1].t) return null;
+  const i = s.filter(p => p.t <= t).length - 1, a = s[i], b = s[i + 1] || a;
+  const until = tideEvents(m, t + 1, Infinity)[0] || null;
+  return { h: b === a ? a.h : a.h + (b.h - a.h) * (t - a.t) / (b.t - a.t), rising: until ? until.type === 'H' : b.h > a.h, until };
+}
+// "High about 7 AM, 5.2 ft. Low about 1 PM, 2.4 ft.": the next high and the next low, soonest first.
+export function tideLine(m, from = m.now) {
+  const ev = tideEvents(m, from, Infinity), u = m.data.tide?.unit;
+  return ['H', 'L'].map(k => ev.find(e => e.type === k)).filter(Boolean).sort((a, b) => a.t - b.t)
+    .map(e => `${e.type === 'H' ? 'High' : 'Low'} about ${m.fmt.whenText(e.t, true)}, ${m.u.stage(e.h, u)}.`).join(' ');
 }
 
 // ---------- Precipitation ----------

@@ -11,10 +11,12 @@ import { head } from '../parts.js';
 const lazy = key => () => import('./views.js').then(x => x.MODULES[key]);
 
 // Tab order, most to least important for deciding whether to row.
+// Tide is a chunk of its own (P1.14): only a tidal location opens it.
 export const VIEWS = [
-  ['week', 'Week'], ['wind', 'Wind'], ['river', 'River', loc => loc.sources.flow], ['storms', 'Storms'], ['fog', 'Fog'],
+  ['week', 'Week'], ['wind', 'Wind'], ['tide', 'Tide', loc => !!loc.sources.tide, () => import('./tide.js')],
+  ['river', 'River', loc => loc.sources.flow], ['storms', 'Storms'], ['fog', 'Fog'],
   ['temperature', 'Temperature'], ['rain', 'Rain'], ['light', 'Light'], ['air', 'Air']
-].map(([key, name, when]) => ({ key, name, when, load: lazy(key) }));
+].map(([key, name, when, load]) => ({ key, name, when, load: load || lazy(key) }));
 // The tabs a location has.
 export const viewsFor = loc => VIEWS.filter(v => !v.when || v.when(loc));
 

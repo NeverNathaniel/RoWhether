@@ -19,6 +19,7 @@ import { renderNow } from '../src/render/now.js';
 import { forecastPanel } from '../src/render/forecast.js';
 import { compassSVG, noWater } from '../src/render/parts.js';
 import * as wind from '../src/render/detail/wind.js';
+import * as tideView from '../src/render/detail/tide.js';
 import { MODULES } from '../src/render/detail/views.js';
 import { viewsFor } from '../src/render/detail/index.js';
 import * as river from '../src/render/detail/river.js';
@@ -26,7 +27,7 @@ import * as temperature from '../src/render/detail/temperature.js';
 import { shareText, initShare } from '../src/share.js';
 import { renderPlace } from '../src/render/header.js';
 import { installFakeDom, uninstallFakeDom } from './helpers/fakedom.js';
-import { wx, T0 } from './helpers/forecast.js';
+import { wx, T0, tide } from './helpers/forecast.js';
 
 // A place on a lake: a course of 100 degrees, banks that are the north shore (NS)
 // and the south shore (SS), and nothing that says Vermont, New Hampshire or the Connecticut.
@@ -981,5 +982,157 @@ describe('still water', () => {
   it('reads the lakes as still water and Putney as not', () => {
     expect(SLUGS.map(s => still(LAKES[s]))).toEqual([true, true, true]);
     expect(still(PUTNEY)).toBe(false);
+  });
+});
+
+// ---------- Tidal water (P1.14; 01 9.4) ----------
+describe('tidal water', () => {
+  // The Potomac's name, and a tide row labeled Georgetown. The tide is the forecast of helpers/forecast.js:
+  // highs of 5.6 ft at 3 AM and 3 PM, lows of 2.4 ft at 9 AM and 9 PM, from the clock's midnight.
+  const POTOMAC = { ...PUTNEY_WATERWAY, name: 'Potomac River' };
+  const loc = resolveLocation({
+    ...PUTNEY_RECORD, slug: 'tidal-x', name: 'Tidal X', waterType: 'tidal', water: { mode: 'tidal', cross: 0.4 },
+    sources: [...PUTNEY_RECORD.sources, { role: 'tide', mode: 'primary', adapter: 'nwps', ref: 'GTND2', unit: 'ft', label: 'Georgetown' }]
+  }, { waterway: POTOMAC });
+  const tideScreen = (data = {}) => screen(loc, NOW, { data: { tide: tide(), ...data } });
+  const PM3 = '3\u00a0PM', PM9 = '9\u00a0PM';
+
+  describe('the Tide fact on Now', () => {
+    it('gives the height now and which way it runs, the next high and low, and links to the tab', () => {
+      const { dom } = tideScreen();
+      renderNow();
+      const facts = dom.el('facts').innerHTML;
+      expect(facts).toMatch(/<a class="flink stretch" href="#tide">Tide/);
+      expect(dom.el('facts').textContent).toContain(`Tide4.0 ft risingHigh about ${PM3}, 5.6 ft. Low about ${PM9}, 2.4 ft.`);
+    });
+
+    it('sits after the water state and before the air', () => {
+      const { dom } = tideScreen();
+      renderNow();
+      const text = dom.el('facts').textContent;
+      expect(text.indexOf('Water state')).toBeLessThan(text.indexOf('Tide'));
+      expect(text.indexOf('Tide')).toBeLessThan(text.indexOf('Air'));
+    });
+
+    it('says the water is falling after a high', () => {
+      const { dom } = screen(loc, T0 + 16 * HOUR, { data: { tide: tide() } });
+      renderNow();
+      expect(dom.el('facts').textContent).toContain(`Tide5.4 ft fallingLow about ${PM9}, 2.4 ft. High about tomorrow 3\u00a0AM, 5.6 ft.`);
+    });
+
+    it('says so when there is no tide forecast, or the hour is past it', () => {
+      for (const data of [{ tide: undefined }, { tide: tide(undefined, T0 - 72 * HOUR) }]) {
+        const { dom } = screen(loc, NOW, { data });
+        renderNow();
+        expect(dom.el('facts').textContent, JSON.stringify(Object.keys(data))).toContain('Tide--NWS tide forecast unavailable.');
+        expect(dom.el('facts').textContent).not.toMatch(BROKEN);
+      }
+    });
+
+    it("is not at Putney, and the water state there has no tide in it", () => {
+      const { dom } = screen(PUTNEY, NOW, { data: { tide: tide() } });
+      renderNow();
+      expect(dom.el('facts').textContent).not.toMatch(/Tide|tide/);
+      expect(dom.el('facts').innerHTML).not.toContain('#tide');
+    });
+
+    it('puts the way the water runs in the water state, with the chop', () => {
+      const { dom } = tideScreen();
+      renderNow();
+      expect(dom.el('facts').textContent).toContain(`Flood tide, rising until about ${PM3}.`);
+    });
+  });
+
+  describe('the Tide view', () => {
+    const render = (m, day = null) => tideView.render(m, day).html;
+
+    it('opens with the next high and low, and has no status', () => {
+      const { m } = tideScreen();
+      expect(tideView.summary(m)).toEqual({ text: `High about ${PM3}, 5.6 ft. Low about ${PM9}, 2.4 ft.`, lvl: null });
+      expect(render(m)).toContain(`High about ${PM3}, 5.6 ft. Low about ${PM9}, 2.4 ft.`);
+      expect([tideView.key, tideView.name]).toEqual(['tide', 'Tide']);
+      // No status color anywhere: the strip, the table and the chart carry no level.
+      expect(render(m)).not.toMatch(/data-lvl="[12p]"|class="b[12]"|dot-warn/);
+    });
+
+    it('has a week strip with the high of each day that has a forecast and "No tide forecast" for the rest', () => {
+      const { m } = screen(loc, NOW, { data: { wx: wx(across, 5, T0), tide: tide() } });
+      const html = render(m);
+      const vals = [...html.matchAll(/<span class="sval[^"]*">([^<]*)<\/span>/g)].map(x => x[1]);
+      expect(vals).toEqual(['High 5.6\u00a0ft', 'High 5.6\u00a0ft', 'High 5.6\u00a0ft', 'No tide forecast', 'No tide forecast', ...vals.slice(5)]);
+      expect(html).toContain('class="sval long wrap"');
+      // The forecast covers about 3 days and the picked day is today.
+      expect(html).toMatch(/aria-pressed="true"[^>]*aria-label="[^"]*: high 5\.6 ft, low 2\.4 ft\./);
+    });
+
+    it('draws the height, labels each high and low, and has an hour table with the way the water runs', () => {
+      const { m } = tideScreen();
+      const html = render(m);
+      expect(html).toContain('Tide height, ft');
+      // The window is first light to sunset, so the high at 3 AM is not in it.
+      expect(html).toContain('about 9\u00a0AM, 2.4 ft</text>');
+      expect(html).toContain('about 3\u00a0PM, 5.6 ft</text>');
+      expect(html).not.toContain('about 3\u00a0AM');
+      expect(html).toContain('<th scope="col">Time</th><th scope="col">Height</th><th scope="col">Tide</th>');
+      expect(html).toContain('<td>5\u00a0AM</td><td>4.8 ft</td><td>Falling</td>');
+      expect(html).toContain('<td>10\u00a0AM</td><td>2.6 ft</td><td>Rising</td>');
+      expect(html).toContain('Rising');
+      expect(html).toContain('Falling');
+      expect(html).not.toMatch(BROKEN);
+    });
+
+    it('says where the heights come from and that the tide does not change the verdict', () => {
+      const { m } = tideScreen();
+      expect(render(m)).toContain('Tide heights are the National Weather Service forecast for the Potomac at Georgetown, in feet, hourly for 3 days. Highs and lows are the highest and lowest hourly values, so their times are right to about half an hour.');
+      expect(render(m)).toContain('Tide is shown for information. It does not change Go, Caution or Stay off.');
+    });
+
+    it('says no forecast for a day it does not cover, and has no chart for it', () => {
+      const { m } = screen(loc, NOW, { data: { wx: wx(across, 5, T0), tide: tide() } });
+      const html = render(m, m.days[4].key);
+      expect(html).toContain('The forecast covers about 3 days.');
+      expect(html).not.toMatch(/<svg|<table/);
+      expect(html).not.toMatch(BROKEN);
+    });
+
+    it('says the tide forecast is not available when it did not load', () => {
+      const { m } = tideScreen({ tide: undefined });
+      const r = tideView.render(m, null);
+      expect(r.html).toContain('The tide forecast is not available right now. Try Refresh.');
+      expect(tideView.summary(m).text).toBe('No tide forecast right now.');
+      expect(r.html).not.toMatch(BROKEN);
+    });
+
+    it('says metres for a forecast in metres', () => {
+      const { m } = tideScreen({ tide: tide(undefined, T0, 'm') });
+      expect(render(m)).toContain('in metres, hourly for 3 days');
+      expect(render(m)).toContain('Tide height, m');
+      expect(render(m)).not.toMatch(BROKEN);
+    });
+
+    it('draws with no undefined and no NaN for the days and the other views of a tidal place', () => {
+      const { m } = tideScreen();
+      for (const day of [null, ...m.days.map(d => d.key)]) expect(render(m, day), String(day)).not.toMatch(BROKEN);
+      for (const key of viewsFor(loc).map(v => v.key).filter(k => k !== 'tide')) expect(MODULES[key].render(m, null).html, key).not.toMatch(BROKEN);
+    });
+  });
+
+  describe('the Wind view', () => {
+    it('does not say the wind steepens against a current, and says the tide current is not counted', () => {
+      const html = wind.render(tideScreen().m).html;
+      expect(html).toContain('It blends the last three hours, since chop takes time to build and settle. The tide forecast has heights only, so the tide\'s current is not counted.');
+      expect(html).not.toContain('against a strong current');
+      expect(html).toContain('Wind along the straight counts fully and crosswind counts for less.');
+      expect(html).not.toContain('fetch');
+    });
+  });
+
+  describe('a full forecast', () => {
+    it('carries the tide sentence of its worst hour in the water state', () => {
+      const { m } = tideScreen();
+      const html = forecastPanel(m, m.days.flatMap(d => d.periods).find(x => !x.past));
+      expect(html).toMatch(/(Flood|Ebb) tide, (rising|falling) until about/);
+      expect(html).not.toMatch(BROKEN);
+    });
   });
 });

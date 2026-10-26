@@ -33,9 +33,10 @@ const stripName = t => (dayKey(t) === dayKey(Date.now()) ? 'Today' : weekday(t))
 const pct = v => `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
 
 // One button per day: name, a small bar for the day's value, and the value.
-// items: [{ key, t, value, frac, lo?, lvl, aria }]. With lo the bar spans lo
+// items: [{ key, t, value, frac, lo?, lvl, aria, cls? }]. With lo the bar spans lo
 // to frac (a range); without it the bar grows from the bottom. lvl is 0, 1
-// or 2 for the status colors, 'p' for possible fog, or null for neutral.
+// or 2 for the status colors, 'p' for possible fog, or null for neutral. cls is
+// an extra class for the value, such as `wrap` for one that breaks over two lines.
 export function weekStrip(items, sel) {
   return `<div class="strip" role="group" aria-label="Choose a day">${items.map(it => {
     const f = it.frac > 0 ? Math.max(it.frac, 0.06) : 0;
@@ -43,7 +44,7 @@ export function weekStrip(items, sel) {
     return `<button type="button" class="sday" data-day="${it.key}" aria-pressed="${it.key === sel}" aria-label="${esc(it.aria)}">
       <span class="sname">${esc(stripName(it.t))}</span>
       <span class="strack" aria-hidden="true"><i data-lvl="${it.lvl ?? ''}" style="${bar}"></i></span>
-      <span class="sval${it.value.length > 6 ? ' long' : ''}">${esc(it.value)}</span>
+      <span class="sval${it.value.length > 6 ? ' long' : ''}${it.cls ? ` ${it.cls}` : ''}">${esc(it.value)}</span>
     </button>`;
   }).join('')}</div>`;
 }

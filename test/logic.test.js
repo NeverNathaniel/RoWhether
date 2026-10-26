@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { HOUR, MIN } from '../src/config.js';
 import { dayKey, localHour, lowerFirst } from '../src/format.js';
-import { precipKind, rateWord, precipSummary, buildModel, sunOn, uvWord, rowingHours, callRuns, factorRuns, worstReasons, aqiWord, confidence, confidenceText, planSessions, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity, flowNow, flowForCall, waterTemp, waterSource, waterOverridden, bound, notChecked, notCheckedText, still } from '../src/logic.js';
+import { precipKind, rateWord, precipSummary, buildModel, sunOn, uvWord, rowingHours, callRuns, factorRuns, worstReasons, aqiWord, confidence, confidenceText, planSessions, factorLevel, worstOf, flowForecastAt, flowForecastPeak, chopWind, waterState, debrisLikely, waterWhy, relWind, windVsCourse, flowTrend, sunFor, lightAt, lvlExcept, fogRisk, morningFog, nextMorning, fogLift, relHumidity, flowNow, flowForCall, waterTemp, waterSource, waterOverridden, bound, notChecked, notCheckedText, still, tideAt, tideEvents, tideLine } from '../src/logic.js';
 import { parseAlerts, parseObs, alertLevel } from '../src/sources/nws.js';
 import { parseRiver, parseFlow, parseFlowDays } from '../src/sources/usgs.js';
 import { parseFlowForecast } from '../src/sources/nwps.js';
@@ -11,7 +11,7 @@ import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
 import { resolveLocation, effectiveSettings } from '../src/location.js';
 import { bindingsFor } from '../src/sources/index.js';
 import { viewsFor } from '../src/render/detail/index.js';
-import { T0, wx } from './helpers/forecast.js';
+import { T0, wx, tide } from './helpers/forecast.js';
 
 // Putney's limits as the app holds them, without the heading (it lives in the course).
 const SETTINGS = effectiveSettings(PUTNEY);
@@ -1291,5 +1291,146 @@ describe('the three lakes have no river', () => {
     const m = model(() => ({ wind: 10, dir: 195 }));
     const c = chopWind(m, { wind: 10, dir: 195 });
     expect(c).toEqual({ e: 10, along: 10, cross: expect.closeTo(0, 6), axis: 'along', against: false });
+  });
+});
+
+// ---------- Tidal water (P1.14; 01 9.4) ----------
+// Putney's record with tidal water, the river's steps for wind against the current kept in it (a tide must not
+// use them), and a tide row. T0 is midnight Eastern.
+const tidalLoc = (extra = {}) => place({
+  slug: 'tidal-x', waterType: 'tidal', water: { mode: 'tidal', cross: 0.4 },
+  sources: [...PUTNEY_RECORD.sources, { role: 'tide', mode: 'primary', adapter: 'nwps', ref: 'GTND2', unit: 'ft', label: 'Georgetown' }], ...extra
+});
+// The tide is the forecast of helpers/forecast.js: highs of 5.6 ft at 3 AM and 3 PM, lows of 2.4 ft at 9 AM and 9 PM.
+const tideModel = (over = () => ({}), loc = tidalLoc(), tideData = tide(), extra = {}) =>
+  buildModel(loc, { wx: wx(over), river: RIVER, tide: tideData, ...extra }, effectiveSettings(loc), NOON);
+
+describe('tidal water (01 9.4)', () => {
+  // The words for a day ("tomorrow", "Wed") count from the clock, so it is held at the model's noon.
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(NOON); });
+  afterEach(() => vi.useRealTimers());
+  const m = tideModel();
+
+  it('reads the height between the hourly points and says whether the water is rising', () => {
+    expect(tideAt(m, NOON)).toMatchObject({ h: 4, rising: true });
+    // Halfway from 4.0 ft at noon to 4.8 ft at 1 PM.
+    expect(tideAt(m, NOON + 30 * MIN).h).toBeCloseTo(4.4, 9);
+    // Falling after the high at 3 PM, rising after the low at 9 AM, and at the turn itself the water has begun to turn.
+    expect(tideAt(m, T0 + 16 * HOUR)).toMatchObject({ h: 5.4, rising: false });
+    expect(tideAt(m, T0 + 10 * HOUR).rising).toBe(true);
+    expect(tideAt(m, T0 + 15 * HOUR).rising).toBe(false);
+    expect(tideAt(m, T0 + 15 * HOUR - MIN).rising).toBe(true);
+    expect(tideAt(m, T0 + 9 * HOUR).rising).toBe(true);
+  });
+
+  it('names the next high or low after the moment', () => {
+    expect(tideAt(m, NOON).until).toMatchObject({ type: 'H', h: 5.6, t: T0 + 15 * HOUR });
+    expect(tideAt(m, T0 + 16 * HOUR).until).toMatchObject({ type: 'L', h: 2.4, t: T0 + 21 * HOUR });
+  });
+
+  it('is null outside the forecast and with no forecast', () => {
+    expect(tideAt(m, T0 - HOUR)).toBe(null);
+    expect(tideAt(m, T0 + 72 * HOUR)).toBe(null);
+    expect(tideAt(m, T0 + 71 * HOUR)).not.toBe(null);
+    const none = tideModel(() => ({}), tidalLoc(), undefined, { tide: undefined });
+    expect(tideAt(none, NOON)).toBe(null);
+    expect(tideEvents(none, T0, T0 + 72 * HOUR)).toEqual([]);
+    expect(tideLine(none)).toBe('');
+  });
+
+  it('lists the highs and lows from one time up to another, the first included and the last not', () => {
+    expect(tideEvents(m, T0, T0 + 24 * HOUR).map(e => [e.type, e.h, (e.t - T0) / HOUR])).toEqual([['H', 5.6, 3], ['L', 2.4, 9], ['H', 5.6, 15], ['L', 2.4, 21]]);
+    expect(tideEvents(m, T0 + 3 * HOUR, T0 + 9 * HOUR).map(e => e.type)).toEqual(['H']);
+    expect(tideEvents(m, T0 + 3 * HOUR + 1, T0 + 9 * HOUR + 1).map(e => e.type)).toEqual(['L']);
+  });
+
+  it('words the next high and the next low, soonest first', () => {
+    expect(tideLine(m)).toBe('High about 3\u00a0PM, 5.6 ft. Low about 9\u00a0PM, 2.4 ft.');
+    // From 4 PM the low comes first, and the next high is on the next day.
+    expect(tideLine(m, T0 + 16 * HOUR)).toBe('Low about 9\u00a0PM, 2.4 ft. High about tomorrow 3\u00a0AM, 5.6 ft.');
+    // Past the last event of the forecast it names what is left, or nothing.
+    expect(tideLine(m, T0 + 66 * HOUR)).toBe('Low about Wed 9\u00a0PM, 2.4 ft.');
+    expect(tideLine(m, T0 + 71 * HOUR)).toBe('');
+  });
+
+  it('is in the water state of an hour of a tidal place, with the sentence that says which way it runs', () => {
+    const wm = tideModel(() => ({ wind: 8, dir: 15 }));
+    const rising = hourAt(wm, 12).water, falling = hourAt(wm, 16).water;
+    expect([rising.tide.rising, falling.tide.rising]).toEqual([true, false]);
+    expect(waterWhy(rising, wm)).toMatch(/ Flood tide, rising until about 3\u00a0PM\.$/);
+    expect(waterWhy(falling, wm)).toMatch(/ Ebb tide, falling until about 9\u00a0PM\.$/);
+    // The hour at a turn names the one after it, not itself.
+    expect(waterWhy(hourAt(wm, 15).water, wm)).toMatch(/Ebb tide, falling until about 9\u00a0PM\.$/);
+    // Each hour of the forecast has it, and none outside.
+    expect(wm.hours.filter(h => h.t >= T0 && h.t < T0 + 72 * HOUR).every(h => h.water.tide)).toBe(true);
+    expect(wm.hours.filter(h => h.t >= T0 + 72 * HOUR).every(h => !h.water.tide && !/tide/i.test(waterWhy(h.water, wm)))).toBe(true);
+  });
+
+  it('adds nothing to the water state of a place that is not tidal, whatever tide data it holds', () => {
+    const river = tideModel(() => ({ wind: 8, dir: 15 }), place());
+    expect(hourAt(river, 12).water.tide).toBeUndefined();
+    expect(waterWhy(hourAt(river, 12).water, river)).not.toMatch(/tide/i);
+    const lake = tideModel(() => ({ wind: 8, dir: 15 }), still1({ fetchM: 2000 }));
+    expect(hourAt(lake, 12).water.tide).toBeUndefined();
+  });
+
+  it('has no tide reason in assess(): the call is the same with the tide and without it, at any height', () => {
+    const wx1 = (i, t) => ({ wind: 5 + (i % 9), gust: 9 + (i % 11), dir: 15 + (i % 8) * 40, pop: (i % 7) * 12 });
+    const base = tideModel(wx1, tidalLoc(), tide(() => 4));
+    for (const fn of [i => 4 + 1.6 * Math.sin(2 * Math.PI * i / 12), () => 12, () => -3, i => (i % 2 ? 9 : 0)]) {
+      const withTide = tideModel(wx1, tidalLoc(), tide(fn)), without = tideModel(wx1, tidalLoc(), undefined, { tide: undefined });
+      expect(withTide.hours.every(h => h.a.reasons.every(r => r.key !== 'tide'))).toBe(true);
+      expect(withTide.hours.map(h => [h.a.lvl, h.a.reasons])).toEqual(without.hours.map(h => [h.a.lvl, h.a.reasons]));
+      expect(withTide.hours.map(h => h.a.lvl)).toEqual(base.hours.map(h => h.a.lvl));
+      expect([withTide.cur.a.lvl, withTide.days.map(d => d.periods.map(p => p.lvl))]).toEqual([without.cur.a.lvl, without.days.map(d => d.periods.map(p => p.lvl))]);
+    }
+  });
+
+  describe('chop', () => {
+    const along = (loc, flow) => chopWind(tideModel(() => ({}), loc, tide(), { river: { ...RIVER, flow: { v: flow, t: NOON } } }), { wind: 8, dir: 195 });
+
+    it('uses the river formula with the crosswind weight and no multiplier, at any flow', () => {
+      // From downstream along the 15 degree course: a river over 20,000 cfs makes 8 mph into 11.2.
+      expect(along(place(), 25000)).toMatchObject({ e: 8 * 1.4, against: true });
+      for (const flow of [0, 6000, 12000, 25000, 90000]) expect(along(tidalLoc(), flow), `${flow} cfs`).toMatchObject({ e: 8, against: false });
+      const cross = chopWind(tideModel(), { wind: 10, dir: 105 });
+      expect(cross).toMatchObject({ axis: 'cross', against: false });
+      expect(cross.e).toBeCloseTo(4, 9);
+    });
+
+    it('is not given the fetch formula of still water: no fetch, and the course counts', () => {
+      const loc = tidalLoc();
+      expect(still(loc)).toBe(false);
+      const c = chopWind(tideModel(), { wind: 10, dir: 15 });
+      expect(c).toMatchObject({ e: 10, axis: 'along' });
+      expect(c.fetchM).toBeUndefined();
+      // A tidal record that also holds a fetch has it ignored, as a river does.
+      const w = tideModel(() => ({ wind: 10, dir: 105 }), tidalLoc({ water: { mode: 'tidal', cross: 0.4, fetchM: 150 } }));
+      expect(hourAt(w, 12).water.fetchM).toBeUndefined();
+      expect(hourAt(w, 12).water.axis).toBe('cross');
+    });
+
+    it('does not say the wind steepens against a current, in the water words or the wind sentence', () => {
+      const t = tideModel(() => ({ wind: 8, dir: 195 }), tidalLoc(), tide(), { river: { ...RIVER, flow: { v: 25000, t: NOON } } });
+      expect(waterWhy(hourAt(t, 12).water, t)).not.toMatch(/against the current/);
+      expect(windVsCourse(t, 195, 10)).not.toMatch(/steepens/);
+      const r = tideModel(() => ({ wind: 8, dir: 195 }), place(), tide(), { river: { ...RIVER, flow: { v: 25000, t: NOON } } });
+      expect(windVsCourse(r, 195, 10)).toMatch(/steepens/);
+    });
+  });
+
+  describe('the tab', () => {
+    it('is the tide row of the place, after Wind and before River', () => {
+      expect(viewsFor(tidalLoc()).map(v => v.key)).toEqual(['week', 'wind', 'tide', 'river', 'storms', 'fog', 'temperature', 'rain', 'light', 'air']);
+      expect(viewsFor(PUTNEY).map(v => v.key)).not.toContain('tide');
+      expect(viewsFor(lakeLoc('lake-natoma')).map(v => v.key)).not.toContain('tide');
+    });
+
+    it('has the tide forecast asked for by the tide row only', () => {
+      expect(bindingsFor(tidalLoc(), NOON).map(b => b.slot)).toContain('tide');
+      expect(bindingsFor(PUTNEY, NOON).map(b => b.slot)).not.toContain('tide');
+      expect(bound(tideModel(), 'tide')).toBe(true);
+      expect(bound(model(), 'tide')).toBe(false);
+    });
   });
 });

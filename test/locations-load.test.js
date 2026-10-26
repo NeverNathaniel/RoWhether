@@ -433,8 +433,18 @@ describe('the tabs a location has', () => {
   });
 
   it('keep every entry in the registry, so a hidden tab is still a name the router knows', () => {
-    expect(detail.VIEWS.map(v => v.key)).toEqual(ORDER);
-    expect(detail.VIEWS.filter(v => v.when).map(v => v.key)).toEqual(['river']);
+    expect(detail.VIEWS.map(v => v.key)).toEqual(['week', 'wind', 'tide', ...ORDER.slice(2)]);
+    expect(detail.VIEWS.filter(v => v.when).map(v => v.key)).toEqual(['tide', 'river']);
+  });
+
+  it('are ten, with Tide after Wind, where the location has a tide row', () => {
+    const tidal = { ...PUTNEY_FILE, slug: 'some-tide', sources: [...PUTNEY_FILE.sources, { role: 'tide', mode: 'primary', adapter: 'nwps', ref: 'XYZ', unit: 'ft', label: 'Tide' }] };
+    state.openLocation(tidal, {});
+    expect(detail.viewsFor(state.app.loc).map(v => v.key)).toEqual(['week', 'wind', 'tide', ...ORDER.slice(2)]);
+    expect(detail.VIEWS.find(v => v.key === 'tide').when(state.app.loc)).toBe(true);
+    // Not at Putney.
+    state.openLocation(PUTNEY_FILE, {});
+    expect(detail.VIEWS.find(v => v.key === 'tide').when(state.app.loc)).toBe(false);
   });
 });
 

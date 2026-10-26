@@ -2,7 +2,7 @@
 import { HOUR, WATER } from '../config.js';
 import { app, $ } from '../state.js';
 import { r0, card, hm, dayKey, dayWord } from '../format.js';
-import { precipKind, rateWord, fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, aqiWord, flowForCall, bound } from '../logic.js';
+import { precipKind, rateWord, fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, aqiWord, flowForCall, bound, tideAt, tideLine } from '../logic.js';
 import { sourceRow } from '../location.js';
 import { fact, compassOf, compassCap, sparkline, readNote, oldFlow, noWater } from './parts.js';
 import { precipBlock } from './precip.js';
@@ -57,6 +57,11 @@ export function renderNow() {
   if (cur.water) {
     const debris = debrisLikely(m) ? ' River rising fast. Watch for floating debris.' : '';
     f.push(fact('Water state', WATER.names[cur.water.lvl], waterWhy(cur.water, m) + debris, 0, '#wind'));
+  }
+
+  if (bound(m, 'tide')) {
+    const td = tideAt(m, m.now);
+    f.push(fact('Tide', td ? `${m.u.stage(td.h, m.data.tide.unit)} ${td.rising ? 'rising' : 'falling'}` : '--', td ? tideLine(m) : 'NWS tide forecast unavailable.', 0, '#tide'));
   }
 
   f.push(fact('Air', m.u.temp(cur.temp), `Feels like ${m.u.temp(cur.feels)}. Dew point ${m.u.temp(cur.dew)}.`, lvlOf('freeze'), '#temperature'));

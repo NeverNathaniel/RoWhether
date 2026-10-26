@@ -279,6 +279,7 @@ section.detail{margin-top:0}
 @media (max-width:24rem){ .sval{font-size:.75rem} .sname{font-stretch:80%} }
 /* Archivo goes down to 62% width, enough for "Possible" on a phone. */
 .sval.long{font-stretch:62.5%; letter-spacing:-.01em}
+.sval.wrap{white-space:normal; text-align:center; line-height:1.15}
 
 /* Charts */
 .chart-box{margin-top:.5rem}

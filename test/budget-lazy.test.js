@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,13 +34,14 @@ ${extra}</head>
 let dir;
 const put = (path, text) => { mkdirSync(join(dir, path, '..'), { recursive: true }); writeFileSync(join(dir, path), text); };
 
-// A passing dist/ for one location, "a", a views chunk, a suggest-form chunk and a picker
-// chunk with its stylesheet (the last two always in the precache: the cases below break the
-// views chunk, and each case for the others breaks one thing). Each option is a thing to break.
+// A passing dist/ for one location, "a", a views chunk, a suggest-form chunk, a picker
+// chunk with its stylesheet and a tide chunk (the last three always in the precache: the cases below
+// break the views chunk, and each case for the others breaks one thing). Each option is a thing to break.
 const FORM = 'assets/suggest-form-ghi.js';
 const PICKER = 'assets/picker-jkl.js';
 const PICKER_CSS = 'assets/picker-mno.css';
-function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'locations/index.json', 'locations/a.json', 'assets/views-def.js'], chunk = 'assets/views-def.js', form = FORM, formCached = true, picker = PICKER, pickerCached = true, pickerCss = PICKER_CSS, pickerCssCached = true } = {}) {
+const TIDE = 'assets/tide-pqr.js';
+function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'locations/index.json', 'locations/a.json', 'assets/views-def.js'], chunk = 'assets/views-def.js', form = FORM, formCached = true, picker = PICKER, pickerCached = true, pickerCss = PICKER_CSS, pickerCssCached = true, tide = TIDE, tideCached = true } = {}) {
   mkdirSync(join(dir, 'scripts'), { recursive: true });
   copyFileSync(SCRIPT, join(dir, 'scripts/budget.mjs'));
   put('budget.json', JSON.stringify({ phase: 1, js: 1e6, css: 1e6, html: 1e6, precacheKiB: 1000 }));
@@ -51,9 +53,10 @@ function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'as
   if (form) put(`dist/${form}`, 'export const form = {};\n'.repeat(40));
   if (picker) put(`dist/${picker}`, 'export const picker = {};\n'.repeat(60));
   if (pickerCss) put(`dist/${pickerCss}`, '.pk { color: red }\n'.repeat(20));
+  if (tide) put(`dist/${tide}`, 'export const tide = {};\n'.repeat(30));
   put('dist/locations/index.json', JSON.stringify({ locations: [{ slug: 'a' }] }));
   put('dist/locations/a.json', '{}');
-  const cached = [...precache, ...(formCached ? [FORM] : []), ...(picker && pickerCached ? [picker] : []), ...(pickerCss && pickerCssCached ? [pickerCss] : [])];
+  const cached = [...precache, ...(formCached ? [FORM] : []), ...(picker && pickerCached ? [picker] : []), ...(pickerCss && pickerCssCached ? [pickerCss] : []), ...(tide && tideCached ? [tide] : [])];
   put('dist/sw.js', `precacheAndRoute([${cached.map(u => `{url:"${u}",revision:null}`).join(',')}],{});`);
 }
 
@@ -70,16 +73,18 @@ describe('the lazy chunk list in scripts/budget.mjs', () => {
     setup();
     const r = run();
     expect(r.code, r.out).toBe(0);
-    expect(r.out).toMatch(/ok\s+Lazy chunks views, suggest-form, picker/);
+    expect(r.out).toMatch(/ok\s+Lazy chunks views, suggest-form, picker, tide/);
     expect(r.out).toMatch(/views\s+[\d,]+ B gzip, 2,000 B raw, precached\s+\(assets\/views-def\.js\)/);
     expect(r.out).toMatch(/suggest-form\s+[\d,]+ B gzip, 960 B raw, precached\s+\(assets\/suggest-form-ghi\.js\)/);
     expect(r.out).toMatch(/picker\s+[\d,]+ B gzip, 1,560 B raw, precached\s+\(assets\/picker-jkl\.js\)/);
+    expect(r.out).toMatch(/tide\s+[\d,]+ B gzip, 720 B raw, precached\s+\(assets\/tide-pqr\.js\)/);
     const report = JSON.parse(readFileSync(join(dir, 'dist/budget-report.json'), 'utf8'));
     expect(report.ok).toBe(true);
     expect(report.lazy.chunks).toMatchObject([
       { name: 'views', file: 'assets/views-def.js', precache: true, precached: true },
       { name: 'suggest-form', file: FORM, precache: true, precached: true },
-      { name: 'picker', file: PICKER, precache: true, precached: true }
+      { name: 'picker', file: PICKER, precache: true, precached: true },
+      { name: 'tide', file: TIDE, precache: true, precached: true }
     ]);
     expect(report.lazy.problems).toEqual([]);
   });
@@ -120,6 +125,63 @@ describe('the lazy chunk list in scripts/budget.mjs', () => {
     r = run();
     expect(r.code).toBe(1);
     expect(r.out).toContain('dist/index.html loads picker-jkl.js');
+  });
+
+  it('fails when the tide chunk is missing, is not in the precache, or is loaded by the page', () => {
+    setup({ tide: null });
+    let r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('dist/assets has no tide-*.js');
+    setup({ tideCached: false });
+    r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(`The service worker does not precache ${TIDE}.`);
+    setup({ head: `<link rel="modulepreload" href="/${TIDE}">\n` });
+    r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('dist/index.html loads tide-pqr.js');
+  });
+
+  // A bundler can split the main script and have the page load the part at start (P1.14): its bytes still load before the first screen.
+  describe('Main JS', () => {
+    const STATE = 'assets/state-xyz.js';
+    const gz = (file) => gzipSync(readFileSync(join(dir, 'dist', file)), { level: 9 }).length;
+    const report = () => JSON.parse(readFileSync(join(dir, 'dist/budget-report.json'), 'utf8'));
+
+    it('is the main script alone when the page loads no other script', () => {
+      setup();
+      const r = run();
+      expect(r.code, r.out).toBe(0);
+      expect(report().main.js).toMatchObject({ file: 'assets/index-abc.js', files: ['assets/index-abc.js'], gzip: gz('assets/index-abc.js') });
+    });
+
+    it('adds a chunk the page preloads, and names it', () => {
+      setup({ head: `<link rel="modulepreload" crossorigin href="/${STATE}">\n` });
+      put(`dist/${STATE}`, Array.from({ length: 400 }, (_, i) => `export const s${i} = ${i * 7919};`).join('\n'));
+      const r = run();
+      expect(r.code, r.out).toBe(0);
+      const js = report().main.js;
+      expect(js.files).toEqual(['assets/index-abc.js', STATE]);
+      expect(js.gzip).toBe(gz('assets/index-abc.js') + gz(STATE));
+      expect(js.gzip).toBeGreaterThan(gz('assets/index-abc.js') + 500);
+      expect(r.out).toMatch(/Main JS\s+[\d,]+ B of [\d,]+ B, [\d,]+ to spare\s+\(assets\/index-abc\.js and assets\/state-xyz\.js\)/);
+    });
+
+    it('is over its row when the chunk the page preloads takes it over, though the main script alone is under', () => {
+      setup({ head: `<link rel="modulepreload" crossorigin href="/${STATE}">\n` });
+      put(`dist/${STATE}`, Array.from({ length: 400 }, (_, i) => `export const s${i} = ${i * 7919};`).join('\n'));
+      put('budget.json', JSON.stringify({ phase: 1, js: gz('assets/index-abc.js') + 100, css: 1e6, html: 1e6, precacheKiB: 1000 }));
+      const r = run();
+      expect(r.code).toBe(1);
+      expect(r.out).toMatch(/OVER\s+Main JS/);
+    });
+
+    it('fails with a sentence when the page loads a script that is not in dist/', () => {
+      setup({ head: `<link rel="modulepreload" crossorigin href="/${STATE}">\n` });
+      const r = run();
+      expect(r.code).toBe(1);
+      expect(r.out).toContain(`dist/index.html loads ${STATE}, which is not in dist/.`);
+    });
   });
 
   // The picker works offline only with its styles: a chunk that imports a stylesheet has it as a file of its own.
@@ -172,6 +234,7 @@ describe('the lazy chunk list in scripts/budget.mjs', () => {
 
   it('does not take another file in the page for the chunk', () => {
     setup({ head: '<link rel="modulepreload" href="/assets/index-views-def.js">\n<link rel="stylesheet" href="/assets/views.css">\n' });
+    put('dist/assets/index-views-def.js', 'export const v = 1;\n');
     const r = run();
     expect(r.out).not.toContain('dist/index.html loads');
   });
