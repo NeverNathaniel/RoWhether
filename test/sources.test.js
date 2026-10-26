@@ -24,9 +24,9 @@ const GOLDEN_SOURCES = JSON.parse(readFileSync(new URL('./golden/june-calm-1200-
 describe('bindingsFor(PUTNEY)', () => {
   const bs = bindingsFor(PUTNEY);
 
-  it('lists the nine slots in the order requests are made', () => {
-    expect(SLOT_ORDER).toEqual(['wx', 'alerts', 'obs', 'river', 'flow', 'flowDays', 'flowFcst', 'aq', 'models']);
-    expect(bs.map(b => b.slot)).toEqual(SLOT_ORDER);
+  it('lists the nine slots in the order requests are made, the tide after the river forecast and only for a tidal place', () => {
+    expect(SLOT_ORDER).toEqual(['wx', 'alerts', 'obs', 'river', 'flow', 'flowDays', 'flowFcst', 'tide', 'aq', 'models']);
+    expect(bs.map(b => b.slot)).toEqual(SLOT_ORDER.filter(s => s !== 'tide'));
   });
 
   it('builds what the golden files recorded in P0.1', () => {
@@ -210,23 +210,24 @@ describe('labelFor', () => {
   });
 
   it('falls back to the slot name for a slot with no adapter', () => {
-    expect(labelFor('tide')).toBe('tide');
+    expect(labelFor('level')).toBe('level');
+    expect(labelFor('tide')).toBe('the NWS tide forecast');
   });
 });
 
 describe('the adapters', () => {
   const all = Object.values(ADAPTERS);
 
-  it('are the nine of 02, with their slots and regions', () => {
+  it('are the ten of 02, with their slots and regions', () => {
     expect(all.map(a => [a.key, a.slot, a.regions.join()])).toEqual([
       ['om-forecast', 'wx', '*'], ['om-aq', 'aq', '*'], ['om-models', 'models', '*'], ['nws-alerts', 'alerts', 'US'],
       ['nws-obs', 'obs', 'US'], ['usgs-latest', 'river', 'US'], ['usgs-recent', 'flow', 'US'], ['usgs-daily', 'flowDays', 'US'],
-      ['nwps-forecast', 'flowFcst', 'US']
+      ['nwps-forecast', 'flowFcst', 'US'], ['nwps-tide', 'tide', 'US']
     ]);
   });
 
   // 02's catalog: how long a source's last good fetch stands before the hero names it.
-  const STALE_H = { 'om-forecast': 24, 'om-aq': 24, 'om-models': 24, 'nws-alerts': 1, 'nws-obs': 3, 'usgs-latest': 24, 'usgs-recent': 24, 'usgs-daily': 7 * 24, 'nwps-forecast': 24 };
+  const STALE_H = { 'om-forecast': 24, 'om-aq': 24, 'om-models': 24, 'nws-alerts': 1, 'nws-obs': 3, 'usgs-latest': 24, 'usgs-recent': 24, 'usgs-daily': 7 * 24, 'nwps-forecast': 24, 'nwps-tide': 24 };
 
   it('follow the Adapter typedef, with a staleMs each and refresh pacing left empty', () => {
     for (const a of all) {
@@ -647,6 +648,112 @@ describe('the parsers', () => {
 
   it("convert the station's units as before", () => {
     expect(nws.parseObs({ properties: { temperature: { value: 10 } } }).tempF).toBe(cToF(10));
+  });
+});
+
+// The tide forecast (P1.14): NWPS point GTND2, the Potomac at Georgetown, as it answered on 2026-10-25
+// at 01:00 UTC (test/fixtures/sources/thompson-boat-center/tide.json). The parser does not read the clock.
+describe('the tide forecast', () => {
+  const rd = name => JSON.parse(readFileSync(new URL(`./fixtures/sources/thompson-boat-center/${name}.json`, import.meta.url), 'utf8'));
+  const iso = t => new Date(t).toISOString().slice(0, 16);
+  const hourly = (heights, extra = {}) => ({
+    primaryName: 'Tide Height', primaryUnits: 'ft', issuedTime: '2026-10-25T00:38:00Z', secondaryName: 'Flow',
+    data: heights.map((v, i) => ({ validTime: new Date(Date.UTC(2026, 9, 25, 1 + i)).toISOString(), primary: v, secondary: -999 })), ...extra
+  });
+  // The events of a series of heights as "hour type height": the first height is at 01:00 UTC on the 25th.
+  const events = (...heights) => nwps.parseTide(hourly(heights)).events.map(e => `${iso(e.t).slice(11)} ${e.type} ${e.h}`);
+
+  it('reads the recorded answer: 72 hourly heights in feet, the station, the issue time and the highs and lows between them', () => {
+    const t = nwps.parseTide(rd('tide'), { label: 'Georgetown' });
+    expect([t.station, t.unit, iso(t.issued), t.series.length, iso(t.series[0].t), iso(t.series[71].t)]).toEqual(['Georgetown', 'ft', '2026-10-25T00:38', 72, '2026-10-25T01:00', '2026-10-28T00:00']);
+    expect(t.series[0]).toEqual({ t: Date.UTC(2026, 9, 25, 1), h: 5.2 });
+    expect(t.series.every((p, i) => i === 0 || p.t - t.series[i - 1].t === 3600000)).toBe(true);
+    // Heights come rounded to a tenth, so most turns hold two equal hours: the extreme is the middle of the run.
+    expect(t.events.map(e => `${iso(e.t)} ${e.type} ${e.h}`)).toEqual([
+      '2026-10-25T06:30 L 2.4', '2026-10-25T11:30 H 5.4', '2026-10-25T18:30 L 2.1', '2026-10-26T00:00 H 5.3', '2026-10-26T07:00 L 2',
+      '2026-10-26T12:30 H 5.1', '2026-10-26T19:00 L 1.8', '2026-10-27T01:00 H 5.2', '2026-10-27T08:00 L 1.7', '2026-10-27T13:00 H 4.8', '2026-10-27T20:00 L 1.4'
+    ]);
+    // Highs and lows alternate.
+    expect(t.events.every((e, i) => i === 0 || e.type !== t.events[i - 1].type)).toBe(true);
+  });
+
+  it('puts a high or low at the middle of a run of equal hours, whether the run is 1, 2 or 3 hours long', () => {
+    expect(events(2, 4, 5, 4, 2)).toEqual(['03:00 H 5']);
+    expect(events(2, 4, 5, 5, 4, 2)).toEqual(['03:30 H 5']);
+    expect(events(2, 4, 5, 5, 5, 4, 2)).toEqual(['04:00 H 5']);
+    expect(events(5, 3, 2, 2, 3, 5)).toEqual(['03:30 L 2']);
+    expect(events(2, 5, 3, 1, 4, 2)).toEqual(['02:00 H 5', '04:00 L 1', '05:00 H 4']);
+  });
+
+  it('has no high or low at either end, nor on a run that goes one way or ends at the end of the forecast', () => {
+    expect(events(1, 2, 3, 4)).toEqual([]);
+    expect(events(4, 3, 2, 1)).toEqual([]);
+    expect(events(5, 5, 4, 3)).toEqual([]);
+    expect(events(2, 3, 5, 5)).toEqual([]);
+    expect(events(3, 3, 3)).toEqual([]);
+    expect(events(3, 5)).toEqual([]);
+    expect(events(3)).toEqual([]);
+  });
+
+  it('drops -999, null and anything that is not a number, keeps a height below zero, and sorts by time', () => {
+    const d = hourly([2, -999, 4, null, 'x', 5, 3, -0.4, -0.5, -0.4, 2]);
+    const t = nwps.parseTide(d);
+    expect(t.series.map(p => p.h)).toEqual([2, 4, 5, 3, -0.4, -0.5, -0.4, 2]);
+    expect(t.events.map(e => [e.type, e.h])).toEqual([['H', 5], ['L', -0.5]]);
+    const shuffled = hourly([2, 4, 5, 4, 2]);
+    shuffled.data.reverse();
+    expect(nwps.parseTide(shuffled).series.map(p => p.h)).toEqual([2, 4, 5, 4, 2]);
+  });
+
+  it("refuses an answer whose primary series is not a tide height: a flow gauge's stage and flow, and a missing name", () => {
+    expect(rd('nwps').primaryName).toBe('Stage');
+    expect(() => nwps.parseTide(rd('nwps'), { label: 'x' })).toThrow('Not a tide forecast');
+    expect(() => nwps.parseTide({ ...hourly([1, 2, 1]), primaryName: 'Stage' })).toThrow();
+    expect(() => nwps.parseTide({ ...hourly([1, 2, 1]), primaryName: undefined })).toThrow();
+    expect(() => nwps.parseTide({})).toThrow();
+    expect(() => nwps.parseTide({ ...hourly([1, 2, 1]), primaryName: 'tide height' })).not.toThrow();
+  });
+
+  it('gives an empty forecast for a point with no forecast, as the river forecast does', () => {
+    const t = nwps.parseTide({ issuedTime: '0001-01-01T00:00:00Z', primaryName: 'Tide Height', primaryUnits: 'ft', data: [] });
+    expect([t.series, t.events, t.station, t.unit]).toEqual([[], [], null, 'ft']);
+    expect(nwps.parseTide({ primaryName: 'Tide Height' }).series).toEqual([]);
+  });
+
+  it('writes the height unit in lower case, and ft when the answer names none', () => {
+    expect(nwps.parseTide(hourly([1, 2], { primaryUnits: 'FT' })).unit).toBe('ft');
+    expect(nwps.parseTide(hourly([1, 2], { primaryUnits: undefined })).unit).toBe('ft');
+    expect(nwps.parseTide(hourly([1, 2], { primaryUnits: 'm' })).unit).toBe('m');
+  });
+
+  const tidal = locOf(r => { r.sources.push({ role: 'tide', mode: 'primary', adapter: 'nwps', ref: 'GTND2', unit: 'ft', label: 'Georgetown' }); }, PUTNEY_WATERWAY);
+  const tb = bindingsFor(tidal);
+
+  it('is asked for by a location with a tide row, after the river forecast, from the same service, with its own label', () => {
+    expect(tb.map(b => b.slot)).toEqual(['wx', 'alerts', 'obs', 'river', 'flow', 'flowDays', 'flowFcst', 'tide', 'aq', 'models']);
+    expect(by(tb, 'tide')).toMatchObject({ adapter: 'nwps-tide', params: { lid: 'GTND2' }, url: 'https://api.water.noaa.gov/nwps/v1/gauges/GTND2/stageflow/forecast', label: 'Georgetown' });
+    expect(labelFor('tide', by(tb, 'tide'))).toBe('the NWS tide forecast');
+    // The river forecast row and the tide row are different slots of one provider: neither reads the other's gauge.
+    expect(by(tb, 'flowFcst').url).toBe('https://api.water.noaa.gov/nwps/v1/gauges/WLPN3/stageflow/forecast');
+    expect(by(tb, 'flowFcst').adapter).toBe('nwps-forecast');
+    expect(ADAPTERS['nwps-tide']).toMatchObject({ slot: 'tide', via: 'browser', hosts: ['https://api.water.noaa.gov'] });
+    // A location with no tide row asks for none.
+    expect(bindingsFor(PUTNEY).some(b => b.slot === 'tide')).toBe(false);
+  });
+
+  it("reads the recorded answer through the location's own binding, and fails the slot on a flow gauge's answer", () => {
+    const t = by(tb, 'tide').parse(rd('tide'));
+    expect([t.station, t.series.length, t.events.length]).toEqual(['Georgetown', 72, 11]);
+    expect(() => by(tb, 'tide').parse(rd('nwps'))).toThrow('Not a tide forecast');
+    // And the river forecast binding reads the recorded BRKM2 answer as it reads any gauge's.
+    expect(by(tb, 'flowFcst').parse(rd('nwps')).pts.length).toBe(12);
+  });
+
+  it('stands for 24 hours after its last good fetch before a failed refresh drops it', () => {
+    const NOW = Date.UTC(2026, 9, 25, 12), fetched = h => Object.fromEntries(tb.map(b => [b.slot, NOW - h * HOUR]));
+    expect([...staleSlots(tb, fetched(24), { tide: true }, NOW).keys()]).toEqual([]);
+    expect([...staleSlots(tb, fetched(24.01), { tide: true }, NOW).keys()]).toEqual(['tide']);
+    expect([...staleSlots(tb, fetched(48), {}, NOW).keys()]).toEqual([]);
   });
 });
 

@@ -3,10 +3,10 @@
 import { forecast, airQuality, models } from './openmeteo.js';
 import { alerts, obs } from './nws.js';
 import { latest, recent, daily } from './usgs.js';
-import { riverForecast } from './nwps.js';
+import { riverForecast, tideForecast } from './nwps.js';
 
 // The order requests are made, errors are listed and failures are named.
-export const SLOT_ORDER = ['wx', 'alerts', 'obs', 'river', 'flow', 'flowDays', 'flowFcst', 'aq', 'models'];
+export const SLOT_ORDER = ['wx', 'alerts', 'obs', 'river', 'flow', 'flowDays', 'flowFcst', 'tide', 'aq', 'models'];
 
 // A stored row names a provider (01 4.4). Each provider has one fetcher per
 // slot, and bindingsFor() derives the fetcher from the row. Exported so a test
@@ -16,7 +16,7 @@ export const PROVIDERS = {
   'nws-alerts': [alerts],
   'nws-obs': [obs],
   'usgs-ogc': [latest, recent, daily],
-  nwps: [riverForecast]
+  nwps: [riverForecast, tideForecast]
 };
 // Fetchers by key.
 export const ADAPTERS = Object.fromEntries(Object.values(PROVIDERS).flat().map(a => [a.key, a]));
