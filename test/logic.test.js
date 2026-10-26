@@ -1328,6 +1328,18 @@ describe('tidal water (01 9.4)', () => {
     expect(tideAt(m, T0 + 16 * HOUR).until).toMatchObject({ type: 'L', h: 2.4, t: T0 + 21 * HOUR });
   });
 
+  it('keeps rising to the middle of a turn that holds two equal hours, and falls after it', () => {
+    // Heights come to a tenth, so a turn often holds two equal hours (4.8 ft at 3 PM and at 4 PM here): the high is at
+    // 3:30 PM, and the water rises to it, even from the first of the two hours, whose next hourly height is no higher.
+    const flat = tideModel(() => ({}), tidalLoc(), tide(i => 5 - Math.abs(i - 15.5) * 0.4));
+    expect(tideEvents(flat, T0, T0 + 72 * HOUR).map(e => [e.type, e.h, (e.t - T0) / HOUR])).toEqual([['H', 4.8, 15.5]]);
+    expect(tideAt(flat, T0 + 14 * HOUR).rising).toBe(true);
+    expect(tideAt(flat, T0 + 15 * HOUR)).toMatchObject({ h: 4.8, rising: true, until: { type: 'H', t: T0 + 15.5 * HOUR } });
+    expect(tideAt(flat, T0 + 15.5 * HOUR - MIN).rising).toBe(true);
+    expect(tideAt(flat, T0 + 15.5 * HOUR).rising).toBe(false);
+    expect(tideAt(flat, T0 + 16 * HOUR).rising).toBe(false);
+  });
+
   it('is null outside the forecast and with no forecast', () => {
     expect(tideAt(m, T0 - HOUR)).toBe(null);
     expect(tideAt(m, T0 + 72 * HOUR)).toBe(null);
