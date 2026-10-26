@@ -1406,3 +1406,97 @@ test.describe('an address with no location', () => {
     expect(posted).toHaveLength(1);
   });
 });
+
+// The privacy page (P1.16, 07 5.15): plain HTML with a small stylesheet of its own and no script. It
+// is not the app, so nothing here waits for the home screen.
+test.describe('the privacy page', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+  });
+
+  const SENTENCE = 'We count how many times the app is opened at each location each day, and whether it was opened from the home screen. The count has no address, device or account attached, and it is deleted after three months.';
+
+  test('says what is counted and what is kept, and fits 360 px with no sideways scroll', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.goto('/privacy');
+    await expect(page).toHaveTitle('RoWhether privacy');
+    await expect(page.locator('h1')).toHaveText('Privacy');
+    const main = page.locator('main');
+    await expect(main).toContainText('RoWhether works without an account.');
+    await expect(main).toContainText(SENTENCE);
+    // What the app keeps in this browser, and that it stays there.
+    await expect(main).toContainText("each location's settings, the last forecast for up to 10 locations, the locations you opened recently, and your choices for Plan a row and the install bar");
+    await expect(main).toContainText('never sent to RoWhether');
+    // The services the browser asks, and what Near me does with a position.
+    for (const name of ['Open-Meteo', 'National Weather Service', 'USGS', 'NOAA', 'Near me uses your position once, in the browser, and it is not stored or sent']) await expect(main).toContainText(name);
+    await expect(page.locator('.changed')).toHaveText(/^Last changed [A-Z][a-z]{2} \d{1,2}, \d{4}\.$/);
+    await expect(page.getByRole('link', { name: 'Back to the forecast' })).toHaveAttribute('href', '/');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    // It is the page and not the app: no tabs, no verdict.
+    for (const id of ['tabs', 'verdict', 'locBtn']) await expect(page.locator(`#${id}`), id).toHaveCount(0);
+  });
+
+  test('loads one stylesheet of its own and no script, and asks the app and its APIs for nothing', async ({ page }) => {
+    const asked = [];
+    page.on('request', r => asked.push(new URL(r.url()).pathname));
+    await page.goto('/privacy');
+    await expect(page.locator('h1')).toHaveText('Privacy');
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page.locator('script')).toHaveCount(0);
+    const sheets = await page.evaluate(() => [...document.querySelectorAll('link[rel="stylesheet"]')].map(l => new URL(l.href).pathname));
+    expect(sheets).toHaveLength(1);
+    expect(sheets[0]).toMatch(/^\/assets\/privacy-[\w-]+\.css$/);
+    expect(asked.filter(p => /\.js$|^\/api\/|^\/assets\/index-|^\/locations\//.test(p))).toEqual([]);
+  });
+
+  test("takes the app's colors in its scheme, and shows keyboard focus on its link", async ({ page }, testInfo) => {
+    await page.goto('/privacy');
+    const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    expect(bg).toBe(testInfo.project.use.colorScheme === 'dark' ? 'rgb(15, 35, 41)' : 'rgb(238, 243, 242)');
+    expect(await page.evaluate(() => getComputedStyle(document.body).fontFamily)).toContain('Archivo Variable');
+    await page.keyboard.press('Tab');
+    const ring = await page.evaluate(() => { const a = document.activeElement; const c = getComputedStyle(a); return { tag: a.tagName, href: a.getAttribute('href'), style: c.outlineStyle, width: c.outlineWidth }; });
+    expect(ring).toEqual({ tag: 'A', href: '/', style: 'solid', width: '3px' });
+  });
+
+  test('reads with JavaScript off', async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ baseURL, javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto('/privacy');
+    await expect(page.locator('h1')).toHaveText('Privacy');
+    await expect(page.locator('main')).toContainText(SENTENCE);
+    await context.close();
+  });
+
+  test('goes back to the forecast', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await page.goto('/privacy');
+    await page.getByRole('link', { name: 'Back to the forecast' }).click();
+    await ready(page);
+    await expect(page.locator('#verdict')).toHaveText('Go.');
+  });
+
+  // After one online visit the worker has the page in its precache, and /privacy is not swallowed
+  // by the fallback to index.html (07 4.2): offline it still shows the privacy page, not the app.
+  test.describe('offline', () => {
+    test.use({ serviceWorkers: 'allow' });
+
+    test('after one online visit, /privacy shows the privacy page and not the app', async ({ page, context }) => {
+      const bad = [];
+      page.on('pageerror', e => bad.push(e.message));
+      await routeAll(page, scenario, clock);
+      await page.goto('/');
+      await ready(page);
+      await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await context.setOffline(true);
+      await page.goto('/privacy');
+      await expect(page.locator('h1')).toHaveText('Privacy');
+      await expect(page).toHaveTitle('RoWhether privacy');
+      await expect(page.locator('main')).toContainText(SENTENCE);
+      expect(new URL(page.url()).pathname).toBe('/privacy');
+      for (const id of ['tabs', 'verdict', 'notFound']) await expect(page.locator(`#${id}`), id).toHaveCount(0);
+      expect(bad).toEqual([]);
+    });
+  });
+});

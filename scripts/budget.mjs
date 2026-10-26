@@ -27,6 +27,13 @@
 // (P1.14): a bundler that splits the main script into a chunk the page loads at
 // start would otherwise take those bytes out of the count and out of the budget.
 //
+// One script and one stylesheet at start (P1.16, R12): the page may load more only
+// when budget.json names them (extraJs, extraCss: each name is what a file's name
+// starts with before its hash, as in assets/<name>-<hash>.css). Two pages that share
+// a stylesheet make Vite cut the shared part into a file of its own and index.html
+// then links two, so a line that took the first one would measure a part of the CSS
+// and never fail. Both lines add up every file the page loads at start.
+//
 // The report is written even when the check fails, so CI can upload it.
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { gzipSync, constants } from 'node:zlib';
@@ -63,12 +70,30 @@ function distPath(url) {
   return posix.normalize(url.replace(/^[a-z]+:\/\/[^/]+/i, '').replace(/^\/+/, '').split(/[?#]/)[0]);
 }
 
+// Every stylesheet the page links, as paths under dist/.
+function pageStyles(html) {
+  return [...html.matchAll(/<link\b[^>]*>/gi)].map((m) => m[0]).filter((t) => /stylesheet/i.test(attr(t, 'rel') || '') && attr(t, 'href')).map((t) => distPath(attr(t, 'href')));
+}
+
 function mainFiles(html) {
   const script = [...html.matchAll(/<script\b[^>]*>/gi)].map((m) => m[0]).find((t) => attr(t, 'src') && /\/assets\/index-/.test(attr(t, 'src')));
-  const sheet = [...html.matchAll(/<link\b[^>]*>/gi)].map((m) => m[0]).find((t) => /stylesheet/i.test(attr(t, 'rel') || '') && attr(t, 'href'));
+  const sheets = pageStyles(html);
   if (!script) fail('dist/index.html links no main script (a script with src under /assets/index-).');
-  if (!sheet) fail('dist/index.html links no stylesheet.');
-  return { js: distPath(attr(script, 'src')), css: distPath(attr(sheet, 'href')) };
+  if (!sheets.length) fail('dist/index.html links no stylesheet.');
+  return { js: distPath(attr(script, 'src')), css: sheets[0], sheets };
+}
+
+// Whether budget.json names a file: its name starts with a listed name and a hyphen.
+const named = (file, names) => names.some((n) => n && posix.basename(file).startsWith(`${n}-`));
+
+// What is wrong with the files the page loads at start, as a list of sentences.
+function pageProblems(sheets, scripts) {
+  const problems = [];
+  const extraCss = sheets.filter((f) => !named(f, budget.extraCss));
+  const extraJs = scripts.filter((f) => !named(f, budget.extraJs));
+  if (extraCss.length > 1) problems.push(`The page links ${extraCss.length} stylesheets: ${extraCss.join(', ')}. It links one. A second is a split of the main one, or must be named in budget.json extraCss.`);
+  if (extraJs.length > 1) problems.push(`The page starts ${extraJs.length} scripts: ${extraJs.join(', ')}. It starts one. A second is a split of the main one, or must be named in budget.json extraJs.`);
+  return problems;
 }
 
 // Every entry in the precacheAndRoute list, duplicates included. The plugin
@@ -178,6 +203,9 @@ const budget = JSON.parse(readText(join(ROOT, 'budget.json')));
 for (const key of ['js', 'css', 'html', 'precacheKiB']) {
   if (typeof budget[key] !== 'number') fail(`budget.json has no number for "${key}".`);
 }
+for (const key of ['extraCss', 'extraJs']) {
+  if (!Array.isArray(budget[key]) || budget[key].some((n) => typeof n !== 'string')) fail(`budget.json has no list for "${key}". Use [] for none.`);
+}
 
 const htmlBuf = Buffer.from(readText(join(DIST, 'index.html')));
 const main = mainFiles(htmlBuf.toString('utf8'));
@@ -190,7 +218,14 @@ const jsBufs = startJs.map((f) => {
     return fail(`dist/index.html loads ${f}, which is not in dist/.`);
   }
 });
-const cssBuf = readFileSync(join(DIST, main.css));
+// The stylesheets the page links, each as a file under dist/.
+const cssBufs = main.sheets.map((f) => {
+  try {
+    return readFileSync(join(DIST, f));
+  } catch {
+    return fail(`dist/index.html links ${f}, which is not in dist/.`);
+  }
+});
 
 const entries = precacheEntries(readText(join(DIST, 'sw.js')));
 const distinct = [...new Set(entries)];
@@ -206,13 +241,14 @@ const assets = readdirSync(join(DIST, 'assets'), { withFileTypes: true })
 
 const checks = [
   { name: 'Main JS', file: startJs.length > 1 ? `${startJs.join(' and ')}` : main.js, raw: jsBufs.reduce((n, b) => n + b.length, 0), value: jsBufs.reduce((n, b) => n + gzipSize(b), 0), limit: budget.js, unit: 'B' },
-  { name: 'CSS', file: main.css, raw: cssBuf.length, value: gzipSize(cssBuf), limit: budget.css, unit: 'B' },
+  { name: 'CSS', file: main.sheets.length > 1 ? main.sheets.join(' and ') : main.css, raw: cssBufs.reduce((n, b) => n + b.length, 0), value: cssBufs.reduce((n, b) => n + gzipSize(b), 0), limit: budget.css, unit: 'B' },
   { name: 'HTML', file: 'index.html', raw: htmlBuf.length, value: gzipSize(htmlBuf), limit: budget.html, unit: 'B' },
   { name: 'Precache', file: `${entries.length} entries, ${distinct.length} distinct`, raw: precacheBytes, value: precacheBytes / KIB, limit: budget.precacheKiB, unit: 'KiB' }
 ].map((c) => ({ ...c, over: c.value > c.limit }));
 
 const places = locationProblems(distinct);
 const lazy = lazyChunks(assets, htmlBuf.toString('utf8'), distinct);
+const page = pageProblems(main.sheets, startJs);
 
 console.log(`Budget for phase ${budget.phase} (budget.json). Main files are gzip at level 9.\n`);
 for (const c of checks) {
@@ -224,6 +260,8 @@ for (const c of checks) {
 console.log('\nPrecache is the raw size of each distinct URL in dist/sw.js.');
 console.log(`${places.problems.length ? 'OVER' : 'ok  '}  Locations ${places.records.length} in the index: ${places.records.join(', ') || 'none'}`);
 for (const line of places.problems) console.log(`      ${line}`);
+console.log(`${page.length ? 'OVER' : 'ok  '}  Page files ${startJs.length} script${startJs.length === 1 ? '' : 's'}, ${main.sheets.length} stylesheet${main.sheets.length === 1 ? '' : 's'}`);
+for (const line of page) console.log(`      ${line}`);
 console.log(`${lazy.problems.length ? 'OVER' : 'ok  '}  Lazy chunks ${LAZY.map((l) => l.name).join(', ')}`);
 for (const c of lazy.chunks) console.log(`      ${c.name.padEnd(8)} ${fmt(c.gzip)} B gzip, ${fmt(c.raw)} B raw, ${c.precached ? 'precached' : 'not precached'}  (${c.file})`);
 for (const line of lazy.problems) console.log(`      ${line}`);
@@ -232,18 +270,18 @@ const width = Math.max(...assets.map((a) => a.file.length));
 console.log(`\nFiles in dist/assets (${assets.length}):`);
 console.log(`${'file'.padEnd(width)}  ${'raw B'.padStart(9)}  ${'gzip B'.padStart(9)}`);
 for (const a of assets) {
-  const tag = startJs.includes(a.file) || a.file === main.css ? '  main' : lazy.chunks.some((c) => c.file === a.file) ? '  lazy' : '';
+  const tag = startJs.includes(a.file) || main.sheets.includes(a.file) ? '  main' : lazy.chunks.some((c) => c.file === a.file) ? '  lazy' : '';
   console.log(`${a.file.padEnd(width)}  ${fmt(a.raw).padStart(9)}  ${fmt(a.gzip).padStart(9)}${tag}`);
 }
 
 const over = checks.filter((c) => c.over);
 const report = {
   phase: budget.phase,
-  ok: over.length === 0 && places.problems.length === 0 && lazy.problems.length === 0,
+  ok: over.length === 0 && page.length === 0 && places.problems.length === 0 && lazy.problems.length === 0,
   budget: { js: budget.js, css: budget.css, html: budget.html, precacheKiB: budget.precacheKiB },
   main: {
     js: { file: main.js, files: startJs, raw: checks[0].raw, gzip: checks[0].value },
-    css: { file: main.css, raw: checks[1].raw, gzip: checks[1].value },
+    css: { file: main.css, files: main.sheets, raw: checks[1].raw, gzip: checks[1].value },
     html: { file: 'index.html', raw: checks[2].raw, gzip: checks[2].value }
   },
   precache: {
@@ -254,9 +292,10 @@ const report = {
     files: distinct
   },
   assets,
+  page: { scripts: startJs, stylesheets: main.sheets, problems: page },
   locations: { records: places.records, problems: places.problems },
   lazy: { chunks: lazy.chunks, problems: lazy.problems },
-  over: [...over.map((c) => c.name), ...(places.problems.length ? ['Locations'] : []), ...(lazy.problems.length ? ['Lazy chunks'] : [])]
+  over: [...over.map((c) => c.name), ...(page.length ? ['Page files'] : []), ...(places.problems.length ? ['Locations'] : []), ...(lazy.problems.length ? ['Lazy chunks'] : [])]
 };
 writeFileSync(join(DIST, 'budget-report.json'), `${JSON.stringify(report, null, 2)}\n`);
 

@@ -44,7 +44,7 @@ const TIDE = 'assets/tide-pqr.js';
 function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'locations/index.json', 'locations/a.json', 'assets/views-def.js'], chunk = 'assets/views-def.js', form = FORM, formCached = true, picker = PICKER, pickerCached = true, pickerCss = PICKER_CSS, pickerCssCached = true, tide = TIDE, tideCached = true } = {}) {
   mkdirSync(join(dir, 'scripts'), { recursive: true });
   copyFileSync(SCRIPT, join(dir, 'scripts/budget.mjs'));
-  put('budget.json', JSON.stringify({ phase: 1, js: 1e6, css: 1e6, html: 1e6, precacheKiB: 1000 }));
+  put('budget.json', JSON.stringify({ phase: 1, js: 1e6, css: 1e6, html: 1e6, precacheKiB: 1000, extraCss: [], extraJs: [] }));
   put('dist/index.html', page(head));
   put('dist/a.html', page(head).replace('<title>RoWhether</title>', '<title>A rowing conditions</title>').replace(/(canonical" href|og:url" content)="https:\/\/rowhether.com\/"/g, '$1="https://rowhether.com/a"'));
   put('dist/assets/index-abc.js', 'export const x = 1;\n'.repeat(50));
@@ -155,8 +155,12 @@ describe('the lazy chunk list in scripts/budget.mjs', () => {
       expect(report().main.js).toMatchObject({ file: 'assets/index-abc.js', files: ['assets/index-abc.js'], gzip: gz('assets/index-abc.js') });
     });
 
+    // The second script is allowed only when budget.json names it (P1.16, R12).
+    const named = (extraJs) => put('budget.json', JSON.stringify({ phase: 1, js: 1e6, css: 1e6, html: 1e6, precacheKiB: 1000, extraCss: [], extraJs }));
+
     it('adds a chunk the page preloads, and names it', () => {
       setup({ head: `<link rel="modulepreload" crossorigin href="/${STATE}">\n` });
+      named(['state']);
       put(`dist/${STATE}`, Array.from({ length: 400 }, (_, i) => `export const s${i} = ${i * 7919};`).join('\n'));
       const r = run();
       expect(r.code, r.out).toBe(0);
@@ -170,7 +174,7 @@ describe('the lazy chunk list in scripts/budget.mjs', () => {
     it('is over its row when the chunk the page preloads takes it over, though the main script alone is under', () => {
       setup({ head: `<link rel="modulepreload" crossorigin href="/${STATE}">\n` });
       put(`dist/${STATE}`, Array.from({ length: 400 }, (_, i) => `export const s${i} = ${i * 7919};`).join('\n'));
-      put('budget.json', JSON.stringify({ phase: 1, js: gz('assets/index-abc.js') + 100, css: 1e6, html: 1e6, precacheKiB: 1000 }));
+      put('budget.json', JSON.stringify({ phase: 1, js: gz('assets/index-abc.js') + 100, css: 1e6, html: 1e6, precacheKiB: 1000, extraCss: [], extraJs: ['state'] }));
       const r = run();
       expect(r.code).toBe(1);
       expect(r.out).toMatch(/OVER\s+Main JS/);
@@ -255,5 +259,106 @@ describe('the lazy chunk list in scripts/budget.mjs', () => {
     const r = run(copy);
     expect(r.code).toBe(1);
     expect(r.out).toContain('The service worker precaches assets/views-def.js, a chunk that is not precached.');
+  });
+});
+
+// One stylesheet and one script at start (P1.16, R12). Two pages that share a stylesheet make Vite cut
+// the shared part into a file of its own, and index.html then links two: the CSS line would measure
+// the small one and never fail. So the page may link more than one only when budget.json names it.
+describe('the files the page loads at start', () => {
+  const SHARED = 'assets/shared-123.css';
+  const STATE = 'assets/state-xyz.js';
+  const link = `<link rel="stylesheet" crossorigin href="/${SHARED}">\n`;
+  const preload = `<link rel="modulepreload" crossorigin href="/${STATE}">\n`;
+  const lists = (extraCss = [], extraJs = []) => put('budget.json', JSON.stringify({ phase: 1, js: 1e6, css: 1e6, html: 1e6, precacheKiB: 1000, extraCss, extraJs }));
+  const report = () => JSON.parse(readFileSync(join(dir, 'dist/budget-report.json'), 'utf8'));
+  const gz = (file) => gzipSync(readFileSync(join(dir, 'dist', file)), { level: 9 }).length;
+  const withShared = (head = link) => {
+    setup({ head });
+    put(`dist/${SHARED}`, Array.from({ length: 200 }, (_, i) => `.s${i}{margin:${i * 7919}px}`).join('\n'));
+    put(`dist/${STATE}`, Array.from({ length: 200 }, (_, i) => `export const s${i} = ${i * 7919};`).join('\n'));
+  };
+
+  it('passes one stylesheet and one script, and a privacy page of its own that index.html does not link', () => {
+    setup();
+    put('dist/privacy.html', '<!doctype html><link rel="stylesheet" href="/assets/privacy-pqr.css">');
+    put('dist/assets/privacy-pqr.css', 'p { color: red }\n'.repeat(30));
+    const r = run();
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toMatch(/ok\s+Page files 1 script, 1 stylesheet/);
+    expect(report().main.css).toMatchObject({ file: 'assets/index-abc.css', files: ['assets/index-abc.css'], gzip: gz('assets/index-abc.css') });
+  });
+
+  it('fails when the page links a second stylesheet that budget.json does not name', () => {
+    withShared();
+    const r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toMatch(/OVER\s+Page files/);
+    expect(r.out).toContain(`The page links 2 stylesheets: assets/index-abc.css, ${SHARED}.`);
+    expect(r.out).toContain('extraCss');
+    expect(report().over).toEqual(['Page files']);
+    expect(report().ok).toBe(false);
+  });
+
+  it('adds a second stylesheet that budget.json names, and counts its bytes in the CSS line', () => {
+    withShared();
+    lists(['shared']);
+    const r = run();
+    expect(r.code, r.out).toBe(0);
+    const css = report().main.css;
+    expect(css.files).toEqual(['assets/index-abc.css', SHARED]);
+    expect(css.gzip).toBe(gz('assets/index-abc.css') + gz(SHARED));
+    expect(css.gzip).toBeGreaterThan(gz('assets/index-abc.css') + 200);
+    expect(r.out).toMatch(/CSS\s+[\d,]+ B of [\d,]+ B, [\d,]+ to spare\s+\(assets\/index-abc\.css and assets\/shared-123\.css\)/);
+  });
+
+  it('is over its row when the second stylesheet takes the CSS line over, though the first alone is under', () => {
+    withShared();
+    put('budget.json', JSON.stringify({ phase: 1, js: 1e6, css: gz('assets/index-abc.css') + 50, html: 1e6, precacheKiB: 1000, extraCss: ['shared'], extraJs: [] }));
+    const r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toMatch(/OVER\s+CSS/);
+  });
+
+  it('fails when the page loads a second script that budget.json does not name, and passes it named', () => {
+    withShared(preload);
+    let r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(`The page starts 2 scripts: assets/index-abc.js, ${STATE}.`);
+    expect(r.out).toContain('extraJs');
+    lists([], ['state']);
+    r = run();
+    expect(r.code, r.out).toBe(0);
+    expect(report().main.js.files).toEqual(['assets/index-abc.js', STATE]);
+  });
+
+  it('names a file by what comes before its hash, so a longer name does not name a shorter one', () => {
+    withShared();
+    for (const names of [['share'], ['shared-123'], ['assets/shared'], ['']]) {
+      lists(names);
+      expect(run().code, names.join()).toBe(1);
+    }
+    lists(['shared']);
+    expect(run().code).toBe(0);
+  });
+
+  it('fails when a stylesheet the page links is not in dist/', () => {
+    setup({ head: link });
+    lists(['shared']);
+    const r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(`dist/index.html links ${SHARED}, which is not in dist/.`);
+  });
+
+  it('fails with a sentence when budget.json has no list for the extra files', () => {
+    setup();
+    put('budget.json', JSON.stringify({ phase: 1, js: 1e6, css: 1e6, html: 1e6, precacheKiB: 1000 }));
+    let r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('budget.json has no list for "extraCss".');
+    put('budget.json', JSON.stringify({ phase: 1, js: 1e6, css: 1e6, html: 1e6, precacheKiB: 1000, extraCss: [], extraJs: 'state' }));
+    r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('budget.json has no list for "extraJs".');
   });
 });

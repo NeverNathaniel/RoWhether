@@ -11,6 +11,11 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(sha ? `${pkg.version}+${sha}` : pkg.version)
   },
+  // privacy.html is a second page, built beside index.html (P1.16, 07 5.15). It links its own
+  // stylesheet and no script, so index.html still links one stylesheet and one script.
+  build: {
+    rolldownOptions: { input: { index: 'index.html', privacy: 'privacy.html' } }
+  },
   plugins: [
     locationsPlugin(),
     VitePWA({
@@ -44,7 +49,10 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}', 'locations/*.json'],
         globIgnores: ['**/*vietnamese*', '**/*latin-ext*', ...shellNames()],
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api\//],
+        // The static pages are files the host serves, so a navigation to one is not answered with
+        // index.html (07 4.2, 9.6). privacy.html is precached, and the precache route answers
+        // /privacy from it, as Workbox tries <url>.html (cleanURLs).
+        navigateFallbackDenylist: [/^\/api\//, /^\/(privacy|terms|about)$/],
         cleanupOutdatedCaches: true,
         // With registerType 'autoUpdate' the plugin adds these two only when it
         // also injects the register script. Here injectRegister is false, so

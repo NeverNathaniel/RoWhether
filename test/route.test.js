@@ -59,6 +59,13 @@ describe('parseRoute', () => {
     }
   });
 
+  // The host answers these with their own files (P1.16, 07 4.2, 5.15): the app never opens one as a location.
+  it('does not take the address of a static page for a location', () => {
+    for (const href of ['/privacy', '/terms', '/about', '/privacy#wind', '/privacy?open=picker']) {
+      expect(at(href), href).toMatchObject({ page: 'notfound', slug: null, path: href.split(/[#?]/)[0].slice(1) });
+    }
+  });
+
   it('reads an encoded path, and a broken one as typed', () => {
     expect(at('/caf%C3%A9')).toMatchObject({ page: 'notfound', path: 'café' });
     expect(parseRoute({ pathname: '/%E0%A4%A', hash: '', search: '' })).toMatchObject({ page: 'notfound', path: '%E0%A4%A' });
@@ -212,6 +219,12 @@ describe('the router in the page', () => {
       expect(opened).toEqual([['putney-landing', true]]);
       expect(hist.calls).toEqual([]);
       expect(loc.pathname).toBe('/');
+    });
+
+    it('does not open /privacy as a location: the app has no page there, and asks for none', async () => {
+      await start('/privacy');
+      expect(opened).toEqual([[null, false]]);
+      expect(dom.el('notFound').textContent).toBe('No location hereNo location at rowhether.com/privacy.');
     });
 
     it('opens none and shows the not found page for an address that is not a location', async () => {
@@ -461,6 +474,16 @@ describe('the router in the page', () => {
       await start('/putney-landing');
       const e = click(inside('a[data-nav]', link('/hanover-boathouse')), extra);
       expect(e.defaultPrevented).toBe(!!extra.defaultPrevented);
+      expect(hist.calls).toEqual([]);
+      expect(opened).toHaveLength(1);
+    });
+
+    // The privacy page is a file the host serves, linked from the install and Settings notes with no
+    // data-nav: the browser loads it, and the router keeps out of it.
+    it('leaves a link to a static page, which has no data-nav, to the browser', async () => {
+      await start('/putney-landing');
+      const e = click({ closest: () => null, getAttribute: () => '/privacy' });
+      expect(e.defaultPrevented).toBe(false);
       expect(hist.calls).toEqual([]);
       expect(opened).toHaveLength(1);
     });
