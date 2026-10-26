@@ -27,6 +27,11 @@
     { "name": "SUGGEST_LIMIT", "namespace_id": "1001", "simple": { "limit": 3, "period": 60 } },
     { "name": "REPORT_LIMIT", "namespace_id": "1003", "simple": { "limit": 3, "period": 60 } }
   ],
+  // The open counter (07 14.3): GET /api/info?loc=&k=&m= writes one point per
+  // app start, with no identifiers, and the Metrics tab reads it back through
+  // ANALYTICS_SQL. Points are kept three months.
+  "analytics_engine_datasets": [{ "binding": "OPENS", "dataset": "rowhether_opens" }],
+  "analytics": { "binding": "ANALYTICS_SQL" },
   // Production has no DB binding yet, so dock reports stay off there. Add a
   // production D1 database here to turn them on.
   "observability": { "enabled": true },
@@ -45,6 +50,9 @@
       { "name": "SUGGEST_LIMIT", "namespace_id": "1002", "simple": { "limit": 3, "period": 60 } },
       { "name": "REPORT_LIMIT", "namespace_id": "1004", "simple": { "limit": 3, "period": 60 } }
     ],
+    // Previews count into their own dataset, so dev opens never reach production's.
+    "analytics_engine_datasets": [{ "binding": "OPENS", "dataset": "rowhether_opens_dev" }],
+    "analytics": { "binding": "ANALYTICS_SQL" },
     // Shared by every Preview. Schema changes go in migrations/ and are
     // applied with: npx wrangler d1 migrations apply PREVIEW_DB --remote -c wrangler.preview-migrations.jsonc
     "d1_databases": [
