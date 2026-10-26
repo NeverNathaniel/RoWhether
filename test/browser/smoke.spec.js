@@ -38,7 +38,7 @@ function watchConsole(page) {
     if (!['error', 'warning'].includes(m.type())) return;
     if (m.text() === 'Service Worker registration blocked by Playwright') return;
     const { url = '' } = m.location();
-    if (/Failed to load resource.*404/.test(m.text()) && /\/api\/(info|suggest)$/.test(url)) return;
+    if (/Failed to load resource.*404/.test(m.text()) && /\/api\/(info|suggest)(\?|$)/.test(url)) return;
     bad.push(`${m.type()}: ${m.text()} (${url})`);
   });
   return bad;
@@ -216,7 +216,7 @@ test.describe('smoke', () => {
   // (review Z12). Routes registered last answer first, so these go in after routeAll.
   test('dock reports: the Dev label, and a report set against the forecast', async ({ page }) => {
     await routeAll(page, scenario, clock);
-    await page.route('**/api/info', r => r.fulfill({ json: { env: 'dev', reports: true } }));
+    await page.route(/\/api\/info(\?|$)/, r => r.fulfill({ json: { env: 'dev', reports: true } }));
     await page.route('**/api/reports', r => r.fulfill({ json: { enabled: true, hours: 3, reports: [{ t: clock - 20 * 60e3, water: 'chop', fog: 'patchy', debris: false }] } }));
     await page.goto('/');
     await ready(page);
@@ -288,7 +288,7 @@ test.describe('smoke', () => {
       test('links to the page it is on', async ({ page }) => {
         await sheet(page);
         await routeAll(page, scenario, clock);
-        await page.route('**/api/info', r => r.fulfill({ json: { env: 'dev' } }));
+        await page.route(/\/api\/info(\?|$)/, r => r.fulfill({ json: { env: 'dev' } }));
         await page.goto('/putney-landing');
         await ready(page);
         await expect(page.locator('#envBadge')).toBeVisible();

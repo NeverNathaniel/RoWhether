@@ -320,7 +320,7 @@ function watchConsole(page) {
   page.on('console', m => {
     if (!['error', 'warning'].includes(m.type()) || m.text() === 'Service Worker registration blocked by Playwright') return;
     const { url = '' } = m.location();
-    if (/Failed to load resource.*404/.test(m.text()) && /\/api\/(info|suggest)$/.test(url)) return;
+    if (/Failed to load resource.*404/.test(m.text()) && /\/api\/(info|suggest)(\?|$)/.test(url)) return;
     bad.push(`${m.type()}: ${m.text()} (${url})`);
   });
   return bad;
