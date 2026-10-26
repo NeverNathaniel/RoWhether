@@ -158,6 +158,12 @@ describe('check-sources.mjs', () => {
     expect(r).toMatchObject({ ok: false, status: 503, cors: '*', note: 'HTTP 503' });
   });
 
+  it('fails any status but 200, an empty 204 included', async () => {
+    for (const status of [204, 301, 404, 429]) {
+      expect(await checkBinding(binding(d => d), { fetch: reply(status, '', ok) })).toMatchObject({ ok: false, status, note: `HTTP ${status}` });
+    }
+  });
+
   it('fails an answer with no CORS header, because the browser would refuse it', async () => {
     const r = await checkBinding(binding(d => [d]), { fetch: reply(200, {}) });
     expect(r).toMatchObject({ ok: false, status: 200, cors: null });
