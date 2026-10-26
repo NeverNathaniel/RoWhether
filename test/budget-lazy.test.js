@@ -379,6 +379,7 @@ describe('the static pages', () => {
     expect(r.code, r.out).toBe(0);
     expect(r.out).toMatch(/ok\s+Static pages privacy/);
     expect(report().static).toEqual({ pages: ['privacy'], problems: [] });
+    expect(report().ok).toBe(true);
   });
 
   it('fails when dist/privacy.html is missing', () => {
@@ -388,6 +389,7 @@ describe('the static pages', () => {
     expect(r.out).toMatch(/OVER\s+Static pages/);
     expect(r.out).toContain('dist/privacy.html is missing.');
     expect(report().over).toEqual(['Static pages']);
+    expect(report().ok).toBe(false);
   });
 
   it('fails when the service worker does not precache it', () => {
