@@ -41,7 +41,9 @@ const FORM = 'assets/suggest-form-ghi.js';
 const PICKER = 'assets/picker-jkl.js';
 const PICKER_CSS = 'assets/picker-mno.css';
 const TIDE = 'assets/tide-pqr.js';
-function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'locations/index.json', 'locations/a.json', 'assets/views-def.js'], chunk = 'assets/views-def.js', form = FORM, formCached = true, picker = PICKER, pickerCached = true, pickerCss = PICKER_CSS, pickerCssCached = true, tide = TIDE, tideCached = true } = {}) {
+// The navigation route as the build writes it: the fallback to index.html, minus what the denylist names.
+const DENY = '/^\\/api\\//,/^\\/(privacy|terms|about)$/';
+function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'locations/index.json', 'locations/a.json', 'assets/views-def.js'], chunk = 'assets/views-def.js', form = FORM, formCached = true, picker = PICKER, pickerCached = true, pickerCss = PICKER_CSS, pickerCssCached = true, tide = TIDE, tideCached = true, privacy = true, privacyCached = true, deny = DENY } = {}) {
   mkdirSync(join(dir, 'scripts'), { recursive: true });
   copyFileSync(SCRIPT, join(dir, 'scripts/budget.mjs'));
   put('budget.json', JSON.stringify({ phase: 1, js: 1e6, css: 1e6, html: 1e6, precacheKiB: 1000, extraCss: [], extraJs: [] }));
@@ -54,10 +56,12 @@ function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'as
   if (picker) put(`dist/${picker}`, 'export const picker = {};\n'.repeat(60));
   if (pickerCss) put(`dist/${pickerCss}`, '.pk { color: red }\n'.repeat(20));
   if (tide) put(`dist/${tide}`, 'export const tide = {};\n'.repeat(30));
+  if (privacy) put('dist/privacy.html', '<!doctype html><title>RoWhether privacy</title>');
   put('dist/locations/index.json', JSON.stringify({ locations: [{ slug: 'a' }] }));
   put('dist/locations/a.json', '{}');
-  const cached = [...precache, ...(formCached ? [FORM] : []), ...(picker && pickerCached ? [picker] : []), ...(pickerCss && pickerCssCached ? [pickerCss] : []), ...(tide && tideCached ? [tide] : [])];
-  put('dist/sw.js', `precacheAndRoute([${cached.map(u => `{url:"${u}",revision:null}`).join(',')}],{});`);
+  const cached = [...precache, ...(formCached ? [FORM] : []), ...(picker && pickerCached ? [picker] : []), ...(pickerCss && pickerCssCached ? [pickerCss] : []), ...(tide && tideCached ? [tide] : []), ...(privacy && privacyCached ? ['privacy.html'] : [])];
+  const route = deny === null ? '' : `e.registerRoute(new e.NavigationRoute(e.createHandlerBoundToURL("index.html"),{denylist:[${deny}]}))`;
+  put('dist/sw.js', `precacheAndRoute([${cached.map(u => `{url:"${u}",revision:null}`).join(',')}],{});${route}`);
 }
 
 const run = (script = join(dir, 'scripts/budget.mjs')) => {
@@ -360,5 +364,65 @@ describe('the files the page loads at start', () => {
     r = run();
     expect(r.code).toBe(1);
     expect(r.out).toContain('budget.json has no list for "extraJs".');
+  });
+});
+
+// The static pages are files the host serves (P1.16, 07 4.2): in dist/, in the precache, and named in the
+// service worker's navigation denylist. The precache route answers first for a page that is precached, so the
+// denylist is what keeps /privacy from index.html if that entry is ever lost.
+describe('the static pages', () => {
+  const report = () => JSON.parse(readFileSync(join(dir, 'dist/budget-report.json'), 'utf8'));
+
+  it('passes a privacy page that is built, precached and in the denylist, and says so', () => {
+    setup();
+    const r = run();
+    expect(r.code, r.out).toBe(0);
+    expect(r.out).toMatch(/ok\s+Static pages privacy/);
+    expect(report().static).toEqual({ pages: ['privacy'], problems: [] });
+  });
+
+  it('fails when dist/privacy.html is missing', () => {
+    setup({ privacy: false });
+    const r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toMatch(/OVER\s+Static pages/);
+    expect(r.out).toContain('dist/privacy.html is missing.');
+    expect(report().over).toEqual(['Static pages']);
+  });
+
+  it('fails when the service worker does not precache it', () => {
+    setup({ privacyCached: false });
+    const r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('The service worker does not precache privacy.html, so /privacy does not open offline.');
+  });
+
+  it('fails when the denylist does not name /privacy, and when there is no navigation route', () => {
+    setup({ deny: '/^\\/api\\//' });
+    let r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("The service worker's navigation denylist does not name /privacy");
+    setup({ deny: null });
+    r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("The service worker's navigation denylist does not name /privacy");
+  });
+
+  // The denylist is read as text. A file that put code there would still be only read: the check fails
+  // for the missing pattern, and the code is not run (exit code 7 would be its trace).
+  it('reads the denylist and never runs it', () => {
+    setup({ deny: '/^\\/api\\//,process.exit(7)' });
+    const r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("The service worker's navigation denylist does not name /privacy");
+  });
+
+  it('takes any pattern that matches /privacy, and not one that only looks like it', () => {
+    setup({ deny: '/^\\/api\\//,/^\\/privacy$/' });
+    expect(run().code).toBe(0);
+    setup({ deny: '/^\\/api\\//,/^\\/privacy-policy$/' });
+    expect(run().code).toBe(1);
+    setup({ deny: '/^\\/api\\//,/^\\/(terms|about)$/' });
+    expect(run().code).toBe(1);
   });
 });

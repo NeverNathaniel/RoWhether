@@ -34,6 +34,10 @@
 // then links two, so a line that took the first one would measure a part of the CSS
 // and never fail. Both lines add up every file the page loads at start.
 //
+// The static pages (P1.16; 07 4.2, 5.15) are files the host serves, not routes of the app:
+// each is in dist/, in the precache, and named in the service worker's navigation denylist,
+// so a navigation to it is never answered with index.html.
+//
 // The report is written even when the check fails, so CI can upload it.
 import { readFileSync, readdirSync, statSync, writeFileSync, existsSync } from 'node:fs';
 import { gzipSync, constants } from 'node:zlib';
@@ -159,6 +163,33 @@ function locationProblems(distinct) {
   return { records: slugs, problems };
 }
 
+// The pages the host serves as files, by address (07 4.1). Phase 2 adds terms and about.
+const STATIC_PAGES = ['privacy'];
+
+// The regular expressions of the navigation route's denylist in dist/sw.js, or null when it has none.
+// They are read as text and rebuilt: nothing in the built file is run here.
+function denylist(sw) {
+  const m = sw.match(/denylist:\[(.*?)\]\}\)/s);
+  if (!m) return null;
+  try {
+    return [...m[1].matchAll(/\/((?:\\.|[^/\\\n])+)\/([a-z]*)/g)].map((r) => new RegExp(r[1], r[2]));
+  } catch {
+    return null;
+  }
+}
+
+// What is wrong with the static pages, as a list of sentences.
+function staticProblems(sw, distinct) {
+  const deny = denylist(sw);
+  const problems = [];
+  for (const name of STATIC_PAGES) {
+    if (!existsSync(join(DIST, `${name}.html`))) problems.push(`dist/${name}.html is missing. Is it an input of the build (build.rolldownOptions.input in vite.config.js)?`);
+    else if (!distinct.includes(`${name}.html`)) problems.push(`The service worker does not precache ${name}.html, so /${name} does not open offline.`);
+    if (!deny?.some((re) => re.test(`/${name}`))) problems.push(`The service worker's navigation denylist does not name /${name}, so it could answer with index.html (navigateFallbackDenylist in vite.config.js).`);
+  }
+  return problems;
+}
+
 // The lazy chunks. P1.5 moved the suggestion form out of the main script to make
 // room (07 10.3, plan 7.3); P1.6 added the picker; P1.14 added tide; P1.18 adds admin.
 const LAZY = [{ name: 'views', precache: true }, { name: 'suggest-form', precache: true }, { name: 'picker', precache: true }, { name: 'tide', precache: true }];
@@ -227,7 +258,8 @@ const cssBufs = main.sheets.map((f) => {
   }
 });
 
-const entries = precacheEntries(readText(join(DIST, 'sw.js')));
+const swText = readText(join(DIST, 'sw.js'));
+const entries = precacheEntries(swText);
 const distinct = [...new Set(entries)];
 const precacheBytes = distinct.reduce((sum, path) => sum + sizeOf(path), 0);
 
@@ -249,6 +281,7 @@ const checks = [
 const places = locationProblems(distinct);
 const lazy = lazyChunks(assets, htmlBuf.toString('utf8'), distinct);
 const page = pageProblems(main.sheets, startJs);
+const statics = staticProblems(swText, distinct);
 
 console.log(`Budget for phase ${budget.phase} (budget.json). Main files are gzip at level 9.\n`);
 for (const c of checks) {
@@ -262,6 +295,8 @@ console.log(`${places.problems.length ? 'OVER' : 'ok  '}  Locations ${places.rec
 for (const line of places.problems) console.log(`      ${line}`);
 console.log(`${page.length ? 'OVER' : 'ok  '}  Page files ${startJs.length} script${startJs.length === 1 ? '' : 's'}, ${main.sheets.length} stylesheet${main.sheets.length === 1 ? '' : 's'}`);
 for (const line of page) console.log(`      ${line}`);
+console.log(`${statics.length ? 'OVER' : 'ok  '}  Static pages ${STATIC_PAGES.join(', ')}`);
+for (const line of statics) console.log(`      ${line}`);
 console.log(`${lazy.problems.length ? 'OVER' : 'ok  '}  Lazy chunks ${LAZY.map((l) => l.name).join(', ')}`);
 for (const c of lazy.chunks) console.log(`      ${c.name.padEnd(8)} ${fmt(c.gzip)} B gzip, ${fmt(c.raw)} B raw, ${c.precached ? 'precached' : 'not precached'}  (${c.file})`);
 for (const line of lazy.problems) console.log(`      ${line}`);
@@ -277,7 +312,7 @@ for (const a of assets) {
 const over = checks.filter((c) => c.over);
 const report = {
   phase: budget.phase,
-  ok: over.length === 0 && page.length === 0 && places.problems.length === 0 && lazy.problems.length === 0,
+  ok: over.length === 0 && page.length === 0 && statics.length === 0 && places.problems.length === 0 && lazy.problems.length === 0,
   budget: { js: budget.js, css: budget.css, html: budget.html, precacheKiB: budget.precacheKiB },
   main: {
     js: { file: main.js, files: startJs, raw: checks[0].raw, gzip: checks[0].value },
@@ -293,9 +328,10 @@ const report = {
   },
   assets,
   page: { scripts: startJs, stylesheets: main.sheets, problems: page },
+  static: { pages: STATIC_PAGES, problems: statics },
   locations: { records: places.records, problems: places.problems },
   lazy: { chunks: lazy.chunks, problems: lazy.problems },
-  over: [...over.map((c) => c.name), ...(page.length ? ['Page files'] : []), ...(places.problems.length ? ['Locations'] : []), ...(lazy.problems.length ? ['Lazy chunks'] : [])]
+  over: [...over.map((c) => c.name), ...(page.length ? ['Page files'] : []), ...(statics.length ? ['Static pages'] : []), ...(places.problems.length ? ['Locations'] : []), ...(lazy.problems.length ? ['Lazy chunks'] : [])]
 };
 writeFileSync(join(DIST, 'budget-report.json'), `${JSON.stringify(report, null, 2)}\n`);
 
