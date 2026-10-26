@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { zoneFormat, setZone, hm, dayKey, localMinutes, fmtFlow, fmtInt } from '../src/format.js';
+import { zoneFormat, setZone, hm, dayKey, localMinutes, fmtFlow, fmtInt, addDays } from '../src/format.js';
 import { PUTNEY_FILE } from './helpers/putney-file.js';
 
 const NY = 'America/New_York';
@@ -67,6 +67,91 @@ describe('zoneFormat', () => {
     const u = Date.UTC(2026, 5, 15, 8); // Mon 4 AM, Mon 1:30 PM, Mon 8 PM
     expect([ny.dayWord(u), kol.dayWord(u), auk.dayWord(u)]).toEqual(['Today', 'Today', 'Mon']);
     expect(ny.whenText(t + 2 * 24 * HOUR)).toBe('Wed 4\u00a0PM');
+  });
+});
+
+// A date key stepped by the calendar. A local day can be 23 or 25 hours long, so a day is never 24 hours (08 9.3).
+describe('addDays', () => {
+  it('steps a date key across a month, a year and a leap day', () => {
+    expect(addDays('2026-10-31', 1)).toBe('2026-11-01');
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+    expect(addDays('2027-01-01', -1)).toBe('2026-12-31');
+    expect(addDays('2027-02-28', 1)).toBe('2027-03-01');
+    expect(addDays('2028-02-28', 1)).toBe('2028-02-29');
+    expect(addDays('2028-02-29', 1)).toBe('2028-03-01');
+    expect(addDays('2026-01-31', 30)).toBe('2026-03-02');
+    expect(addDays('2026-03-01', -1)).toBe('2026-02-28');
+    expect(addDays('2026-06-15', 0)).toBe('2026-06-15');
+    expect(addDays('2026-06-15', 365)).toBe('2027-06-15');
+  });
+
+  // Written out on the dates the clocks change in four zones. npm test runs in Pacific/Auckland, where the clocks
+  // went back on 2026-04-05: a step that adds 24 hours to local midnight lands on the 23:00 of the same date.
+  it.each(['2026-03-07', '2026-03-08', '2026-04-04', '2026-04-05', '2026-09-26', '2026-09-27', '2026-10-03', '2026-10-04', '2026-10-31', '2026-11-01'])(
+    'gives the next date after %s, whatever the length of the day', key => {
+      const next = { '2026-03-07': '2026-03-08', '2026-03-08': '2026-03-09', '2026-04-04': '2026-04-05', '2026-04-05': '2026-04-06', '2026-09-26': '2026-09-27', '2026-09-27': '2026-09-28', '2026-10-03': '2026-10-04', '2026-10-04': '2026-10-05', '2026-10-31': '2026-11-01', '2026-11-01': '2026-11-02' };
+      expect(addDays(key, 1)).toBe(next[key]);
+      expect(addDays(next[key], -1)).toBe(key);
+    });
+});
+
+// "Today" and "Tomorrow" count local dates. Adding 24 hours to now names the wrong day in the hour before the
+// clocks go forward (it skips a day) and the first hour of the day they go back (it stays on the day): the
+// 23 and 25 hour days of 08 9.4.
+describe('the day words across a clock change', () => {
+  afterEach(() => vi.useRealTimers());
+  // Tomorrow found by walking the clock to the first instant on another date and going six hours into that day,
+  // so it uses no date arithmetic and no length of a day.
+  const into = (f, t) => { let u = t; while (f.dayKey(u) === f.dayKey(t)) u += 15 * MIN; return u + 6 * HOUR; };
+  const words = (tz, now) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
+    const f = zoneFormat(tz), tomorrow = into(f, now), after = into(f, tomorrow);
+    return [f.dayWord(now), f.dayWord(tomorrow), f.dayWord(after) === f.weekday(after), f.dayWord(tomorrow, true)];
+  };
+
+  // The plan's three instants, 23:30 local, and the two hours the old line named the wrong day. Written out.
+  it.each([
+    ['23:30 on 2026-10-31', '2026-11-01T03:30:00Z', 'Mon'],
+    ['23:30 on 2026-11-01, the 25 hour day', '2026-11-02T04:30:00Z', 'Tue'],
+    ['23:30 on 2026-03-08, the 23 hour day', '2026-03-09T03:30:00Z', 'Tue'],
+    ['23:30 on 2026-03-07, the night the clocks go forward', '2026-03-08T04:30:00Z', 'Mon'],
+    ['00:30 on 2026-11-01, the night they go back', '2026-11-01T04:30:00Z', 'Tue']
+  ])('says Tomorrow for the next local date at %s', (_, iso, dayAfter) => {
+    const now = Date.parse(iso);
+    expect(words(NY, now)).toEqual(['Today', 'Tomorrow', true, 'tomorrow']);
+    vi.setSystemTime(now);
+    // The date after tomorrow is a weekday, and tomorrow's own time carries the word.
+    const f = zoneFormat(NY), after = into(f, into(f, now));
+    expect(f.dayWord(after)).toBe(dayAfter);
+    expect(f.whenText(into(f, now), true)).toMatch(/^tomorrow \d/);
+    expect(f.whenText(now)).not.toMatch(/Today|tomorrow/i);
+  });
+
+  it('names the two nights by their dates, not by hours', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const f = zoneFormat(NY);
+    // 11:30 PM on Sat 7 March. Sun 8 March is tomorrow (a 23 hour day) and Mon 9 March is not.
+    vi.setSystemTime(Date.parse('2026-03-08T04:30:00Z'));
+    expect([f.dayWord(Date.parse('2026-03-08T16:00:00Z')), f.dayWord(Date.parse('2026-03-09T16:00:00Z'))]).toEqual(['Tomorrow', 'Mon']);
+    // 12:30 AM on Sun 1 November, the first hour of a 25 hour day. Mon 2 November is tomorrow, and Sun is today.
+    vi.setSystemTime(Date.parse('2026-11-01T04:30:00Z'));
+    expect([f.dayWord(Date.parse('2026-11-01T17:00:00Z')), f.dayWord(Date.parse('2026-11-02T17:00:00Z')), f.dayWord(Date.parse('2026-11-03T17:00:00Z'))]).toEqual(['Today', 'Tomorrow', 'Tue']);
+  });
+
+  // Every quarter hour for three days either side of each change in the zones of 08 9.4, whole and half hour.
+  it.each([
+    [NY, '2026-03-08T07:00:00Z'], [NY, '2026-11-01T06:00:00Z'],
+    ['Australia/Sydney', '2026-04-04T16:00:00Z'], ['Australia/Sydney', '2026-10-03T16:00:00Z'],
+    ['Australia/Adelaide', '2026-04-04T16:30:00Z'], ['Australia/Adelaide', '2026-10-03T16:30:00Z'],
+    ['America/St_Johns', '2026-03-08T05:30:00Z'], ['America/St_Johns', '2026-11-01T04:30:00Z'],
+    ['Pacific/Auckland', '2026-04-04T14:00:00Z'], ['Pacific/Auckland', '2026-09-26T14:00:00Z'],
+    ['Asia/Kolkata', '2026-06-15T00:00:00Z']
+  ])('reads Today and Tomorrow right at every quarter hour around the change in %s at %s', (tz, iso) => {
+    const centre = Date.parse(iso);
+    for (let t = centre - 3 * 24 * HOUR; t <= centre + 3 * 24 * HOUR; t += 15 * MIN) {
+      expect(words(tz, t), `${tz} at ${new Date(t).toISOString()}`).toEqual(['Today', 'Tomorrow', true, 'tomorrow']);
+    }
   });
 });
 
@@ -244,8 +329,8 @@ describe('fmtFlow', () => {
 });
 
 describe('the module', () => {
-  it('imports only HOUR and MIN from config, so src/location.js can import it without a cycle', () => {
+  it('imports only MIN from config, so src/location.js can import it without a cycle', () => {
     const src = readFileSync(new URL('../src/format.js', import.meta.url), 'utf8');
-    expect(src.match(/^import .*$/gm)).toEqual(["import { HOUR, MIN } from './config.js';"]);
+    expect(src.match(/^import .*$/gm)).toEqual(["import { MIN } from './config.js';"]);
   });
 });

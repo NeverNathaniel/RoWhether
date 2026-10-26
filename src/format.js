@@ -1,6 +1,6 @@
 // Time, number and text formatting. Times display in America/New_York until
 // setZone() picks another zone.
-import { HOUR, MIN } from './config.js';
+import { MIN } from './config.js';
 
 // Remembers fn's answer for each instant. dayKey and localHour are asked for
 // the same few hundred hourly instants thousands of times in one draw (each
@@ -18,6 +18,13 @@ const remember = fn => {
     }
     return v;
   };
+};
+
+// The date key n days on, by the calendar. A local day can be 23 or 25 hours long, so code never adds
+// 24 hours to a time to find another day (08 9.3).
+export const addDays = (key, n) => {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 };
 
 // Formatters for one IANA zone, cached per zone. Only the 12 hour clock exists
@@ -55,9 +62,9 @@ export function zoneFormat(tz, { clock = '12' } = {}) {
   // "6a", "12p": compact hour labels for chart axes
   const hShort = t => hm(t).replace(/:\d\d/, '').replace(' AM', 'a').replace(' PM', 'p');
   const dayWord = (t, lower) => {
-    const k = dayKey(t);
-    if (k === dayKey(Date.now())) return lower ? 'today' : 'Today';
-    if (k === dayKey(Date.now() + 24 * HOUR)) return lower ? 'tomorrow' : 'Tomorrow';
+    const k = dayKey(t), today = dayKey(Date.now());
+    if (k === today) return lower ? 'today' : 'Today';
+    if (k === addDays(today, 1)) return lower ? 'tomorrow' : 'Tomorrow';
     return weekday(t);
   };
   const whenText = (t, lower) => {

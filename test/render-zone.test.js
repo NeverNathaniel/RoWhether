@@ -6,9 +6,9 @@
 // (+5:30) can.
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { HOUR, MIN } from '../src/config.js';
-import { setZone } from '../src/format.js';
+import { setZone, hm } from '../src/format.js';
 import { effectiveSettings, resolveLocation } from '../src/location.js';
-import { PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
+import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
 import { app } from '../src/state.js';
 import { renderNow } from '../src/render/now.js';
 import * as river from '../src/render/detail/river.js';
@@ -102,5 +102,31 @@ describe('the Light view in a half hour zone', () => {
     const change = html.match(/(?:(\d+) min )?(\d+) s (?:less|more) than the day before/);
     expect(change, 'a change of seconds').not.toBeNull();
     expect(+(change[1] || 0)).toBeLessThan(2);
+  });
+});
+
+// "Daylight tomorrow" names tomorrow by its date (P1.15, 08 9.3). Adding 24 hours to 11:30 PM on Saturday 7 March, the
+// night the clocks go forward, gives 12:30 AM on Monday the 9th. The fact is asked for after dusk, and the Now section
+// is hidden after sunset, so the branch has no way to run in the app today: the test sets the model's `daytime` itself
+// to reach the line, at the hour the old one named the wrong day.
+describe('the Daylight tomorrow fact the night before the clocks go forward', () => {
+  const MAR7 = Date.UTC(2026, 2, 7, 5); // midnight EST on 7 March
+  const LATE = Date.UTC(2026, 2, 8, 4, 30); // 11:30 PM EST on the 7th
+  const sunText = t => { const x = sunOn(PUTNEY, t); return `${hm(x.sunrise)} to ${hm(x.sunset)}`; };
+
+  it("gives the 8th's sunrise and sunset, and not the 9th's", () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(LATE);
+    const dom = installFakeDom({ width: 390 });
+    const S = effectiveSettings(PUTNEY);
+    const m = buildModel(PUTNEY, { wx: wx(undefined, 3, MAR7), river: { flow: { v: 6000, t: LATE }, waterC: { v: 8, t: LATE } } }, S, LATE);
+    m.daytime = true;
+    Object.assign(app, { loc: PUTNEY, model: m, settings: S, data: m.data, errors: {} });
+    renderNow();
+    const eighth = sunText(Date.UTC(2026, 2, 8, 17)), ninth = sunText(Date.UTC(2026, 2, 9, 16));
+    expect(eighth).not.toBe(ninth);
+    const facts = dom.el('facts').textContent;
+    expect(facts).toContain(`Daylight tomorrow${eighth}`);
+    expect(facts).not.toContain(ninth);
   });
 });

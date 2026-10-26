@@ -1,7 +1,7 @@
 // "On the water now": compass and current facts.
 import { HOUR, WATER } from '../config.js';
 import { app, $ } from '../state.js';
-import { r0, card, hm, dayKey, dayWord } from '../format.js';
+import { r0, card, hm, dayKey, dayWord, addDays } from '../format.js';
 import { precipKind, rateWord, fogRisk, nextMorning, fogLift, waterWhy, debrisLikely, flowNow, flowTrend, waterTemp, waterOverridden, windVsCourse, sunFor, aqiWord, flowForCall, bound, tideAt, tideLine } from '../logic.js';
 import { sourceRow } from '../location.js';
 import { fact, compassOf, compassCap, sparkline, readNote, oldFlow, noWater } from './parts.js';
@@ -97,7 +97,7 @@ export function renderNow() {
   }
 
   let s = sunFor(m, dayKey(Date.now())), dayLabel = 'Daylight';
-  if (s && Date.now() > s.dusk) { s = sunFor(m, dayKey(Date.now() + 24 * HOUR)); dayLabel = 'Daylight tomorrow'; }
+  if (s && Date.now() > s.dusk) { s = sunFor(m, addDays(dayKey(Date.now()), 1)); dayLabel = 'Daylight tomorrow'; }
   if (s) {
     f.push(fact(dayLabel, `${hm(s.sunrise)} to ${hm(s.sunset)}`,
       `First light ${hm(s.dawn)}, dark by ${hm(s.dusk)}. Lights required outside sunrise to sunset.`,
