@@ -1351,6 +1351,30 @@ test.describe('smoke', () => {
       expect(seen).toEqual([NONE, NONE, NONE]);
     });
 
+    // The first address is answered after a newer one was asked: it shows nothing, so it is not counted,
+    // and the start is counted when the newest one is. Putney's record is held, then comes back as a page
+    // that is no record, which makes the app ask for the index (the sign that the answer was read). Lake
+    // Test's is held until then. If the order flips, both would count Lake Test: the check then passes
+    // without proving the rule, and never fails for the right code.
+    test('counts the location of the newest address, when an older one is answered after it was asked', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      let letPutney, letLake;
+      const putney = new Promise(r => { letPutney = r; });
+      const lake = new Promise(r => { letLake = r; });
+      await page.route('**/locations/putney-landing.json', async route => { await putney; await route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html>' }); });
+      await page.route('**/locations/lake-test.json', async route => { await lake; await route.fulfill({ json: LAKE_FILE }); });
+      const seen = counted(page);
+      await page.goto('/putney-landing');
+      await moveTo(page, '/lake-test');
+      const readIndex = page.waitForResponse(r => new URL(r.url()).pathname === '/locations/index.json');
+      letPutney();
+      await readIndex;
+      letLake();
+      await expect(page.locator('#locName')).toHaveText('Lake Test');
+      await ready(page);
+      expect(seen).toEqual(['?loc=lake-test&k=first&m=browser']);
+    });
+
     test('counts first at every start when storage throws, and still draws', async ({ page }) => {
       await page.addInitScript(() => {
         Object.defineProperty(window, 'localStorage', { configurable: true, get() { throw new DOMException('The operation is insecure.', 'SecurityError'); } });
@@ -1578,7 +1602,7 @@ test.describe('the privacy page', () => {
     await expect(main).toContainText(SENTENCE);
     // What the app keeps in this browser, and that it stays there.
     await expect(main).toContainText("each location's settings, the last forecast for up to 10 locations, the locations you opened recently, and your choices for Plan a row and the install bar");
-    await expect(main).toContainText('never sent to RoWhether');
+    await expect(main).toContainText('never sent to RoWhether, apart from the settings in a bug report that you choose to send');
     // The services the browser asks, and what Near me does with a position.
     for (const name of ['Open-Meteo', 'National Weather Service', 'USGS', 'NOAA', 'Near me uses your position once, in the browser, and it is not stored or sent']) await expect(main).toContainText(name);
     await expect(page.locator('.changed')).toHaveText(/^Last changed [A-Z][a-z]{2} \d{1,2}, \d{4}\.$/);
