@@ -1061,7 +1061,10 @@ describe('tidal water', () => {
       const html = render(m);
       const vals = [...html.matchAll(/<span class="sval[^"]*">([^<]*)<\/span>/g)].map(x => x[1]);
       expect(vals).toEqual(['High 5.6\u00a0ft', 'High 5.6\u00a0ft', 'High 5.6\u00a0ft', 'No tide forecast', 'No tide forecast', ...vals.slice(5)]);
-      expect(html).toContain('class="sval long wrap"');
+      // Every value may break over lines, a high of 12.3 ft as well as "No tide forecast". The class is `multi`: `wrap` is the
+      // page's own container class (padding, max-width), and a value that took it was 40 px wide before its first letter.
+      expect(html.match(/class="sval long multi"/g)).toHaveLength(vals.length);
+      expect(html).not.toMatch(/class="(?:[^"]* )?wrap[ "]/);
       // The forecast covers about 3 days and the picked day is today.
       expect(html).toMatch(/aria-pressed="true"[^>]*aria-label="[^"]*: high 5\.6 ft, low 2\.4 ft\./);
     });

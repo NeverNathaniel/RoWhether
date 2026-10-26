@@ -31,9 +31,9 @@ export function render(m, want) {
   const all = series.map(p => p.h), lo = Math.floor(Math.min(...all) - 0.7), hi = Math.ceil(Math.max(...all) + 0.8);
   const strip = weekStrip(days.map(d => {
     const hs = around(...windowOf(d)).map(p => p.h);
-    if (!hs.length) return { key: d.key, t: d.t, value: 'No tide forecast', frac: 0, lvl: null, cls: 'wrap', aria: `${dayLabel(d.t)}: no tide forecast.` };
+    if (!hs.length) return { key: d.key, t: d.t, value: 'No tide forecast', frac: 0, lvl: null, cls: 'multi', aria: `${dayLabel(d.t)}: no tide forecast.` };
     const top = Math.max(...hs), low = Math.min(...hs);
-    return { key: d.key, t: d.t, value: `High ${ht(top).replace(' ', '\u00a0')}`, lo: (low - lo) / (hi - lo), frac: (top - lo) / (hi - lo), lvl: null, cls: 'wrap', aria: `${dayLabel(d.t)}: high ${ht(top)}, low ${ht(low)}.` };
+    return { key: d.key, t: d.t, value: `High ${ht(top).replace(' ', '\u00a0')}`, lo: (low - lo) / (hi - lo), frac: (top - lo) / (hi - lo), lvl: null, cls: 'multi', aria: `${dayLabel(d.t)}: high ${ht(top)}, low ${ht(low)}.` };
   }), day);
 
   const d = days.find(x => x.key === day), [t0, t1] = windowOf(d), pts = around(t0, t1), evs = tideEvents(m, t0, t1);

@@ -440,6 +440,28 @@ test.describe('tidal water', () => {
     await expect(body).not.toContainText(/NaN|undefined/);
   });
 
+  test("keeps the text of every day of the Tide strip inside its button, at the project's width and at 360 px", async ({ page }, testInfo) => {
+    await routeAll(page, scenario, clock);
+    await page.goto(`/${SLUG}#tide`);
+    await ready(page);
+    await tabDrawn(page, 'tide');
+    const body = page.locator('#detailBody');
+    // Four days with a high and three with none, so the longest word ("forecast") is in the row.
+    await expect(body.locator('.sval')).toHaveText([...Array(4).fill('High 5.6 ft'), ...Array(3).fill('No tide forecast')]);
+    // Seven days share the row, so a word wider than a button would run over the day beside it. The text's own
+    // line boxes are measured, not the value's box: a value with the page's `.wrap` class was a padded 40 px box,
+    // and its word ran out of it.
+    for (const width of [...new Set([testInfo.project.use.viewport.width, 360])]) {
+      await page.setViewportSize({ width, height: 844 });
+      const spill = await body.locator('.sday').evaluateAll(bs => bs.map(b => {
+        const r = b.getBoundingClientRect(), range = document.createRange();
+        range.selectNodeContents(b.querySelector('.sval'));
+        return Math.max(0, ...[...range.getClientRects()].map(x => Math.max(r.left - x.left, x.right - r.right)));
+      }));
+      expect(Math.max(...spill), `at ${width} px a value runs ${Math.max(...spill)} px out of its day`).toBeLessThanOrEqual(0.5);
+    }
+  });
+
   test('opens straight at #tide, and shows every day of the strip', async ({ page }) => {
     await routeAll(page, scenario, clock);
     await page.goto(`/${SLUG}#tide`);
