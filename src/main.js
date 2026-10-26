@@ -7,7 +7,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { REFRESH_MS, MIN, DEFAULT_SLUG } from './config.js';
 import { app, $, openLocation, takeRefresh, canRefresh, fetchedOf } from './state.js';
 import { fetchAll } from './data.js';
-import { loadCache, saveCache, loadPlan, savePlan, loadOverrides, saveRecord, touchCache, trimCaches, saveLast, pushRecent, dismissPickHint } from './storage.js';
+import { loadCache, saveCache, loadPlan, savePlan, loadOverrides, saveRecord, touchCache, trimCaches, loadLast, saveLast, pushRecent, dismissPickHint } from './storage.js';
 import { cachedRecord, fetchRecord, newerRecord } from './locations.js';
 import { render } from './render/index.js';
 import { renderPlace } from './render/header.js';
@@ -17,7 +17,8 @@ import { initRoutes, renderTabs, showTab, showMissing, showFailed, setDay } from
 import { initSettings, refreshNudge } from './settings.js';
 import { initSuggest } from './suggest.js';
 import { initShare } from './share.js';
-import { initReports, loadInfo, loadReports } from './reports.js';
+import { initReports, loadReports } from './reports.js';
+import { loadInfo } from './info.js';
 import { initInstall } from './install.js';
 
 // The service worker caches the app shell so it opens offline. Data still
@@ -104,10 +105,26 @@ function enter(record, keepAddress, note) {
 // No location open, for a page that has none: the header says only RoWhether.
 const none = () => { openLocation(null); renderPlace(null); };
 
+// The open counter (07 14.3) counts the start once its address is answered, so it can name the
+// location shown. `first` is read now, before anything writes the last location: no location
+// saved here, and no old install to move across, is a first start.
+const first = !loadLast();
+let counted = false;
+const count = () => {
+  if (counted) return;
+  counted = true;
+  loadInfo(app.loc?.slug ?? 'none', first).then(loadReports);
+};
+
 let asked = 0; // counts the addresses asked for: an answer for an older one is dropped
-// Opens the location at `slug`, or none when it is null. The record comes from
-// this browser, else from the file the build wrote.
+// Opens the location at `slug`, or none when it is null, and counts the start when the
+// newest address is answered. The record comes from this browser, else from the file the
+// build wrote.
 async function open(slug, keepAddress, note) {
+  const mine = asked + 1;
+  try { await openAt(slug, keepAddress, note); } finally { if (mine === asked) count(); }
+}
+async function openAt(slug, keepAddress, note) {
   const mine = ++asked;
   if (!slug) { none(); return; }
   if (app.loc?.slug === slug) {
@@ -201,4 +218,3 @@ initShare();
 initReports();
 initInstall();
 initRoutes(open, picker);
-loadInfo().then(loadReports);

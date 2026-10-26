@@ -1,7 +1,6 @@
-// The instance label and dock reports. GET /api/info says whether this is
-// production or a Preview such as dev, and whether dock reports are on. Dock
-// reports are what someone saw at the dock, shown to everyone for 3 hours.
-// On a static host there is no /api, so both quietly stay off.
+// Dock reports. They are what someone saw at the dock, shown to everyone for 3 hours.
+// On a static host there is no /api, so they quietly stay off. Whether they are on comes
+// from GET /api/info (src/info.js).
 import { WATER, REPORTS_SLUG } from './config.js';
 import { app, $ } from './state.js';
 import { esc, ago, hm } from './format.js';
@@ -10,18 +9,10 @@ const WATER_NAME = { flat: WATER.names[0], light: WATER.names[1], chop: WATER.na
 const WATER_LVL = { flat: 0, light: 1, chop: 2, rough: 3 };
 const FOG_NAME = { clear: 'no fog', patchy: 'patchy fog', thick: 'thick fog' };
 
-async function getJSON(url, opts) {
+export async function getJSON(url, opts) {
   const r = await fetch(url, { cache: 'no-store', ...opts });
   if (!r.ok && r.status !== 400 && r.status !== 429) throw new Error(`HTTP ${r.status}`);
   return r.json();
-}
-
-export async function loadInfo() {
-  try { app.info = await getJSON('/api/info'); } catch (e) { app.info = null; }
-  const badge = $('envBadge');
-  const env = app.info && app.info.env;
-  badge.hidden = !env || env === 'production';
-  badge.textContent = env ? env[0].toUpperCase() + env.slice(1) : '';
 }
 
 // Reports belong to Putney until the table has a location (08, phase 3).

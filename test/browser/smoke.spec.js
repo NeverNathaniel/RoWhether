@@ -1257,6 +1257,158 @@ test.describe('smoke', () => {
       }
     });
   });
+
+  // The open counter (P1.16, 07 14.3): one /api/info request per start, naming the location shown,
+  // first or return, and home screen or browser. The fixtures answer it 404, as a static host does:
+  // the request is what the Worker would count, so the request is what is read here.
+  test.describe('the open counter', () => {
+    const isInfo = r => new URL(r.url()).pathname === '/api/info';
+    // The query of every /api/info request the page makes, in order.
+    const counted = page => { const seen = []; page.on('request', r => { if (isInfo(r)) seen.push(new URL(r.url()).search); }); return seen; };
+    const FIRST = '?loc=putney-landing&k=first&m=browser';
+    const RETURN = '?loc=putney-landing&k=return&m=browser';
+    const NONE = '?loc=none&k=first&m=browser';
+    const AFTER = Date.UTC(2027, 3, 1, 16); // after the first-visit window
+    const open = (page, path) => Promise.all([page.waitForRequest(isInfo), page.goto(path)]);
+    const again = page => Promise.all([page.waitForRequest(isInfo), page.reload()]);
+
+    test('a first visit asks once with first, and a reload with return', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      const seen = counted(page);
+      await open(page, '/putney-landing');
+      await ready(page);
+      expect(seen).toEqual([FIRST]);
+      await again(page);
+      await ready(page);
+      expect(seen).toEqual([FIRST, RETURN]);
+    });
+
+    test('asks once for a start, whatever tab, refresh or location follows', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.route('**/locations/lake-test.json', route => route.fulfill({ json: LAKE_FILE }));
+      const seen = counted(page);
+      await open(page, '/putney-landing');
+      await ready(page);
+      await page.locator('#tabs a[data-tab="wind"]').click();
+      await tabDrawn(page, 'wind');
+      await page.locator('#refreshBtn').click();
+      await ready(page);
+      await moveTo(page, '/lake-test');
+      await expect(page.locator('#locName')).toHaveText('Lake Test');
+      await ready(page);
+      expect(seen).toEqual([FIRST]);
+    });
+
+    test('names Putney at "/" with nothing saved, and counts first until the note is answered, then return', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      const seen = counted(page);
+      await open(page, '/');
+      await ready(page);
+      await expect(page.locator('#pickNote')).toBeVisible();
+      await again(page);
+      await ready(page);
+      expect(seen, 'nothing was chosen, so the next start is first too').toEqual([FIRST, FIRST]);
+      await page.locator('#pickNoteLater').click();
+      await again(page);
+      await ready(page);
+      expect(seen).toEqual([FIRST, FIRST, RETURN]);
+    });
+
+    test('counts a start from before locations as return: the old keys count as an earlier visit', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await seedStorage(page, { 'putney-rowing-settings-v1': JSON.stringify({ windCaution: 12 }) });
+      const seen = counted(page);
+      await open(page, '/');
+      await ready(page);
+      expect(seen).toEqual([RETURN]);
+    });
+
+    test('says standalone from the home screen, by its display mode', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.addInitScript(() => {
+        const real = window.matchMedia.bind(window);
+        window.matchMedia = q => (/display-mode:\s*standalone/.test(q) ? { matches: true, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} } : real(q));
+      });
+      const seen = counted(page);
+      await open(page, '/putney-landing');
+      await ready(page);
+      expect(seen).toEqual(['?loc=putney-landing&k=first&m=standalone']);
+    });
+
+    test('says none on the picker page, under an address with no location, and for a location that did not load', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.clock.setFixedTime(AFTER);
+      const seen = counted(page);
+      await open(page, '/');
+      await expect(page.locator('.pk-q')).toBeVisible();
+      expect(seen).toEqual([NONE]);
+      await open(page, '/no-such-place');
+      await expect(page.locator('#notFound h2')).toHaveText('No location here');
+      expect(seen).toEqual([NONE, NONE]);
+      await page.route('**/locations/putney-landing.json', route => route.abort('failed'));
+      await open(page, '/putney-landing');
+      await expect(page.locator('#notFound h2')).toHaveText('Could not load this location');
+      expect(seen).toEqual([NONE, NONE, NONE]);
+    });
+
+    test('counts first at every start when storage throws, and still draws', async ({ page }) => {
+      await page.addInitScript(() => {
+        Object.defineProperty(window, 'localStorage', { configurable: true, get() { throw new DOMException('The operation is insecure.', 'SecurityError'); } });
+      });
+      await routeAll(page, scenario, clock);
+      const seen = counted(page);
+      await open(page, '/putney-landing');
+      await ready(page);
+      await again(page);
+      await ready(page);
+      expect(seen).toEqual([FIRST, FIRST]);
+    });
+
+    // The Dev label and dock reports read the same answer, so they still follow the location shown.
+    test('still labels a Preview and asks for dock reports once the location is open', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.route(/\/api\/info(\?|$)/, r => r.fulfill({ json: { env: 'dev', reports: true } }));
+      await page.route('**/api/reports', r => r.fulfill({ json: { enabled: true, hours: 3, reports: [] } }));
+      await page.goto('/putney-landing');
+      await ready(page);
+      await expect(page.locator('#envBadge')).toHaveText('Dev');
+      await expect(page.locator('#dockReports .dock-sum')).toHaveText('No reports from the dock in the last 3 hours.');
+    });
+  });
+
+  // The page is linked from the two places a reader meets the counter, and not from the footer, which
+  // stays as it was (owner, 2026-10-21, R6).
+  test.describe('the link to the privacy page', () => {
+    test.use({ userAgent: IPHONE_UA });
+
+    test('is at the end of the install steps and of the Settings note, and not in the footer', async ({ page }) => {
+      await routeAll(page, scenario, clock);
+      await page.goto('/putney-landing');
+      await ready(page);
+      await expect(page.locator('footer a[href="/privacy"]')).toHaveCount(0);
+      expect(await page.locator('footer').innerText()).not.toMatch(/privacy/i);
+      // The note is its text and then the link, the last thing in it, in the note's color.
+      const check = async (note, text) => {
+        await expect(note).toHaveText(text);
+        const link = note.locator('a');
+        await expect(link).toHaveCount(1);
+        await expect(link).toHaveText('How RoWhether counts app opens.');
+        await expect(link).toHaveAttribute('href', '/privacy');
+        expect(await note.evaluate(n => n.lastChild === n.querySelector('a'))).toBe(true);
+        expect(await note.evaluate(n => getComputedStyle(n.querySelector('a')).color === getComputedStyle(n).color)).toBe(true);
+        return link;
+      };
+      await page.locator('#installGo').click();
+      await check(page.locator('#install .note'), 'Then open RoWhether from its icon. It opens on your last location and keeps the last forecast for when you are offline. How RoWhether counts app opens.');
+      await page.keyboard.press('Escape');
+      await page.locator('#settingsBtn').click();
+      const link = await check(page.locator('#setForm .note').first(), 'Match these to your program, boat class and coach coverage. Saved in this browser for Putney Landing. How RoWhether counts app opens.');
+      // It opens the page, which is not the app.
+      await Promise.all([page.waitForURL('**/privacy'), link.click()]);
+      await expect(page.locator('h1')).toHaveText('Privacy');
+      await expect(page.locator('#tabs')).toHaveCount(0);
+    });
+  });
 });
 
 // A page with no location: nothing is fetched from any weather or river service, for as long as

@@ -1,8 +1,9 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import worker, { info } from '../worker/index.js';
+import { installFakeDom, uninstallFakeDom } from './helpers/fakedom.js';
 
 // The open counter (P1.16, 07 14.3): GET /api/info?loc=&k=&m= answers as it always has and
 // writes one Analytics Engine point for the start. These run the Worker's own fetch().
@@ -151,5 +152,89 @@ describe('the counter in wrangler.jsonc', () => {
   it('binds ANALYTICS_SQL in both, for the Metrics tab', () => {
     expect(wrangler.analytics).toEqual({ binding: 'ANALYTICS_SQL' });
     expect(wrangler.previews.analytics).toEqual({ binding: 'ANALYTICS_SQL' });
+  });
+});
+
+// The page's side (src/info.js): the one request that carries the counter's three words.
+describe('loadInfo', () => {
+  let state, load, dom, asked;
+  // What the host answers: a Response, or an error for a request that never arrives.
+  let answer;
+  beforeEach(async () => {
+    dom = installFakeDom();
+    asked = [];
+    answer = () => new Response(JSON.stringify({ env: 'production', reports: false }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    vi.stubGlobal('fetch', async (url, init) => { asked.push([url, init]); const a = answer(); if (a instanceof Error) throw a; return a; });
+    state = await import('../src/state.js');
+    ({ loadInfo: load } = await import('../src/info.js'));
+    state.app.info = null;
+  });
+  afterEach(() => { uninstallFakeDom(); vi.unstubAllGlobals(); });
+  const query = () => new URL(asked[0][0], 'https://row.example').searchParams;
+
+  it('asks /api/info once, with the location, first or return, and browser', async () => {
+    await load('putney-landing', true);
+    expect(asked).toHaveLength(1);
+    expect(asked[0][0]).toBe('/api/info?loc=putney-landing&k=first&m=browser');
+    asked.length = 0;
+    await load('lake-natoma', false);
+    expect(asked[0][0]).toBe('/api/info?loc=lake-natoma&k=return&m=browser');
+  });
+
+  it('says none for the picker page and the not found page', async () => {
+    await load('none', true);
+    expect(asked[0][0]).toBe('/api/info?loc=none&k=first&m=browser');
+  });
+
+  it('says standalone when the app runs from the home screen, by the display mode or by iOS', async () => {
+    vi.stubGlobal('window', { matchMedia: q => ({ matches: /display-mode:\s*standalone/.test(q) }) });
+    await load('putney-landing', false);
+    expect(asked[0][0]).toBe('/api/info?loc=putney-landing&k=return&m=standalone');
+    asked.length = 0;
+    vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) });
+    vi.stubGlobal('navigator', { standalone: true });
+    await load('putney-landing', false);
+    expect(query().get('m')).toBe('standalone');
+    asked.length = 0;
+    vi.stubGlobal('navigator', { standalone: false });
+    await load('putney-landing', false);
+    expect(query().get('m')).toBe('browser');
+  });
+
+  it('sends nothing else: three words in the address, no body, no headers, no cookies', async () => {
+    await load('putney-landing', true);
+    expect([...query().keys()]).toEqual(['loc', 'k', 'm']);
+    expect(asked[0][1]).toEqual({ cache: 'no-store' });
+  });
+
+  it('writes a slug into the address as one word, whatever it holds', async () => {
+    await load('a&k=return#x y', true);
+    expect(query().getAll('k')).toEqual(['first']);
+    expect(query().get('loc')).toBe('a&k=return#x y');
+    expect(asked[0][0]).not.toMatch(/[ #]/);
+  });
+
+  it('keeps what the Worker says, and shows the instance label only when it is not production', async () => {
+    answer = () => new Response(JSON.stringify({ env: 'dev', reports: true }), { status: 200 });
+    await load('putney-landing', true);
+    expect(state.app.info).toEqual({ env: 'dev', reports: true });
+    expect(dom.el('envBadge').hidden).toBe(false);
+    expect(dom.el('envBadge').textContent).toBe('Dev');
+    answer = () => new Response(JSON.stringify({ env: 'production', reports: false }), { status: 200 });
+    await load('putney-landing', false);
+    expect(state.app.info).toEqual({ env: 'production', reports: false });
+    expect(dom.el('envBadge').hidden).toBe(true);
+    expect(dom.el('envBadge').textContent).toBe('Production');
+  });
+
+  it('leaves no information and no label when there is no /api: a 404, a page that is not JSON, or no connection', async () => {
+    for (const a of [() => new Response('Not found', { status: 404 }), () => new Response('<!doctype html>', { status: 200 }), () => new TypeError('Failed to fetch')]) {
+      answer = a;
+      state.app.info = { env: 'dev' };
+      await load('putney-landing', true);
+      expect(state.app.info).toBeNull();
+      expect(dom.el('envBadge').hidden).toBe(true);
+      expect(dom.el('envBadge').textContent).toBe('');
+    }
   });
 });

@@ -222,7 +222,7 @@ body.install-open .wrap{padding-bottom:max(10rem, calc(var(--install-h, 0px) + 2
 
 /* Footer */
 footer{margin-top:3rem; border-top:1px solid var(--line); padding-top:1rem; color:var(--muted); font-size:.8125rem; line-height:1.5; max-width:70ch}
-footer a, .alert a{color:inherit}
+footer a, .alert a, dialog .note a{color:inherit}
 footer p{margin:.4rem 0}
 
 /* Settings */

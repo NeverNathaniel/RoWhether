@@ -232,7 +232,7 @@ test.describe('the app name', () => {
       await expect(page.locator('#installBar img')).toHaveAttribute('src', '/icon-192.png');
       await page.locator('#installGo').click();
       await expect(page.locator('#install')).toBeVisible();
-      await expect(page.locator('#install .note')).toHaveText('Then open RoWhether from its icon. It opens on your last location and keeps the last forecast for when you are offline.');
+      await expect(page.locator('#install .note')).toHaveText('Then open RoWhether from its icon. It opens on your last location and keeps the last forecast for when you are offline. How RoWhether counts app opens.');
       await page.keyboard.press('Escape');
       await page.locator('#settingsBtn').click();
       await expect(page.locator('#setInstall .note')).toHaveText('Add RoWhether to your home screen. It opens on your last location in one tap.');
