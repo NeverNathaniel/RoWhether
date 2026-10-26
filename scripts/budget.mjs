@@ -165,6 +165,9 @@ function locationProblems(distinct) {
 
 // The pages the host serves as files, by address (07 4.1). Phase 2 adds terms and about.
 const STATIC_PAGES = ['privacy'];
+// Addresses the app draws that the service worker must not answer with index.html (P1.18): the owner's
+// page stands behind Cloudflare Access, which only a navigation that reaches the network meets.
+const DENIED_PATHS = ['admin'];
 
 // The regular expressions of the navigation route's denylist in dist/sw.js, or null when it has none.
 // They are read as text and rebuilt: nothing in the built file is run here.
@@ -192,12 +195,16 @@ function staticProblems(sw, distinct) {
     }
     if (!deny?.some((re) => re.test(`/${name}`))) problems.push(`The service worker's navigation denylist does not name /${name}, so it could answer with index.html (navigateFallbackDenylist in vite.config.js).`);
   }
+  for (const name of DENIED_PATHS) {
+    if (!deny?.some((re) => re.test(`/${name}`))) problems.push(`The service worker's navigation denylist does not name /${name}, so it would answer with index.html and the visit would never reach Cloudflare Access (navigateFallbackDenylist in vite.config.js).`);
+  }
   return problems;
 }
 
 // The lazy chunks. P1.5 moved the suggestion form out of the main script to make
-// room (07 10.3, plan 7.3); P1.6 added the picker; P1.14 added tide; P1.18 adds admin.
-const LAZY = [{ name: 'views', precache: true }, { name: 'suggest-form', precache: true }, { name: 'picker', precache: true }, { name: 'tide', precache: true }];
+// room (07 10.3, plan 7.3); P1.6 added the picker; P1.14 added tide; P1.18 added admin, the one
+// chunk that is not precached: it is the owner's page, read from the network when it is opened (07 10.5).
+const LAZY = [{ name: 'views', precache: true }, { name: 'suggest-form', precache: true }, { name: 'picker', precache: true }, { name: 'tide', precache: true }, { name: 'admin', precache: false }];
 
 // The files the page loads or preloads: its scripts, and its modulepreload and
 // preload links. A lazy chunk is read with import() and is in none of them.
@@ -300,7 +307,7 @@ console.log(`${places.problems.length ? 'OVER' : 'ok  '}  Locations ${places.rec
 for (const line of places.problems) console.log(`      ${line}`);
 console.log(`${page.length ? 'OVER' : 'ok  '}  Page files ${startJs.length} script${startJs.length === 1 ? '' : 's'}, ${main.sheets.length} stylesheet${main.sheets.length === 1 ? '' : 's'}`);
 for (const line of page) console.log(`      ${line}`);
-console.log(`${statics.length ? 'OVER' : 'ok  '}  Static pages ${STATIC_PAGES.join(', ')}`);
+console.log(`${statics.length ? 'OVER' : 'ok  '}  Static pages ${STATIC_PAGES.join(', ')}, and kept from the fallback: ${DENIED_PATHS.join(', ')}`);
 for (const line of statics) console.log(`      ${line}`);
 console.log(`${lazy.problems.length ? 'OVER' : 'ok  '}  Lazy chunks ${LAZY.map((l) => l.name).join(', ')}`);
 for (const c of lazy.chunks) console.log(`      ${c.name.padEnd(8)} ${fmt(c.gzip)} B gzip, ${fmt(c.raw)} B raw, ${c.precached ? 'precached' : 'not precached'}  (${c.file})`);
@@ -333,7 +340,7 @@ const report = {
   },
   assets,
   page: { scripts: startJs, stylesheets: main.sheets, problems: page },
-  static: { pages: STATIC_PAGES, problems: statics },
+  static: { pages: STATIC_PAGES, denied: DENIED_PATHS, problems: statics },
   locations: { records: places.records, problems: places.problems },
   lazy: { chunks: lazy.chunks, problems: lazy.problems },
   over: [...over.map((c) => c.name), ...(page.length ? ['Page files'] : []), ...(statics.length ? ['Static pages'] : []), ...(places.problems.length ? ['Locations'] : []), ...(lazy.problems.length ? ['Lazy chunks'] : [])]

@@ -6,6 +6,8 @@ import { isSlug } from './location.js';
 import { DEFAULT_SLUG, FIRST_VISIT_PUTNEY_UNTIL, SITE_URL } from './config.js';
 import { loadLast } from './storage.js';
 import { esc } from './format.js';
+import { fetchIndex } from './locations.js';
+import { fact, sparkline } from './render/parts.js';
 import { VIEWS, viewsFor, renderDetail } from './render/detail/index.js';
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -21,13 +23,14 @@ export function parseHash(hash, keys) {
 }
 
 // What an address asks for: { page, slug, view, day, open }. `page` is home (/),
-// location (/<slug>) or notfound (anything else, with its `path` kept, for the
-// words of a search). `view` is the hash's tab, not yet checked against the
+// location (/<slug>), admin (/admin, the owner's page) or notfound (anything else, with its
+// `path` kept, for the words of a search). `view` is the hash's tab, not yet checked against the
 // location's tabs.
 export function parseRoute({ pathname, hash, search }) {
   const { name, day } = split(hash);
   const r = { page: 'home', slug: null, view: name && name !== 'now' ? name : null, day, open: /[?&]open=picker(&|$)/.test(search) ? 'picker' : null };
   if (pathname === '/' || pathname === '/index.html') return r;
+  if (pathname === '/admin') return { ...r, page: 'admin' };
   const seg = pathname.slice(1);
   if (!seg.includes('/') && isSlug(seg)) return { ...r, page: 'location', slug: seg };
   let path = seg;
@@ -73,7 +76,7 @@ function setPage(on) {
 // The page for an address with no location, or one that did not load, and the page at
 // "/" that asks where the viewer rows. Tabs, the home screen, Refresh and Settings are
 // hidden. The first two end in the picker search.
-const page = html => {
+export const page = html => {
   $('notFound').innerHTML = html;
   setPage(false);
 };
@@ -81,10 +84,13 @@ export const showMissing = path => {
   page(`<h2>No location here</h2><p>No location at ${SITE_URL.slice(8)}${esc(path)}.</p>`);
   pick({ mode: 'notfound', query: path });
 };
+const retry = head => page(`<h2>${head}</h2><p>Check the connection, then try again.</p><p><button id="retryBtn">Try again</button></p>`);
 export const showFailed = () => {
-  page('<h2>Could not load this location</h2><p>Check the connection, then try again.</p><p><button id="retryBtn">Try again</button></p>');
+  retry('Could not load this location');
   pick({ mode: 'notfound' });
 };
+// A page whose chunk or numbers need the network (07 9.5): the owner's page.
+export const showOffline = () => retry('This page needs a connection');
 
 // Shows Now, or the tab the hash names when the open location has it. A hash for
 // a tab it does not have is dropped from the address.
@@ -108,6 +114,8 @@ export function showTab() {
 
 let open = () => {}; // (slug or null, keepAddress, note): opens a location, from src/main.js
 let pick = () => {}; // ({ mode, query }): the picker, from src/main.js
+let leave = () => {}; // (): leaves the open location for a page with none, from src/main.js
+let broken = false;  // a chunk that could not be read: a browser keeps the failure for the life of the page, so Try again reloads it
 let at = '';         // the path and query the page last showed
 let shown = null;    // what "/" shows now, 'picker' or a slug, and null at any other address
 
@@ -119,6 +127,7 @@ let shown = null;    // what "/" shows now, 'picker' or a slug, and null at any 
 // chosen since, which "/" would open now. Once Putney is the viewer's last location, "/"
 // is replaced by its address as before.
 function show() {
+  broken = false;
   const r = parseRoute(location), last = loadLast(), home = r.page === 'home', was = history.state?.home;
   let t = !home ? { slug: r.slug } : was === 'picker' ? { page: 'picker' } : isSlug(was) && was !== last ? { slug: was, keepAddress: true, note: !last } : homeTarget({ last, now: Date.now() });
   if (r.open && home && !isSlug(last)) t = { page: 'picker' }; // nothing to open it over
@@ -126,6 +135,9 @@ function show() {
   else if (r.open) history.replaceState(history.state, '', location.pathname + location.hash);
   at = location.pathname + location.search;
   shown = home && !t.replace ? t.page ? 'picker' : t.slug : null;
+  // The owner's page is a chunk of its own, read from the network (P1.18), and takes what it needs of the app as `kit`
+  // (see src/admin/admin.js). A chunk that is not there is a page that needs a connection.
+  if (r.page === 'admin') { leave(); import('./admin/admin.js').then(a => a.showAdmin({ page, showOffline, esc, fact, sparkline, fetchIndex }), () => { broken = true; showOffline(); }); return; }
   if (r.page === 'notfound') { open(null); showMissing(r.path); return; }
   if (t.page) { open(null); page(''); pick({ mode: 'page' }); return; }
   const opened = open(t.slug, !!t.keepAddress, !!t.note);
@@ -142,7 +154,7 @@ export function navigate(href) {
 // A click on a same-origin a[data-nav] navigates in the page. A modified or
 // middle click goes to the browser, to open in a new tab.
 export function navClick(e) {
-  if (e.target.closest?.('#retryBtn')) { show(); return; }
+  if (e.target.closest?.('#retryBtn')) { if (broken) location.reload(); else show(); return; }
   const a = e.target.closest?.('a[data-nav]');
   if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.origin !== location.origin) return;
   e.preventDefault();
@@ -158,10 +170,11 @@ export function setDay(day) {
   renderDetail();
 }
 
-// Reads the address and opens its location. `openSlug` and `openPicker` are main.js's.
-export function initRoutes(openSlug, openPicker = () => {}) {
+// Reads the address and opens its location. `openSlug`, `openPicker` and `leavePage` are main.js's.
+export function initRoutes(openSlug, openPicker = () => {}, leavePage = () => {}) {
   open = openSlug;
   pick = openPicker;
+  leave = leavePage;
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   // A move to another tab fires popstate and then hashchange: the second one shows it.
   window.addEventListener('popstate', () => { if (location.pathname + location.search !== at) show(); });

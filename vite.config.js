@@ -47,12 +47,15 @@ export default defineConfig({
         // only (every navigation falls back to the precached index.html), so
         // each one is ignored by name, from the files under data/locations.
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}', 'locations/*.json'],
-        globIgnores: ['**/*vietnamese*', '**/*latin-ext*', ...shellNames()],
+        // The admin chunk is the owner's page and is read from the network when it is opened (P1.18, 07 10.5).
+        globIgnores: ['**/*vietnamese*', '**/*latin-ext*', '**/assets/admin-*', ...shellNames()],
         navigateFallback: 'index.html',
         // The static pages are files the host serves, so a navigation to one is not answered with
         // index.html (07 4.2, 9.6). privacy.html is precached, and the precache route answers
         // /privacy from it, as Workbox tries <url>.html (cleanURLs).
-        navigateFallbackDenylist: [/^\/api\//, /^\/(privacy|terms|about)$/],
+        // /admin is denied for another reason: Cloudflare Access stands in front of it (P1.18, 03 3.7), and a
+        // navigation the worker answered with index.html would never reach Access.
+        navigateFallbackDenylist: [/^\/api\//, /^\/(privacy|terms|about)$/, /^\/admin(\/|\?|$)/],
         cleanupOutdatedCaches: true,
         // With registerType 'autoUpdate' the plugin adds these two only when it
         // also injects the register script. Here injectRegister is false, so

@@ -1678,3 +1678,207 @@ test.describe('the privacy page', () => {
     });
   });
 });
+
+// The owner's page (P1.18, 07 5.14, 14.5): /admin, a lazy chunk that is never precached, behind Cloudflare Access.
+// The numbers come from /api/admin/metrics, which these checks answer themselves.
+test.describe('the owner page at /admin', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+  });
+
+  const METRICS = {
+    env: 'production', days: 7, from: '2026-10-20', to: '2026-10-26', truncated: false,
+    totals: { opens: 412, firsts: 38, standalone: 128 }, prior: { opens: 380, firsts: 29, standalone: 100 },
+    locations: [
+      { slug: 'putney-landing', opens: 200, series: [10, 20, 30, 40, 50, 60, 20] },
+      { slug: 'thompson-boat-center', opens: 70, series: [5, 5, 10, 10, 10, 15, 15] },
+      { slug: 'none', opens: 30, series: [1, 2, 3, 4, 5, 6, 9] },
+      { slug: 'made-up-name', opens: 12, series: [0, 0, 0, 0, 0, 2, 10] }
+    ]
+  };
+  const answerWith = (page, status, body, headers = {}) => page.route('**/api/admin/metrics*', route => route.fulfill({ status, headers: { 'content-type': 'application/json', ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) }));
+  // Registered after routeAll(), so it takes the request first.
+  const drawn = page => expect(page.locator('#notFound .adm')).toBeVisible();
+
+  test('draws the numbers beside the week before, and the places with a sparkline each, at 360 px and at the project width, with no sideways scroll', async ({ page }, testInfo) => {
+    const bad = watchConsole(page);
+    await routeAll(page, scenario, clock);
+    const asked = [];
+    await page.route('**/api/admin/metrics*', route => { asked.push(route.request().url()); return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(METRICS) }); });
+    for (const width of [...new Set([testInfo.project.use.viewport.width, 360])]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto('/admin');
+      await expect(page.locator('#notFound table.hours')).toBeVisible();
+      await expect(page.locator('#locName')).toHaveText('Admin');
+      await expect(page).toHaveTitle('Admin');
+      await expect(page.locator('#tabs a')).toHaveText(['Metrics']);
+      await expect(page.locator('#tabs a')).toHaveAttribute('aria-current', 'page');
+      await expect(page.locator('#sub')).toContainText('Owner tools.');
+      await expect(page.locator('#sub a')).toHaveAttribute('href', '/');
+      const text = await page.locator('#notFound').innerText();
+      expect(text, `at ${width} px`).toContain('Last 7 days, Oct 20 to Oct 26. Days are UTC. Counted by the production instance.');
+      expect(text).toMatch(/Opens\s+412\s+Week before: 380/);
+      expect(text).toMatch(/New devices\s+38\s+Week before: 29/);
+      expect(text).toMatch(/From the home screen\s+31%\s+Week before: 26%/);
+      // The list names a place by the list of locations, the picker by its own name, and groups what the app does not list.
+      const rows = await page.locator('#notFound table.hours tbody tr').evaluateAll(trs => trs.map(tr => [...tr.cells].slice(0, 2).map(c => c.textContent.trim())));
+      expect(rows).toEqual([['Putney Landing', '200'], ['Thompson Boat Center', '70'], ['No location (picker or missing page)', '30'], ['Names the app does not list', '12']]);
+      await expect(page.locator('#notFound table.hours svg.spark')).toHaveCount(4);
+      await expect(page.locator('#notFound').getByText('made-up-name')).toHaveCount(0);
+      for (const id of ['home', 'detail', 'actions']) await expect(page.locator(`#${id}`), id).toBeHidden();
+      const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(over, `overflows by ${over} px at ${width} px`).toBeLessThanOrEqual(0);
+      // The table fits its panel at 360 px too: its sparklines are in view, none is scrolled out of it.
+      const clipped = await page.locator('#notFound .hours-wrap').evaluate(w => w.scrollWidth - w.clientWidth);
+      expect(clipped, `the table scrolls by ${clipped} px inside its panel at ${width} px`).toBeLessThanOrEqual(0);
+    }
+    expect(asked.every(u => new URL(u).search === '?days=7')).toBe(true);
+    expect(bad).toEqual([]);
+  });
+
+  test('says the page is not set up for a 503, and offers nothing to try', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await answerWith(page, 503, { error: 'not_configured', message: 'The metrics page is not set up here.' });
+    await page.goto('/admin');
+    await drawn(page);
+    await expect(page.locator('#notFound')).toContainText('The metrics page is not set up here.');
+    await expect(page.locator('#retryBtn')).toHaveCount(0);
+    await expect(page.locator('#notFound table')).toHaveCount(0);
+    await expect(page.locator('#tabs a')).toHaveText(['Metrics']);
+  });
+
+  test('says to sign in through Cloudflare Access for a 403 and for the redirect Access makes when its sign in has lapsed', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await answerWith(page, 403, { error: 'not_allowed', message: 'Sign in through Cloudflare Access to see this page.' });
+    await page.goto('/admin');
+    await drawn(page);
+    await expect(page.locator('#notFound')).toContainText('Sign in through Cloudflare Access to see this page.');
+    await expect(page.locator('#notFound a')).toHaveAttribute('href', '/admin');
+    // Access answers a fetch with a redirect to its own host. The page reads it as a sign in, not as no connection.
+    await page.unroute('**/api/admin/metrics*');
+    await answerWith(page, 302, '', { location: 'https://team.cloudflareaccess.com/cdn-cgi/access/login/rowhether.com' });
+    await page.goto('/admin');
+    await expect(page.locator('#notFound')).toContainText('Sign in through Cloudflare Access to see this page.');
+    await expect(page.locator('#notFound')).not.toContainText('needs a connection');
+  });
+
+  test('says the page needs a connection when the request does not arrive, and tries again on request', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    let ok = false;
+    await page.route('**/api/admin/metrics*', route => (ok ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(METRICS) }) : route.abort('failed')));
+    await page.goto('/admin');
+    await expect(page.locator('#notFound h2')).toHaveText('This page needs a connection');
+    await expect(page.locator('#retryBtn')).toBeVisible();
+    ok = true;
+    await page.locator('#retryBtn').click();
+    await expect(page.locator('#notFound table.hours')).toBeVisible();
+    await expect(page.locator('#notFound')).toContainText('412');
+  });
+
+  test('says the numbers could not be read for any other failure, and tries again on request', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    let status = 502;
+    await page.route('**/api/admin/metrics*', route => (status === 200 ? route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(METRICS) }) : route.fulfill({ status, contentType: 'application/json', body: JSON.stringify({ error: 'unavailable' }) })));
+    await page.goto('/admin');
+    await expect(page.locator('#notFound')).toContainText('The numbers could not be read. Try again later.');
+    status = 200;
+    await page.locator('#retryBtn').click();
+    await expect(page.locator('#notFound table.hours')).toBeVisible();
+  });
+
+  test('says the page needs a connection when its chunk cannot be read', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await answerWith(page, 200, METRICS);
+    await page.route(/\/assets\/admin-[^/]+\.js$/, route => route.abort('failed'));
+    await page.goto('/admin');
+    await expect(page.locator('#notFound h2')).toHaveText('This page needs a connection');
+    await expect(page.locator('#notFound')).toContainText('Check the connection, then try again.');
+    await expect(page.locator('#tabs')).toBeHidden();
+    await page.unroute(/\/assets\/admin-[^/]+\.js$/);
+    await page.locator('#retryBtn').click();
+    await expect(page.locator('#notFound table.hours')).toBeVisible();
+  });
+
+  // Not counted (07 14.3): the open counter is for the app's users, and the owner's visit is not one. No location is
+  // open either, so no forecast is asked for.
+  test('asks the Worker for the metrics and the list of locations and for nothing else: no open counted, no forecast', async ({ page }) => {
+    const seen = await routeAll(page, scenario, clock);
+    await answerWith(page, 200, METRICS);
+    const paths = [];
+    page.on('request', r => { const u = new URL(r.url()); if (u.hostname === 'localhost') paths.push(u.pathname); });
+    await page.goto('/admin');
+    await expect(page.locator('#notFound table.hours')).toBeVisible();
+    await page.clock.runFor(11 * 60e3);
+    // /api/suggest is the suggestion button's own question, asked at every start.
+    expect(paths.filter(p => p.startsWith('/api/')).sort()).toEqual(['/api/admin/metrics', '/api/suggest']);
+    expect(paths.filter(p => p.startsWith('/locations/'))).toEqual(['/locations/index.json']);
+    expect(seen.served).toEqual([]);
+  });
+
+  test('is read only for its own address: no admin chunk and no admin request on a location, on its tabs or in the picker', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    const urls = [];
+    page.on('request', r => urls.push(new URL(r.url()).pathname));
+    await page.goto('/putney-landing');
+    await ready(page);
+    for (const tab of ['week', 'wind', 'river']) {
+      await page.goto(`/putney-landing#${tab}`);
+      await tabDrawn(page, tab);
+    }
+    await page.locator('#locBtn').click();
+    await expect(page.locator('#picker')).toBeVisible();
+    expect(urls.filter(p => /\/admin|\/assets\/admin-/.test(p))).toEqual([]);
+  });
+
+  test('is not in the service worker: its chunk is not precached, and the worker does not answer /admin with the app', async () => {
+    const sw = readFileSync(new URL('../../dist/sw.js', import.meta.url), 'utf8');
+    expect(sw).not.toMatch(/admin-/);
+    const deny = sw.match(/denylist:\[(.*?)\]\}\)/s)[1];
+    expect(deny).toContain('/^\\/admin(\\/|\\?|$)/');
+    expect(deny).toContain('/^\\/(privacy|terms|about)$/');
+  });
+
+  test('goes back to the forecast, and the forecast has its own tabs and name again', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await answerWith(page, 200, METRICS);
+    await page.goto('/admin');
+    await expect(page.locator('#notFound table.hours')).toBeVisible();
+    await page.getByRole('link', { name: 'Back to the forecast' }).click();
+    await ready(page);
+    await expect(page.locator('#verdict')).toHaveText('Go.');
+    await expect(page.locator('#locName')).toHaveText('Putney Landing');
+    await expect(page.locator('#tabs a')).toHaveCount(10);
+    await expect(page.locator('#sub')).not.toContainText('Owner tools');
+    await expect(page.locator('#notFound')).toBeHidden();
+    await expect(page).toHaveTitle('Putney Landing rowing conditions');
+    // And Back from there is the owner's page again, drawn afresh.
+    await page.goBack();
+    await expect(page.locator('#notFound table.hours')).toBeVisible();
+    await expect(page.locator('#locName')).toHaveText('Admin');
+  });
+
+  test.describe('with the service worker', () => {
+    test.use({ serviceWorkers: 'allow' });
+
+    // The worker answers a navigation with index.html from its precache. For /admin that would skip Cloudflare Access,
+    // which only a request that reaches the network meets, so the worker leaves it to the network.
+    test('answers a location from its precache and leaves /admin to the network, and offline /admin is not the app', async ({ page, context }) => {
+      await routeAll(page, scenario, clock);
+      await answerWith(page, 200, METRICS);
+      await page.goto('/');
+      await ready(page);
+      await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+      await page.reload();
+      await ready(page);
+      expect(await page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+      const location_ = await page.goto('/putney-landing');
+      expect(location_.fromServiceWorker(), 'a location is answered by the worker').toBe(true);
+      const admin = await page.goto('/admin');
+      expect(admin.fromServiceWorker(), '/admin is left to the network').toBe(false);
+      await expect(page.locator('#notFound table.hours')).toBeVisible();
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await context.setOffline(true);
+      await expect(page.goto('/admin')).rejects.toThrow();
+    });
+  });
+});

@@ -52,8 +52,20 @@ describe('parseRoute', () => {
     expect(at('/some/where/else.html')).toMatchObject({ page: 'notfound', path: 'some/where/else.html' });
   });
 
+  // The owner's page (P1.18). The word is reserved, so it is never a location, and it is one address only.
+  it('reads /admin as the owner\'s page, with its tab in the hash, and no address that only starts with it', () => {
+    expect(at('/admin')).toEqual({ page: 'admin', slug: null, view: null, day: null, open: null });
+    expect(at('/admin#metrics')).toMatchObject({ page: 'admin', slug: null, view: 'metrics' });
+    expect(at('/admin?x=1')).toMatchObject({ page: 'admin' });
+    for (const href of ['/admin/', '/admin/metrics', '/Admin', '/ADMIN', '/admin.html', '/api/admin/metrics', '/mod']) {
+      expect(at(href).page, href).toBe('notfound');
+    }
+    // A word that only starts with it is a location's address like any other.
+    expect(at('/administrator')).toMatchObject({ page: 'location', slug: 'administrator' });
+  });
+
   it('does not take a reserved name, a short or a long segment, or a slash at the end for a location', () => {
-    for (const href of ['/api', '/assets', '/admin', '/privacy', '/locations', '/index', '/ab', '/-ab', '/ab-', '/a--b', '/putney-landing/', `/${'a'.repeat(49)}`]) {
+    for (const href of ['/api', '/assets', '/privacy', '/locations', '/index', '/ab', '/-ab', '/ab-', '/a--b', '/putney-landing/', `/${'a'.repeat(49)}`]) {
       expect(at(href).page, href).toBe('notfound');
       expect(at(href).slug, href).toBeNull();
     }

@@ -150,6 +150,10 @@ async function openAt(slug, keepAddress, note) {
   if (stored) newerRecord(stored).then(next => { if (next && app.loc?.slug === slug) enter(next, true, !$('pickNote').hidden); });
 }
 
+// A page of the app with no location, the owner's /admin (P1.18): the location open is left, an answer
+// still on its way is dropped, and the visit is not counted (the open counter is for the app's users, 07 14.3).
+const leave = () => { ++asked; none(); };
+
 // ---------- Events ----------
 $('refreshBtn').addEventListener('click', refresh);
 for (const id of ['locBtn', 'pickNoteBtn']) $(id).addEventListener('click', () => picker({ mode: 'sheet' }));
@@ -217,4 +221,4 @@ initSuggest();
 initShare();
 initReports();
 initInstall();
-initRoutes(open, picker);
+initRoutes(open, picker, leave);

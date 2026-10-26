@@ -42,9 +42,13 @@ const PICKER = 'assets/picker-jkl.js';
 const PICKER_CSS = 'assets/picker-mno.css';
 const TIDE = 'assets/tide-pqr.js';
 const PRIVACY_CSS = 'assets/privacy-stu.css';
+const ADMIN = 'assets/admin-vwx.js';
+const ADMIN_CSS = 'assets/admin-yza.css';
 // The navigation route as the build writes it: the fallback to index.html, minus what the denylist names.
-const DENY = '/^\\/api\\//,/^\\/(privacy|terms|about)$/';
-function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'locations/index.json', 'locations/a.json', 'assets/views-def.js'], chunk = 'assets/views-def.js', form = FORM, formCached = true, picker = PICKER, pickerCached = true, pickerCss = PICKER_CSS, pickerCssCached = true, tide = TIDE, tideCached = true, privacy = true, privacyCached = true, privacyCss = PRIVACY_CSS, privacyCssCached = true, deny = DENY } = {}) {
+// /admin is in it (P1.18): the owner's page is behind Cloudflare Access, which a navigation must reach.
+const ADMIN_DENY = '/^\\/admin(\\/|\\?|$)/';
+const DENY = `/^\\/api\\//,/^\\/(privacy|terms|about)$/,${ADMIN_DENY}`;
+function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'locations/index.json', 'locations/a.json', 'assets/views-def.js'], chunk = 'assets/views-def.js', form = FORM, formCached = true, picker = PICKER, pickerCached = true, pickerCss = PICKER_CSS, pickerCssCached = true, tide = TIDE, tideCached = true, privacy = true, privacyCached = true, privacyCss = PRIVACY_CSS, privacyCssCached = true, admin = ADMIN, adminCached = false, adminCss = null, adminCssCached = false, deny = DENY } = {}) {
   mkdirSync(join(dir, 'scripts'), { recursive: true });
   copyFileSync(SCRIPT, join(dir, 'scripts/budget.mjs'));
   put('budget.json', JSON.stringify({ phase: 1, js: 1e6, css: 1e6, html: 1e6, precacheKiB: 1000, extraCss: [], extraJs: [] }));
@@ -57,11 +61,13 @@ function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'as
   if (picker) put(`dist/${picker}`, 'export const picker = {};\n'.repeat(60));
   if (pickerCss) put(`dist/${pickerCss}`, '.pk { color: red }\n'.repeat(20));
   if (tide) put(`dist/${tide}`, 'export const tide = {};\n'.repeat(30));
+  if (admin) put(`dist/${admin}`, 'export const admin = {};\n'.repeat(25));
+  if (adminCss) put(`dist/${adminCss}`, '.adm { color: red }\n'.repeat(10));
   if (privacy) put('dist/privacy.html', `<!doctype html><title>RoWhether privacy</title>${privacyCss ? `<link rel="stylesheet" href="/${privacyCss}">` : ''}`);
   if (privacyCss) put(`dist/${privacyCss}`, 'body { color: red }\n'.repeat(10));
   put('dist/locations/index.json', JSON.stringify({ locations: [{ slug: 'a' }] }));
   put('dist/locations/a.json', '{}');
-  const cached = [...precache, ...(formCached ? [FORM] : []), ...(picker && pickerCached ? [picker] : []), ...(pickerCss && pickerCssCached ? [pickerCss] : []), ...(tide && tideCached ? [tide] : []), ...(privacy && privacyCached ? ['privacy.html'] : []), ...(privacyCss && privacyCssCached ? [privacyCss] : [])];
+  const cached = [...precache, ...(formCached ? [FORM] : []), ...(picker && pickerCached ? [picker] : []), ...(pickerCss && pickerCssCached ? [pickerCss] : []), ...(tide && tideCached ? [tide] : []), ...(admin && adminCached ? [admin] : []), ...(adminCss && adminCssCached ? [adminCss] : []), ...(privacy && privacyCached ? ['privacy.html'] : []), ...(privacyCss && privacyCssCached ? [privacyCss] : [])];
   const route = deny === null ? '' : `e.registerRoute(new e.NavigationRoute(e.createHandlerBoundToURL("index.html"),{denylist:[${deny}]}))`;
   put('dist/sw.js', `precacheAndRoute([${cached.map(u => `{url:"${u}",revision:null}`).join(',')}],{});${route}`);
 }
@@ -79,18 +85,20 @@ describe('the lazy chunk list in scripts/budget.mjs', () => {
     setup();
     const r = run();
     expect(r.code, r.out).toBe(0);
-    expect(r.out).toMatch(/ok\s+Lazy chunks views, suggest-form, picker, tide/);
+    expect(r.out).toMatch(/ok\s+Lazy chunks views, suggest-form, picker, tide, admin/);
     expect(r.out).toMatch(/views\s+[\d,]+ B gzip, 2,000 B raw, precached\s+\(assets\/views-def\.js\)/);
     expect(r.out).toMatch(/suggest-form\s+[\d,]+ B gzip, 960 B raw, precached\s+\(assets\/suggest-form-ghi\.js\)/);
     expect(r.out).toMatch(/picker\s+[\d,]+ B gzip, 1,560 B raw, precached\s+\(assets\/picker-jkl\.js\)/);
     expect(r.out).toMatch(/tide\s+[\d,]+ B gzip, 720 B raw, precached\s+\(assets\/tide-pqr\.js\)/);
+    expect(r.out).toMatch(/admin\s+[\d,]+ B gzip, 625 B raw, not precached\s+\(assets\/admin-vwx\.js\)/);
     const report = JSON.parse(readFileSync(join(dir, 'dist/budget-report.json'), 'utf8'));
     expect(report.ok).toBe(true);
     expect(report.lazy.chunks).toMatchObject([
       { name: 'views', file: 'assets/views-def.js', precache: true, precached: true },
       { name: 'suggest-form', file: FORM, precache: true, precached: true },
       { name: 'picker', file: PICKER, precache: true, precached: true },
-      { name: 'tide', file: TIDE, precache: true, precached: true }
+      { name: 'tide', file: TIDE, precache: true, precached: true },
+      { name: 'admin', file: ADMIN, precache: false, precached: false }
     ]);
     expect(report.lazy.problems).toEqual([]);
   });
@@ -146,6 +154,32 @@ describe('the lazy chunk list in scripts/budget.mjs', () => {
     r = run();
     expect(r.code).toBe(1);
     expect(r.out).toContain('dist/index.html loads tide-pqr.js');
+  });
+
+  // The admin chunk is the one that is not precached (P1.18, 07 10.5): the owner's page is read from the network.
+  it('fails when the admin chunk is missing, is in the precache, or is loaded by the page', () => {
+    setup({ admin: null });
+    let r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('dist/assets has no admin-*.js');
+    setup({ adminCached: true });
+    r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(`The service worker precaches ${ADMIN}, a chunk that is not precached.`);
+    setup({ head: `<link rel="modulepreload" href="/${ADMIN}">\n` });
+    r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('dist/index.html loads admin-vwx.js');
+  });
+
+  it("passes an admin stylesheet that is not precached, and fails one that is", () => {
+    setup({ adminCss: ADMIN_CSS });
+    let r = run();
+    expect(r.code, r.out).toBe(0);
+    setup({ adminCss: ADMIN_CSS, adminCssCached: true });
+    r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(`The service worker precaches ${ADMIN_CSS}, the stylesheet of a chunk that is not precached.`);
   });
 
   // A bundler can split the main script and have the page load the part at start (P1.14): its bytes still load before the first screen.
@@ -378,7 +412,7 @@ describe('the static pages', () => {
     const r = run();
     expect(r.code, r.out).toBe(0);
     expect(r.out).toMatch(/ok\s+Static pages privacy/);
-    expect(report().static).toEqual({ pages: ['privacy'], problems: [] });
+    expect(report().static).toEqual({ pages: ['privacy'], denied: ['admin'], problems: [] });
     expect(report().ok).toBe(true);
   });
 
@@ -428,11 +462,38 @@ describe('the static pages', () => {
   });
 
   it('takes any pattern that matches /privacy, and not one that only looks like it', () => {
-    setup({ deny: '/^\\/api\\//,/^\\/privacy$/' });
+    setup({ deny: `/^\\/api\\//,/^\\/privacy$/,${ADMIN_DENY}` });
     expect(run().code).toBe(0);
-    setup({ deny: '/^\\/api\\//,/^\\/privacy-policy$/' });
+    setup({ deny: `/^\\/api\\//,/^\\/privacy-policy$/,${ADMIN_DENY}` });
     expect(run().code).toBe(1);
-    setup({ deny: '/^\\/api\\//,/^\\/(terms|about)$/' });
+    setup({ deny: `/^\\/api\\//,/^\\/(terms|about)$/,${ADMIN_DENY}` });
+    expect(run().code).toBe(1);
+  });
+
+  // The owner's page is drawn by the app, so the fallback would answer it with index.html (P1.18). Cloudflare Access
+  // stands in front of /admin and meets only a navigation that reaches the network: a worker that answered it from the
+  // precache would show the shell and then fail to read the numbers, with no way to sign in.
+  it('fails when the denylist does not name /admin, and says why', () => {
+    setup({ deny: '/^\\/api\\//,/^\\/(privacy|terms|about)$/' });
+    let r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toMatch(/OVER\s+Static pages/);
+    expect(r.out).toContain("The service worker's navigation denylist does not name /admin");
+    expect(r.out).toContain('Cloudflare Access');
+    expect(r.out).not.toContain('does not name /privacy');
+    expect(report().over).toEqual(['Static pages']);
+    setup({ deny: null });
+    r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("The service worker's navigation denylist does not name /admin");
+  });
+
+  it('takes a pattern that matches /admin, and not one that only looks like it', () => {
+    setup({ deny: '/^\\/api\\//,/^\\/(privacy|terms|about)$/,/^\\/admin$/' });
+    expect(run().code).toBe(0);
+    setup({ deny: '/^\\/api\\//,/^\\/(privacy|terms|about)$/,/^\\/administrator$/' });
+    expect(run().code).toBe(1);
+    setup({ deny: '/^\\/api\\//,/^\\/(privacy|terms|about)$/,/^\\/mod(\\/|$)/' });
     expect(run().code).toBe(1);
   });
 });

@@ -73,13 +73,13 @@ export function compassCap(m, lead, dir) {
   return `${lead}${dir != null && (w.lake || Array.isArray(w.fetchM)) ? ` across about ${m.u.waterDist(fetchAt(w, dir))} of open water` : ''}.`;
 }
 
-export function sparkline(ser) {
+export function sparkline(ser, what = 'River flow over the last 48 hours') {
   if (!ser || ser.length < 3) return '';
   const vs = ser.map(p => p.v), min = Math.min(...vs), max = Math.max(...vs);
   const t0 = ser[0].t, t1 = ser[ser.length - 1].t, W = 112, Hh = 28;
   const span = (max - min) || 1;
   const pts = ser.map(p => `${((p.t - t0) / ((t1 - t0) || 1) * W).toFixed(1)},${(Hh - 3 - (p.v - min) / span * (Hh - 6)).toFixed(1)}`).join(' ');
-  return `<svg class="spark" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="River flow over the last 48 hours"><polyline points="${pts}"/></svg>`;
+  return `<svg class="spark" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(what)}"><polyline points="${pts}"/></svg>`;
 }
 
 // Hourly chance of precipitation as columns, one per hour. Columns over the
