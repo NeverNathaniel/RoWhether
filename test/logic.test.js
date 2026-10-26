@@ -1419,6 +1419,44 @@ describe('tidal water (01 9.4)', () => {
     });
   });
 
+  describe("Thompson Boat Center's own record", () => {
+    const thompson = resolveLocation(readJson('data/locations/thompson-boat-center.json'), { waterway: readJson('data/waterways/potomac-river-tidal.json') });
+    // A Small Craft Advisory is a zone product for ANZ535, with no polygon: it applies to the dock (P1.8, plan 4.8).
+    const advisory = (from, to) => ({
+      features: [{ geometry: null, properties: { event: 'Small Craft Advisory', areaDesc: 'Tidal Potomac from Key Bridge to Indian Head MD', headline: 'Small Craft Advisory in effect', onset: new Date(from).toISOString(), ends: new Date(to).toISOString() } }]
+    });
+    const alertsOf = (raw, loc = thompson) => Object.fromEntries(bindingsFor(loc, NOON).map(b => [b.slot, b])).alerts.parse(raw);
+    const thompsonModel = (alerts, over = () => ({ wind: 5, gust: 8 })) => buildModel(thompson, { wx: wx(over), river: RIVER, tide: tide(), alerts }, effectiveSettings(thompson), NOON);
+
+    it('gives Stay off for the hours a Small Craft Advisory covers, and names it', () => {
+      const calm = thompsonModel([]);
+      expect(hourAt(calm, 12).a.lvl).toBe(0);
+      const m = thompsonModel(alertsOf(advisory(NOON - 2 * HOUR, NOON + 6 * HOUR)));
+      expect(m.alerts.map(a => [a.event, a.lvl])).toEqual([['Small Craft Advisory', 2]]);
+      for (const hr of [10, 12, 17]) expect([hr, hourAt(m, hr).a.lvl, hourAt(m, hr).a.reasons.map(r => [r.key, r.lvl, r.text])], `${hr} h`).toEqual([hr, 2, [['alert', 2, 'Small Craft Advisory']]]);
+      // The hours after it ends are as calm as before.
+      expect(hourAt(m, 19).a.lvl).toBe(0);
+      expect(m.cur.a.lvl).toBe(2);
+    });
+
+    it('gives Stay off on a calm tide at any height, and the tide changes nothing else about the hour', () => {
+      for (const fn of [i => 4 + 1.6 * Math.sin(2 * Math.PI * i / 12), () => 9, () => -2]) {
+        const m = buildModel(thompson, { wx: wx(() => ({ wind: 5, gust: 8 })), river: RIVER, tide: tide(fn), alerts: alertsOf(advisory(NOON - HOUR, NOON + 3 * HOUR)) }, effectiveSettings(thompson), NOON);
+        expect(hourAt(m, 12).a.reasons.map(r => r.key)).toEqual(['alert']);
+        expect(hourAt(m, 12).a.lvl).toBe(2);
+      }
+    });
+
+    it('is tidal with no multiplier at its own flow limits: 8 mph from downstream is 8 at 40,000 cfs', () => {
+      const m = buildModel(thompson, { wx: wx(() => ({ wind: 8, dir: 105 })), river: { ...RIVER, flow: { v: 40000, t: NOON } }, tide: tide() }, effectiveSettings(thompson), NOON);
+      // The course is 285: wind from 105 blows along it, from downstream.
+      expect(chopWind(m, { wind: 8, dir: 105 })).toMatchObject({ e: 8, axis: 'along', against: false });
+      expect(hourAt(m, 12).water.tide).toMatchObject({ rising: true });
+      // Its flow limits still count: 40,000 cfs is over its 35,000 Stay off line.
+      expect(hourAt(m, 12).a.reasons.map(r => [r.key, r.lvl])).toContainEqual(['flow', 2]);
+    });
+  });
+
   describe('the tab', () => {
     it('is the tide row of the place, after Wind and before River', () => {
       expect(viewsFor(tidalLoc()).map(v => v.key)).toEqual(['week', 'wind', 'tide', 'river', 'storms', 'fog', 'temperature', 'rain', 'light', 'air']);

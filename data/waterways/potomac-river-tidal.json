@@ -1,0 +1,30 @@
+{
+  "v": 1,
+  "id": "potomac-river-tidal",
+  "name": "Potomac River",
+  "reach": "Tidal Potomac below Little Falls",
+  "kind": "tidal",
+  "country": "US",
+  "regions": ["US-DC", "US-VA", "US-MD"],
+  "geometry": null,
+  "traffic": null,
+  "notes": null,
+  "sources": [
+    {
+      "role": "flow", "mode": "primary", "priority": 0,
+      "adapter": "usgs-ogc", "ref": "USGS-01646500", "params": { "parameterCode": "00060" },
+      "unit": "cfs", "tz": "America/New_York",
+      "label": "Little Falls",
+      "note": "USGS gauge at Little Falls, about 5 mi upstream.",
+      "siteLat": 38.94978, "siteLon": -77.12764,
+      "distanceM": 8120, "riverM": null, "relation": "upstream",
+      "stats": { "from": "2016-01-01", "to": "2026-10-18", "days": 3942,
+                 "p50": 6490, "p65": 9760, "p88": 22200, "p90": 25000, "p95": 35800 }
+    },
+    {
+      "role": "flow_forecast", "mode": "primary", "priority": 0,
+      "adapter": "nwps", "ref": "BRKM2", "unit": "cfs",
+      "label": "NWS Middle Atlantic River Forecast Center"
+    }
+  ]
+}

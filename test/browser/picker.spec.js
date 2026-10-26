@@ -441,10 +441,10 @@ test.describe('the first visit to "/"', () => {
     for (const id of ['tabs', 'actions', 'home', 'detail', 'credits']) await expect(page.locator(`#${id}`), id).toBeHidden();
     await expect(page.locator('#refreshBtn')).toBeHidden();
     await expect(page.locator('#settingsBtn')).toBeHidden();
-    // The built list: the groups by region name, each place with its town and water (P1.12, P1.13).
-    await expect(page.locator('#notFound .pk-group')).toHaveText(['California', 'Massachusetts', 'New Hampshire', 'New Jersey', 'Pennsylvania', 'Vermont']);
+    // The built list: the groups by region name, each place with its town and water (P1.12 to P1.14).
+    await expect(page.locator('#notFound .pk-group')).toHaveText(['California', 'District of Columbia', 'Massachusetts', 'New Hampshire', 'New Jersey', 'Pennsylvania', 'Vermont']);
     await expect(page.locator('#notFound .pk-row')).toHaveText([
-      /Lake Natoma\s*Gold River, CA\./, /Lake Quinsigamond\s*Shrewsbury, MA\./, /Hanover boathouse\s*Hanover, NH\. Connecticut River\./, /Lake Carnegie\s*Princeton, NJ\./,
+      /Lake Natoma\s*Gold River, CA\./, /Thompson Boat Center\s*Washington, DC\. Potomac River\./, /Lake Quinsigamond\s*Shrewsbury, MA\./, /Hanover boathouse\s*Hanover, NH\. Connecticut River\./, /Lake Carnegie\s*Princeton, NJ\./,
       /Boathouse Row\s*Philadelphia, PA\. Schuylkill River\./, /Putney Landing\s*Putney, VT\. Connecticut River\./
     ]);
     await expect(page.locator('#notFound .pk-here')).toHaveCount(0);

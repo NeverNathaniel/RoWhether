@@ -1051,8 +1051,9 @@ describe('tidal water', () => {
       expect(tideView.summary(m)).toEqual({ text: `High about ${PM3}, 5.6 ft. Low about ${PM9}, 2.4 ft.`, lvl: null });
       expect(render(m)).toContain(`High about ${PM3}, 5.6 ft. Low about ${PM9}, 2.4 ft.`);
       expect([tideView.key, tideView.name]).toEqual(['tide', 'Tide']);
-      // No status color anywhere: the strip, the table and the chart carry no level.
-      expect(render(m)).not.toMatch(/data-lvl="[12p]"|class="b[12]"|dot-warn/);
+      // No status color anywhere: the strip, the table and the chart carry no level, not even the go color of 0.
+      expect(render(m)).not.toMatch(/data-lvl="[^"]|class="b[012]"/);
+      expect(render(m)).toContain('data-lvl=""');
     });
 
     it('has a week strip with the high of each day that has a forecast and "No tide forecast" for the rest', () => {

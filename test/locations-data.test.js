@@ -13,6 +13,8 @@ import { revisionProblems } from '../scripts/locations/revisions.mjs';
 import { resolveLocation, effectiveSettings } from '../src/location.js';
 import { GLOBAL_DEFAULTS } from '../src/config.js';
 import { bindingsFor } from '../src/sources/index.js';
+import { still } from '../src/logic.js';
+import { viewsFor } from '../src/render/detail/index.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = path => JSON.parse(readFileSync(join(ROOT, path), 'utf8'));
@@ -826,5 +828,123 @@ describe('the lake and reservoir test locations', () => {
     expect(entry('lake-natoma').rec.subtitle).toBe('Lake Natoma above Nimbus Dam. Releases from Folsom Dam can change the current.');
     expect(entry('lake-natoma').rec.tzLabel).toBeNull();
     expect(loc('lake-natoma').tz).toBe('America/Los_Angeles');
+  });
+});
+
+// P1.14: Thompson Boat Center (plan 4.8), tidal water on the Potomac at Georgetown, with what the services answered on 2026-10-25.
+describe('the tidal test location', () => {
+  const REAL = collectLocations(ROOT);
+  const entry = REAL.find(x => x.rec.slug === 'thompson-boat-center');
+  const loc = resolveLocation(entry.rec, { waterway: entry.waterway });
+  const bindings = Object.fromEntries(bindingsFor(loc, Date.UTC(2026, 5, 15, 16)).map(b => [b.slot, b]));
+  const recorded = name => readJson(`test/fixtures/sources/thompson-boat-center/${name}.json`);
+  const at = iso => Date.parse(iso);
+  const USGS = 'https://api.waterdata.usgs.gov/ogcapi/v1/collections';
+
+  it('is listed with its place, water and region, on a waterway in three regions', () => {
+    expect(summaries(REAL).find(s => s.slug === 'thompson-boat-center')).toEqual({
+      slug: 'thompson-boat-center', name: 'Thompson Boat Center', shortName: 'Thompson', locality: 'Washington, DC', waterway: 'Potomac River',
+      lat: 38.90053, lon: -77.05834, tz: 'America/New_York', country: 'US', region: 'US-DC', waterType: 'tidal', status: 'published', revision: 1
+    });
+    expect(entry.waterway.regions).toEqual(['US-DC', 'US-VA', 'US-MD']);
+    expect(entry.waterway.kind).toBe('tidal');
+    expect(entry.rec.status).toBe('published');
+    expect(entry.rec.course.confirmed).toBe(false);
+  });
+
+  it('is tidal water, read as a river reach with no current: the crosswind weight, no steps, and the course 285', () => {
+    expect(loc.water).toMatchObject({ mode: 'tidal', cross: 0.4 });
+    expect(still(loc)).toBe(false);
+    expect(loc.flow.against).toBeNull();
+    expect([loc.course.kind, loc.course.heading, loc.course.reachWord, loc.course.confirmed]).toEqual(['heading', 285, 'straight', false]);
+    // Facing upstream at 285 the left bank is Virginia and the right is Georgetown, on the DC side.
+    expect([loc.banks.word, loc.banks.left.short, loc.banks.left.name, loc.banks.right.short, loc.banks.right.name]).toEqual(['bank', 'VA', 'Virginia', 'DC', 'Georgetown']);
+    expect(loc.tide).toEqual({ floodHeading: 285, unit: 'ft', streamCaution: null, streamOff: null, minLaunch: null, slackMin: 30, against: null });
+  });
+
+  it('has a tide row of its own and takes its flow, daily means and river forecast from the waterway', () => {
+    const s = loc.sources;
+    expect(s.tide.map(r => [r.adapter, r.ref, r.unit, r.label, r.inherited, r.relation, r.distanceM])).toEqual([['nwps', 'GTND2', 'ft', 'Georgetown', false, 'upstream', 866]]);
+    for (const slot of ['flow', 'flowDays']) expect(s[slot].map(r => [r.adapter, r.ref, r.inherited]), slot).toEqual([['usgs-ogc', 'USGS-01646500', true]]);
+    expect(s.flowFcst.map(r => [r.adapter, r.ref, r.inherited])).toEqual([['nwps', 'BRKM2', true]]);
+    expect(s.obs.map(r => [r.adapter, r.ref, r.label, r.inherited])).toEqual([['nws-obs', 'KDCA', 'Reagan National', false]]);
+    expect(viewsFor(loc).map(v => v.key)).toEqual(['week', 'wind', 'tide', 'river', 'storms', 'fog', 'temperature', 'rain', 'light', 'air']);
+  });
+
+  it('takes the flow and the water temperature from one gauge, Little Falls, and asks for it once', () => {
+    expect(loc.sources.river.map(r => [r.role, r.ref, r.params.parameterCode])).toEqual([['flow', 'USGS-01646500', '00060'], ['water_temp', 'USGS-01646500', '00010']]);
+    expect(bindings.river.url).toBe(`${USGS}/latest-continuous/items?monitoring_location_id=USGS-01646500&parameter_code=00060,00010&f=json&limit=50`);
+    expect(bindings.river.url.match(/USGS-01646500/g)).toHaveLength(1);
+  });
+
+  it('asks each service for the tide point, the gauge, the zones and the station named in the records', () => {
+    expect(Object.keys(bindings)).toEqual(['wx', 'alerts', 'obs', 'river', 'flow', 'flowDays', 'flowFcst', 'tide', 'aq', 'models']);
+    // The five zones, the marine one among them: the dock point alone would miss a Small Craft Advisory (plan 4.8).
+    expect(bindings.alerts.url).toBe('https://api.weather.gov/alerts/active?zone=DCZ001,DCC001,VAZ054,VAC013,ANZ535');
+    expect(bindings.obs.url).toBe('https://api.weather.gov/stations/KDCA/observations/latest');
+    expect(bindings.flow.url).toBe(`${USGS}/continuous/items?monitoring_location_id=USGS-01646500&parameter_code=00060&time=P2D&limit=1000&properties=time,value&f=json`);
+    expect(bindings.flowDays.url).toBe(`${USGS}/daily/items?monitoring_location_id=USGS-01646500&parameter_code=00060&statistic_id=00003&time=P30D&limit=100&properties=time,value&f=json`);
+    // The river forecast and the tide forecast are two points of one service, and each reads its own.
+    expect(bindings.flowFcst.url).toBe('https://api.water.noaa.gov/nwps/v1/gauges/BRKM2/stageflow/forecast');
+    expect(bindings.tide.url).toBe('https://api.water.noaa.gov/nwps/v1/gauges/GTND2/stageflow/forecast');
+    for (const slot of ['wx', 'aq', 'models']) {
+      const u = new URL(bindings[slot].url);
+      expect([slot, u.searchParams.get('latitude'), u.searchParams.get('longitude'), u.searchParams.get('timezone')]).toEqual([slot, '38.90053', '-77.05834', 'America/New_York']);
+    }
+  });
+
+  it("holds limits that follow the rule from the waterway's recorded flow statistics, and the gauge they are for", () => {
+    const two = v => { const e = 10 ** (Math.floor(Math.log10(v)) - 1); return Math.floor(v / e) * e; };
+    const { stats } = entry.waterway.sources.find(r => r.role === 'flow');
+    expect([entry.rec.thresholds.flowCaution, entry.rec.thresholds.flowOff]).toEqual([two(stats.p88), two(stats.p95)]);
+    expect(entry.rec.thresholds.basis).toEqual({ flow: 'usgs-ogc:USGS-01646500:cfs' });
+    expect(effectiveSettings(loc)).toEqual({ ...GLOBAL_DEFAULTS, flowCaution: 22000, flowOff: 35000 });
+    expect(loc.ignoredFlow).toBeUndefined();
+    expect([loc.flow.maxAgeH, loc.flow.staleSwitchH, loc.waterTemp.maxAgeH, loc.waterTemp.fallback]).toEqual([24, 6, 72, 'none']);
+  });
+
+  it('states the median day and the two limits in the flow note of Settings, and what the flow does at the dock', () => {
+    const { stats } = entry.waterway.sources.find(r => r.role === 'flow');
+    expect(Math.abs(stats.p50 - 6500)).toBeLessThan(50);
+    expect(entry.rec.copy.flowStats).toBe('Since 2016 the median day at Little Falls is about 6,500 cfs. 22,000 is the top 12% of days, 35,000 the top 5%.');
+    expect(entry.rec.copy.flowHow).toContain('At the dock the tide also moves the water.');
+  });
+
+  it("puts each source's distance where the record says it is, from the dock", () => {
+    const metres = (a, b, c, d) => {
+      const r = x => x * Math.PI / 180, h = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2;
+      return 2 * 6371000 * Math.asin(Math.sqrt(h));
+    };
+    for (const r of [...entry.rec.sources, ...entry.waterway.sources].filter(x => x.siteLat != null)) {
+      expect(Math.abs(metres(entry.rec.lat, entry.rec.lon, r.siteLat, r.siteLon) - r.distanceM), r.ref).toBeLessThan(25);
+    }
+  });
+
+  // Recorded 2026-10-25 between 02:05 and 02:12 UTC with the requests above (the tide forecast was issued at 00:38 UTC).
+  it('reads the recorded answers as data: the gauge, the daily means, the river forecast, the tide and the airport', () => {
+    expect(bindings.river.parse(recorded('latest'))).toEqual({ flow: { v: 3400, t: at('2026-10-25T01:50:00Z') }, waterC: { v: 15.8, t: at('2026-10-25T01:50:00Z') } });
+    const days = bindings.flowDays.parse(recorded('daily'));
+    expect([days.length, new Date(days[0].t).toISOString(), new Date(days.at(-1).t).toISOString(), days.at(-1).v]).toEqual([29, '2026-09-25T16:00:00.000Z', '2026-10-23T16:00:00.000Z', 3790]);
+    const fc = bindings.flowFcst.parse(recorded('nwps'));
+    expect(recorded('nwps').primaryName).toBe('Stage');
+    expect([fc.pts.length, fc.issued, fc.pts[0].v, fc.pts.at(-1).v]).toEqual([12, at('2026-10-24T13:59:00Z'), 3400, 2350]);
+    const tide = bindings.tide.parse(recorded('tide'));
+    expect([tide.station, tide.unit, tide.series.length, tide.events.length, tide.issued]).toEqual(['Georgetown', 'ft', 72, 11, at('2026-10-25T00:38:00Z')]);
+    expect(bindings.obs.parse(recorded('obs'))).toMatchObject({ t: at('2026-10-25T01:55:00Z'), wind: 0, dir: 0, text: 'Clear' });
+    expect(bindings.alerts.parse(recorded('alerts'))).toEqual([]);
+    // Each answer read by the other's binding is refused or empty, so a swapped row cannot pass for a tide.
+    expect(() => bindings.tide.parse(recorded('nwps'))).toThrow('Not a tide forecast');
+    expect(bindings.flowFcst.parse(recorded('tide')).pts).toEqual([]);
+  });
+
+  it('credits the office, the gauge, the station and the two forecasts it reads, with a link, and names nothing of another place', () => {
+    const links = [...entry.rec.copy.credits.matchAll(/\[([^\]]+)\]\((https:\/\/[^)]+)\)/g)].map(m => [m[1], m[2]]);
+    expect(links).toEqual([
+      ['Open-Meteo', 'https://open-meteo.com/'], ['National Weather Service, Baltimore/Washington', 'https://www.weather.gov/lwx/'],
+      ['01646500 at Little Falls', 'https://waterdata.usgs.gov/monitoring-location/USGS-01646500/'],
+      ['NWS Middle Atlantic River Forecast Center', 'https://water.noaa.gov/gauges/gtnd2']
+    ]);
+    expect(JSON.stringify([entry.rec.copy, entry.rec.subtitle])).not.toMatch(/Putney|Connecticut|Albany|Gray|Vermont|New Hampshire|North Walpole|Northfield|Keene/i);
+    expect(entry.rec.subtitle).toBe('Tidal Potomac River at Georgetown.');
   });
 });

@@ -15,9 +15,12 @@ const BUILT = JSON.parse(readFileSync(new URL('../../dist/locations/index.json',
 const RIVER_TABS = ['Now', 'Week', 'Wind', 'River', 'Storms', 'Fog', 'Temperature', 'Rain', 'Light', 'Air'];
 // Still water has no River tab (01 9.7).
 const LAKE_TABS = RIVER_TABS.filter(t => t !== 'River');
+// Tidal water has the Tide tab after Wind (01 9.7).
+const TIDAL_TABS = ['Now', 'Week', 'Wind', 'Tide', ...RIVER_TABS.slice(3)];
 
 // What each location shows (plan 4.1). `station`, `gauge` and `lid` are the ids its requests carry
-// (a lake has no `lid`, and only Natoma has a `gauge`, for its water temperature), `obs` is the name
+// (a lake has no `lid`, and only Natoma has a `gauge`, for its water temperature; `tide` is the point of
+// a tidal place's tide forecast), `obs` is the name
 // its observation goes by, `flow` is whether it has a River flow fact, and `credits` are the links
 // under the footer's first sentence (Putney's are in picker.spec.js).
 const PLACES = {
@@ -44,6 +47,16 @@ const PLACES = {
       ['National Weather Service, Mount Holly', 'https://www.weather.gov/phi/'],
       ['01474500 at Philadelphia', 'https://waterdata.usgs.gov/monitoring-location/USGS-01474500/'],
       ['NWS Middle Atlantic River Forecast Center', 'https://water.noaa.gov/gauges/padp1']
+    ]
+  },
+  'thompson-boat-center': {
+    name: 'Thompson Boat Center', sub: 'Tidal Potomac River at Georgetown. All times Eastern.', badge: true,
+    tabs: TIDAL_TABS, flow: true, obs: 'Reagan National', station: 'KDCA', gauge: 'USGS-01646500', lid: 'BRKM2', tide: 'GTND2',
+    credits: [
+      ['Open-Meteo', 'https://open-meteo.com/'],
+      ['National Weather Service, Baltimore/Washington', 'https://www.weather.gov/lwx/'],
+      ['01646500 at Little Falls', 'https://waterdata.usgs.gov/monitoring-location/USGS-01646500/'],
+      ['NWS Middle Atlantic River Forecast Center', 'https://water.noaa.gov/gauges/gtnd2']
     ]
   },
   'lake-quinsigamond': {
@@ -109,8 +122,9 @@ for (const [slug, p] of Object.entries(PLACES)) {
       expect(seen.served, 'its own station').toContain(`https://api.weather.gov/stations/${p.station}/observations/latest`);
       // A river asks for its forecast point and its gauge's three answers (the latest reading, the 48 hour series
       // and the daily means). Still water asks for neither, and a lake with a water temperature gauge asks for its latest reading alone.
-      if (p.lid) expect(seen.served, 'its own river forecast point').toContain(`https://api.water.noaa.gov/nwps/v1/gauges/${p.lid}/stageflow/forecast`);
-      else expect(seen.served.filter(u => new URL(u).hostname === 'api.water.noaa.gov'), 'no river forecast').toEqual([]);
+      // Only the points its record names: the river forecast point, and for a tidal place the tide point (P1.14).
+      const points = seen.served.filter(u => new URL(u).hostname === 'api.water.noaa.gov').map(u => u.match(/^https:\/\/api\.water\.noaa\.gov\/nwps\/v1\/gauges\/([A-Z0-9]+)\/stageflow\/forecast$/)?.[1]);
+      expect(points.slice().sort(), 'its own forecast points, and no other').toEqual([p.lid, p.tide].filter(Boolean).sort());
       const usgs = seen.served.filter(u => new URL(u).hostname === 'api.waterdata.usgs.gov');
       expect(usgs).toHaveLength(p.flow ? 3 : p.gauge ? 1 : 0);
       for (const u of usgs) expect(u, 'its own gauge').toMatch(new RegExp(`monitoring_location_id=${p.gauge}[&,]`));
@@ -348,6 +362,175 @@ test.describe('still water', () => {
   });
 });
 
+// ---------- Tidal water (P1.14; 01 9.4, 9.7) ----------
+// Thompson Boat Center reads a tide forecast beside its river: the Tide tab after Wind, a Tide fact on Now
+// and the way the tide runs in the water state. The fixtures answer GTND2 with 72 hourly heights from the
+// page clock (test/fixtures/tide.js): h = 4.0 + 1.6 sin(2 pi t / 12.42 h) ft from noon, so the water is
+// rising at noon, with a high of 5.6 ft about 3 hours on (3 PM) and a low of 2.4 ft about 9 hours on (9 PM).
+test.describe('tidal water', () => {
+  const SLUG = 'thompson-boat-center';
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(clock);
+  });
+
+  test('has the Tide tab after Wind and before River, and labels the banks VA and DC', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await page.goto(`/${SLUG}`);
+    await ready(page);
+    await expect(page.locator('#tabs a')).toHaveText(['Now', 'Week', 'Wind', 'Tide', 'River', 'Storms', 'Fog', 'Temperature', 'Rain', 'Light', 'Air']);
+    await expect(page.locator('#compass .c-bank')).toHaveText(['VA', 'DC']);
+    await expect(page.locator('#compassCap')).toContainText('upstream heading 285°');
+    // The river is Little Falls, and the water temperature comes from the same gauge.
+    await expect(fact(page, 'River flow').locator('.note')).toContainText('USGS gauge at Little Falls, about 5 mi upstream.');
+    await expect(fact(page, 'Water').locator('.val')).toContainText('°');
+  });
+
+  test('gives the Tide fact on Now, linked to the Tide tab, with the next high and low', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await page.goto(`/${SLUG}`);
+    await ready(page);
+    const tide = fact(page, 'Tide');
+    await expect(tide).toHaveCount(1);
+    await expect(tide.locator('.val')).toHaveText(/^\d\.\d ft rising$/);
+    await expect(tide.locator('.note')).toHaveText(/^High about \d+\u00a0PM, 5\.[56] ft\. Low about \d+\u00a0PM, [12]\.\d ft\.$/);
+    await expect(tide.locator('a.flink')).toHaveAttribute('href', '#tide');
+    // The water state says which way the tide runs, and the wind sentence has no current in it.
+    await expect(fact(page, 'Water state').locator('.note')).toContainText(/Flood tide, rising until about \d+\u00a0PM\./);
+    await expect(fact(page, 'Wind').locator('.note')).not.toContainText('against current');
+    await tide.locator('a.flink').click();
+    await tabDrawn(page, 'tide');
+    await expect(page.locator('#tabs a[aria-current="page"]')).toHaveText('Tide');
+    expect(new URL(page.url()).hash).toBe('#tide');
+  });
+
+  test('draws the Tide tab from its own chunk: the strip, the labeled highs and lows and the table, and a tap fills the readout', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    const chunks = [];
+    page.on('request', r => { if (/\/assets\/tide-[^/]+\.js$/.test(new URL(r.url()).pathname)) chunks.push(new URL(r.url()).pathname); });
+    await page.goto(`/${SLUG}`);
+    await ready(page);
+    expect(chunks, 'the chunk waits for the tab').toEqual([]);
+    await page.locator('#tabs a[data-tab="tide"]').click();
+    await tabDrawn(page, 'tide');
+    expect(chunks).toHaveLength(1);
+    const body = page.locator('#detailBody');
+    await expect(body.locator('.lede')).toHaveText(/^High about \d+\u00a0PM, 5\.[56] ft\. Low about \d+\u00a0PM, [12]\.\d ft\.$/);
+    // 72 hours of heights from noon reach noon on the fourth day: four days of the strip have a high (the last from
+    // the hours it has), the other three none, and none has a status color.
+    const vals = await body.locator('.sval').allTextContents();
+    expect(vals).toHaveLength(7);
+    expect(vals.slice(0, 4).every(v => /^High \d\.\d\u00a0ft$/.test(v)), vals.join(' | ')).toBe(true);
+    expect(vals.slice(4)).toEqual(Array(3).fill('No tide forecast'));
+    expect(await body.locator('.strack i').evaluateAll(is => is.map(i => i.getAttribute('data-lvl')))).toEqual(vals.map(() => ''));
+    // The chart labels the highs and lows of the rowing window, and the table lists the hours.
+    await expect(body.locator('svg .cval').first()).toHaveText(/^about \d+(:\d\d)?\u00a0[AP]M, \d\.\d ft$/);
+    await expect(body.locator('svg text', { hasText: 'Tide height, ft' })).toHaveCount(1);
+    await body.locator('details.twin summary').click();
+    await expect(body.locator('table.hours thead th')).toHaveText(['Time', 'Height', 'Tide']);
+    // Today's hours run from the clock to sunset: the forecast starts at noon.
+    expect(await body.locator('table.hours tbody tr').count()).toBeGreaterThanOrEqual(8);
+    await expect(body.locator('table.hours tbody td').filter({ hasText: /^(Rising|Falling)$/ }).first()).toBeVisible();
+    await expect(body.locator('.how')).toContainText('Tide heights are the National Weather Service forecast for the Potomac at Georgetown, in feet, hourly for 3 days.');
+    await expect(body.locator('.how')).toContainText('Tide is shown for information. It does not change Go, Caution or Stay off.');
+    // Tapping the chart fills the readout with the hour under the finger.
+    const readout = body.locator('.readout');
+    await expect(readout).toHaveText('Tap the chart for an hour.');
+    await body.locator('svg rect.hit').nth(5).click({ force: true });
+    await expect(readout).toHaveText(/^\d+\u00a0[AP]M: \d\.\d ft, (rising|falling)\.$/);
+    await expect(body).not.toContainText(/NaN|undefined/);
+  });
+
+  test('opens straight at #tide, and shows every day of the strip', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await page.goto(`/${SLUG}#tide`);
+    await ready(page);
+    await tabDrawn(page, 'tide');
+    await expect(page.locator('#tabs a[aria-current="page"]')).toHaveText('Tide');
+    await page.locator('#detailBody .sday').nth(1).click();
+    await expect(page.locator('#detailBody .dhead')).toHaveText(/^Tomorrow, first light to sunset$/);
+    await expect(page.locator('#detailBody svg .cval').first()).toBeVisible();
+    // A day past the 3 days of the forecast says so and draws no chart.
+    await page.locator('#detailBody .sday').last().click();
+    await expect(page.locator('#detailBody .dnote')).toContainText('The forecast covers about 3 days.');
+    await expect(page.locator('#detailBody svg.cchart')).toHaveCount(0);
+  });
+
+  test('says so when the tide forecast did not load, names it under the hero and keeps the verdict', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await page.route('https://api.water.noaa.gov/nwps/v1/gauges/GTND2/stageflow/forecast', route => route.abort('failed'));
+    await page.goto(`/${SLUG}`);
+    await ready(page);
+    await expect(page.locator('#statusNote')).toHaveText('Could not reach the NWS tide forecast. Showing the last data received where available.');
+    await expect(page.locator('#verdict')).toHaveText(/^(Go|Caution|Stay off)\.$/);
+    await expect(fact(page, 'Tide').locator('.val')).toHaveText('--');
+    await expect(fact(page, 'Tide').locator('.note')).toHaveText('NWS tide forecast unavailable.');
+    await page.goto(`/${SLUG}#tide`);
+    await tabDrawn(page, 'tide');
+    await expect(page.locator('#detailBody')).toContainText('The tide forecast is not available right now. Try Refresh.');
+  });
+
+  test("Putney has no Tide tab, never asks for the chunk, and #tide there opens Now with the hash taken out", async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    const chunks = [];
+    page.on('request', r => { if (/\/assets\/tide-/.test(r.url())) chunks.push(r.url()); });
+    await page.goto('/putney-landing#tide');
+    await ready(page);
+    await expect(page.locator('#tabs a[data-tab="tide"]')).toHaveCount(0);
+    await expect(page.locator('#tabs a[aria-current="page"]')).toHaveText('Now');
+    expect(new URL(page.url()).hash).toBe('');
+    await expect(fact(page, 'Tide')).toHaveCount(0);
+    // Every tab Putney has, opened once: the views chunk loads and the tide chunk does not.
+    for (const tab of ['week', 'wind', 'river', 'storms', 'fog', 'temperature', 'rain', 'light', 'air']) {
+      await page.locator(`#tabs a[data-tab="${tab}"]`).click();
+      await tabDrawn(page, tab);
+    }
+    expect(chunks).toEqual([]);
+  });
+
+  test('says Stay off for a Small Craft Advisory in force for the tidal Potomac, and names it', async ({ page }) => {
+    // A zone product for ANZ535: no polygon, so it applies to the dock (plan 4.8). It runs from 2 hours
+    // before the clock to 6 hours after it.
+    await routeAll(page, scenario, clock, {
+      edit: raw => {
+        const t = h => new Date(clock + h * 3600000).toISOString();
+        raw.alerts.features = [{
+          id: 'urn:oid:2.49.0.1.840.0.sca', type: 'Feature', geometry: null,
+          properties: {
+            id: 'urn:oid:2.49.0.1.840.0.sca', areaDesc: 'Tidal Potomac from Key Bridge to Indian Head MD', sent: t(-3), effective: t(-2), onset: t(-2), expires: t(6), ends: t(6),
+            status: 'Actual', messageType: 'Alert', category: 'Met', severity: 'Minor', certainty: 'Likely', urgency: 'Expected', event: 'Small Craft Advisory',
+            sender: 'w-nws.webmaster@noaa.gov', senderName: 'NWS Baltimore MD/Washington DC', headline: 'Small Craft Advisory issued for the tidal Potomac',
+            description: 'South winds 15 to 20 knots with gusts up to 25 knots.', instruction: 'Inexperienced mariners should avoid navigating in these conditions.', response: 'Avoid'
+          }
+        }];
+      }
+    });
+    await page.goto(`/${SLUG}`);
+    await ready(page);
+    await expect(page.locator('#verdict')).toHaveText('Stay off.');
+    await expect(page.locator('#why')).toContainText('Small Craft Advisory');
+  });
+
+  test('asks for the alerts of the marine zone as well as the land zones', async ({ page }) => {
+    const seen = await routeAll(page, scenario, clock);
+    await page.goto(`/${SLUG}`);
+    await ready(page);
+    expect(seen.served).toContain('https://api.weather.gov/alerts/active?zone=DCZ001,DCC001,VAZ054,VAC013,ANZ535');
+  });
+
+  test('is in the picker under the District of Columbia and opens from it', async ({ page }) => {
+    await routeAll(page, scenario, clock);
+    await page.goto('/putney-landing');
+    await ready(page);
+    await page.locator('#locBtn').click();
+    await expect(page.locator('#picker .pk-row', { hasText: 'Thompson Boat Center' }).locator('.pk-sub')).toHaveText('Washington, DC. Potomac River.');
+    await page.locator('#picker a[href="/thompson-boat-center"]').click();
+    await ready(page);
+    await expect(page.locator('#locName')).toHaveText('Thompson Boat Center');
+    await expect(page.locator('#tabs a[data-tab="tide"]')).toHaveCount(1);
+    await expect(fact(page, 'Tide')).toHaveCount(1);
+  });
+});
+
 // R9: a slow answer for one place never lands in another, and a switch starts its own refresh.
 // Putney is opened and its nine answers are held. Hanover is picked from the sheet: its own
 // requests are answered at once, and its page is drawn from its own record. The answers for
@@ -365,7 +548,7 @@ test.describe('switching between the real locations', () => {
 
     // The sheet lists the built locations, by region.
     await page.locator('#locBtn').click();
-    await expect(page.locator('#picker .pk-group')).toHaveText(['California', 'Massachusetts', 'New Hampshire', 'New Jersey', 'Pennsylvania', 'Vermont']);
+    await expect(page.locator('#picker .pk-group')).toHaveText(['California', 'District of Columbia', 'Massachusetts', 'New Hampshire', 'New Jersey', 'Pennsylvania', 'Vermont']);
     await page.locator('#picker a[href="/hanover-boathouse"]').click();
     await ready(page);
     await expect(page.locator('#locName')).toHaveText('Hanover boathouse');
