@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { PUTNEY, PUTNEY_RECORD, PUTNEY_WATERWAY } from '../src/putney.js';
-import { validateLocation, validateWaterway, validateSlug, isSlug, RESERVED_SLUGS, resolveSources, resolveLocation, autoBanks, fetchAt, fetchFactor, effectiveSettings, overridesOf, flowBasis, ignoredFlowNote } from '../src/location.js';
+import { validateLocation, validateWaterway, validateSlug, isSlug, RESERVED_SLUGS, resolveSources, resolveLocation, autoBanks, fetchAt, fetchFactor, effectiveSettings, overridesOf, flowBasis, ignoredFlowNote, flowDefaults, MIN_FLOW_DAYS } from '../src/location.js';
 import { GLOBAL_DEFAULTS, PERIODS, WATER, FOG } from '../src/config.js';
 import { zoneFormat } from '../src/format.js';
 
@@ -887,5 +887,99 @@ describe('overridesOf', () => {
     expect(overridesOf({ windCaution: 10, rainCaution: 0 }, d)).toEqual({});
     // Not a key with the value undefined, which toEqual would not tell from a missing one.
     expect(Object.keys(overridesOf({ rainCaution: 5 }, d))).toEqual(['rainCaution']);
+  });
+});
+
+// Default flow limits from a gauge's history (01 11.3, 08 K7).
+describe('flowDefaults', () => {
+  const stats = (over = {}) => ({ from: '2016-01-01', to: '2026-10-15', days: 3939, p50: 6910, p65: 10100, p88: 20300, p90: 21820, p95: 28010, ...over });
+  const limits = d => d && { flowCaution: d.flowCaution, flowOff: d.flowOff, against: d.against };
+
+  it("gives Putney's limits from its stats: 20,000, 28,000 and the steps 20,000 and 10,000", () => {
+    expect(flowDefaults(stats())).toEqual({ flowCaution: 20000, flowOff: 28000, against: [[20000, 1.4], [10000, 1.25]] });
+    expect(limits(flowDefaults(PUTNEY_WATERWAY.sources.find(r => r.role === 'flow').stats))).toEqual({ flowCaution: PUTNEY_RECORD.thresholds.flowCaution, flowOff: PUTNEY_RECORD.thresholds.flowOff, against: PUTNEY_RECORD.flow.against });
+  });
+
+  it('is what each curated record with a gauge holds, so the rule and the data stay one thing', () => {
+    const json = (dir, f) => JSON.parse(readFileSync(new URL(`../data/${dir}/${f}`, import.meta.url), 'utf8'));
+    const waterways = Object.fromEntries(readdirSync(new URL('../data/waterways/', import.meta.url)).map(f => json('waterways', f)).map(w => [w.id, w]));
+    let checked = 0;
+    for (const f of readdirSync(new URL('../data/locations/', import.meta.url))) {
+      const r = json('locations', f);
+      const flow = (r.waterway && waterways[r.waterway]?.sources || []).concat(r.sources || []).find(s => s.role === 'flow' && s.mode !== 'info' && s.stats);
+      if (!flow || r.thresholds?.flowCaution == null) continue;
+      const d = flowDefaults(flow.stats);
+      expect([r.slug, d.flowCaution, d.flowOff]).toEqual([r.slug, r.thresholds.flowCaution, r.thresholds.flowOff]);
+      // A tidal record has no steps: the current does not run against the wind there.
+      if (r.flow?.against) expect([r.slug, d.against]).toEqual([r.slug, r.flow.against]);
+      checked++;
+    }
+    // Putney, Hanover, Boathouse Row and Thompson; a lake has no gauge, so no limits to compare.
+    expect(checked).toBeGreaterThanOrEqual(4);
+  });
+
+  it('rounds down to two significant figures', () => {
+    const at = x => flowDefaults(stats({ p88: x, p95: x }))?.flowCaution;
+    expect(at(21820)).toBe(21000);
+    expect(at(28010)).toBe(28000);
+    expect(at(950)).toBe(950);
+    expect(at(1049)).toBe(1000);
+    expect(at(99999)).toBe(99000);
+    expect(at(100)).toBe(100);
+    expect(at(2020)).toBe(2000);
+    // Small streams: figures after the point, and no float noise in what comes out.
+    expect(at(0.953)).toBe(0.95);
+    expect(at(7.39)).toBe(7.3);
+    expect(at(0.3)).toBe(0.3);
+  });
+
+  it('rounds each of the three percentiles', () => {
+    expect(flowDefaults(stats({ p65: 7699, p88: 14800, p95: 20200 }))).toEqual({ flowCaution: 14000, flowOff: 20000, against: [[14000, 1.4], [7600, 1.25]] });
+  });
+
+  it('reads a percentile that float arithmetic left a hair under a round figure as that figure', () => {
+    expect(flowDefaults(stats({ p88: 27999.999999999996 })).flowCaution).toBe(28000);
+    expect(flowDefaults(stats({ p95: 28009.999999999993 })).flowOff).toBe(28000);
+  });
+
+  it('needs at least 1,095 days (3 years), and gives null under them', () => {
+    expect(MIN_FLOW_DAYS).toBe(1095);
+    expect(flowDefaults(stats({ days: 1095 }))).not.toBeNull();
+    expect(flowDefaults(stats({ days: 1094 }))).toBeNull();
+    expect(flowDefaults(stats({ days: 0 }))).toBeNull();
+    expect(flowDefaults(stats({ days: undefined }))).toBeNull();
+    expect(flowDefaults(stats({ days: '3939' }))).toBeNull();
+  });
+
+  it('gives null when there are no stats or a percentile is missing', () => {
+    expect(flowDefaults(null)).toBeNull();
+    expect(flowDefaults(undefined)).toBeNull();
+    expect(flowDefaults({})).toBeNull();
+    for (const k of ['p65', 'p88', 'p95']) expect(flowDefaults(stats({ [k]: undefined }))).toBeNull();
+    expect(flowDefaults(stats({ p88: NaN }))).toBeNull();
+    expect(flowDefaults(stats({ p95: '28010' }))).toBeNull();
+  });
+
+  it('gives null for a gauge whose 88th or 95th percentile is no flow at all', () => {
+    expect(flowDefaults(stats({ p65: 0, p88: 0, p95: 0 }))).toBeNull();
+    expect(flowDefaults(stats({ p88: 0 }))).toBeNull();
+    expect(flowDefaults(stats({ p95: 0 }))).toBeNull();
+  });
+
+  it('keeps only the steps that still fall in order once rounded, so what it gives validates', () => {
+    // Both round to 20,000: one step, and Caution and Stay off may share a flow.
+    expect(flowDefaults(stats({ p65: 20400, p88: 20900, p95: 20990 }))).toEqual({ flowCaution: 20000, flowOff: 20000, against: [[20000, 1.4]] });
+    // A stream that is dry a third of the days has no step below the first.
+    expect(flowDefaults(stats({ p65: 0 })).against).toEqual([[20000, 1.4]]);
+    const rec = clone(PUTNEY_RECORD);
+    const d = flowDefaults(stats({ p65: 20400, p88: 20900, p95: 20990 }));
+    Object.assign(rec.thresholds, { flowCaution: d.flowCaution, flowOff: d.flowOff }); rec.flow.against = d.against;
+    expect(validateLocation(rec, W)).toEqual([]);
+  });
+
+  it('does not change what it is given', () => {
+    const s = stats(), before = clone(s);
+    flowDefaults(s);
+    expect(s).toEqual(before);
   });
 });

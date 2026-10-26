@@ -439,6 +439,24 @@ export function effectiveSettings(loc, { overrides = {} } = {}) {
   return S;
 }
 
+// Default flow limits from a gauge's history (01 11.3, 08 K7). `stats` is a flow binding's
+// stats: the days it holds and the 65th, 88th and 95th percentile of the daily means, to the
+// nearest unit. Caution is the 88th, Stay off the 95th, and the steps against the current
+// are the 88th (1.4) and the 65th (1.25), each rounded down to two significant figures.
+// Null under 1,095 days (3 years), when no limit is suggested and the lines start blank.
+// A step that does not fall below the one before it once rounded is left out, so what this
+// gives always validates. The build and the app do not call it: curation scripts do, and
+// phase 3's Worker will.
+export const MIN_FLOW_DAYS = 1095;
+// The number cut to two significant figures. It reads 13 figures first, so a percentile that
+// float arithmetic left a hair under a round figure (27999.999999999996) is that figure.
+const down2 = x => { const [m, e] = x.toExponential(12).split('e'); return Number(`${m.slice(0, 3)}e${e}`); };
+export function flowDefaults(stats) {
+  const [mid, caution, off] = [stats?.p65, stats?.p88, stats?.p95].map(x => isNum(x) ? down2(x) : NaN);
+  if (!(isNum(stats?.days) && stats.days >= MIN_FLOW_DAYS) || !(caution > 0 && off > 0 && mid >= 0)) return null;
+  return { flowCaution: caution, flowOff: off, against: mid > 0 && mid < caution ? [[caution, 1.4], [mid, 1.25]] : [[caution, 1.4]] };
+}
+
 // The values in S that differ from `defaults`: the settings of the location
 // shown with nothing overridden, plus its course heading. Numbers compare as
 // numbers, and '' (a level turned off) is a real override.
