@@ -185,6 +185,11 @@ function staticProblems(sw, distinct) {
   for (const name of STATIC_PAGES) {
     if (!existsSync(join(DIST, `${name}.html`))) problems.push(`dist/${name}.html is missing. Is it an input of the build (build.rolldownOptions.input in vite.config.js)?`);
     else if (!distinct.includes(`${name}.html`)) problems.push(`The service worker does not precache ${name}.html, so /${name} does not open offline.`);
+    else {
+      for (const sheet of pageStyles(readText(join(DIST, `${name}.html`)))) {
+        if (!distinct.includes(sheet)) problems.push(`The service worker does not precache ${sheet}, which ${name}.html links, so /${name} opens unstyled offline.`);
+      }
+    }
     if (!deny?.some((re) => re.test(`/${name}`))) problems.push(`The service worker's navigation denylist does not name /${name}, so it could answer with index.html (navigateFallbackDenylist in vite.config.js).`);
   }
   return problems;

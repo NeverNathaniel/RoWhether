@@ -41,9 +41,10 @@ const FORM = 'assets/suggest-form-ghi.js';
 const PICKER = 'assets/picker-jkl.js';
 const PICKER_CSS = 'assets/picker-mno.css';
 const TIDE = 'assets/tide-pqr.js';
+const PRIVACY_CSS = 'assets/privacy-stu.css';
 // The navigation route as the build writes it: the fallback to index.html, minus what the denylist names.
 const DENY = '/^\\/api\\//,/^\\/(privacy|terms|about)$/';
-function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'locations/index.json', 'locations/a.json', 'assets/views-def.js'], chunk = 'assets/views-def.js', form = FORM, formCached = true, picker = PICKER, pickerCached = true, pickerCss = PICKER_CSS, pickerCssCached = true, tide = TIDE, tideCached = true, privacy = true, privacyCached = true, deny = DENY } = {}) {
+function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'assets/index-abc.css', 'locations/index.json', 'locations/a.json', 'assets/views-def.js'], chunk = 'assets/views-def.js', form = FORM, formCached = true, picker = PICKER, pickerCached = true, pickerCss = PICKER_CSS, pickerCssCached = true, tide = TIDE, tideCached = true, privacy = true, privacyCached = true, privacyCss = PRIVACY_CSS, privacyCssCached = true, deny = DENY } = {}) {
   mkdirSync(join(dir, 'scripts'), { recursive: true });
   copyFileSync(SCRIPT, join(dir, 'scripts/budget.mjs'));
   put('budget.json', JSON.stringify({ phase: 1, js: 1e6, css: 1e6, html: 1e6, precacheKiB: 1000, extraCss: [], extraJs: [] }));
@@ -56,10 +57,11 @@ function setup({ head = '', precache = ['index.html', 'assets/index-abc.js', 'as
   if (picker) put(`dist/${picker}`, 'export const picker = {};\n'.repeat(60));
   if (pickerCss) put(`dist/${pickerCss}`, '.pk { color: red }\n'.repeat(20));
   if (tide) put(`dist/${tide}`, 'export const tide = {};\n'.repeat(30));
-  if (privacy) put('dist/privacy.html', '<!doctype html><title>RoWhether privacy</title>');
+  if (privacy) put('dist/privacy.html', `<!doctype html><title>RoWhether privacy</title>${privacyCss ? `<link rel="stylesheet" href="/${privacyCss}">` : ''}`);
+  if (privacyCss) put(`dist/${privacyCss}`, 'body { color: red }\n'.repeat(10));
   put('dist/locations/index.json', JSON.stringify({ locations: [{ slug: 'a' }] }));
   put('dist/locations/a.json', '{}');
-  const cached = [...precache, ...(formCached ? [FORM] : []), ...(picker && pickerCached ? [picker] : []), ...(pickerCss && pickerCssCached ? [pickerCss] : []), ...(tide && tideCached ? [tide] : []), ...(privacy && privacyCached ? ['privacy.html'] : [])];
+  const cached = [...precache, ...(formCached ? [FORM] : []), ...(picker && pickerCached ? [picker] : []), ...(pickerCss && pickerCssCached ? [pickerCss] : []), ...(tide && tideCached ? [tide] : []), ...(privacy && privacyCached ? ['privacy.html'] : []), ...(privacyCss && privacyCssCached ? [privacyCss] : [])];
   const route = deny === null ? '' : `e.registerRoute(new e.NavigationRoute(e.createHandlerBoundToURL("index.html"),{denylist:[${deny}]}))`;
   put('dist/sw.js', `precacheAndRoute([${cached.map(u => `{url:"${u}",revision:null}`).join(',')}],{});${route}`);
 }
@@ -284,9 +286,7 @@ describe('the files the page loads at start', () => {
   };
 
   it('passes one stylesheet and one script, and a privacy page of its own that index.html does not link', () => {
-    setup();
-    put('dist/privacy.html', '<!doctype html><link rel="stylesheet" href="/assets/privacy-pqr.css">');
-    put('dist/assets/privacy-pqr.css', 'p { color: red }\n'.repeat(30));
+    setup(); // with dist/privacy.html, its own stylesheet and both precached
     const r = run();
     expect(r.code, r.out).toBe(0);
     expect(r.out).toMatch(/ok\s+Page files 1 script, 1 stylesheet/);
@@ -395,6 +395,14 @@ describe('the static pages', () => {
     const r = run();
     expect(r.code).toBe(1);
     expect(r.out).toContain('The service worker does not precache privacy.html, so /privacy does not open offline.');
+  });
+
+  it('fails when the stylesheet the page links is not precached, so it would open unstyled offline', () => {
+    setup({ privacyCssCached: false });
+    const r = run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('The service worker does not precache assets/privacy-stu.css, which privacy.html links, so /privacy opens unstyled offline.');
+    expect(report().over).toEqual(['Static pages']);
   });
 
   it('fails when the denylist does not name /privacy, and when there is no navigation route', () => {

@@ -1657,7 +1657,7 @@ test.describe('the privacy page', () => {
   test.describe('offline', () => {
     test.use({ serviceWorkers: 'allow' });
 
-    test('after one online visit, /privacy shows the privacy page and not the app', async ({ page, context }) => {
+    test('after one online visit, /privacy shows the privacy page and not the app', async ({ page, context }, testInfo) => {
       const bad = [];
       page.on('pageerror', e => bad.push(e.message));
       await routeAll(page, scenario, clock);
@@ -1672,6 +1672,8 @@ test.describe('the privacy page', () => {
       await expect(page.locator('main')).toContainText(SENTENCE);
       expect(new URL(page.url()).pathname).toBe('/privacy');
       for (const id of ['tabs', 'verdict', 'notFound']) await expect(page.locator(`#${id}`), id).toHaveCount(0);
+      // Its stylesheet is in the precache too: the page is not bare (the app's colors, in the scheme).
+      expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe(testInfo.project.use.colorScheme === 'dark' ? 'rgb(15, 35, 41)' : 'rgb(238, 243, 242)');
       expect(bad).toEqual([]);
     });
   });
