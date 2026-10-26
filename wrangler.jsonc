@@ -19,7 +19,13 @@
   },
   "vars": {
     "GITHUB_REPO": "NeverNathaniel/RoWhether",
-    "APP_ENV": "production"
+    "APP_ENV": "production",
+    // Cloudflare Access for the owner's pages (P1.18, 03 3.7). The owner makes a self-hosted
+    // Access application for rowhether.com/admin* and rowhether.com/api/admin/*, then replaces
+    // these two with its team domain and its AUD tag (not secrets). Until they are replaced,
+    // every /api/admin/* answer is 503 and nobody gets in.
+    "ACCESS_TEAM_DOMAIN": "OWNER-SETS-team.cloudflareaccess.com",
+    "ACCESS_AUD": "OWNER-SETS-aud"
   },
   // Per-connection limits on suggestions and dock reports. Periods can only
   // be 10 or 60 seconds.
@@ -44,7 +50,10 @@
   "previews": {
     "vars": {
       "GITHUB_REPO": "NeverNathaniel/RoWhether",
-      "APP_ENV": "dev"
+      "APP_ENV": "dev",
+      // The Access application for the Preview host, and its own AUD tag (see above).
+      "ACCESS_TEAM_DOMAIN": "OWNER-SETS-team.cloudflareaccess.com",
+      "ACCESS_AUD": "OWNER-SETS-preview-aud"
     },
     "ratelimits": [
       { "name": "SUGGEST_LIMIT", "namespace_id": "1002", "simple": { "limit": 3, "period": 60 } },

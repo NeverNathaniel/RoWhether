@@ -1,8 +1,9 @@
 // Cloudflare Worker entry. Serves the built app from ./dist and handles the
-// API routes: /api/info, /api/suggest and /api/reports. Static assets are
-// served first except for /api/* (see run_worker_first in wrangler.jsonc).
+// API routes: /api/info, /api/suggest, /api/reports and the owner's /api/admin/*.
+// Static assets are served first except for /api/* (see run_worker_first in wrangler.jsonc).
 import { suggestConfig, handleSuggest } from './suggest.js';
 import { listReports, addReport } from './reports.js';
+import { handleAdmin } from './admin.js';
 import { isSlug } from '../src/location.js';
 
 const notAllowed = allow => new Response('Method not allowed', { status: 405, headers: { Allow: allow } });
@@ -45,6 +46,7 @@ export default {
       if (request.method === 'POST') return addReport(request, env);
       return notAllowed('GET, POST');
     }
+    if (pathname.startsWith('/api/admin/')) return handleAdmin(request, env);
     if (pathname.startsWith('/api/')) return new Response('Not found', { status: 404 });
     return env.ASSETS.fetch(request);
   }
