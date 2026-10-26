@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs';
 import { createServer } from 'vite';
 import { SCENARIOS } from '../fixtures/golden.js';
+import { tideAnswer } from '../fixtures/tide.js';
 
 export { SCENARIOS };
 
@@ -52,7 +53,8 @@ const UPSTREAM = {
     ['/ogcapi/v1/collections/daily/items', raw => raw.flowDays]
   ],
   'api.water.noaa.gov': [
-    [/^\/nwps\/v1\/gauges\/[A-Z0-9]+\/stageflow\/forecast$/, raw => raw.flowFcst]
+    // The tide point GTND2 gets a tide forecast (P1.14); every other point, the river forecast.
+    [/^\/nwps\/v1\/gauges\/[A-Z0-9]+\/stageflow\/forecast$/, (raw, url) => (/\/GTND2\//.test(url.pathname) ? raw.tide : raw.flowFcst)]
   ],
   'geocoding-api.open-meteo.com': [
     ['/v1/search', (raw, url) => (/^worcester$/i.test(url.searchParams.get('name') || '') ? WORCESTER : { generationtime_ms: 0.05 })]
@@ -72,6 +74,7 @@ const CORS = { 'access-control-allow-origin': '*' };
 // Any other external host aborts. Returns the requests seen, for assertions.
 export async function routeAll(page, scenario, clock, { abort = false, edit = null } = {}) {
   const raw = scenario.raw(clock);
+  raw.tide = tideAnswer(clock);
   if (edit) edit(raw);
   const seen = { served: [], aborted: [], missing: [] };
   await page.route(/.*/, route => {
