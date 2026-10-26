@@ -1107,6 +1107,70 @@ describe('tidal water', () => {
       expect(r.html).not.toMatch(BROKEN);
     });
 
+    // The gate of P1.14 found these parts of the view unpinned: a browser check matches a tap's words loosely, and the
+    // bars, the note and the window are not read by any other check.
+    const nb = s => s.replace(/^(\d+) /, '$1 ');
+    const hits = html => [...html.matchAll(/<rect class="hit" data-text="([^"]*)"[^>]* x="([\d.]+)"[^>]* width="([\d.]+)"/g)].map(x => ({ text: x[1], x: +x[2], w: +x[3] }));
+
+    it('reads each hour of the chart for a tap: the height, and which way the water runs', () => {
+      const { m } = tideScreen();
+      // First light to sunset is 4 AM to 9 PM here. The low is at 9 AM and the high at 3 PM, and at a turn the water has begun to turn.
+      expect(hits(render(m)).map(h => h.text)).toEqual([
+        '4 AM: 5.4 ft, falling.', '5 AM: 4.8 ft, falling.', '6 AM: 4.0 ft, falling.', '7 AM: 3.2 ft, falling.', '8 AM: 2.6 ft, falling.',
+        '9 AM: 2.4 ft, rising.', '10 AM: 2.6 ft, rising.', '11 AM: 3.2 ft, rising.', '12 PM: 4.0 ft, rising.', '1 PM: 4.8 ft, rising.',
+        '2 PM: 5.4 ft, rising.', '3 PM: 5.6 ft, falling.', '4 PM: 5.4 ft, falling.', '5 PM: 4.8 ft, falling.', '6 PM: 4.0 ft, falling.',
+        '7 PM: 3.2 ft, falling.', '8 PM: 2.6 ft, falling.', '9 PM: 2.4 ft, rising.'
+      ].map(nb));
+    });
+
+    it('runs from the start of the first rowing hour to the end of the last: half an hour of tap at each end, an hour between', () => {
+      const hs = hits(render(tideScreen().m));
+      // The sun sets in the 8 PM hour, so that is the last rowing hour and the window ends at 9 PM, where the last height is.
+      // Each tap reaches halfway to its neighbors, and the ends are cut at the window, so they meet with no gap.
+      const w = hs[8].w;
+      expect(hs[0].w).toBeCloseTo(w / 2, 0);
+      expect(hs.at(-1).w).toBeCloseTo(w / 2, 0);
+      hs.slice(1, -1).forEach(h => expect(h.w, h.text).toBeCloseTo(w, 0));
+      hs.slice(1).forEach((h, i) => expect(h.x, h.text).toBeCloseTo(hs[i].x + hs[i].w, 0));
+    });
+
+    it('labels a high above the curve and a low below it', () => {
+      const html = render(tideScreen().m);
+      const ys = [...html.match(/class="cline" d="([^"]*)"/)[1].matchAll(/[ML][\d.]+ ([\d.]+)/g)].map(x => +x[1]);
+      const label = text => +html.match(new RegExp(`<text class="cval" x="[\\d.]+" y="([\\d.]+)"[^>]*>${text}</text>`))[1];
+      expect(label('about 3 PM, 5.6 ft')).toBeLessThan(Math.min(...ys));
+      expect(label('about 9 AM, 2.4 ft')).toBeGreaterThan(Math.max(...ys));
+    });
+
+    it('marks now and shades the hours gone by on today only', () => {
+      const { m } = screen(loc, NOW, { data: { wx: wx(across, 5, T0), tide: tide() } });
+      const today = render(m, m.days[0].key), later = render(m, m.days[1].key);
+      expect(today).toMatch(/class="cpast"/);
+      expect(today).toMatch(/class="cnow"/);
+      expect(today).toContain('>Now</text>');
+      expect(later).not.toMatch(/cpast|cnow|>Now</);
+    });
+
+    it('draws each day\'s bar from its low to its high on one scale for the week, and none for a day with no forecast', () => {
+      // Swings of 0.8, 1.2 and 1.6 ft about 4.0 ft on the three days: highs of 4.8, 5.2 and 5.6 ft, lows of 3.2, 2.8 and 2.4 ft.
+      // The scale runs from the week's lowest to its highest with room for the labels, 1 to 7 ft, so the bars compare: the
+      // widest swing is on the last day, so a scale made from the first day alone would draw every bar differently.
+      const swing = i => [0.8, 1.2, 1.6][Math.floor(i / 24)];
+      const { m } = screen(loc, NOW, { data: { wx: wx(across, 5, T0), tide: tide(i => 4 + swing(i) * Math.sin(2 * Math.PI * i / 12)) } });
+      const html = render(m);
+      expect([...html.matchAll(/<i data-lvl="" style="([^"]*)"><\/i>/g)].map(x => x[1]).slice(0, 5))
+        .toEqual(['bottom:37%;height:27%', 'bottom:30%;height:40%', 'bottom:23%;height:53%', 'height:0%', 'height:0%']);
+      expect([...html.matchAll(/class="sday"[^>]*aria-label="([^"]*)"/g)].map(x => x[1]).slice(0, 4))
+        .toEqual(['Today: high 4.8 ft, low 3.2 ft.', 'Tomorrow: high 5.2 ft, low 2.8 ft.', 'Wed Jun 17: high 5.6 ft, low 2.4 ft.', 'Thu Jun 18: no tide forecast.']);
+    });
+
+    it('names the highs and lows of a day in its note, and says which way the water goes through a day with none', () => {
+      expect(render(tideScreen().m)).toContain(`<p class="dnote">Low about ${nb('9 AM')}, 2.4 ft. High about ${nb('3 PM')}, 5.6 ft.</p>`);
+      // A forecast that only climbs, or only falls, has no turn to name.
+      expect(render(screen(loc, NOW, { data: { tide: tide(i => 2 + i * 0.2) } }).m)).toContain('<p class="dnote">The water rises through the day.</p>');
+      expect(render(screen(loc, NOW, { data: { tide: tide(i => 20 - i * 0.2) } }).m)).toContain('<p class="dnote">The water falls through the day.</p>');
+    });
+
     it('says metres for a forecast in metres', () => {
       const { m } = tideScreen({ tide: tide(undefined, T0, 'm') });
       expect(render(m)).toContain('in metres, hourly for 3 days');
