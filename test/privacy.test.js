@@ -3,12 +3,14 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { cleanContext } from '../worker/suggest.js';
+import { SITE_URL } from '../src/config.js';
 
 // The privacy page (P1.16, 07 5.15) as a source file. The browser checks read the built page; these
 // read what the build is given, for the rules a build cannot show: with two pages that share a
 // stylesheet module, Vite splits it and index.html links two (R12).
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const html = readFileSync(join(ROOT, 'privacy.html'), 'utf8');
+const index = readFileSync(join(ROOT, 'index.html'), 'utf8');
 const css = readFileSync(join(ROOT, 'src/styles/privacy.css'), 'utf8');
 // An en dash, an em dash and a middle dot, by code, so this file holds none of them.
 const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014, 0xb7)}]`);
@@ -43,6 +45,17 @@ describe('privacy.html', () => {
     for (const k of kept) expect(text, k).toContain(named[k]);
     expect(text).toContain('never sent to RoWhether, apart from the settings in a bug report that you choose to send');
     expect(text).toContain('This is the one case where settings leave your device, and only when you send it.');
+  });
+
+  // A phone draws the page at the device's width only with the viewport tag, and at 980 px shrunk without it. A
+  // desktop browser set to 360 px ignores the tag, so no browser check here can see it go.
+  it('is laid out at the device width, in English, in the app\'s theme colors, with its canonical address under the site', () => {
+    expect(html).toMatch(/^<!doctype html>\s*<html lang="en">/i);
+    for (const re of [/<meta name="viewport"[^>]*>/g, /<meta name="theme-color"[^>]*>/g]) {
+      expect(html.match(re) || [], String(re)).not.toEqual([]);
+      expect(html.match(re), String(re)).toEqual(index.match(re));
+    }
+    expect(html.match(/<link rel="canonical" href="([^"]+)"/)[1]).toBe(`${SITE_URL}privacy`);
   });
 
   it('has a header with a way back, and a date for its last change', () => {
