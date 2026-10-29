@@ -3,7 +3,7 @@
 // check (check-sources.mjs). No test here reaches the network.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { USER_AGENT, TIMEOUT_MS, get, getJSON } from '../scripts/locations/agent.mjs';
 import { bearing, distanceM, bearingReport, pointsFrom } from '../scripts/locations/bearing.mjs';
 import { ORIGIN, corsOk, shape, holdsNothing, checkBinding, checkLocation, resultLines, summary, pick, run } from '../scripts/check-sources.mjs';
@@ -322,5 +322,65 @@ describe('the scripts run from the command line', () => {
     expect(r.status).toBe(2);
     expect(r.stderr).toBe('No location named nowhere in data/locations.\n');
     expect(r.stdout).toBe('');
+  });
+});
+
+// The same scripts with test/helpers/stubfetch.mjs standing in for the network, so what
+// they do when a request is answered is run too: the id they ask for, what they print and
+// the exit status they give. Putney's nine sources and its gauge's daily means are the
+// recorded answers.
+describe('the scripts run against a stand-in for the network', () => {
+  const stub = pathToFileURL(fileURLToPath(new URL('./helpers/stubfetch.mjs', import.meta.url))).href;
+  const node = (mode, script, ...args) => spawnSync(process.execPath, ['--import', stub, fileURLToPath(new URL(`../scripts/${script}`, import.meta.url)), ...args], { encoding: 'utf8', env: { ...process.env, STUB_FETCH: mode } });
+  const requests = r => r.stderr.trim().split('\n').map(l => JSON.parse(l));
+
+  it('check-sources.mjs lists every binding of a record, and gives 0 when each one is answered', () => {
+    const r = node('fixtures', 'check-sources.mjs', 'putney-landing');
+    expect(r.status).toBe(0);
+    const lines = r.stdout.split('\n');
+    expect(lines[0]).toBe('putney-landing');
+    expect(lines.filter(l => / ok {2}/.test(l)).map(l => l.trim().split(/\s+/)[0])).toEqual(['wx', 'alerts', 'obs', 'river', 'flow', 'flowDays', 'flowFcst', 'aq', 'models']);
+    expect(r.stdout).not.toMatch(/FAIL/);
+    expect(r.stdout.endsWith('\n9 requests: 9 ok, 0 failed.\n')).toBe(true);
+    // Each request names the app and asks from its origin, as a browser at rowhether.com does.
+    expect(requests(r)).toHaveLength(9);
+    for (const q of requests(r)) expect(q).toMatchObject({ ua: USER_AGENT, origin: 'https://rowhether.com' });
+  });
+
+  it('check-sources.mjs gives 1 and prints each failure with its URL when no request is answered', () => {
+    const r = node('down', 'check-sources.mjs', 'putney-landing');
+    expect(r.status).toBe(1);
+    expect(r.stdout.split('\n').filter(l => /FAIL fetch failed$/.test(l))).toHaveLength(9);
+    expect(r.stdout).toMatch(/^ {4}https:\/\/api\.open-meteo\.com\/v1\/forecast\?/m);
+    expect(r.stdout.endsWith('\n9 requests: 0 ok, 9 failed.\n')).toBe(true);
+  });
+
+  it('check-sources.mjs gives 1 for a source that answers 404, and still lists the others', () => {
+    const r = node('none', 'check-sources.mjs', 'putney-landing');
+    expect(r.status).toBe(1);
+    expect(r.stdout).toMatch(/ FAIL HTTP 404\n/);
+    expect(r.stdout.endsWith('\n9 requests: 0 ok, 9 failed.\n')).toBe(true);
+  });
+
+  it("flowstats.mjs asks for the gauge by its USGS id, from the number too, and prints the stats and the limits", () => {
+    const r = node('fixtures', 'locations/flowstats.mjs', '01154500');
+    expect(r.status).toBe(0);
+    expect(r.stdout.split('\n')[0]).toBe('USGS-01154500, daily mean flow, 2016-01-01 to 2026-10-15, 3939 days.');
+    expect(r.stdout).toContain('{ "from": "2016-01-01", "to": "2026-10-15", "days": 3939, "p50": 6910, "p65": 10100, "p88": 20300, "p90": 21820, "p95": 28010 }');
+    expect(r.stdout).toMatch(/flowCaution\s+20000\n/);
+    expect(r.stdout).toContain('Since 2016 the median day is about 6,900 cfs. 20,000 is the top 12% of days, 28,000 the top 5%.');
+    const asked = requests(r);
+    expect(asked).toHaveLength(1);
+    expect(asked[0].url).toMatch(/^https:\/\/api\.waterdata\.usgs\.gov\/ogcapi\/v1\/collections\/daily\/items\?monitoring_location_id=USGS-01154500&/);
+    expect(asked[0].ua).toBe(USER_AGENT);
+  });
+
+  it('flowstats.mjs names the gauge and gives 1 when the request fails, and when the answer is not a 200', () => {
+    for (const mode of ['down', 'none']) {
+      const r = node(mode, 'locations/flowstats.mjs', 'USGS-01154500');
+      expect(r.status).toBe(1);
+      expect(r.stdout).toBe('');
+      expect(r.stderr).toMatch(mode === 'down' ? /USGS-01154500: fetch failed\n$/ : /USGS-01154500: HTTP 404\n$/);
+    }
   });
 });

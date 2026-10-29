@@ -215,6 +215,14 @@ describe('flowReport', () => {
     expect(text).not.toMatch(/Since 20/);
   });
 
+  it('does not blame the history when the gauge is dry on 88 days in 100', () => {
+    const rows = ROWS.map(r => ({ ...r, v: r.day < '2017-01-01' ? 5 : 0 }));
+    const text = flowReport('USGS-01154500', rows);
+    expect(text).toContain('The 88th or 95th percentile of the daily means is no flow');
+    expect(text).not.toMatch(/Not enough history/);
+    expect(text).not.toMatch(/flowCaution|Since 20/);
+  });
+
   it('says so when the gauge has no daily means', () => {
     expect(flowReport('USGS-01154500', [])).toMatch(/No daily means/);
   });

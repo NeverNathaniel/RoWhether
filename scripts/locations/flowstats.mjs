@@ -91,7 +91,7 @@ export function flowReport(id, rows) {
   if (!rows.length) return `${id}: No daily means in the window. Check the id, and that the gauge reports discharge as a daily mean.`;
   const stats = flowStats(rows), d = flowDefaults(stats);
   const out = [`${id}, daily mean flow, ${stats.from} to ${stats.to}, ${stats.days} days.`, '', 'stats, for the flow binding:', inline(stats), ''];
-  if (!d) out.push(`Not enough history to suggest flow limits: ${num(MIN_FLOW_DAYS)} days are needed. Leave the limits blank, or set them by hand.`);
+  if (!d) out.push(stats.days < MIN_FLOW_DAYS ? `Not enough history to suggest flow limits: ${num(MIN_FLOW_DAYS)} days are needed. Leave the limits blank, or set them by hand.` : 'The 88th or 95th percentile of the daily means is no flow, so no limits are suggested. Leave the limits blank, or set them by hand.');
   else out.push('Suggested limits, for thresholds and flow.against:', `flowCaution  ${d.flowCaution}`, `flowOff      ${d.flowOff}`, `against      [${d.against.map(([flow, k]) => `[${flow}, ${k}]`).join(', ')}]`, '', 'copy.flowStats:', flowSentence(rows, stats, d));
   return out.join('\n');
 }
