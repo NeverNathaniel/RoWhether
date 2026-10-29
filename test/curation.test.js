@@ -2,12 +2,14 @@
 // make (agent.mjs), the bearing between two points (bearing.mjs) and the live source
 // check (check-sources.mjs). No test here reaches the network.
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { USER_AGENT, TIMEOUT_MS, get, getJSON } from '../scripts/locations/agent.mjs';
 import { bearing, distanceM, bearingReport, pointsFrom } from '../scripts/locations/bearing.mjs';
-import { ORIGIN, corsOk, shape, checkBinding, checkLocation, resultLines, summary, pick } from '../scripts/check-sources.mjs';
+import { ORIGIN, corsOk, shape, holdsNothing, checkBinding, checkLocation, resultLines, summary, pick, run } from '../scripts/check-sources.mjs';
 import { collectLocations } from '../scripts/locations/plugin.mjs';
 import { resolveLocation } from '../src/location.js';
-import { bindingsFor } from '../src/sources/index.js';
+import { bindingsFor, SLOT_ORDER } from '../src/sources/index.js';
 
 afterEach(() => { vi.useRealTimers(); });
 
@@ -164,6 +166,32 @@ describe('check-sources.mjs', () => {
     }
   });
 
+  it('tells an answer that holds nothing from one that holds something', () => {
+    // The parsers answer an empty list, `{}`, or an object of empty lists and nulls.
+    for (const v of [[], {}, { flow: null, waterC: null }, { issued: 1, pts: [] }, { ids: [], hours: [] }, { series: [], events: [] }, null, undefined]) expect(holdsNothing(v)).toBe(true);
+    for (const v of [[0], [{}], { flow: { v: 1, t: 2 } }, { waterC: { v: 3, t: 4 } }, { issued: 1, pts: [{}] }, { series: [{}], events: [] }, { t: 1, gust: null }, { hourly: { time: [] } }, 0, '']) expect(holdsNothing(v)).toBe(false);
+  });
+
+  it('fails a 200 that holds nothing, which a wrong gauge gets, and says so', async () => {
+    const shapes = { river: () => ({}), flowFcst: () => ({ issued: 1, pts: [] }), tide: () => ({ series: [], events: [] }), models: () => ({ ids: [], hours: [] }) };
+    // Every slot but alerts, each with the shape its own parser gives, else an empty list.
+    for (const slot of SLOT_ORDER.filter(s => s !== 'alerts')) {
+      const r = await checkBinding({ ...binding(shapes[slot] || (() => [])), slot }, { fetch: reply(200, { features: [] }, ok) });
+      expect(r).toMatchObject({ slot, ok: false, status: 200, cors: '*', note: 'the answer holds nothing' });
+    }
+  });
+
+  it('passes no alerts, the usual day, and says there are none', async () => {
+    const r = await checkBinding({ ...binding(d => d.features), slot: 'alerts' }, { fetch: reply(200, { features: [] }, ok) });
+    expect(r).toMatchObject({ slot: 'alerts', ok: true, note: '0 items' });
+  });
+
+  it('names every problem of an answer, the CORS header and the emptiness together', async () => {
+    const r = await checkBinding(binding(() => []), { fetch: reply(200, {}) });
+    expect(r.ok).toBe(false);
+    expect(r.note).toMatch(/access-control-allow-origin.*; the answer holds nothing$/);
+  });
+
   it('fails an answer with no CORS header, because the browser would refuse it', async () => {
     const r = await checkBinding(binding(d => [d]), { fetch: reply(200, {}) });
     expect(r).toMatchObject({ ok: false, status: 200, cors: null });
@@ -190,7 +218,7 @@ describe('check-sources.mjs', () => {
     const loc = { slug: 'x' };
     const bs = [binding(d => d, 'https://example.test/1'), binding(() => { throw new Error('bad'); }, 'https://example.test/2'), binding(d => d, 'https://example.test/3')];
     bs[0].slot = 'wx'; bs[1].slot = 'alerts'; bs[2].slot = 'obs';
-    const f = vi.fn(async url => url.endsWith('/3') ? { status: 500, headers: new Headers(), text: async () => '' } : { status: 200, headers: new Headers(ok), text: async () => '[]' });
+    const f = vi.fn(async url => url.endsWith('/3') ? { status: 500, headers: new Headers(), text: async () => '' } : { status: 200, headers: new Headers(ok), text: async () => '[1]' });
     const rs = await checkLocation(loc, { fetch: f, bindings: () => bs });
     expect(rs.map(r => [r.slot, r.ok])).toEqual([['wx', true], ['alerts', false], ['obs', false]]);
     expect(f).toHaveBeenCalledTimes(3);
@@ -228,5 +256,71 @@ describe('check-sources.mjs', () => {
       expect(bs.length).toBeGreaterThanOrEqual(3);
       for (const b of bs) expect(b.url).toMatch(/^https:\/\//);
     }
+  });
+});
+
+describe('check-sources.mjs, run', () => {
+  const good = { slot: 'wx', url: 'https://example.test/wx', ok: true, status: 200, cors: '*', note: 'x' };
+  const bad = { slot: 'obs', url: 'https://example.test/obs', ok: false, status: 503, cors: '*', note: 'HTTP 503' };
+
+  it('prints each record and a summary, and gives 0 when every binding passed', async () => {
+    const log = vi.fn(), check = vi.fn(async () => [good, good]);
+    expect(await run(['putney-landing'], { check, log })).toBe(0);
+    expect(check).toHaveBeenCalledTimes(1);
+    expect(check.mock.calls[0][0]).toMatchObject({ slug: 'putney-landing' });
+    expect(log.mock.calls[0][0].split('\n')[0]).toBe('putney-landing');
+    expect(log.mock.calls.at(-1)[0]).toBe('\n2 requests: 2 ok, 0 failed.');
+  });
+
+  it('gives 1 when any binding of any record failed, and still checks every record', async () => {
+    const log = vi.fn(), check = vi.fn(async loc => (loc.slug === 'putney-landing' ? [bad] : [good]));
+    expect(await run(['hanover-boathouse', 'putney-landing', 'lake-natoma'], { check, log })).toBe(1);
+    expect(check).toHaveBeenCalledTimes(3);
+    expect(log.mock.calls.at(-1)[0]).toBe('\n3 requests: 2 ok, 1 failed.');
+  });
+
+  it('checks every record in data/ when none is named', async () => {
+    const check = vi.fn(async () => [good]);
+    await run([], { check, log: () => {} });
+    expect(check).toHaveBeenCalledTimes(collectLocations().length);
+  });
+
+  it('throws for a name that is no record, before it asks anything', async () => {
+    const check = vi.fn();
+    await expect(run(['nowhere'], { check, log: () => {} })).rejects.toThrow(/nowhere/);
+    expect(check).not.toHaveBeenCalled();
+  });
+});
+
+// The scripts as a person runs them. These reach no network: each refuses its arguments, or
+// needs none, before it asks anything. A script that does nothing when run would pass every
+// test above.
+describe('the scripts run from the command line', () => {
+  const node = (script, ...args) => spawnSync(process.execPath, [fileURLToPath(new URL(`../scripts/${script}`, import.meta.url)), ...args], { encoding: 'utf8' });
+
+  it('bearing.mjs prints the report', () => {
+    const r = node('locations/bearing.mjs', '42.9607', '-72.5219', '43.126189', '-72.436755');
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('Bearing 20.6 degrees (NNE). Distance 19,659 m (12.2 mi).\nBack from the second point: 200.6 degrees.\n');
+  });
+
+  it('bearing.mjs gives its usage and exit status 2 for bad arguments', () => {
+    const r = node('locations/bearing.mjs', '1', '2', '3');
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/^Usage: node scripts\/locations\/bearing.mjs/);
+    expect(r.stdout).toBe('');
+  });
+
+  it('flowstats.mjs gives its usage and exit status 2 for a bad id, before any request', () => {
+    const r = node('locations/flowstats.mjs', 'putney');
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/^Usage: node scripts\/locations\/flowstats.mjs/);
+  });
+
+  it('check-sources.mjs says which name is no record, with exit status 2, before any request', () => {
+    const r = node('check-sources.mjs', 'nowhere');
+    expect(r.status).toBe(2);
+    expect(r.stderr).toBe('No location named nowhere in data/locations.\n');
+    expect(r.stdout).toBe('');
   });
 });

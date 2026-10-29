@@ -184,6 +184,12 @@ describe('flowSentence', () => {
     expect(flowSentence(ROWS, stats, { flowCaution: 20000, flowOff: 28000 })).toBe('Since 2016 the median day is about 6,900 cfs. 20,000 is the top 12% of days, 28,000 the top 5%.');
   });
 
+  it('rounds a share to the nearest whole percent, not down', () => {
+    // Two days in three is 66.7%.
+    const rows = [{ day: '2018-05-01', v: 100 }, { day: '2018-05-02', v: 500 }, { day: '2018-05-03', v: 500 }];
+    expect(flowSentence(rows, flowStats(rows), { flowCaution: 500, flowOff: 500 })).toMatch(/500 is the top 67% of days, 500 the top 67%\.$/);
+  });
+
   it('rounds the median to two figures and takes the year from the first day', () => {
     const rows = [{ day: '2018-05-01', v: 2020 }, { day: '2018-05-02', v: 2020 }, { day: '2018-05-03', v: 2020 }];
     expect(flowSentence(rows, flowStats(rows), { flowCaution: 2020, flowOff: 2020 })).toMatch(/^Since 2018 the median day is about 2,000 cfs\./);

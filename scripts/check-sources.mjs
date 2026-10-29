@@ -9,8 +9,9 @@
 // as the browser does, with Origin: https://rowhether.com and the User-Agent of
 // agent.mjs, and prints the status, the access-control-allow-origin header and whether
 // the parser accepts the answer. A source that does not answer, answers badly, lacks
-// the CORS header or breaks its parser is a failure, and the check carries on. Exit
-// status 1 when any failed. A location's bindings are asked together, as the app does.
+// the CORS header, breaks its parser or answers with nothing in it (but alerts) is a
+// failure, and the check carries on. Exit status 1 when any failed. A location's
+// bindings are asked together, as the app does.
 // Pure functions are exported for the tests.
 import { pathToFileURL } from 'node:url';
 import { get } from './locations/agent.mjs';
@@ -34,8 +35,20 @@ export function shape(value) {
   return String(value);
 }
 
+// Whether a parser gave nothing: no items, no keys, or only empty lists and nulls. A 200
+// that holds nothing is what a wrong or retired gauge answers with.
+export function holdsNothing(v) {
+  if (Array.isArray(v)) return v.length === 0;
+  if (!v || typeof v !== 'object') return v == null;
+  const lists = Object.values(v).filter(Array.isArray);
+  return lists.length ? lists.every(l => !l.length) : Object.values(v).every(x => x == null);
+}
+
+// Only alerts may come back empty: no alert is the usual day.
+const MAY_BE_EMPTY = new Set(['alerts']);
+
 // One binding asked and read: { slot, url, ok, status, cors, note }. `note` is what the
-// parser gave when ok, else the first thing that went wrong.
+// parser gave when ok, else everything that went wrong.
 export async function checkBinding(b, { fetch: send } = {}) {
   const out = { slot: b.slot, url: b.url, ok: false, status: null, cors: null, note: '' };
   let r;
@@ -48,7 +61,10 @@ export async function checkBinding(b, { fetch: send } = {}) {
   const problems = [];
   if (!corsOk(r.headers)) problems.push(`no access-control-allow-origin for ${ORIGIN}`);
   let parsed;
-  try { parsed = b.parse(json); } catch (e) { problems.push(`parser: ${e.message}`); }
+  try {
+    parsed = b.parse(json);
+    if (!MAY_BE_EMPTY.has(b.slot) && holdsNothing(parsed)) problems.push('the answer holds nothing');
+  } catch (e) { problems.push(`parser: ${e.message}`); }
   return problems.length ? { ...out, note: problems.join('; ') } : { ...out, ok: true, note: shape(parsed) };
 }
 
@@ -77,17 +93,19 @@ export function pick(list, names) {
   return names.length ? list.filter(({ rec }) => names.includes(rec.slug)) : list;
 }
 
-async function main(names) {
+// Checks the named records, or all, and prints what it finds. Gives the exit status: 1 when
+// any binding failed, else 0. A name that is no record throws.
+export async function run(names, { check = checkLocation, log = console.log } = {}) {
   const all = [];
   for (const { rec, waterway } of pick(collectLocations(), names)) {
-    const results = await checkLocation(resolveLocation(rec, { waterway }));
-    console.log(resultLines(rec.slug, results).join('\n'));
+    const results = await check(resolveLocation(rec, { waterway }));
+    log(resultLines(rec.slug, results).join('\n'));
     all.push(...results);
   }
-  console.log(`\n${summary(all)}`);
-  process.exitCode = all.some(r => !r.ok) ? 1 : 0;
+  log(`\n${summary(all)}`);
+  return all.some(r => !r.ok) ? 1 : 0;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main(process.argv.slice(2)).catch(e => { console.error(e.message); process.exit(2); });
+  run(process.argv.slice(2)).then(code => { process.exitCode = code; }, e => { console.error(e.message); process.exit(2); });
 }
