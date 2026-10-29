@@ -46,7 +46,8 @@ Phase 0 build (no visible change for Putney; see `01-locations.md` section 8 and
 
 The prototype, phases 1 to 5, all on `dev-full-app`:
 
-12. [ ] Phase 1, many locations: the build sequence written and reviewed, then built step by step, then the Opus review and fixes.
+12. [x] Phase 1, many locations, built: the plan written and reviewed, then P1.1 to P1.20 built step by step with a gate each (2026-10-29). The final proof is the top entry of `phase-1-progress.md`.
+12a. [ ] The Opus review of phase 1, and its fixes. Read the "More for the phase 1 review" notes in the log first.
 13. [ ] Phase 2, accounts: needs the prototype database and Preview secrets from the owner first.
 14. [ ] Phase 3, reports, hazards, outings and float plans.
 15. [ ] Phase 4, notifications and Web Push.
@@ -55,11 +56,22 @@ The prototype, phases 1 to 5, all on `dev-full-app`:
 
 Waiting on the owner (placeholders in the code until then):
 
-- The `ACCESS_AUD` values for the Metrics tab's Cloudflare Access application (production and Previews).
-- The contact address for the Worker's User-Agent (NWS, Nominatim, aviationweather.gov).
-- On site at Putney: the 15 degree course heading, the Vernon pool limits, and river or straight-line miles in the temperature note.
-- Which clubs confirm dock points for the six test locations.
+- The Cloudflare Access application for the Metrics tab: `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` in `wrangler.jsonc`, for production and Previews (`OWNER-SETS-` placeholders; every `/api/admin/*` answer is 503 until then). Whether the free Zero Trust plan's seat count fits is unverified. Once it is set, open the Metrics tab once: the read of the open counter through `ANALYTICS_SQL` is unverified on the account.
+- The contact address for the User-Agent in `scripts/locations/agent.mjs` (`OWNER-SETS-contact`), for NWS, Nominatim and aviationweather.gov.
+- A run of `node scripts/check-sources.mjs` from the owner's machine before phase 1 ships (53 of 53 bindings answered from the build container).
+- `FIRST_VISIT_PUTNEY_UNTIL` in `src/config.js`: 90 days after phase 1 reaches production, set with the merge to master (a placeholder, 1 March 2027).
+- Which clubs confirm the dock point and course of each of the six test locations. Each shows "Not confirmed on site" until one does.
+- On site at Putney: the 15 degree course heading, the Vernon pool limits and the reach text, and river miles (24.8) or straight-line miles (19.3) in the temperature note.
+- Optional, a check: the upstream end of the Wilder Dam pool, and whether Little Falls is the head of tide.
+- Local knowledge for tidal stream limits, when a location with current data is added (README row 18).
 - From phase 2: the prototype D1 database id and the Preview secrets.
+
+Questions the phase 1 build raised, not decided:
+
+- Workers Logs. `wrangler.jsonc` has `observability` on, so Workers Logs keeps an invocation log of each request, `/api/info?loc=&k=&m=` among them, for 3 days on Workers Free or 7 on Paid. `/privacy` says what the count holds and is true of the count only. Turn invocation logs off, or name them in the phase 2 privacy notice?
+- The Coastal Flood Advisory. It is Caution today (`alertLevel()`). Should it be Stay off at a tidal dock such as Thompson Boat Center? One was live for VAZ054 on 2026-10-26.
+- The Tide strip's colors. Plan 6 says the strip has no status color. 01 9.4 asks for each day's worst level. Which?
+- The lake wording. On a lake with a heading course the head and crosswind sentences say "rowing upstream", and Lake Natoma's water temperature reads "River temperature" (its gauge is the river below the dam). Use "out" and "back" (01 10.4) and a label that fits?
 
 ## Coordinating with other agents
 
@@ -75,6 +87,7 @@ More than one agent may work on this branch.
 
 Newest first. One line per step: date and time UTC, who, what.
 
+- 2026-10-29 04:55 UTC, batch 5 of phase 1 done (015Sq3rx, Sonnet): P1.20, `CLAUDE.md`, the docs and the final proof. Phase 1 is built: seven locations, 1644 unit tests, 573 browser tests, main JS 33,935 of 34,200 B (12.8 KB under the row's 46,700), CSS 6,189 of 7,100 B. The proof is the top entry of `phase-1-progress.md`: the net passes; the golden ids are exactly the seven of plan 3.4; all 48 `@visual` images differ from the `30fef7a` baseline only by the chevron, the bank labels and the footer credits; the first hero is within 20% of `30fef7a` (390 px 9 to 11% above, 1280 px 2% below to 7% above, on a machine where the plan's absolute 99 and 104 ms miss); the browser checklist and 07 13's phase 1 list pass at 360, 390 and 1280 px, light and dark, midday and 9 PM; and an install from `2b7ef06` and one from `30fef7a` take the new build with settings, saved forecast and install choice kept. The Workers Free limit (100,000 requests a day, static assets free) was read on the pricing page. Four questions are with the owner and undecided: Workers Logs, the Coastal Flood Advisory level, the Tide strip's colors and the lake wording. Next: step 12a, the Opus review of phase 1.
 - 2026-10-29 batch 4 of phase 1 done (015Sq3rx, Sonnet builders and gates): P1.18 the Metrics tab at `/admin` behind Cloudflare Access (every `/api/admin/*` answer is 503 until the owner replaces the `OWNER-SETS-` values; gate 97acad5); P1.19 the curation scripts (`flowstats.mjs` reproduces the records' flow limits live, `check-sources.mjs` 53 of 53 bindings ok from this container; gate cb4075c). Every gate passed. 1644 unit tests, 573 browser tests; main JS 33,935 of 34,200 B. More for the phase 1 review: a lazy chunk that imports a module the main script holds splits that module into a second start script (rolldown 1.2.13, cause not understood; phase 2's chunks must take their app parts as arguments or be checked by the budget); Chromium keeps a failed dynamic `import()` for the life of the page, so the views, picker and suggestion-form retries probably cannot recover without a reload; `flowstats.mjs` on Putney today gives flowOff 27,000 against the record's 28,000 (decided, unchanged); jose 6.2.13 exists (6.2.12 pinned). Next: P1.20, then the Opus review of phase 1.
 - 2026-10-26 batch 4 first half done (015Sq3rx, Sonnet builders and gates): P1.15 day words and the canal and harbor modes; P1.16 the open counter (one Analytics Engine point per start, no identifiers) and `/privacy`, offline too (gate 15601e2); P1.17 the security headers, with `csp.spec.js` enforcing them on the built app in CI (gate d866a67). Every gate passed. 1466 unit tests, 549 browser tests; main JS 33,731 of 34,200 B, HTML 3,505 of 3,700 B. Owner decision raised by P1.16: `wrangler.jsonc` has Workers observability on, so Workers Logs keeps an invocation log of each `/api/info?loc=&k=&m=` request for 3 or 7 days; the privacy page's sentence is true of the count only. Options: turn invocation logs off, or name them in phase 2's notice. More for the phase 1 review: the Worker's JSON answers set no `X-Content-Type-Options: nosniff` (08 10.11); the privacy page's Settings link drops an unsaved edit; the Turnstile script is not named on the privacy page; CLAUDE.md needs the csp test and `public/_headers` (P1.20). Next: P1.18 and P1.19.
 - 2026-10-26 17:15 UTC, batch 4 (015Sq3rx): P1.15 day words across a clock change and the canal and harbor modes done, gate passed (001fcd2). The P1.16 builder was stopped by the usage limit after pushing f79210e, a196a8f, 2a65c11 and 7f1b77e (the open counter in the Worker and the app, the privacy page, a budget that sums every file the page loads); its proof and record are being finished now, then P1.17. If this session stops first, the next agent finishes P1.16 from 7f1b77e. More for the phase 1 review, from P1.15: a canal still reads as a river on the compass, the Wind tab, the forecast and the Temperature note; the Daylight tomorrow branch in `now.js` cannot be reached.
