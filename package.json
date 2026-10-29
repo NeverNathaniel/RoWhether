@@ -2,7 +2,7 @@
   "name": "rowhether",
   "private": true,
   "version": "0.1.0",
-  "description": "Rowing conditions for the Connecticut River at the Putney Rowing Club docks, Putney Landing, VT.",
+  "description": "RoWhether: rowing conditions for a list of locations, Putney Landing, VT first.",
   "type": "module",
   "engines": {
     "node": ">=20.19"

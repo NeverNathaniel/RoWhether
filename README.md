@@ -1,13 +1,15 @@
-# Putney Row
+# RoWhether
 
-Rowing conditions for the Connecticut River at the Putney Rowing Club docks, Putney Landing, Vermont. A small installable web app, built with Vite and served from a Cloudflare Worker. No backend.
+Rowing conditions for a list of locations, with Putney Landing, Vermont first: the Connecticut River at the Putney Rowing Club docks. Six more are a test set by water type: two rivers, two lakes, a reservoir below a dam and a tidal river. A small installable web app, built with Vite and served from a Cloudflare Worker. The browser fetches the conditions itself. The Worker serves the files and answers a few small routes: the suggestion form, dock reports, the open counter and the owner's Metrics tab.
 
 ## What it shows
 
 Night is not shown. The rowing day runs from first light to sunset.
 
+- Locations: the name in the header opens a picker with a search, Near me and a town search, and each location has its own address, such as `/putney-landing`. A first visit to `/` shows Putney Landing with a note that offers the picker. The six test locations show "Not confirmed on site", since no club has confirmed their dock points yet.
+
 - A go, caution or stay-off call for right now, how long it holds until sunset, and the next go period. Overnight it shows the call for the next morning instead.
-- On the water now (daytime only): wind against the course (headwind upstream, crosswind off the VT or NH bank, chop on the straight), air and water temperature, the air plus water cold check, visibility, river flow with a 48 hour trend, daylight, and a measured reading from Keene airport for comparison.
+- On the water now (daytime only): wind against the course (headwind upstream, crosswind off the VT or NH bank, chop on the straight), air and water temperature, the air plus water cold check, visibility, river flow with a 48 hour trend, daylight, and a measured reading from the nearest airport station for comparison (Keene at Putney).
 - A fog forecast: valley fog after clear, calm nights and steam fog when cold air sits over warmer water, with an estimate of when it lifts. Shown for now, the next morning, and each morning in Day by day.
 - Precipitation: an hour by hour chart of the chance, with when it is most likely, what kind, and how much. Shown in On the water now for the next 6 hours (or until sunset), and in each full forecast for its period.
 - Water state: flat, light chop, chop or rough, from wind along the straight, how long it has blown, and wind against the current. Warns about floating debris when the river is rising fast.
@@ -21,21 +23,22 @@ Night is not shown. The rowing day runs from first light to sunset.
   - Air: air quality (US AQI and PM2.5), mostly wildfire smoke, against your settings.
   - Fog: each morning's risk, and the ingredients the fog rules use, each drawn with its zone.
   - Light: first light, sunrise, sunset and dark, the UV index, and six months of daylight on one chart.
-  - River: the last 2 days with the NWS forecast for the next 3, and the last 30 days of daily flow.
+  - River: the last 2 days with the NWS forecast for the next 3, and the last 30 days of daily flow. Only for a location with a gauge.
+  - Tide: for a tidal location, the NWS tide height forecast for 3 days, with each high and low. Information only.
 - Forecast confidence: four forecast models compared on wind and rain, shown in Wind, Rain and Week.
-- Share this call, under the verdict: sends it to a team chat or copies it.
+- Share this forecast, under the verdict: sends it with the location's page to a team chat or copies it.
 - Dock reports (dev only for now): one tap at the dock to say what the water is doing, shown to everyone for 3 hours.
 - A suggestion form at the bottom. Claude rewrites each suggestion as a GitHub issue, labeled for the maintainer to review. Hidden until it is set up (see below).
-- Settings for course heading, wind and gust limits, rain chance limits, the cold-water line, flow limits, and a water temperature override. Saved in the browser.
+- Settings for course heading, wind and gust limits, rain chance limits, the cold-water line, flow limits, and a water temperature override. Saved in the browser, for each location.
 
 ## Data sources
 
-All fetched in the browser from free, keyless APIs that allow cross-origin requests.
+All fetched in the browser from free, keyless APIs that allow cross-origin requests. This table is Putney Landing's. Each location's own sources are the rows of its record in `data/`.
 
 | Data | Source |
 | --- | --- |
 | Forecast and current model values | [Open-Meteo](https://open-meteo.com/) (NOAA HRRR and GFS). Weather data by Open-Meteo.com, CC BY 4.0 |
-| Alerts | [NWS API](https://www.weather.gov/documentation/services-web-api), alerts for the dock's point |
+| Alerts | [NWS API](https://www.weather.gov/documentation/services-web-api), alerts for the forecast zones and counties on both banks (VTZ015, VTC025, NHZ011, NHC005) |
 | Measured comparison | NWS station KEEN, Keene NH, about 14 mi east |
 | River flow | USGS 01154500, Connecticut River at North Walpole NH, just below Bellows Falls dam. Latest, 48 hours, and 30 days of daily means |
 | Air quality | [Open-Meteo Air Quality](https://open-meteo.com/en/docs/air-quality-api) (Copernicus CAMS), US AQI and PM2.5 |
@@ -58,16 +61,21 @@ Needs Node 20.19 or newer.
 ```sh
 npm install
 npm run dev       # local server with hot reload
-npm test          # unit tests for the call logic and parsers
+npm test          # unit tests for the call logic, parsers, locations and Worker
+npm run test:browser  # builds, then Playwright in Chromium (see CLAUDE.md, Testing)
 npm run build     # production build into dist/
 npm run preview   # serve dist/ locally, with the service worker
 ```
 
 The code is split into small ES modules under `src/`. The call logic lives in `src/logic.js` and has no DOM access, so it is covered by unit tests. See `CLAUDE.md` for a full map.
 
+## Locations
+
+A curated location is a record in `data/locations/<slug>.json` and a waterway in `data/waterways/`. The build checks every file, fails with the file and field of each problem, and writes `locations/index.json`, one `locations/<slug>.json` per record and a `<slug>.html` page for first visits and link previews. A commit that edits a record raises its `revision` by 1, so an installed copy reads the change; CI checks it. `node scripts/check-sources.mjs` asks every source of every record live, and `node scripts/locations/flowstats.mjs USGS-<id>` suggests flow limits from a gauge's history. CLAUDE.md has the code map and the rules.
+
 ## Deploy to Cloudflare
 
-The app deploys as a Cloudflare Worker with static assets. `wrangler.jsonc` points the Worker at `dist/`. There is no Worker script yet.
+The app deploys as a Cloudflare Worker with static assets. `wrangler.jsonc` points the Worker at `dist/`, and `worker/index.js` serves it and answers `/api/*`.
 
 From your machine:
 
@@ -76,7 +84,7 @@ npx wrangler login
 npm run deploy    # builds, then wrangler deploy
 ```
 
-Or connect the repo in the Cloudflare dashboard under Workers and Pages, Create, Import a repository. Use build command `npm run build` and deploy command `npx wrangler deploy`. Each push to `main` then deploys.
+Or connect the repo in the Cloudflare dashboard under Workers and Pages, Create, Import a repository. Use build command `npm run build` and deploy command `npx wrangler deploy`. Each push to `master` then deploys.
 
 `npm run cf:dev` runs the built site in Wrangler's local Workers runtime.
 
@@ -105,12 +113,14 @@ For local testing with `npm run cf:dev`, put the four values in a `.dev.vars` fi
 
 The app is a PWA. It opens full screen with its own icon, and the app shell loads offline. Data needs a connection; without one, the last data received is shown and labeled as saved.
 
-- iPhone: open the deployed URL in Safari, tap Share, then Add to Home Screen.
+- iPhone: open the deployed URL in Safari, tap Share, then Add to Home Screen. The app opens on the last location you viewed.
 - Android: open it in Chrome and tap Install app, or use the menu, Add to Home screen.
 
-New versions install in the background and apply the next time the app opens.
+A new version installs in the background, takes over the open page and reloads it once. Settings and the last forecast are kept.
 
 ## Defaults
+
+Every location starts from these. A record may set its own, and Settings shows the location's value as the default. The flow row is Putney's.
 
 | Setting | Default | Why |
 | --- | --- | --- |
