@@ -1,0 +1,7 @@
+/* The owner's page (P1.18, 07 5.14). Read with src/admin/admin.js, so the first screen does not carry it. */
+.top .sub a, .adm a{color:var(--river); font-weight:600}
+/* A name wraps, so the table keeps its sparkline in view at 360 px; the count sits right, by its digits. */
+.adm table.hours td:first-child{white-space:normal}
+.adm table.hours th{white-space:nowrap}
+.adm table.hours th:nth-child(2), .adm table.hours td:nth-child(2){text-align:right; padding-right:1rem}
+.adm .spark{width:5rem}

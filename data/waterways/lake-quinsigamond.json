@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "lake-quinsigamond",
+  "name": "Lake Quinsigamond",
+  "reach": null,
+  "kind": "lake",
+  "country": "US",
+  "regions": ["US-MA"],
+  "geometry": null,
+  "traffic": null,
+  "notes": null,
+  "sources": []
+}

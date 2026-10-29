@@ -15,10 +15,10 @@ export const name = 'Air';
 
 export function summary(m) {
   const c = m.cur;
-  if (c.aqi != null) return { text: `AQI ${r0(c.aqi)} now, ${aqiWord(c.aqi).toLowerCase()}.`, lvl: factorLevel(c.a, KEYS).lvl };
+  if (c.aqi != null) return { text: `${m.u.aqi(c.aqi)} now, ${aqiWord(c.aqi).toLowerCase()}.`, lvl: factorLevel(c.a, KEYS).lvl };
   const next = m.h72.find(h => h.aqi != null);
   if (!next) return { text: 'No air quality forecast right now.', lvl: null };
-  return { text: `AQI ${r0(next.aqi)} at ${whenText(next.t, true)}, ${aqiWord(next.aqi).toLowerCase()}.`, lvl: factorLevel(next.a, KEYS).lvl };
+  return { text: `${m.u.aqi(next.aqi)} at ${whenText(next.t, true)}, ${aqiWord(next.aqi).toLowerCase()}.`, lvl: factorLevel(next.a, KEYS).lvl };
 }
 
 export function render(m, want) {
@@ -43,7 +43,7 @@ export function render(m, want) {
   if (!q.length) note = 'The air quality forecast covers the next 5 days. This day is past it.';
   else {
     const top = q.reduce((a, b) => (b.aqi > a.aqi ? b : a));
-    note = `${aqiWord(top.aqi)} at worst: AQI ${r0(top.aqi)} around ${hm(top.t)}.`;
+    note = `${aqiWord(top.aqi)} at worst: ${m.u.aqi(top.aqi)} around ${hm(top.t)}.`;
   }
 
   const c = new Chart({ t0: hs[0].t, t1: hs[hs.length - 1].t + HOUR, W });
@@ -64,7 +64,7 @@ export function render(m, want) {
   if (day === dayKey(m.now)) { c.past(m.now); c.vline(m.now, 'cnow', 'Now'); }
   c.axis(hourTicks(hs, tickEvery(W, hs.length)));
   for (const h of hs) {
-    c.hit(h.t, h.t + HOUR, h.aqi == null ? `${hm(h.t)}: no forecast.` : `${hm(h.t)}: AQI ${r0(h.aqi)}, ${aqiWord(h.aqi).toLowerCase()}. PM2.5 ${r0(h.pm25)} µg/m³.`);
+    c.hit(h.t, h.t + HOUR, h.aqi == null ? `${hm(h.t)}: no forecast.` : `${hm(h.t)}: ${m.u.aqi(h.aqi)}, ${aqiWord(h.aqi).toLowerCase()}. PM2.5 ${r0(h.pm25)} µg/m³.`);
   }
   const keys = legend([
     { kind: 'line', text: 'AQI' }, { kind: 'line2', text: 'PM2.5' },

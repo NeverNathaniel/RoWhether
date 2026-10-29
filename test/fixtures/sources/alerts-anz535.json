@@ -1,0 +1,273 @@
+{
+ "@context": [
+  "https://geojson.org/geojson-ld/geojson-context.jsonld",
+  {
+   "@version": "1.1",
+   "wx": "https://api.weather.gov/ontology#",
+   "@vocab": "https://api.weather.gov/ontology#"
+  }
+ ],
+ "type": "FeatureCollection",
+ "title": "Current Small Craft Advisory events",
+ "updated": "2026-10-24T09:35:33+00:00",
+ "features": [
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.80748121d79d6ac43bb990367a014899df8f2317.004.1",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.80748121d79d6ac43bb990367a014899df8f2317.004.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.80748121d79d6ac43bb990367a014899df8f2317.004.1",
+    "areaDesc": "Waters from Point Arena to Point Reyes 10-60 NM",
+    "geocode": {
+     "SAME": [
+      "057570"
+     ],
+     "UGC": [
+      "PZZ570"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/forecast/PZZ570"
+    ],
+    "references": [
+     {
+      "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.c8a22e7abbf24b092cb80e08096dc75169eca6d6.004.1",
+      "identifier": "urn:oid:2.49.0.1.840.0.c8a22e7abbf24b092cb80e08096dc75169eca6d6.004.1",
+      "sender": "w-nws.webmaster@noaa.gov",
+      "sent": "2026-10-23T20:53:00-07:00"
+     }
+    ],
+    "sent": "2026-10-24T02:35:00-07:00",
+    "effective": "2026-10-24T02:35:00-07:00",
+    "onset": "2026-10-24T02:35:00-07:00",
+    "expires": "2026-10-24T09:00:00-07:00",
+    "ends": "2026-10-24T09:00:00-07:00",
+    "status": "Actual",
+    "messageType": "Update",
+    "category": "Met",
+    "severity": "Minor",
+    "certainty": "Likely",
+    "urgency": "Expected",
+    "event": "Small Craft Advisory",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS San Francisco CA",
+    "headline": "Small Craft Advisory issued October 24 at 2:35AM PDT until October 24 at 9:00AM PDT by NWS San Francisco CA",
+    "description": "* WHAT...North winds 10 to 20 kt and seas 8 to 12 ft.\n\n* WHERE...Waters from Point Arena to Point Reyes 10-60 NM.\n\n* WHEN...Until 9 AM PDT this morning.\n\n* IMPACTS...Conditions will be hazardous to small craft.",
+    "instruction": "Inexperienced mariners, especially those operating smaller\nvessels, should avoid navigating in hazardous conditions.",
+    "response": "Avoid",
+    "note": null,
+    "parameters": {
+     "AWIPSidentifier": [
+      "MWWMTR"
+     ],
+     "WMOidentifier": [
+      "WHUS76 KMTR 240935"
+     ],
+     "NWSheadline": [
+      "SMALL CRAFT ADVISORY REMAINS IN EFFECT UNTIL 9 AM PDT THIS MORNING"
+     ],
+     "BLOCKCHANNEL": [
+      "EAS",
+      "NWEM",
+      "CMAS"
+     ],
+     "VTEC": [
+      "/O.CON.KMTR.SC.Y.0128.000000T0000Z-261024T1600Z/"
+     ],
+     "eventEndingTime": [
+      "2026-10-24T09:00:00-07:00"
+     ],
+     "expiredReferences": [
+      "w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.642fe0c6a04b4cce3a70ea16d87f857cf8511808.003.1,2026-10-23T14:48:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.3a0cf323cd631f91b97b594e6aceac10471e8491.003.1,2026-10-23T08:47:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.dc521e44f7685668a45336e14e4cb9105cc5c180.004.1,2026-10-23T02:38:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.40547b19e48ce934196591a182ccc08c1dce68c8.001.1,2026-10-22T20:00:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.af5ad60bee3e33c970e4577a6451054fb4caed9c.001.1,2026-10-22T14:29:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.aba05f3f42ee18de16fa119179cd7f8b63053dda.002.1,2026-10-22T08:27:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.3edda763e8f3884078bb19e53da7f19070e40d68.004.1,2026-10-22T02:09:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.3fda7b624376cfb74d3946af75a99bae9b6852d7.001.1,2026-10-21T20:00:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.3d182b0e2b899e98c51f71d208c0daea338e1854.001.1,2026-10-21T14:16:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.921249b49c66bfcaff80ad4db8f3e36d3dd62dd7.002.1,2026-10-21T08:31:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.32498000a4a17e2f29753fefc68135ecfb4877c1.001.1,2026-10-21T02:09:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.1b6aea7259eef63e934516c074c6d57b25228a07.001.1,2026-10-20T20:18:00-07:00"
+     ]
+    },
+    "scope": "Public",
+    "code": "IPAWSv1.0",
+    "language": "en-US",
+    "web": "http://www.weather.gov",
+    "eventCode": {
+     "SAME": [
+      "NWS"
+     ],
+     "NationalWeatherService": [
+      "SCY"
+     ]
+    }
+   }
+  },
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.80748121d79d6ac43bb990367a014899df8f2317.003.1",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.80748121d79d6ac43bb990367a014899df8f2317.003.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.80748121d79d6ac43bb990367a014899df8f2317.003.1",
+    "areaDesc": "Waters from Point Pinos to Point Piedras Blancas 10-60 NM",
+    "geocode": {
+     "SAME": [
+      "057576"
+     ],
+     "UGC": [
+      "PZZ576"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/forecast/PZZ576"
+    ],
+    "references": [
+     {
+      "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.c8a22e7abbf24b092cb80e08096dc75169eca6d6.007.1",
+      "identifier": "urn:oid:2.49.0.1.840.0.c8a22e7abbf24b092cb80e08096dc75169eca6d6.007.1",
+      "sender": "w-nws.webmaster@noaa.gov",
+      "sent": "2026-10-23T20:53:00-07:00"
+     }
+    ],
+    "sent": "2026-10-24T02:35:00-07:00",
+    "effective": "2026-10-24T02:35:00-07:00",
+    "onset": "2026-10-24T02:35:00-07:00",
+    "expires": "2026-10-24T03:45:00-07:00",
+    "ends": "2026-10-24T03:00:00-07:00",
+    "status": "Actual",
+    "messageType": "Update",
+    "category": "Met",
+    "severity": "Minor",
+    "certainty": "Likely",
+    "urgency": "Expected",
+    "event": "Small Craft Advisory",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS San Francisco CA",
+    "headline": "Small Craft Advisory issued October 24 at 2:35AM PDT until October 24 at 3:00AM PDT by NWS San Francisco CA",
+    "description": "Conditions have dropped below advisory criteria, therefore the\nSmall Craft Advisory has been allowed to expire.",
+    "instruction": null,
+    "response": "Avoid",
+    "note": null,
+    "parameters": {
+     "AWIPSidentifier": [
+      "MWWMTR"
+     ],
+     "WMOidentifier": [
+      "WHUS76 KMTR 240935"
+     ],
+     "NWSheadline": [
+      "SMALL CRAFT ADVISORY WILL EXPIRE AT 3 AM PDT EARLY THIS MORNING"
+     ],
+     "BLOCKCHANNEL": [
+      "EAS",
+      "NWEM",
+      "CMAS"
+     ],
+     "VTEC": [
+      "/O.EXP.KMTR.SC.Y.0128.000000T0000Z-261024T1000Z/"
+     ],
+     "eventEndingTime": [
+      "2026-10-24T03:00:00-07:00"
+     ],
+     "expiredReferences": [
+      "w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.642fe0c6a04b4cce3a70ea16d87f857cf8511808.005.1,2026-10-23T14:48:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.3a0cf323cd631f91b97b594e6aceac10471e8491.006.1,2026-10-23T08:47:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.dc521e44f7685668a45336e14e4cb9105cc5c180.006.1,2026-10-23T02:38:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.40547b19e48ce934196591a182ccc08c1dce68c8.004.1,2026-10-22T20:00:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.af5ad60bee3e33c970e4577a6451054fb4caed9c.004.1,2026-10-22T14:29:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.aba05f3f42ee18de16fa119179cd7f8b63053dda.005.1,2026-10-22T08:27:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.3edda763e8f3884078bb19e53da7f19070e40d68.001.1,2026-10-22T02:09:00-07:00"
+     ]
+    },
+    "scope": "Public",
+    "code": "IPAWSv1.0",
+    "language": "en-US",
+    "web": "http://www.weather.gov",
+    "eventCode": {
+     "SAME": [
+      "NWS"
+     ],
+     "NationalWeatherService": [
+      "SCY"
+     ]
+    }
+   }
+  },
+  {
+   "id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.80748121d79d6ac43bb990367a014899df8f2317.002.1",
+   "type": "Feature",
+   "geometry": null,
+   "properties": {
+    "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.80748121d79d6ac43bb990367a014899df8f2317.002.1",
+    "@type": "wx:Alert",
+    "id": "urn:oid:2.49.0.1.840.0.80748121d79d6ac43bb990367a014899df8f2317.002.1",
+    "areaDesc": "Waters from Pigeon Point to Point Pinos 10-60 NM",
+    "geocode": {
+     "SAME": [
+      "057575"
+     ],
+     "UGC": [
+      "PZZ575"
+     ]
+    },
+    "affectedZones": [
+     "https://api.weather.gov/zones/forecast/PZZ575"
+    ],
+    "references": [
+     {
+      "@id": "https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.c8a22e7abbf24b092cb80e08096dc75169eca6d6.006.1",
+      "identifier": "urn:oid:2.49.0.1.840.0.c8a22e7abbf24b092cb80e08096dc75169eca6d6.006.1",
+      "sender": "w-nws.webmaster@noaa.gov",
+      "sent": "2026-10-23T20:53:00-07:00"
+     }
+    ],
+    "sent": "2026-10-24T02:35:00-07:00",
+    "effective": "2026-10-24T02:35:00-07:00",
+    "onset": "2026-10-24T02:35:00-07:00",
+    "expires": "2026-10-24T03:45:00-07:00",
+    "ends": "2026-10-24T03:00:00-07:00",
+    "status": "Actual",
+    "messageType": "Update",
+    "category": "Met",
+    "severity": "Minor",
+    "certainty": "Likely",
+    "urgency": "Expected",
+    "event": "Small Craft Advisory",
+    "sender": "w-nws.webmaster@noaa.gov",
+    "senderName": "NWS San Francisco CA",
+    "headline": "Small Craft Advisory issued October 24 at 2:35AM PDT until October 24 at 3:00AM PDT by NWS San Francisco CA",
+    "description": "Conditions have dropped below advisory criteria, therefore the\nSmall Craft Advisory has been allowed to expire.",
+    "instruction": null,
+    "response": "Avoid",
+    "note": null,
+    "parameters": {
+     "AWIPSidentifier": [
+      "MWWMTR"
+     ],
+     "WMOidentifier": [
+      "WHUS76 KMTR 240935"
+     ],
+     "NWSheadline": [
+      "SMALL CRAFT ADVISORY WILL EXPIRE AT 3 AM PDT EARLY THIS MORNING"
+     ],
+     "BLOCKCHANNEL": [
+      "EAS",
+      "NWEM",
+      "CMAS"
+     ],
+     "VTEC": [
+      "/O.EXP.KMTR.SC.Y.0128.000000T0000Z-261024T1000Z/"
+     ],
+     "eventEndingTime": [
+      "2026-10-24T03:00:00-07:00"
+     ],
+     "expiredReferences": [
+      "w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.642fe0c6a04b4cce3a70ea16d87f857cf8511808.002.1,2026-10-23T14:48:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.3a0cf323cd631f91b97b594e6aceac10471e8491.005.1,2026-10-23T08:47:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.dc521e44f7685668a45336e14e4cb9105cc5c180.007.1,2026-10-23T02:38:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.40547b19e48ce934196591a182ccc08c1dce68c8.003.1,2026-10-22T20:00:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.af5ad60bee3e33c970e4577a6451054fb4caed9c.003.1,2026-10-22T14:29:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.aba05f3f42ee18de16fa119179cd7f8b63053dda.004.1,2026-10-22T08:27:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.3edda763e8f3884078bb19e53da7f19070e40d68.006.1,2026-10-22T02:09:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.3fda7b624376cfb74d3946af75a99bae9b6852d7.003.1,2026-10-21T20:00:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.3d182b0e2b899e98c51f71d208c0daea338e1854.003.1,2026-10-21T14:16:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.921249b49c66bfcaff80ad4db8f3e36d3dd62dd7.004.1,2026-10-21T08:31:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.32498000a4a17e2f29753fefc68135ecfb4877c1.003.1,2026-10-21T02:09:00-07:00 w-nws.webmaster@noaa.gov,urn:oid:2.49.0.1.840.0.1b6aea7259eef63e934516c074c6d57b25228a07.003.1,2026-10-20T20:18:00-07:00"
+     ]
+    },
+    "scope": "Public",
+    "code": "IPAWSv1.0",
+    "language": "en-US",
+    "web": "http://www.weather.gov",
+    "eventCode": {
+     "SAME": [
+      "NWS"
+     ],
+     "NationalWeatherService": [
+      "SCY"
+     ]
+    }
+   }
+  }
+ ]
+}

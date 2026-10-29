@@ -138,6 +138,10 @@ export function initInstall() {
   $('setInstallBtn').addEventListener('click', install);
   $('installLater').addEventListener('click', dismiss);
   $('installNever').addEventListener('click', never);
+  // The footer has to clear the bar, and the bar's height changes with the
+  // screen width and with Don't show again, so the style sheet reads it here.
+  const bar = $('installBar');
+  new ResizeObserver(() => document.body.style.setProperty('--install-h', `${bar.offsetHeight}px`)).observe(bar);
   // A phone often keeps the tab alive, so coming back after a while is a
   // new visit too.
   document.addEventListener('visibilitychange', () => {

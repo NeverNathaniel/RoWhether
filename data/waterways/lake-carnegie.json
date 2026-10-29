@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "lake-carnegie",
+  "name": "Lake Carnegie",
+  "reach": null,
+  "kind": "lake",
+  "country": "US",
+  "regions": ["US-NJ"],
+  "geometry": null,
+  "traffic": null,
+  "notes": null,
+  "sources": []
+}

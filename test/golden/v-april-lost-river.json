@@ -1,0 +1,382 @@
+{
+  "model": {
+    "sha256": "b7491981f3d5e126fe32467782ccd638640c6ce7cddadf6d7eb792ff4c34aaed",
+    "bytes": 93156
+  },
+  "text": {
+    "sha256": "c75ce55764491d3e8b4eb696968081792675eae83495ea36557524fcda2e693e",
+    "bytes": 14797
+  },
+  "plans": {
+    "60-any": [
+      {"key":"2026-04-18","start":1776510000000,"end":1776513600000,"score":2.5330144355414608,"water":0,"wmin":2.4,"wmax":2.4,"gmax":5.8,"pop":10,"hs":[1776510000000]},
+      {"key":"2026-04-17","start":1776420000000,"end":1776423600000,"score":5.654281226919883,"water":0,"wmin":4.6,"wmax":4.6,"gmax":8.7,"pop":6,"hs":[1776420000000]},
+      {"key":"2026-04-19","start":1776596400000,"end":1776600000000,"score":7.855043491151923,"water":0,"wmin":4.4,"wmax":4.4,"gmax":8,"pop":57,"hs":[1776596400000]},
+      {"key":"2026-04-20","start":1776682800000,"end":1776686400000,"score":8.89171661243326,"water":1,"wmin":5.4,"wmax":5.4,"gmax":10.7,"pop":42,"hs":[1776682800000]}
+    ],
+    "60-morning": [
+      {"key":"2026-04-18","start":1776510000000,"end":1776513600000,"score":2.5330144355414608,"water":0,"wmin":2.4,"wmax":2.4,"gmax":5.8,"pop":10,"hs":[1776510000000]},
+      {"key":"2026-04-17","start":1776420000000,"end":1776423600000,"score":5.654281226919883,"water":0,"wmin":4.6,"wmax":4.6,"gmax":8.7,"pop":6,"hs":[1776420000000]},
+      {"key":"2026-04-19","start":1776596400000,"end":1776600000000,"score":7.855043491151923,"water":0,"wmin":4.4,"wmax":4.4,"gmax":8,"pop":57,"hs":[1776596400000]},
+      {"key":"2026-04-20","start":1776682800000,"end":1776686400000,"score":8.89171661243326,"water":1,"wmin":5.4,"wmax":5.4,"gmax":10.7,"pop":42,"hs":[1776682800000]}
+    ],
+    "60-afternoon": [
+      {"key":"2026-04-18","start":1776551400000,"end":1776555000000,"score":6.524814754378049,"water":1,"wmin":3.7,"wmax":4.3,"gmax":9,"pop":6,"hs":[1776549600000,1776553200000]},
+      {"key":"2026-04-17","start":1776465000000,"end":1776468600000,"score":9.740392714320485,"water":1,"wmin":5.8,"wmax":7.7,"gmax":15.4,"pop":6,"hs":[1776463200000,1776466800000]},
+      {"key":"2026-04-19","start":1776637800000,"end":1776641400000,"score":11.107407526412747,"water":1,"wmin":5.8,"wmax":7.2,"gmax":13.6,"pop":50,"hs":[1776636000000,1776639600000]},
+      {"key":"2026-04-20","start":1776724200000,"end":1776727800000,"score":12.10694616534082,"water":2,"wmin":7,"wmax":8.6,"gmax":16.1,"pop":39,"hs":[1776722400000,1776726000000]}
+    ],
+    "90-any": [
+      {"key":"2026-04-18","start":1776510000000,"end":1776515400000,"score":2.813555078047301,"water":0,"wmin":2.4,"wmax":3.5,"gmax":7.5,"pop":10,"hs":[1776510000000,1776513600000]},
+      {"key":"2026-04-17","start":1776418598622,"end":1776423998622,"score":5.92043700489148,"water":0,"wmin":4.6,"wmax":5.3,"gmax":9.8,"pop":6,"hs":[1776416400000,1776420000000,1776423600000]},
+      {"key":"2026-04-19","start":1776596400000,"end":1776601800000,"score":8.308434124519978,"water":1,"wmin":4.4,"wmax":5.3,"gmax":10.4,"pop":58,"hs":[1776596400000,1776600000000]},
+      {"key":"2026-04-20","start":1776679200000,"end":1776684600000,"score":9.15495983759866,"water":1,"wmin":5.4,"wmax":5.4,"gmax":11.8,"pop":42,"hs":[1776679200000,1776682800000]}
+    ],
+    "90-morning": [
+      {"key":"2026-04-18","start":1776510000000,"end":1776515400000,"score":2.813555078047301,"water":0,"wmin":2.4,"wmax":3.5,"gmax":7.5,"pop":10,"hs":[1776510000000,1776513600000]},
+      {"key":"2026-04-17","start":1776418598622,"end":1776423998622,"score":5.92043700489148,"water":0,"wmin":4.6,"wmax":5.3,"gmax":9.8,"pop":6,"hs":[1776416400000,1776420000000,1776423600000]},
+      {"key":"2026-04-19","start":1776596400000,"end":1776601800000,"score":8.308434124519978,"water":1,"wmin":4.4,"wmax":5.3,"gmax":10.4,"pop":58,"hs":[1776596400000,1776600000000]},
+      {"key":"2026-04-20","start":1776679200000,"end":1776684600000,"score":9.15495983759866,"water":1,"wmin":5.4,"wmax":5.4,"gmax":11.8,"pop":42,"hs":[1776679200000,1776682800000]}
+    ],
+    "90-afternoon": [
+      {"key":"2026-04-18","start":1776549600000,"end":1776555000000,"score":6.524814754378049,"water":1,"wmin":3.7,"wmax":4.3,"gmax":9,"pop":6,"hs":[1776549600000,1776553200000]},
+      {"key":"2026-04-17","start":1776463200000,"end":1776468600000,"score":9.740392714320485,"water":1,"wmin":5.8,"wmax":7.7,"gmax":15.4,"pop":6,"hs":[1776463200000,1776466800000]},
+      {"key":"2026-04-19","start":1776636000000,"end":1776641400000,"score":11.107407526412747,"water":1,"wmin":5.8,"wmax":7.2,"gmax":13.6,"pop":50,"hs":[1776636000000,1776639600000]},
+      {"key":"2026-04-20","start":1776722400000,"end":1776727800000,"score":12.10694616534082,"water":2,"wmin":7,"wmax":8.6,"gmax":16.1,"pop":39,"hs":[1776722400000,1776726000000]}
+    ],
+    "120-any": [
+      {"key":"2026-04-18","start":1776510000000,"end":1776517200000,"score":2.813555078047301,"water":0,"wmin":2.4,"wmax":3.5,"gmax":7.5,"pop":10,"hs":[1776510000000,1776513600000]},
+      {"key":"2026-04-17","start":1776418598622,"end":1776425798622,"score":5.92043700489148,"water":0,"wmin":4.6,"wmax":5.3,"gmax":9.8,"pop":6,"hs":[1776416400000,1776420000000,1776423600000]},
+      {"key":"2026-04-19","start":1776596400000,"end":1776603600000,"score":8.308434124519978,"water":1,"wmin":4.4,"wmax":5.3,"gmax":10.4,"pop":58,"hs":[1776596400000,1776600000000]},
+      {"key":"2026-04-20","start":1776679200000,"end":1776686400000,"score":9.15495983759866,"water":1,"wmin":5.4,"wmax":5.4,"gmax":11.8,"pop":42,"hs":[1776679200000,1776682800000]}
+    ],
+    "120-morning": [
+      {"key":"2026-04-18","start":1776510000000,"end":1776517200000,"score":2.813555078047301,"water":0,"wmin":2.4,"wmax":3.5,"gmax":7.5,"pop":10,"hs":[1776510000000,1776513600000]},
+      {"key":"2026-04-17","start":1776418598622,"end":1776425798622,"score":5.92043700489148,"water":0,"wmin":4.6,"wmax":5.3,"gmax":9.8,"pop":6,"hs":[1776416400000,1776420000000,1776423600000]},
+      {"key":"2026-04-19","start":1776596400000,"end":1776603600000,"score":8.308434124519978,"water":1,"wmin":4.4,"wmax":5.3,"gmax":10.4,"pop":58,"hs":[1776596400000,1776600000000]},
+      {"key":"2026-04-20","start":1776679200000,"end":1776686400000,"score":9.15495983759866,"water":1,"wmin":5.4,"wmax":5.4,"gmax":11.8,"pop":42,"hs":[1776679200000,1776682800000]}
+    ],
+    "120-afternoon": [
+      {"key":"2026-04-18","start":1776547800000,"end":1776555000000,"score":7.523316073876604,"water":1,"wmin":3.7,"wmax":6.2,"gmax":11.4,"pop":9,"hs":[1776546000000,1776549600000,1776553200000]},
+      {"key":"2026-04-17","start":1776461400000,"end":1776468600000,"score":10.307110494835202,"water":1,"wmin":5.8,"wmax":8.7,"gmax":16,"pop":6,"hs":[1776459600000,1776463200000,1776466800000]},
+      {"key":"2026-04-19","start":1776634200000,"end":1776641400000,"score":12.337061027610394,"water":2,"wmin":5.8,"wmax":8.5,"gmax":17.1,"pop":55,"hs":[1776632400000,1776636000000,1776639600000]}
+    ]
+  },
+  "runs": {
+    "sha256": "e5623c55c8e62412c74c204ff9e3bcc152cfa7fb6a3ae3f0d6d1aeeccdebe0d9",
+    "bytes": 13587
+  },
+  "parsers": {
+    "sha256": "93b499ed19c89fc200a7c9bfa76aa62500796a8f6c8bbddff18eeb29994d0f4f",
+    "bytes": 24794
+  },
+  "views": {
+    "week": {
+      "summary": {"text":"Next go: Fri Apr 17 morning, 5:36 AM to 10 AM.","lvl":null},
+      "days": {"null":{"day":null,"length":14685,"sha256":"86008e21640bf5fb1951351229c8704a1069742ef458558a56946ccdcf699b37"}}
+    },
+    "wind": {
+      "summary": {"text":"14 mph from SSW now, gusts 23.","lvl":1},
+      "days": {"null":{"day":"2026-04-14","length":19566,"sha256":"867a05f7306cb9c3880588dd1a60ce7668109867e43a222f1f8094fe654267a3"}}
+    },
+    "river": {
+      "summary": {"text":"Gauge unavailable.","lvl":null},
+      "days": {"null":{"day":null,"length":33729,"sha256":"faf55b762a0616a261be88b2b9a42ffa6ca220a7640d58a565bb00e3d39f3e05"}}
+    },
+    "storms": {
+      "summary": {"text":"Thunderstorms possible from tomorrow 12 PM. 2 NWS alerts active.","lvl":1},
+      "days": {"null":{"day":"2026-04-14","length":15636,"sha256":"98b716eeb092eef7ac271c3f9be1991ab42ef881ddb3659c2c17e57a68f4b81e"}}
+    },
+    "fog": {
+      "summary": {"text":"Tomorrow morning: fog risk low.","lvl":0},
+      "days": {"null":{"day":"2026-04-15","length":11940,"sha256":"3d758167438c7bc56fcc26810240c585c25cedc41128b3cc675fa32f1b2368b6"}}
+    },
+    "temperature": {
+      "summary": {"text":"57°F air now.","lvl":0},
+      "days": {"null":{"day":"2026-04-14","length":10177,"sha256":"b6ef96f9205e1e8d547b5af97517bc2145826051ba7eba6c2ef761e5a9aaa03c"}}
+    },
+    "rain": {
+      "summary": {"text":"65% chance around 5 PM, rain.","lvl":1},
+      "days": {"null":{"day":"2026-04-14","length":13225,"sha256":"50a3673b8347b1f1f45b66cfdd7cc45b41c3ab08aaef534447f4f014f5c43969"}}
+    },
+    "light": {
+      "summary": {"text":"Today: first light 5:41 AM, sunset 7:31 PM. 13 h 20 min of daylight.","lvl":null},
+      "days": {"null":{"day":"2026-04-14","length":33647,"sha256":"4f5313e3dfb48e3c25cd00b75a65c10b5d8b342d9555f2da7b35e453f25032e6"}}
+    },
+    "air": {
+      "summary": {"text":"AQI 42 now, good.","lvl":0},
+      "days": {"null":{"day":"2026-04-14","length":10196,"sha256":"aaf28281fd549a3aa97778c1b293860ef02e5c6ded73e279aede7b3917ee637f"}}
+    }
+  },
+  "home": {
+    "alerts": {
+      "innerHTML": "\n    <div class=\"alert\" data-lvl=\"1\" role=\"alert\">\n      <strong>Flood Watch</strong>\n      <p>Flood Watch issued April 14 at 5:12AM EDT until April 16 at 8:00AM EDT by NWS Albany NY</p>\n      <details><summary>Details</summary><pre>* WHAT...Flooding caused by excessive rainfall and snowmelt is possible.\n\n* WHERE...Portions of southern Vermont, including Windham County.\n\n* IMPACTS...Excessive runoff may result in flooding of rivers, creeks and other low-lying and flood-prone locations.\n\nYou should monitor later forecasts and be alert for possible Flood Warnings. Those living in areas prone to flooding should be prepared to take action should flooding develop.</pre></details>\n    </div>\n    <div class=\"alert\" data-lvl=\"2\" role=\"alert\">\n      <strong>Wind Advisory</strong>\n      <p>Wind Advisory issued April 14 at 5:12AM EDT until April 16 at 6:00PM EDT by NWS Albany NY</p>\n      <details><summary>Details</summary><pre>* WHAT...West winds 15 to 25 mph with gusts up to 40 mph expected.\n\n* WHERE...Windham County.\n\nWinds this strong can blow around unsecured objects. Boats on open water should secure moorings.</pre></details>\n    </div>",
+      "textContent": "\n    \n      Flood Watch\n      Flood Watch issued April 14 at 5:12AM EDT until April 16 at 8:00AM EDT by NWS Albany NY\n      Details* WHAT...Flooding caused by excessive rainfall and snowmelt is possible.\n\n* WHERE...Portions of southern Vermont, including Windham County.\n\n* IMPACTS...Excessive runoff may result in flooding of rivers, creeks and other low-lying and flood-prone locations.\n\nYou should monitor later forecasts and be alert for possible Flood Warnings. Those living in areas prone to flooding should be prepared to take action should flooding develop.\n    \n    \n      Wind Advisory\n      Wind Advisory issued April 14 at 5:12AM EDT until April 16 at 6:00PM EDT by NWS Albany NY\n      Details* WHAT...West winds 15 to 25 mph with gusts up to 40 mph expected.\n\n* WHERE...Windham County.\n\nWinds this strong can blow around unsecured objects. Boats on open water should secure moorings.\n    ",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "compass": {
+      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-22.8\" y=\"-30.9\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"35.2\" y=\"-15.4\" text-anchor=\"middle\">NH</text><g transform=\"rotate(205)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
+      "textContent": "NESWVTNH",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "compassCap": {
+      "innerHTML": "Wind from SSW. River runs SSW, upstream heading 15°.",
+      "textContent": "Wind from SSW. River runs SSW, upstream heading 15°.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "days": {
+      "innerHTML": {"length":15267,"sha256":"dc4c6041e62790180bcee002a3e5096ccd4cde3b0abb30dcf2a6bfffdea83019"},
+      "textContent": {"length":5742,"sha256":"428bec710af6588be4f483452c1f7a5ac85014b52bee0ff650cacb4980d558b0"},
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "facts": {
+      "innerHTML": {"length":2431,"sha256":"2c25ee293866902dfd6a942f2b4c8f97dd5bbe29ae0ab8ba333686ae11b1580c"},
+      "textContent": "Wind14 mph, gusts 23From SSW. Tailwind rowing upstream, headwind coming back. Chop builds along the straight.Water stateRough waterWind runs along the straight, with a long reach to build waves. River rising fast. Watch for floating debris.Air57°FFeels like 53°F. Dew point 46°F.Water--Gauge unavailable. Add a dock reading in Settings.Visibility10+ miFog risk low now and tomorrow morning.Air qualityAQI 42Good. Fine particles 8 µg/m³. A forecast, not a measurement.River flow--USGS gauge unavailable.Daylight6:11 AM to 7:31 PMFirst light 5:41 AM, dark by 8:01 PM. Lights required outside sunrise to sunset.Measured at Keene12 mph SW, 56°FMostly Cloudy. Keene airport, 14 mi east. A check on the model. 7 min ago.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "hero": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {"lvl":1},
+      "style": {},
+      "extra": {}
+    },
+    "holds": {
+      "innerHTML": "Next go: Fri Apr 17 morning, 5:36 AM to 10 AM.",
+      "textContent": "Next go: Fri Apr 17 morning, 5:36 AM to 10 AM.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "nowPrecip": {
+      "innerHTML": {"length":3545,"sha256":"32a3389bec22d364aa1a74d98aa7f6e25f83d27be44e943669ae6280cd345017"},
+      "textContent": "\n    Precipitation, now to 6 PM\n    65% chance\n    Dry now. Most likely 4 PM to 6 PM. Rain, about 0.12 in.\n    60%90%12 PM1 PM2 PM3 PM4 PM65%5 PM12 PM: 26% chance.1 PM: 27% chance.2 PM: 23% chance.3 PM: 50% chance, rain, about 0.02 in.4 PM: 60% chance, rain, about 0.04 in.5 PM: 65% chance, rain, about 0.06 in.\n    Tap a column for that hour.\n  ",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "nowSection": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "shareBtn": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "statusNote": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "updated": {
+      "innerHTML": "Updated 11:57 AM",
+      "textContent": "Updated 11:57 AM",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "verdict": {
+      "innerHTML": "Caution.",
+      "textContent": "Caution.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "why": {
+      "innerHTML": "Wind 14 mph. Gusts to 23 mph. Flood Watch.<span class=\"cond\">Wind 14 mph from SSW, gusts 23. Rough water. 57°F air.</span>",
+      "textContent": "Wind 14 mph. Gusts to 23 mph. Flood Watch.Wind 14 mph from SSW, gusts 23. Rough water. 57°F air.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "notChecked": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    }
+  },
+  "forecasts": {
+    "2026-04-14-midday": {
+      "length": 5989,
+      "sha256": "33c256764811bb10ec9c769514edc8379bac13e791ede1764b644cdf80682df8"
+    },
+    "2026-04-14-afternoon": {
+      "length": 6801,
+      "sha256": "e49e5aaa4aa2cd48ef59c450e3d94fa52144268d048f9c3bd28e4e221da420cd"
+    },
+    "2026-04-15-morning": {
+      "length": 6750,
+      "sha256": "bbed159b89d0af29f55f5717be3a8a35665316a0ddcf5dd5ae04917af4fcd9b0"
+    },
+    "2026-04-15-midday": {
+      "length": 6727,
+      "sha256": "bb139bdc791f0bf2339a79ce412569b66540ffa15e203f6ae40e228486fb9e98"
+    },
+    "2026-04-15-afternoon": {
+      "length": 6903,
+      "sha256": "d3b39aed03090144d987320c8feff5debf8bb9a8479e121d67f13e35f4dbf961"
+    },
+    "2026-04-16-morning": {
+      "length": 6709,
+      "sha256": "d76ce187b19145f5ef87c34568b2c830bdb9681b52ee99ab2dc8f000aa19d199"
+    },
+    "2026-04-16-midday": {
+      "length": 6696,
+      "sha256": "211bbd235c4f2f3e26ca2c335a32fe60ea8e9cc6177bc9a1adb3b4d6c8171f80"
+    },
+    "2026-04-16-afternoon": {
+      "length": 6697,
+      "sha256": "05be92b8649de031f2fb45bb83cc515e681b97aa6098f1727e2931ab85912d2b"
+    },
+    "2026-04-17-morning": {
+      "length": 6526,
+      "sha256": "1790e87e1b739410f672ee79370d0c98b6a41463f00c5950c6e924aada4ee3e7"
+    },
+    "2026-04-17-midday": {
+      "length": 6505,
+      "sha256": "2b3382b625531d41125ccf6101e53a2a16fa03c56f2af4406a7fbdb96d5489b3"
+    },
+    "2026-04-17-afternoon": {
+      "length": 6480,
+      "sha256": "73b088ef75a0ecaac69ee9b0899c2707170e55660ec5cbe97cc370a35cb4c1b7"
+    },
+    "2026-04-18-morning": {
+      "length": 6458,
+      "sha256": "3301f63431427b5115b56e8776ce6badb1df07a0ea79acd0d7613e526dbaf634"
+    },
+    "2026-04-18-midday": {
+      "length": 6531,
+      "sha256": "2851c28e702a13fa970b851cd581ae76cdadcf86b25e47cc1f210e479188d2c4"
+    },
+    "2026-04-18-afternoon": {
+      "length": 6506,
+      "sha256": "1fe5c7168882e6f1ac442527ea5ab7b2975ca7758256e4731f4b2bed3714f12f"
+    },
+    "2026-04-19-morning": {
+      "length": 6422,
+      "sha256": "4f148651ba5a851002583f137c3f77070cc442143801e2823a8b7e1fd87e1656"
+    },
+    "2026-04-19-midday": {
+      "length": 6537,
+      "sha256": "f297ddc2d5c674b87a4d981fb0654077c032187e954f6b81fc722e0c158002cd"
+    },
+    "2026-04-19-afternoon": {
+      "length": 6566,
+      "sha256": "1fd4b20636570fea39db430898394f354b5d4b6a94f9fdaf605e017816be9995"
+    },
+    "2026-04-20-morning": {
+      "length": 6449,
+      "sha256": "6d261d983d5c45e22bfcc272e123d577841705218423e5709a897576475435ef"
+    },
+    "2026-04-20-midday": {
+      "length": 6424,
+      "sha256": "547a356d83946c8b635b2f53b8a0ed8adb8d186022753b6fa55b0bc639d0b32d"
+    },
+    "2026-04-20-afternoon": {
+      "length": 6352,
+      "sha256": "2504384747cee383ac0c8a47a21141df3c4950706fa283945042157f42ebed50"
+    }
+  },
+  "status": {
+    "noDataAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "noDataForecast": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "noDataQuiet": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partial": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":1},"style":{},"extra":{}},
+      "holds": {"innerHTML":"Next go: Fri Apr 17 morning, 5:36 AM to 10 AM.","textContent":"Next go: Fri Apr 17 morning, 5:36 AM to 10 AM.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Caution.","textContent":"Caution.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Wind 14 mph. Gusts to 23 mph. Flood Watch.<span class=\"cond\">Wind 14 mph from SSW, gusts 23. Rough water. 57°F air.</span>","textContent":"Wind 14 mph. Gusts to 23 mph. Flood Watch.Wind 14 mph from SSW, gusts 23. Rough water. 57°F air.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partialAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":1},"style":{},"extra":{}},
+      "holds": {"innerHTML":"Next go: Fri Apr 17 morning, 5:36 AM to 10 AM.","textContent":"Next go: Fri Apr 17 morning, 5:36 AM to 10 AM.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","textContent":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Caution.","textContent":"Caution.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Wind 14 mph. Gusts to 23 mph. Flood Watch.<span class=\"cond\">Wind 14 mph from SSW, gusts 23. Rough water. 57°F air.</span>","textContent":"Wind 14 mph. Gusts to 23 mph. Flood Watch.Wind 14 mph from SSW, gusts 23. Rough water. 57°F air.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "header": {
+      "loading": "Loading",
+      "notLoaded": "Not loaded",
+      "fresh": "Updated 11:57 AM",
+      "cached": "Saved 11:57 AM",
+      "failed": "Saved 11:57 AM"
+    }
+  },
+  "share": "Putney Landing rowing, 12 PM: Caution. Wind 14 mph. Gusts to 23 mph. Flood Watch. Wind 14 mph from SSW, gusts 23. Rough water. 57°F air. Next go: Fri Apr 17 morning, 5:36 AM to 10 AM."
+}

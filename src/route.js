@@ -1,12 +1,57 @@
-// Tabs and hash routes. Now is the home screen (no hash, or #now). The other
-// tabs are the detail views: #wind, or #wind/2026-10-14 for one day.
+// Addresses, tabs and the day. A location is at /<slug>; Now is its home screen
+// (no hash, or #now) and the other tabs are the detail views: #wind, or
+// #wind/2026-10-14 for one day. The pure parts come first.
 import { app, $ } from './state.js';
-import { VIEWS, VIEW_KEYS, renderDetail } from './render/detail/index.js';
+import { isSlug } from './location.js';
+import { DEFAULT_SLUG, FIRST_VISIT_PUTNEY_UNTIL, SITE_URL } from './config.js';
+import { loadLast } from './storage.js';
+import { esc } from './format.js';
+import { fetchIndex } from './locations.js';
+import { fact, sparkline } from './render/parts.js';
+import { VIEWS, viewsFor, renderDetail } from './render/detail/index.js';
 
-export function parseRoute(hash) {
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const split = hash => {
   const [name, day] = (hash || '').replace(/^#\/?/, '').split('/');
-  if (!VIEW_KEYS.includes(name)) return null;
-  return { name, day: /^\d{4}-\d{2}-\d{2}$/.test(day || '') ? day : null };
+  return { name, day: DAY.test(day || '') ? day : null };
+};
+
+// The tab and day a hash names, when the tab is one of `keys` (the location's).
+export function parseHash(hash, keys) {
+  const r = split(hash);
+  return keys.includes(r.name) ? r : null;
+}
+
+// What an address asks for: { page, slug, view, day, open }. `page` is home (/),
+// location (/<slug>), admin (/admin, the owner's page) or notfound (anything else, with its
+// `path` kept, for the words of a search). `view` is the hash's tab, not yet checked against the
+// location's tabs.
+export function parseRoute({ pathname, hash, search }) {
+  const { name, day } = split(hash);
+  const r = { page: 'home', slug: null, view: name && name !== 'now' ? name : null, day, open: /[?&]open=picker(&|$)/.test(search) ? 'picker' : null };
+  if (pathname === '/' || pathname === '/index.html') return r;
+  if (pathname === '/admin') return { ...r, page: 'admin' };
+  const seg = pathname.slice(1);
+  if (!seg.includes('/') && isSlug(seg)) return { ...r, page: 'location', slug: seg };
+  let path = seg;
+  try { path = decodeURIComponent(seg); } catch (e) { /* keep it as typed */ }
+  return { ...r, page: 'notfound', path };
+}
+
+// Where "/" goes (07 5.1): the location opened last. With none stored, Putney Landing
+// until FIRST_VISIT_PUTNEY_UNTIL, with the address left as "/" so a link shared as
+// rowhether.com keeps meaning Putney, and a note that offers the picker (the viewer has
+// not chosen, so nothing is stored). After that, the picker page. What is stored is
+// checked before it becomes an address or a request.
+export function homeTarget({ last, now }) {
+  if (isSlug(last)) return { slug: last, replace: true };
+  return now < FIRST_VISIT_PUTNEY_UNTIL ? { slug: DEFAULT_SLUG, keepAddress: true, note: true } : { page: 'picker' };
+}
+
+// The tab bar of the open location. Drawn again when the location changes.
+export function renderTabs() {
+  $('tabs').innerHTML = [{ key: 'now', name: 'Now' }, ...viewsFor(app.loc)]
+    .map(v => `<a href="#${v.key}" data-tab="${v.key}">${v.name}</a>`).join('');
 }
 
 // Mark the current tab, and scroll the bar sideways if it is out of view.
@@ -21,8 +66,38 @@ function markTab() {
   }
 }
 
-function show() {
-  const route = parseRoute(location.hash);
+// What the page shows: a location, or a notice that there is none.
+function setPage(on) {
+  $('tabs').hidden = $('actions').hidden = !on;
+  $('notFound').hidden = on;
+  if (!on) { app.view = null; $('home').hidden = $('detail').hidden = true; }
+}
+
+// The page for an address with no location, or one that did not load, and the page at
+// "/" that asks where the viewer rows. Tabs, the home screen, Refresh and Settings are
+// hidden. The first two end in the picker search.
+export const page = html => {
+  $('notFound').innerHTML = html;
+  setPage(false);
+};
+export const showMissing = path => {
+  page(`<h2>No location here</h2><p>No location at ${SITE_URL.slice(8)}${esc(path)}.</p>`);
+  pick({ mode: 'notfound', query: path });
+};
+const retry = head => page(`<h2>${head}</h2><p>Check the connection, then try again.</p><p><button id="retryBtn">Try again</button></p>`);
+export const showFailed = () => {
+  retry('Could not load this location');
+  pick({ mode: 'notfound' });
+};
+// A page whose chunk or numbers need the network (07 9.5): the owner's page.
+export const showOffline = () => retry('This page needs a connection');
+
+// Shows Now, or the tab the hash names when the open location has it. A hash for
+// a tab it does not have is dropped from the address.
+export function showTab() {
+  setPage(true);
+  const route = parseHash(location.hash, viewsFor(app.loc).map(v => v.key));
+  if (!route && VIEWS.some(v => v.key === split(location.hash).name)) history.replaceState(history.state, '', location.pathname + location.search);
   const wasHome = !app.view;
   if (wasHome && route) app.homeScroll = window.scrollY;
   app.view = route;
@@ -37,6 +112,55 @@ function show() {
   }
 }
 
+let open = () => {}; // (slug or null, keepAddress, note): opens a location, from src/main.js
+let pick = () => {}; // ({ mode, query }): the picker, from src/main.js
+let leave = () => {}; // (): leaves the open location for a page with none, from src/main.js
+let broken = false;  // a chunk that could not be read: a browser keeps the failure for the life of the page, so Try again reloads it
+let at = '';         // the path and query the page last showed
+let shown = null;    // what "/" shows now, 'picker' or a slug, and null at any other address
+
+// Shows what the address asks for: opens the location it names when that is not
+// the one open, then the tab; or the picker page. ?open=picker opens the picker over
+// the location, and is taken out of the address. An entry for "/" that the viewer left
+// by a link in the app remembers what it showed (history.state.home, see navigate), so
+// Back returns to the picker page, or to Putney with its note, and not to the location
+// chosen since, which "/" would open now. Once Putney is the viewer's last location, "/"
+// is replaced by its address as before.
+function show() {
+  broken = false;
+  const r = parseRoute(location), last = loadLast(), home = r.page === 'home', was = history.state?.home;
+  let t = !home ? { slug: r.slug } : was === 'picker' ? { page: 'picker' } : isSlug(was) && was !== last ? { slug: was, keepAddress: true, note: !last } : homeTarget({ last, now: Date.now() });
+  if (r.open && home && !isSlug(last)) t = { page: 'picker' }; // nothing to open it over
+  if (t.replace) history.replaceState(history.state, '', `/${t.slug}${location.hash}`);
+  else if (r.open) history.replaceState(history.state, '', location.pathname + location.hash);
+  at = location.pathname + location.search;
+  shown = home && !t.replace ? t.page ? 'picker' : t.slug : null;
+  // The owner's page is a chunk of its own, read from the network (P1.18), and takes what it needs of the app as `kit`
+  // (see src/admin/admin.js). A chunk that is not there is a page that needs a connection.
+  if (r.page === 'admin') { leave(); import('./admin/admin.js').then(a => a.showAdmin({ page, showOffline, esc, fact, sparkline, fetchIndex }), () => { broken = true; showOffline(); }); return; }
+  if (r.page === 'notfound') { open(null); showMissing(r.path); return; }
+  if (t.page) { open(null); page(''); pick({ mode: 'page' }); return; }
+  const opened = open(t.slug, !!t.keepAddress, !!t.note);
+  if (r.open) Promise.resolve(opened).then(() => pick({ mode: 'sheet' }));
+}
+
+// Moves to another address inside the app, with no page load. An entry for "/" notes what it
+// showed first, so a Back to it shows that.
+export function navigate(href) {
+  if (shown) history.replaceState({ ...history.state, home: shown }, '', location.pathname + location.search + location.hash);
+  history.pushState(null, '', href);
+  show();
+}
+// A click on a same-origin a[data-nav] navigates in the page. A modified or
+// middle click goes to the browser, to open in a new tab.
+export function navClick(e) {
+  if (e.target.closest?.('#retryBtn')) { if (broken) location.reload(); else show(); return; }
+  const a = e.target.closest?.('a[data-nav]');
+  if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.origin !== location.origin) return;
+  e.preventDefault();
+  navigate(a.getAttribute('href'));
+}
+
 // Show a different day in the open view without a new history entry.
 export function setDay(day) {
   if (!app.view) return;
@@ -46,10 +170,15 @@ export function setDay(day) {
   renderDetail();
 }
 
-export function initRoutes() {
+// Reads the address and opens its location. `openSlug`, `openPicker` and `leavePage` are main.js's.
+export function initRoutes(openSlug, openPicker = () => {}, leavePage = () => {}) {
+  open = openSlug;
+  pick = openPicker;
+  leave = leavePage;
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-  $('tabs').innerHTML = [{ key: 'now', name: 'Now' }, ...VIEWS]
-    .map(v => `<a href="#${v.key}" data-tab="${v.key}">${v.name}</a>`).join('');
+  // A move to another tab fires popstate and then hashchange: the second one shows it.
+  window.addEventListener('popstate', () => { if (location.pathname + location.search !== at) show(); });
   window.addEventListener('hashchange', show);
+  document.addEventListener('click', navClick);
   show();
 }

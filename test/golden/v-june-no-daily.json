@@ -1,0 +1,218 @@
+{
+  "model": {
+    "sha256": "ace62eb65ec552aa5670061b238c978735239a2242e45b85cd6b911406cdc9b0",
+    "bytes": 67815
+  },
+  "text": {
+    "sha256": "122872ba280c62df9fb6fd2ba60145244e9381d8500c62912f9bec1151e706b8",
+    "bytes": 12565
+  },
+  "plans": {
+    "60-any": [],
+    "60-morning": [],
+    "60-afternoon": [],
+    "90-any": [],
+    "90-morning": [],
+    "90-afternoon": [],
+    "120-any": [],
+    "120-morning": [],
+    "120-afternoon": []
+  },
+  "runs": {},
+  "parsers": {
+    "sha256": "6bc1fe61a5ea41317ee13b3f5bc8633c0cc89e1c26bb7eef59ca0f56a0e22036",
+    "bytes": 22800
+  },
+  "views": {
+    "week": {
+      "summary": {"text":"No go period in the next 7 days.","lvl":2},
+      "days": {"null":{"day":null,"length":77,"sha256":"aeb9721798006c774a93d70e188b4cb9fb801b990e6ae901039632cdaf33e312"}}
+    },
+    "wind": {
+      "summary": {"text":"","lvl":null},
+      "days": {"null":{"day":null,"length":77,"sha256":"a508bfa66537c26d4005e148ddf0fb5884b851a773daf26176d17a8cb1f2ac8a"}}
+    },
+    "river": {
+      "summary": {"text":"5,929 cfs now. Forecast to hold near 5,900 cfs through Thu 2 PM.","lvl":0},
+      "days": {"null":{"day":null,"length":33474,"sha256":"ce015d682f64060968d13bdf1ffdcf82cf2408d9ab466fc9f360d7f9dc0a7f63"}}
+    },
+    "storms": {
+      "summary": {"text":"No thunderstorm risk in the next 3 days.","lvl":0},
+      "days": {"null":{"day":null,"length":79,"sha256":"d54cf030d8b2024df2e721158a420c8b5867c4461e5993644c6e4f67d393b75b"}}
+    },
+    "fog": {
+      "summary": {"text":"","lvl":null},
+      "days": {"null":{"day":null,"length":76,"sha256":"9b6c1d15f53520caf5b0dc3591ac0b0354243b53355985e224d7fe6f373b71b8"}}
+    },
+    "temperature": {
+      "summary": {"text":"","lvl":null},
+      "days": {"null":{"day":null,"length":84,"sha256":"dbc7502208cb342af9b82b43599c6007d91890d99aff3d95932ca131df131405"}}
+    },
+    "rain": {
+      "summary": {"text":"Under 20% for the next 12 hours.","lvl":0},
+      "days": {"null":{"day":null,"length":77,"sha256":"954b259514b78a25ee332231ee719e4448e225ecc3af7ebe27d509de0d97b6ee"}}
+    },
+    "light": {
+      "summary": {"text":"Tomorrow: first light 4:36 AM, sunset 8:32 PM. 15 h 21 min of daylight.","lvl":null},
+      "days": {"null":{"day":null,"length":78,"sha256":"da726ee0909e073ae44b3392ebd503f9468e12345d0df33e6bb5a937f4d46b44"}}
+    },
+    "air": {
+      "summary": {"text":"AQI 33 now, good.","lvl":0},
+      "days": {"null":{"day":null,"length":76,"sha256":"e7f2d4f30a8aacf2dbb6f7a43312863c5ccb1b09048af2a9491110c12700a72a"}}
+    }
+  },
+  "home": {
+    "alerts": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "days": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "hero": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {"lvl":""},
+      "style": {},
+      "extra": {}
+    },
+    "holds": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "nowSection": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "shareBtn": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "statusNote": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "updated": {
+      "innerHTML": "Updated 11:57 AM",
+      "textContent": "Updated 11:57 AM",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "verdict": {
+      "innerHTML": " ",
+      "textContent": " ",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "why": {
+      "innerHTML": "No forecast for the next morning yet.",
+      "textContent": "No forecast for the next morning yet.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "notChecked": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    }
+  },
+  "forecasts": {},
+  "status": {
+    "noDataAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "noDataForecast": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "noDataQuiet": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partial": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":" ","textContent":" ","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"No forecast for the next morning yet.","textContent":"No forecast for the next morning yet.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partialAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","textContent":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":" ","textContent":" ","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"No forecast for the next morning yet.","textContent":"No forecast for the next morning yet.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "header": {
+      "loading": "Loading",
+      "notLoaded": "Not loaded",
+      "fresh": "Updated 11:57 AM",
+      "cached": "Saved 11:57 AM",
+      "failed": "Saved 11:57 AM"
+    }
+  },
+  "share": "Putney Landing rowing, 12 PM: No forecast for the next morning yet."
+}

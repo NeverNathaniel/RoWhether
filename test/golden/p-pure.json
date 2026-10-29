@@ -1,0 +1,896 @@
+{
+  "trend": [
+    [
+      -60,
+      "true|Falling, down #% in # hours"
+    ],
+    [
+      -10,
+      "true|Steady over # hours"
+    ],
+    [
+      10,
+      "true|Rising, up #% in # hours"
+    ]
+  ],
+  "trendExact": {
+    "0": [
+      0,
+      "Steady over 6 hours"
+    ],
+    "10": [
+      10.000000000000014,
+      "Rising, up 10% in 6 hours"
+    ],
+    "25": [
+      25,
+      "Rising, up 25% in 6 hours"
+    ],
+    "-37.5": [
+      -37.5,
+      "Falling, down 38% in 6 hours"
+    ],
+    "-10.1": [
+      -10.099999999999994,
+      "Falling, down 10% in 6 hours"
+    ],
+    "-10": [
+      -10,
+      "Steady over 6 hours"
+    ],
+    "-9.9": [
+      -9.899999999999991,
+      "Steady over 6 hours"
+    ],
+    "9.9": [
+      9.899999999999991,
+      "Steady over 6 hours"
+    ],
+    "10.1": [
+      10.099999999999994,
+      "Rising, up 10% in 6 hours"
+    ]
+  },
+  "trendShort": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    20
+  ],
+  "trendPairs": [
+    [
+      100,
+      110,
+      10,
+      "Steady over 6 hours",
+      false
+    ],
+    [
+      100,
+      90,
+      -10,
+      "Steady over 6 hours",
+      false
+    ],
+    [
+      100,
+      110.5,
+      10.5,
+      "Rising, up 11% in 6 hours",
+      false
+    ],
+    [
+      100,
+      89.5,
+      -10.5,
+      "Falling, down 11% in 6 hours",
+      false
+    ],
+    [
+      200,
+      220,
+      10,
+      "Steady over 6 hours",
+      false
+    ],
+    [
+      200,
+      180,
+      -10,
+      "Steady over 6 hours",
+      false
+    ],
+    [
+      50,
+      55,
+      10,
+      "Steady over 6 hours",
+      false
+    ],
+    [
+      100,
+      120,
+      20,
+      "Rising, up 20% in 6 hours",
+      true
+    ],
+    [
+      100,
+      119.5,
+      19.5,
+      "Rising, up 20% in 6 hours",
+      false
+    ],
+    [
+      100,
+      100,
+      0,
+      "Steady over 6 hours",
+      false
+    ],
+    [
+      1,
+      2,
+      100,
+      "Rising, up 100% in 6 hours",
+      true
+    ],
+    [
+      100,
+      160,
+      60,
+      "Rising, up 60% in 6 hours",
+      true
+    ]
+  ],
+  "trendTies": [
+    [
+      300,
+      "Rising, up 300% in 6 hours"
+    ],
+    [
+      100,
+      "Rising, up 100% in 6 hours"
+    ],
+    [
+      200,
+      "Rising, up 200% in 6 hours"
+    ],
+    [
+      100,
+      "Rising, up 100% in 6 hours"
+    ],
+    [
+      400,
+      "Rising, up 400% in 6 hours"
+    ]
+  ],
+  "trendTimes": [
+    20,
+    25,
+    30,
+    28.57142857142857,
+    26.08695652173913,
+    23.076923076923077
+  ],
+  "confidenceWind": [
+    [
+      0,
+      "high|High confidence: the # models agree."
+    ],
+    [
+      4.01,
+      "medium|Medium confidence: models differ by about # mph on wind."
+    ],
+    [
+      8.01,
+      "low|Low confidence: models differ by about # mph on wind."
+    ]
+  ],
+  "confidenceRain": [
+    [
+      0,
+      "high|High confidence: the 3 models agree."
+    ],
+    [
+      6,
+      "medium|Medium confidence: models split on rain."
+    ],
+    [
+      11,
+      "low|Low confidence: models split on rain."
+    ]
+  ],
+  "confidenceRainOnly": [
+    [
+      3,
+      {
+        "level": "medium",
+        "wind": 5,
+        "rain": 0.15,
+        "n": 3
+      },
+      "High confidence: the 3 models agree.",
+      "Medium confidence: models differ by about 5 mph on wind.",
+      "Medium confidence: models differ by about 5 mph on wind."
+    ],
+    [
+      5,
+      {
+        "level": "medium",
+        "wind": 5,
+        "rain": 0.25,
+        "n": 3
+      },
+      "High confidence: the 3 models agree.",
+      "Medium confidence: models differ by about 5 mph on wind.",
+      "Medium confidence: models differ by about 5 mph on wind."
+    ],
+    [
+      6,
+      {
+        "level": "medium",
+        "wind": 5,
+        "rain": 0.3,
+        "n": 3
+      },
+      "Medium confidence: models split on rain.",
+      "Medium confidence: models differ by about 5 mph on wind.",
+      "Medium confidence: models differ by about 5 mph on wind, and models split on rain."
+    ],
+    [
+      10,
+      {
+        "level": "medium",
+        "wind": 5,
+        "rain": 0.5,
+        "n": 3
+      },
+      "Medium confidence: models split on rain.",
+      "Medium confidence: models differ by about 5 mph on wind.",
+      "Medium confidence: models differ by about 5 mph on wind, and models split on rain."
+    ],
+    [
+      11,
+      {
+        "level": "low",
+        "wind": 5,
+        "rain": 0.55,
+        "n": 3
+      },
+      "Low confidence: models split on rain.",
+      "Medium confidence: models differ by about 5 mph on wind.",
+      "Low confidence: models differ by about 5 mph on wind, and models split on rain."
+    ]
+  ],
+  "confidenceEdges": [
+    null,
+    null,
+    null,
+    null,
+    "",
+    {
+      "level": "medium",
+      "wind": 8,
+      "rain": 0,
+      "n": 2
+    },
+    {
+      "level": "low",
+      "wind": 0,
+      "rain": 1,
+      "n": 2
+    }
+  ],
+  "precipSummary": {
+    "empty": null,
+    "single": {
+      "peak": 40,
+      "peakT": 1781611200000,
+      "fromT": 1781611200000,
+      "toT": 1781614800000,
+      "total": 0.02,
+      "kind": "rain"
+    },
+    "nullPop": {
+      "peak": 0,
+      "peakT": 1781611200000,
+      "fromT": 1781611200000,
+      "toT": 1781618400000,
+      "total": 0.02,
+      "kind": "rain"
+    },
+    "window": {
+      "peak": 70,
+      "peakT": 1781622000000,
+      "fromT": 1781618400000,
+      "toT": 1781629200000,
+      "total": 0,
+      "kind": "rain"
+    },
+    "windowEdge": {
+      "peak": 70,
+      "peakT": 1781622000000,
+      "fromT": 1781622000000,
+      "toT": 1781625600000,
+      "total": 0,
+      "kind": "rain"
+    },
+    "firstPeak": {
+      "peak": 70,
+      "peakT": 1781611200000,
+      "fromT": 1781611200000,
+      "toT": 1781614800000,
+      "total": 0,
+      "kind": "rain"
+    },
+    "kindNeeds30": {
+      "peak": 30,
+      "peakT": 1781618400000,
+      "fromT": 1781611200000,
+      "toT": 1781622000000,
+      "total": 0,
+      "kind": "showers"
+    },
+    "kindByAmount": {
+      "peak": 0,
+      "peakT": 1781611200000,
+      "fromT": 1781611200000,
+      "toT": 1781622000000,
+      "total": 0.02,
+      "kind": "rain"
+    },
+    "kindTie": {
+      "peak": 50,
+      "peakT": 1781611200000,
+      "fromT": 1781611200000,
+      "toT": 1781618400000,
+      "total": 0,
+      "kind": "rain"
+    },
+    "none": {
+      "peak": 10,
+      "peakT": 1781611200000,
+      "fromT": 1781611200000,
+      "toT": 1781618400000,
+      "total": 0,
+      "kind": null
+    },
+    "noAmount": {
+      "peak": 10,
+      "peakT": 1781611200000,
+      "fromT": 1781611200000,
+      "toT": 1781618400000,
+      "total": 0,
+      "kind": null
+    },
+    "amountOnly": {
+      "peak": 10,
+      "peakT": 1781611200000,
+      "fromT": 1781611200000,
+      "toT": 1781622000000,
+      "total": 0.02,
+      "kind": "rain"
+    },
+    "total": {
+      "peak": 10,
+      "peakT": 1781611200000,
+      "fromT": 1781611200000,
+      "toT": 1781622000000,
+      "total": 0.30040000000000006,
+      "kind": null
+    }
+  },
+  "kinds": {
+    "51": "drizzle",
+    "53": "drizzle",
+    "55": "drizzle",
+    "56": "freezing rain",
+    "57": "freezing rain",
+    "61": "rain",
+    "63": "rain",
+    "65": "rain",
+    "66": "freezing rain",
+    "67": "freezing rain",
+    "71": "snow",
+    "73": "snow",
+    "75": "snow",
+    "77": "snow",
+    "80": "showers",
+    "81": "showers",
+    "82": "showers",
+    "85": "snow",
+    "86": "snow",
+    "95": "thunderstorms",
+    "96": "thunderstorms",
+    "99": "thunderstorms"
+  },
+  "rates": [
+    [
+      0,
+      "light"
+    ],
+    [
+      0.1,
+      "moderate"
+    ],
+    [
+      0.3,
+      "heavy"
+    ]
+  ],
+  "aqiWords": [
+    [
+      0,
+      "Good"
+    ],
+    [
+      51,
+      "Moderate"
+    ],
+    [
+      101,
+      "Unhealthy for sensitive groups"
+    ],
+    [
+      151,
+      "Unhealthy"
+    ],
+    [
+      201,
+      "Very unhealthy"
+    ],
+    [
+      301,
+      "Hazardous"
+    ]
+  ],
+  "uvWords": [
+    [
+      0,
+      "Low"
+    ],
+    [
+      3,
+      "Moderate"
+    ],
+    [
+      6,
+      "High"
+    ],
+    [
+      8,
+      "Very high"
+    ],
+    [
+      11,
+      "Extreme"
+    ]
+  ],
+  "relWind": {
+    "0": [
+      0,
+      15,
+      30,
+      45,
+      60,
+      75,
+      90,
+      105,
+      120,
+      135,
+      150,
+      165,
+      -180,
+      -165,
+      -150,
+      -135,
+      -120,
+      -105,
+      -90,
+      -75,
+      -60,
+      -45,
+      -30,
+      -15,
+      0
+    ],
+    "15": [
+      -15,
+      0,
+      15,
+      30,
+      45,
+      60,
+      75,
+      90,
+      105,
+      120,
+      135,
+      150,
+      165,
+      -180,
+      -165,
+      -150,
+      -135,
+      -120,
+      -105,
+      -90,
+      -75,
+      -60,
+      -45,
+      -30,
+      -15
+    ],
+    "195": [
+      165,
+      -180,
+      -165,
+      -150,
+      -135,
+      -120,
+      -105,
+      -90,
+      -75,
+      -60,
+      -45,
+      -30,
+      -15,
+      0,
+      15,
+      30,
+      45,
+      60,
+      75,
+      90,
+      105,
+      120,
+      135,
+      150,
+      165
+    ],
+    "200": [
+      160,
+      175,
+      -170,
+      -155,
+      -140,
+      -125,
+      -110,
+      -95,
+      -80,
+      -65,
+      -50,
+      -35,
+      -20,
+      -5,
+      10,
+      25,
+      40,
+      55,
+      70,
+      85,
+      100,
+      115,
+      130,
+      145,
+      160
+    ],
+    "359": [
+      1,
+      16,
+      31,
+      46,
+      61,
+      76,
+      91,
+      106,
+      121,
+      136,
+      151,
+      166,
+      -179,
+      -164,
+      -149,
+      -134,
+      -119,
+      -104,
+      -89,
+      -74,
+      -59,
+      -44,
+      -29,
+      -14,
+      1
+    ]
+  },
+  "angDev": [
+    [
+      0,
+      15,
+      15
+    ],
+    [
+      30,
+      15,
+      15
+    ],
+    [
+      60,
+      45,
+      45
+    ],
+    [
+      90,
+      75,
+      75
+    ],
+    [
+      120,
+      105,
+      105
+    ],
+    [
+      150,
+      135,
+      135
+    ],
+    [
+      180,
+      165,
+      165
+    ],
+    [
+      210,
+      165,
+      165
+    ],
+    [
+      240,
+      135,
+      135
+    ],
+    [
+      270,
+      105,
+      105
+    ],
+    [
+      300,
+      75,
+      75
+    ],
+    [
+      330,
+      45,
+      45
+    ],
+    [
+      360,
+      15,
+      15
+    ]
+  ],
+  "meanDir": {
+    "north": 0,
+    "weighted": 90,
+    "calm": 180,
+    "nullWind": 45,
+    "single": 123
+  },
+  "humidity": [
+    [
+      32,
+      32,
+      100
+    ],
+    [
+      50,
+      40,
+      68.38532145801607
+    ],
+    [
+      70,
+      60,
+      70.58262702474482
+    ],
+    [
+      90,
+      70,
+      51.96582474278974
+    ],
+    [
+      40,
+      38.5,
+      94.3198718471964
+    ],
+    [
+      40,
+      40,
+      100
+    ],
+    [
+      100,
+      50,
+      18.739791734825147
+    ],
+    [
+      20,
+      10,
+      64.6500764885645
+    ]
+  ],
+  "cToF": [
+    [
+      -40,
+      -40
+    ],
+    [
+      -17.78,
+      -0.0040000000000048885
+    ],
+    [
+      0,
+      32
+    ],
+    [
+      15,
+      59
+    ],
+    [
+      20,
+      68
+    ],
+    [
+      36.6,
+      97.88000000000001
+    ],
+    [
+      100,
+      212
+    ]
+  ],
+  "flowForecast": [
+    [
+      0,
+      null
+    ],
+    [
+      999,
+      null
+    ],
+    [
+      1000,
+      10000
+    ],
+    [
+      1500,
+      12000
+    ],
+    [
+      2000,
+      14000
+    ],
+    [
+      3000,
+      13000
+    ],
+    [
+      4000,
+      12000
+    ],
+    [
+      4001,
+      null
+    ],
+    [
+      "null",
+      null
+    ],
+    [
+      "empty",
+      null
+    ]
+  ],
+  "flowPeak": [
+    [
+      0,
+      {
+        "t": 2000,
+        "v": 14000
+      }
+    ],
+    [
+      1000,
+      {
+        "t": 2000,
+        "v": 14000
+      }
+    ],
+    [
+      1500,
+      {
+        "t": 2000,
+        "v": 14000
+      }
+    ],
+    [
+      2000,
+      {
+        "t": 2000,
+        "v": 14000
+      }
+    ],
+    [
+      2001,
+      {
+        "t": 4000,
+        "v": 12000
+      }
+    ],
+    [
+      4000,
+      {
+        "t": 4000,
+        "v": 12000
+      }
+    ],
+    [
+      5000,
+      null
+    ],
+    [
+      "null",
+      null
+    ],
+    [
+      "empty",
+      null
+    ]
+  ],
+  "alertLevels": {
+    "Tornado Warning": 2,
+    "Tornado Watch": 2,
+    "Severe Thunderstorm Watch": 2,
+    "Flash Flood Warning": 2,
+    "Flash Flood Watch": 2,
+    "Flood Warning": 2,
+    "Flood Watch": 1,
+    "Flood Advisory": 1,
+    "High Wind Warning": 2,
+    "High Wind Watch": 2,
+    "Wind Advisory": 2,
+    "Extreme Wind Warning": 2,
+    "Dense Fog Advisory": 2,
+    "Dense Smoke Advisory": 1,
+    "Winter Storm Warning": 2,
+    "Winter Storm Watch": 1,
+    "Winter Weather Advisory": 1,
+    "Ice Storm Warning": 2,
+    "Blizzard Warning": 2,
+    "Frost Advisory": 1,
+    "Freeze Warning": 1,
+    "Heat Advisory": 1,
+    "Excessive Heat Warning": 1,
+    "Air Quality Alert": 1,
+    "Special Weather Statement": 1,
+    "Small Craft Advisory": 2,
+    "Lake Wind Advisory": 2,
+    "Red Flag Warning": 1,
+    "Fire Weather Watch": 1,
+    "tornado warning": 2,
+    "DENSE FOG ADVISORY": 2,
+    "": 1,
+    "Hydrologic Outlook": 1,
+    "Gale Warning": 2,
+    "Storm Warning": 2,
+    "Special Marine Warning": 2,
+    "Hurricane Force Wind Warning": 2,
+    "Hurricane Warning": 2,
+    "Storm Surge Warning": 2,
+    "Tropical Storm Warning": 2
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "v": 1,
+  "id": "baabf164-470f-4846-a241-978df6abf72a",
+  "slug": "boathouse-row",
+  "name": "Boathouse Row",
+  "shortName": "Boathouse Row",
+  "subtitle": "Schuylkill River at Boathouse Row, above Fairmount Dam.",
+  "locality": "Philadelphia, PA",
+  "waterway": "schuylkill-river-fairmount-pool",
+  "lat": 39.96941,
+  "lon": -75.18711,
+  "tz": "America/New_York",
+  "tzLabel": null,
+  "country": "US",
+  "region": "US-PA",
+  "waterType": "river",
+  "course": {
+    "kind": "heading",
+    "heading": 330,
+    "reachWord": "straight",
+    "confirmed": false,
+    "note": "Estimate from the mapped river line upstream of the dock. Not checked on the water."
+  },
+  "banks": null,
+  "thresholds": {
+    "windCaution": 10, "windOff": 15, "gustCaution": 18, "gustOff": 25,
+    "rainCaution": 60, "rainOff": 90, "coldCombined": 100,
+    "flowCaution": 5700, "flowOff": 9000, "aqiCaution": 151, "aqiOff": 201,
+    "basis": { "flow": "usgs-ogc:USGS-01474500:cfs" }
+  },
+  "aqiScale": "us",
+  "flow": {
+    "measure": "discharge",
+    "unit": "cfs",
+    "against": [[5700, 1.4], [2800, 1.25]],
+    "maxAgeH": 24,
+    "staleSwitchH": 6
+  },
+  "water": { "mode": "river", "cross": 0.4 },
+  "fog": null,
+  "waterTemp": { "fallback": "none", "maxAgeH": 72 },
+  "tide": null,
+  "daylight": null,
+  "copy": {
+    "description": "Go, caution or stay off: rowing conditions on the Schuylkill River at Boathouse Row, Philadelphia, PA.",
+    "flowStats": "Since 2016 the median day is about 2,000 cfs. 5,700 is the top 12% of days, 9,000 the top 5%.",
+    "flowHow": "Flow is measured at the USGS gauge at Fairmount Dam, about 200 m below Boathouse Row. The forecast is from the NWS Middle Atlantic River Forecast Center for the same gauge, in 6-hour steps.",
+    "credits": "Forecast from [Open-Meteo](https://open-meteo.com/). Alerts and Philadelphia airport observations from the [National Weather Service, Mount Holly](https://www.weather.gov/phi/). River flow and water temperature from USGS gauge [01474500 at Philadelphia](https://waterdata.usgs.gov/monitoring-location/USGS-01474500/). River forecast from the [NWS Middle Atlantic River Forecast Center](https://water.noaa.gov/gauges/padp1). Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo."
+  },
+  "launchNotes": null,
+  "status": "published",
+  "sources": [
+    {
+      "role": "alerts", "adapter": "nws-alerts", "ref": "zones:PAZ071,PAC101", "label": "NWS"
+    },
+    {
+      "role": "obs", "adapter": "nws-obs", "ref": "KPHL", "label": "Philadelphia",
+      "note": "Philadelphia airport, 7 mi south-southwest. A check on the model.",
+      "siteLat": 39.8733, "siteLon": -75.2268, "distanceM": 11210, "relation": "nearby"
+    },
+    {
+      "role": "water_temp", "mode": "primary", "adapter": "usgs-ogc", "ref": "USGS-01474500",
+      "params": { "parameterCode": "00010" }, "unit": "degC", "tz": "America/New_York",
+      "label": "Fairmount Dam",
+      "note": "USGS gauge at Fairmount Dam, about 200 m downstream.",
+      "siteLat": 39.967791, "siteLon": -75.188501, "distanceM": 216, "relation": "at"
+    }
+  ]
+}

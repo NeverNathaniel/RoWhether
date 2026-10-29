@@ -1,0 +1,53 @@
+{
+  "v": 1,
+  "id": "716db5dc-c0f5-4f1e-905d-7725d95b78e4",
+  "slug": "lake-quinsigamond",
+  "name": "Lake Quinsigamond",
+  "shortName": "Quinsigamond",
+  "subtitle": "Lake Quinsigamond at the Donahue Rowing Center.",
+  "locality": "Shrewsbury, MA",
+  "waterway": "lake-quinsigamond",
+  "lat": 42.29043,
+  "lon": -71.75505,
+  "tz": "America/New_York",
+  "tzLabel": null,
+  "country": "US",
+  "region": "US-MA",
+  "waterType": "lake",
+  "course": {
+    "kind": "heading",
+    "heading": 166,
+    "reachWord": null,
+    "confirmed": false,
+    "note": "Estimate along the lake's long axis, rowing south from the dock. Not checked on the water."
+  },
+  "banks": null,
+  "thresholds": {
+    "windCaution": 10, "windOff": 15, "gustCaution": 18, "gustOff": 25,
+    "rainCaution": 60, "rainOff": 90, "coldCombined": 100,
+    "aqiCaution": 151, "aqiOff": 201
+  },
+  "aqiScale": "us",
+  "flow": null,
+  "water": { "mode": "fetch", "refFetchM": 2000, "lake": { "axis": 166, "lengthM": 6600, "widthM": 370 }, "fetchM": null },
+  "fog": null,
+  "waterTemp": { "fallback": "none", "maxAgeH": 72 },
+  "tide": null,
+  "daylight": null,
+  "copy": {
+    "description": "Go, caution or stay off: rowing conditions on Lake Quinsigamond, Shrewsbury, MA.",
+    "credits": "Forecast from [Open-Meteo](https://open-meteo.com/). Alerts and Worcester airport observations from the [National Weather Service, Boston](https://www.weather.gov/box/). Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo."
+  },
+  "launchNotes": null,
+  "status": "published",
+  "sources": [
+    {
+      "role": "alerts", "adapter": "nws-alerts", "ref": "zones:MAZ012,MAC027", "label": "NWS"
+    },
+    {
+      "role": "obs", "adapter": "nws-obs", "ref": "KORH", "label": "Worcester",
+      "note": "Worcester airport, 6 mi west. A check on the model.",
+      "siteLat": 42.2706, "siteLon": -71.8731, "distanceM": 9959, "relation": "nearby"
+    }
+  ]
+}

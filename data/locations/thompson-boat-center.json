@@ -1,0 +1,87 @@
+{
+  "v": 1,
+  "id": "7d5b2373-881c-4277-ab43-c6062864dd2f",
+  "slug": "thompson-boat-center",
+  "name": "Thompson Boat Center",
+  "shortName": "Thompson",
+  "subtitle": "Tidal Potomac River at Georgetown.",
+  "locality": "Washington, DC",
+  "waterway": "potomac-river-tidal",
+  "lat": 38.90053,
+  "lon": -77.05834,
+  "tz": "America/New_York",
+  "tzLabel": null,
+  "country": "US",
+  "region": "US-DC",
+  "waterType": "tidal",
+  "course": {
+    "kind": "heading",
+    "heading": 285,
+    "reachWord": "straight",
+    "confirmed": false,
+    "note": "Estimate from the mapped river line upstream of the dock. Not checked on the water."
+  },
+  "banks": {
+    "word": "bank",
+    "left": { "short": "VA", "name": "Virginia" },
+    "right": { "short": "DC", "name": "Georgetown" }
+  },
+  "thresholds": {
+    "windCaution": 10, "windOff": 15, "gustCaution": 18, "gustOff": 25,
+    "rainCaution": 60, "rainOff": 90, "coldCombined": 100,
+    "flowCaution": 22000, "flowOff": 35000, "aqiCaution": 151, "aqiOff": 201,
+    "basis": { "flow": "usgs-ogc:USGS-01646500:cfs" }
+  },
+  "aqiScale": "us",
+  "flow": {
+    "measure": "discharge",
+    "unit": "cfs",
+    "against": null,
+    "maxAgeH": 24,
+    "staleSwitchH": 6
+  },
+  "water": { "mode": "tidal", "cross": 0.4 },
+  "fog": null,
+  "waterTemp": { "fallback": "none", "maxAgeH": 72 },
+  "tide": {
+    "floodHeading": 285,
+    "unit": "ft",
+    "streamCaution": null,
+    "streamOff": null,
+    "minLaunch": null,
+    "slackMin": 30,
+    "against": null
+  },
+  "daylight": null,
+  "copy": {
+    "description": "Go, caution or stay off: rowing conditions on the tidal Potomac at Thompson Boat Center, Washington, DC.",
+    "flowStats": "Since 2016 the median day at Little Falls is about 6,500 cfs. 22,000 is the top 12% of days, 35,000 the top 5%.",
+    "flowHow": "Flow is measured at the USGS gauge at Little Falls, about 5 mi upstream in a straight line. The forecast is from the NWS Middle Atlantic River Forecast Center for the same gauge. At the dock the tide also moves the water.",
+    "credits": "Forecast from [Open-Meteo](https://open-meteo.com/). Alerts, including the marine zone for the tidal Potomac, and Reagan National observations from the [National Weather Service, Baltimore/Washington](https://www.weather.gov/lwx/). River flow and water temperature from USGS gauge [01646500 at Little Falls](https://waterdata.usgs.gov/monitoring-location/USGS-01646500/). River and tide forecasts from the [NWS Middle Atlantic River Forecast Center](https://water.noaa.gov/gauges/gtnd2). Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo."
+  },
+  "launchNotes": null,
+  "status": "published",
+  "sources": [
+    {
+      "role": "alerts", "adapter": "nws-alerts", "ref": "zones:DCZ001,DCC001,VAZ054,VAC013,ANZ535", "label": "NWS"
+    },
+    {
+      "role": "obs", "adapter": "nws-obs", "ref": "KDCA", "label": "Reagan National",
+      "note": "Reagan National Airport, 4 mi south-southeast. A check on the model.",
+      "siteLat": 38.8483, "siteLon": -77.0342, "distanceM": 6172, "relation": "nearby"
+    },
+    {
+      "role": "water_temp", "mode": "primary", "adapter": "usgs-ogc", "ref": "USGS-01646500",
+      "params": { "parameterCode": "00010" }, "unit": "degC", "tz": "America/New_York",
+      "label": "Little Falls",
+      "note": "USGS gauge at Little Falls, about 5 mi upstream.",
+      "siteLat": 38.94978, "siteLon": -77.12764, "distanceM": 8120, "relation": "upstream"
+    },
+    {
+      "role": "tide", "mode": "primary", "adapter": "nwps", "ref": "GTND2", "unit": "ft",
+      "label": "Georgetown",
+      "note": "NWS tide forecast for the Potomac at Wisconsin Avenue, about 0.5 mi upstream.",
+      "siteLat": 38.903361, "siteLon": -77.067667, "distanceM": 866, "relation": "upstream"
+    }
+  ]
+}

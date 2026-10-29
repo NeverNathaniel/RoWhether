@@ -4,18 +4,21 @@ import './styles/tokens.css';
 import './styles/app.css';
 import { registerSW } from 'virtual:pwa-register';
 
-import { REFRESH_MS, MIN } from './config.js';
-import { app, $ } from './state.js';
+import { REFRESH_MS, MIN, DEFAULT_SLUG } from './config.js';
+import { app, $, openLocation, takeRefresh, canRefresh, fetchedOf } from './state.js';
 import { fetchAll } from './data.js';
-import { loadCache, saveCache, loadPlan, savePlan } from './storage.js';
+import { loadCache, saveCache, loadPlan, savePlan, loadOverrides, saveRecord, touchCache, trimCaches, loadLast, saveLast, pushRecent, dismissPickHint } from './storage.js';
+import { cachedRecord, fetchRecord, newerRecord } from './locations.js';
 import { render } from './render/index.js';
+import { renderPlace } from './render/header.js';
 import { fillPeriod } from './render/days.js';
 import { renderDetail } from './render/detail/index.js';
-import { initRoutes, setDay } from './route.js';
-import { initSettings } from './settings.js';
+import { initRoutes, renderTabs, showTab, showMissing, showFailed, setDay } from './route.js';
+import { initSettings, refreshNudge } from './settings.js';
 import { initSuggest } from './suggest.js';
 import { initShare } from './share.js';
-import { initReports, loadInfo, loadReports } from './reports.js';
+import { initReports, loadReports } from './reports.js';
+import { loadInfo } from './info.js';
 import { initInstall } from './install.js';
 
 // The service worker caches the app shell so it opens offline. Data still
@@ -23,7 +26,10 @@ import { initInstall } from './install.js';
 // An app installed to the home screen often resumes without reloading, so
 // it would only find a new version after a full restart. Check again each
 // time it comes back to the foreground (at most every 5 minutes). When a new
-// version is found, autoUpdate installs it and reloads the page.
+// version is found, its worker installs, skips waiting and takes over the open
+// page (skipWaiting and clientsClaim in vite.config.js). The register code then
+// reloads the page once, onto the new build. Settings and the saved forecast
+// are in localStorage, so the reload loses nothing.
 const UPDATE_CHECK_MS = 5 * 60 * 1000;
 registerSW({
   immediate: true,
@@ -39,26 +45,119 @@ registerSW({
 });
 
 // ---------- Refresh ----------
-let busy = false;
+// A refresh is for the location open when it began. One for a location opened
+// since is dropped, and the new one starts its own (takeRefresh, canRefresh).
 async function refresh() {
-  if (busy) return;
-  busy = true;
-  const btn = $('refreshBtn');
+  if (!canRefresh()) return;
+  const token = app.refreshing = app.token, btn = $('refreshBtn');
   btn.disabled = true;
   $('updated').textContent = 'Refreshing';
-  const { data, errors } = await fetchAll();
-  app.errors = errors;
-  Object.assign(app.data, data);
-  if (!errors.wx) { app.updated = Date.now(); app.fromCache = false; }
-  saveCache(app.data, app.updated);
-  render();
-  loadReports();
-  btn.disabled = false;
-  busy = false;
+  try {
+    if (takeRefresh(token, await fetchAll(app.loc))) {
+      saveCache(app.loc.slug, app.data, app.updated, [], app.fetched);
+      trimCaches(app.loc.slug);
+      render();
+      loadReports();
+    }
+  } finally {
+    if (app.refreshing === token) app.refreshing = null;
+    btn.disabled = app.refreshing !== null;
+  }
 }
+
+// ---------- Open a location ----------
+// The picker is a lazy chunk, read on the first call (07 10.3).
+const picker = opts => import('./picker.js').then(p => p.openPicker(opts));
+
+// Answering the note that offers the picker, with Dismiss or by picking Putney, means
+// Putney is the answer: "/" opens it from now on, also after the first-visit window.
+function answerNote() {
+  dismissPickHint();
+  saveLast(DEFAULT_SLUG);
+  $('pickNote').hidden = true;
+  refreshNudge();
+}
+
+// Draws a location from its record: its saved forecast at once, whatever its
+// age, then a refresh. `note` shows the note that offers the picker, which hides
+// the Settings reminder: one note at a time (07 4.6).
+function enter(record, keepAddress, note) {
+  const slug = record.slug;
+  openLocation(record, loadOverrides(slug));
+  renderPlace(app.loc);
+  touchCache(slug);
+  // "/" shown to a first visit is Putney, but not the visitor's choice yet.
+  if (!keepAddress) saveLast(slug);
+  pushRecent(slug);
+  renderTabs();
+  refreshNudge();
+  $('pickNote').hidden = !note;
+  if (note) $('setNudge').hidden = true;
+  showTab();
+  const cached = loadCache(slug);
+  if (cached) {
+    Object.assign(app, { data: cached.data, updated: cached.updated, fetched: fetchedOf(cached), fromCache: true });
+    render();
+  }
+  refresh();
+}
+
+// No location open, for a page that has none: the header says only RoWhether.
+const none = () => { openLocation(null); renderPlace(null); };
+
+// The open counter (07 14.3) counts the start once its address is answered, so it can name the
+// location shown. `first` is read now, before anything writes the last location: no location
+// saved here, and no old install to move across, is a first start.
+const first = !loadLast();
+let counted = false;
+const count = () => {
+  if (counted) return;
+  counted = true;
+  loadInfo(app.loc?.slug ?? 'none', first).then(loadReports);
+};
+
+let asked = 0; // counts the addresses asked for: an answer for an older one is dropped
+// Opens the location at `slug`, or none when it is null, and counts the start when the
+// newest address is answered. The record comes from this browser, else from the file the
+// build wrote.
+async function open(slug, keepAddress, note) {
+  const mine = asked + 1;
+  try { await openAt(slug, keepAddress, note); } finally { if (mine === asked) count(); }
+}
+async function openAt(slug, keepAddress, note) {
+  const mine = ++asked;
+  if (!slug) { none(); return; }
+  if (app.loc?.slug === slug) {
+    if (!keepAddress && !$('pickNote').hidden) answerNote(); // picked Putney by its own address
+    showTab();
+    return;
+  }
+  const stored = cachedRecord(slug);
+  let record = stored?.record;
+  if (!record) {
+    const got = await fetchRecord(slug);
+    if (mine !== asked) return;
+    if (!got.record) {
+      none();
+      if (got.missing) showMissing(slug); else showFailed();
+      return;
+    }
+    record = got.record;
+    saveRecord(slug, record);
+  }
+  enter(record, keepAddress, note);
+  // After the first draw: a record that changed since it was saved replaces it.
+  if (stored) newerRecord(stored).then(next => { if (next && app.loc?.slug === slug) enter(next, true, !$('pickNote').hidden); });
+}
+
+// A page of the app with no location, the owner's /admin (P1.18): the location open is left, an answer
+// still on its way is dropped, and the visit is not counted (the open counter is for the app's users, 07 14.3).
+const leave = () => { ++asked; none(); };
 
 // ---------- Events ----------
 $('refreshBtn').addEventListener('click', refresh);
+for (const id of ['locBtn', 'pickNoteBtn']) $(id).addEventListener('click', () => picker({ mode: 'sheet' }));
+$('pickNoteLater').addEventListener('click', answerNote);
 
 // Charts: tapping, hovering or focusing a column or cell shows its text in
 // the readout under the chart.
@@ -122,15 +221,4 @@ initSuggest();
 initShare();
 initReports();
 initInstall();
-initRoutes();
-loadInfo().then(loadReports);
-
-// ---------- Start ----------
-const cached = loadCache();
-if (cached) {
-  app.data = cached.data;
-  app.updated = cached.updated;
-  app.fromCache = true;
-  render();
-}
-refresh();
+initRoutes(open, picker, leave);

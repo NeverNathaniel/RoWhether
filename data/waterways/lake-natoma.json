@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "lake-natoma",
+  "name": "Lake Natoma",
+  "reach": "Folsom Dam to Nimbus Dam",
+  "kind": "reservoir",
+  "country": "US",
+  "regions": ["US-CA"],
+  "geometry": null,
+  "traffic": null,
+  "notes": null,
+  "sources": []
+}

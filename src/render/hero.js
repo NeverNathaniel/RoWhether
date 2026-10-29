@@ -1,34 +1,43 @@
 // Header timestamp, the hero verdict, and NWS alerts.
-import { SRC, SOURCE_NAMES, THEN, WORD, LIGHT_KEYS, WATER } from '../config.js';
+import { THEN, WORD, LIGHT_KEYS, WATER } from '../config.js';
 import { app, $ } from '../state.js';
 import { esc, hm, r0, card, whenText, dayKey, lowerFirst } from '../format.js';
-import { waterTemp, sunFor, lvlExcept } from '../logic.js';
+import { waterTemp, sunFor, lvlExcept, notChecked, notCheckedText } from '../logic.js';
+import { bindingsFor, labelFor } from '../sources/index.js';
 import { dayLabel, periodTime, periodSummary } from './days.js';
 
-export function renderHeader() {
-  const u = $('updated');
-  if (!app.updated) { u.textContent = app.errors.wx ? 'Not loaded' : 'Loading'; return; }
-  const label = app.errors.wx || app.fromCache ? 'Saved data from' : 'Updated';
-  u.textContent = `${label} ${hm(app.updated)}`;
+// The header's time moved to header.js; the capture still imports it from here.
+export { renderHeader } from './header.js';
+
+// The quiet line under the hero for what is not checked, hidden when it is empty.
+function setNotChecked(text) {
+  $('notChecked').textContent = text;
+  $('notChecked').hidden = !text;
 }
 
-export function renderNoData() {
+// `old` is a saved forecast that is past its limit after a failed refresh: the page has
+// loaded one before, so it is not blocked, and the line says the forecast did not load.
+export function renderNoData(old = false) {
   $('shareBtn').hidden = true;
   $('hero').dataset.lvl = '';
   $('verdict').textContent = 'No data.';
-  const allBlocked = Object.keys(SRC).every(k => app.errors[k]);
-  $('why').textContent = allBlocked
-    ? 'Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.'
-    : 'The forecast did not load. Check the connection, then tap Refresh.';
+  setNotChecked('');
+  const allBlocked = bindingsFor(app.loc).every(b => app.errors[b.slot]);
+  // Offline with no saved forecast: say so, since the blocked-sources text would blame the page (07 9.4).
+  $('why').textContent = navigator.onLine === false && !app.updated
+    ? 'No forecast saved for this location on this phone yet. Connect to load it.'
+    : allBlocked && !old
+      ? 'Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.'
+      : 'The forecast did not load. Check the connection, then tap Refresh.';
   $('holds').textContent = '';
 }
 
 function condSentence(m, h) {
   const parts = [];
-  if (h.wind != null) parts.push(`Wind ${r0(h.wind)} mph from ${card(h.dir)}, gusts ${r0(h.gust)}.`);
+  if (h.wind != null) parts.push(`Wind ${m.u.speed(h.wind)} from ${card(h.dir)}, gusts ${r0(h.gust)}.`);
   if (h.water) parts.push(`${WATER.names[h.water.lvl]}.`);
   const wt = waterTemp(m);
-  if (h.temp != null) parts.push(`${r0(h.temp)}°F air${wt != null ? `, ${r0(wt)}°F water` : ''}.`);
+  if (h.temp != null) parts.push(`${m.u.temp(h.temp)} air${wt != null ? `, ${m.u.temp(wt)} water` : ''}.`);
   return parts.join(' ');
 }
 
@@ -47,7 +56,7 @@ function renderNextPeriod(m) {
   const when = `${dayLabel(p.start)} ${p.name.toLowerCase()}, ${periodTime(p)}.`;
   const lead = p.lvl && p.why ? ` ${p.why.text}.` : '';
   const water = p.water ? ` ${WATER.names[p.water.max]}.` : '';
-  $('why').innerHTML = `${esc(when + lead)}<span class="cond">${esc(periodSummary(p) + water)}</span>`;
+  $('why').innerHTML = `${esc(when + lead)}<span class="cond">${esc(periodSummary(p, m.u) + water)}</span>`;
   $('holds').textContent = p.lvl ? nextGoText(m, p.start) : '';
 }
 
@@ -62,6 +71,7 @@ export function renderHero() {
   const m = app.model, cur = m.cur, a = cur.a;
   $('shareBtn').hidden = false;
   renderStatus();
+  setNotChecked(notCheckedText(notChecked(m), m.now));
   if (!m.daytime) { renderNextPeriod(m); return; }
   $('hero').dataset.lvl = a.lvl;
   $('verdict').textContent = WORD[a.lvl];
@@ -93,8 +103,9 @@ function renderStatus() {
   const failed = Object.keys(app.errors).filter(k => app.errors[k]);
   const note = $('statusNote');
   if (failed.length) {
+    const bs = bindingsFor(app.loc);
     note.hidden = false;
-    note.textContent = `Could not reach ${failed.map(k => SOURCE_NAMES[k]).join(', ')}. Showing the last data received where available.`;
+    note.textContent = `Could not reach ${failed.map(k => labelFor(k, bs.find(b => b.slot === k))).join(', ')}. Showing the last data received where available.`;
   } else note.hidden = true;
 }
 

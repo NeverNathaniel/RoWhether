@@ -1,0 +1,47 @@
+{
+  "v": 1,
+  "id": "c36d7b04-2897-4fc5-a19b-870a2998b370",
+  "slug": "lake-carnegie",
+  "name": "Lake Carnegie",
+  "shortName": "Carnegie",
+  "subtitle": "Lake Carnegie at the Shea Rowing Center.",
+  "locality": "Princeton, NJ",
+  "waterway": "lake-carnegie",
+  "lat": 40.33932,
+  "lon": -74.65048,
+  "tz": "America/New_York",
+  "tzLabel": null,
+  "country": "US",
+  "region": "US-NJ",
+  "waterType": "lake",
+  "course": { "kind": "none" },
+  "banks": null,
+  "thresholds": {
+    "windCaution": 10, "windOff": 15, "gustCaution": 18, "gustOff": 25,
+    "rainCaution": 60, "rainOff": 90, "coldCombined": 100,
+    "aqiCaution": 151, "aqiOff": 201
+  },
+  "aqiScale": "us",
+  "flow": null,
+  "water": { "mode": "fetch", "refFetchM": 2000, "lake": { "axis": 35, "lengthM": 4800, "widthM": 200 }, "fetchM": null },
+  "fog": null,
+  "waterTemp": { "fallback": "none", "maxAgeH": 72 },
+  "tide": null,
+  "daylight": null,
+  "copy": {
+    "description": "Go, caution or stay off: rowing conditions on Lake Carnegie, Princeton, NJ.",
+    "credits": "Forecast from [Open-Meteo](https://open-meteo.com/). Alerts and Trenton airport observations from the [National Weather Service, Mount Holly](https://www.weather.gov/phi/). Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo."
+  },
+  "launchNotes": null,
+  "status": "published",
+  "sources": [
+    {
+      "role": "alerts", "adapter": "nws-alerts", "ref": "zones:NJZ015,NJC021,NJZ012,NJC023", "label": "NWS"
+    },
+    {
+      "role": "obs", "adapter": "nws-obs", "ref": "KTTN", "label": "Trenton",
+      "note": "Trenton airport, 10 mi west-southwest. A check on the model.",
+      "siteLat": 40.2764, "siteLon": -74.8164, "distanceM": 15713, "relation": "nearby"
+    }
+  ]
+}

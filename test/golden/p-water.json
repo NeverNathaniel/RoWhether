@@ -1,0 +1,72 @@
+{
+  "levels": {
+    "sha256": "5d2a6330f49b79ce5d4380cbc781612a6ea0ad87ae9d3d8948a8381bd936ce50",
+    "bytes": 32119
+  },
+  "numbers": {
+    "sha256": "f053116763959b25bd1512a5b20b1b071b28efb29c2672b8c9c8d9eaa9810f0d",
+    "bytes": 14590
+  },
+  "course": [
+    [
+      null,
+      5,
+      ""
+    ],
+    [
+      90,
+      null,
+      ""
+    ],
+    [
+      null,
+      null,
+      ""
+    ],
+    [
+      90,
+      2.4,
+      "Near calm on the course."
+    ],
+    [
+      90,
+      2.5,
+      "Crosswind off the New Hampshire bank."
+    ],
+    [
+      90,
+      0,
+      "Near calm on the course."
+    ],
+    [
+      15,
+      2.5,
+      "Headwind rowing upstream, tailwind coming back."
+    ],
+    [
+      195,
+      2.4,
+      "Near calm on the course."
+    ]
+  ],
+  "why": {
+    "sha256": "0ccf3085ee3b3f00ae2fe24bf5e9a7d14730bef7046d4a9487bc74c318774071",
+    "bytes": 19291
+  },
+  "none": [
+    null,
+    null,
+    null,
+    ""
+  ],
+  "debris": [
+    [
+      -30,
+      false
+    ],
+    [
+      20,
+      true
+    ]
+  ]
+}

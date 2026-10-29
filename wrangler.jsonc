@@ -10,11 +10,22 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*"],
+    // A path with no file (a typo, or a location with no shell) is answered with
+    // index.html, and the app decides what to show. A fetch() of a missing JSON
+    // file gets index.html with a 200 too, so the app reads a location file by
+    // its body, never by its status.
+    "not_found_handling": "single-page-application"
   },
   "vars": {
     "GITHUB_REPO": "NeverNathaniel/RoWhether",
-    "APP_ENV": "production"
+    "APP_ENV": "production",
+    // Cloudflare Access for the owner's pages (P1.18, 03 3.7). The owner makes a self-hosted
+    // Access application for rowhether.com/admin* and rowhether.com/api/admin/*, then replaces
+    // these two with its team domain and its AUD tag (not secrets). Until they are replaced,
+    // every /api/admin/* answer is 503 and nobody gets in.
+    "ACCESS_TEAM_DOMAIN": "OWNER-SETS-team.cloudflareaccess.com",
+    "ACCESS_AUD": "OWNER-SETS-aud"
   },
   // Per-connection limits on suggestions and dock reports. Periods can only
   // be 10 or 60 seconds.
@@ -22,6 +33,11 @@
     { "name": "SUGGEST_LIMIT", "namespace_id": "1001", "simple": { "limit": 3, "period": 60 } },
     { "name": "REPORT_LIMIT", "namespace_id": "1003", "simple": { "limit": 3, "period": 60 } }
   ],
+  // The open counter (07 14.3): GET /api/info?loc=&k=&m= writes one point per
+  // app start, with no identifiers, and the Metrics tab reads it back through
+  // ANALYTICS_SQL. Points are kept three months.
+  "analytics_engine_datasets": [{ "binding": "OPENS", "dataset": "rowhether_opens" }],
+  "analytics": { "binding": "ANALYTICS_SQL" },
   // Production has no DB binding yet, so dock reports stay off there. Add a
   // production D1 database here to turn them on.
   "observability": { "enabled": true },
@@ -34,12 +50,18 @@
   "previews": {
     "vars": {
       "GITHUB_REPO": "NeverNathaniel/RoWhether",
-      "APP_ENV": "dev"
+      "APP_ENV": "dev",
+      // The Access application for the Preview host, and its own AUD tag (see above).
+      "ACCESS_TEAM_DOMAIN": "OWNER-SETS-team.cloudflareaccess.com",
+      "ACCESS_AUD": "OWNER-SETS-preview-aud"
     },
     "ratelimits": [
       { "name": "SUGGEST_LIMIT", "namespace_id": "1002", "simple": { "limit": 3, "period": 60 } },
       { "name": "REPORT_LIMIT", "namespace_id": "1004", "simple": { "limit": 3, "period": 60 } }
     ],
+    // Previews count into their own dataset, so dev opens never reach production's.
+    "analytics_engine_datasets": [{ "binding": "OPENS", "dataset": "rowhether_opens_dev" }],
+    "analytics": { "binding": "ANALYTICS_SQL" },
     // Shared by every Preview. Schema changes go in migrations/ and are
     // applied with: npx wrangler d1 migrations apply PREVIEW_DB --remote -c wrangler.preview-migrations.jsonc
     "d1_databases": [

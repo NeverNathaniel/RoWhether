@@ -3,26 +3,29 @@
 import { app, $ } from './state.js';
 import { hm } from './format.js';
 import { SITE_URL } from './config.js';
+import { zoneName, zoneAhead } from './render/header.js';
 
 const LABEL = 'Share this forecast';
 
 export function shareText(now = Date.now()) {
   const why = $('why').innerText.replace(/\s*\n\s*/g, ' ').trim();
-  const parts = [$('verdict').textContent.trim(), why, $('holds').textContent.trim()].filter(Boolean);
-  return `Putney Landing rowing, ${hm(now)}: ${parts.join(' ')}`;
+  const parts = [$('verdict').textContent.trim(), why, $('holds').textContent.trim(), $('notChecked').textContent.trim()].filter(Boolean);
+  // A sharer in another zone says which one the time is in (07 6.2).
+  const zone = zoneAhead(app.loc.tz, app.deviceTz, now) ? ` ${zoneName(app.loc, now)}` : '';
+  return `${app.loc.name} rowing, ${hm(now)}${zone}: ${parts.join(' ')}`;
 }
 
 export function initShare() {
   const btn = $('shareBtn');
   const flash = t => { btn.textContent = t; setTimeout(() => { btn.textContent = LABEL; }, 2000); };
   btn.addEventListener('click', async () => {
-    // Production shares rowhether.com, whatever address it was opened on.
+    // Production shares the location's page on rowhether.com, whatever address it was opened on.
     // Dev shares its own address, so testers stay on dev.
     const env = app.info && app.info.env;
-    const url = env && env !== 'production' ? location.origin + location.pathname : SITE_URL;
+    const url = env && env !== 'production' ? location.origin + location.pathname : SITE_URL + app.loc.slug;
     const text = shareText();
     try {
-      if (navigator.share) { await navigator.share({ title: 'Putney Landing rowing forecast', text, url }); return; }
+      if (navigator.share) { await navigator.share({ title: `${app.loc.name} rowing forecast`, text, url }); return; }
       await navigator.clipboard.writeText(`${text} ${url}`);
       flash('Copied');
     } catch (e) {

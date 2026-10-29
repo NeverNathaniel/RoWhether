@@ -1,0 +1,21 @@
+/* The privacy page (P1.16). Its own small stylesheet, never app.css: two pages that share
+   a stylesheet make Vite split it, and index.html would link two. The two @imports are
+   inlined into this file, so nothing here is shared with the app's bundle. */
+@import './tokens.css';
+@import '@fontsource-variable/archivo/wdth.css';
+
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Archivo Variable",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:16px; line-height:1.5; -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:40rem; margin:0 auto; padding:0 1.25rem 3rem}
+:focus-visible{outline:3px solid var(--river); outline-offset:2px}
+header{display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:.5rem 1.5rem; padding:1.25rem 0 1rem; border-bottom:1px solid var(--line)}
+.name{margin:0; font-size:1.5rem; font-weight:700; font-stretch:112%; letter-spacing:-.01em; line-height:1.15}
+a{color:var(--river); text-underline-offset:.15em}
+h1{margin:1.5rem 0 .5rem; font-size:2rem; font-weight:700; font-stretch:112%; letter-spacing:-.01em; line-height:1.15}
+h2{margin:1.75rem 0 .25rem; font-size:1.125rem; font-weight:700}
+p{margin:.5rem 0; max-width:65ch}
+.changed{margin-top:2rem; color:var(--muted); font-size:.875rem}

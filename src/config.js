@@ -2,22 +2,62 @@
 
 // The production address, for shared links and link previews.
 export const SITE_URL = 'https://rowhether.com/';
+// The location "/" opens for someone with none stored, and the only one that has dock reports.
+export const DEFAULT_SLUG = 'putney-landing';
+export const REPORTS_SLUG = 'putney-landing';
+// Until this moment "/" shows Putney Landing, with a note that offers the picker, to a
+// visitor who has not chosen a location. After it, "/" is the picker page (07 5.1).
+// PLACEHOLDER: 90 days after phase 1 reaches production. The owner sets it with the merge to master.
+export const FIRST_VISIT_PUTNEY_UNTIL = Date.UTC(2027, 2, 1);
 
-export const LOC = { lat: 42.9607, lon: -72.5219, tz: 'America/New_York' };
-
-export const DEFAULTS = {
-  heading: 15, windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25,
+// What every location starts from, before its own thresholds and the viewer's
+// changes (01 11.5). No heading (it lives in the course) and no flow limits
+// (those come from the location's gauge history, or stay blank).
+export const GLOBAL_DEFAULTS = {
+  windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25,
   rainCaution: 60, rainOff: 90, // percent chance; blank turns a level off
-  coldCombined: 100, flowCaution: 20000, flowOff: 28000, waterOverride: '',
+  coldCombined: 100, waterOverride: '',
   aqiCaution: 151, aqiOff: 201 // US AQI: Unhealthy and Very unhealthy; blank turns a level off
 };
 
-export const SET_KEY = 'putney-rowing-settings-v1';
-export const PLAN_KEY = 'putney-rowing-plan-v1';
-export const CACHE_KEY = 'putney-rowing-cache-v1';
-// v2 counts dismissals. The v1 key held a 30-day snooze and is ignored.
-export const INSTALL_KEY = 'putney-rowing-install-v2';
-export const NUDGE_KEY = 'putney-rowing-nudge-v1';
+// localStorage keys (08 8.2): rowhether-<name>-v<n>, with :<slug> on entries
+// that belong to one location.
+export const KEYS = {
+  settings: 'rowhether-settings-v2',
+  cache: slug => 'rowhether-cache-v2:' + slug,
+  plan: 'rowhether-plan-v1',
+  install: 'rowhether-install-v1',
+  nudge: 'rowhether-nudge-v1',
+  migrated: 'rowhether-migrated-v1',
+  last: 'rowhether-last-v1',
+  loc: slug => 'rowhether-loc-v1:' + slug, // the cached location record
+  cacheIndex: 'rowhether-cache-index-v1', // { slug: last opened ms }
+  recent: 'rowhether-recent-v1',
+  pickhint: 'rowhether-pickhint-v1'
+};
+// How many locations keep a cache and a record (07 9.2), and how many recent
+// ones are listed.
+export const CACHE_MAX = 10;
+export const RECENT_MAX = 8;
+// The keys the app used before locations (08 8.3). migrateStorage() copies them
+// to KEYS and leaves them in place. The install key was v2 then: it counts
+// dismissals, and the v1 key held a 30-day snooze that is ignored.
+export const OLD_KEYS = {
+  settings: 'putney-rowing-settings-v1',
+  cache: 'putney-rowing-cache-v1',
+  plan: 'putney-rowing-plan-v1',
+  install: 'putney-rowing-install-v2',
+  nudge: 'putney-rowing-nudge-v1'
+};
+// Putney's limits and course heading before phase 1: the values the old settings
+// were made against. migrateStorage() keeps only what differs from them. They
+// are frozen here and not read from Putney's record, so a later edit of the
+// record cannot change what an old setting meant.
+export const OLD_PUTNEY_DEFAULTS = Object.freeze({
+  windCaution: 10, windOff: 15, gustCaution: 18, gustOff: 25,
+  rainCaution: 60, rainOff: 90, coldCombined: 100, waterOverride: '',
+  aqiCaution: 151, aqiOff: 201, flowCaution: 20000, flowOff: 28000, heading: 15
+});
 // Install bar: Not now hides it until the next visit. After this many
 // dismissals it also offers Don't show again. Coming back to the tab after
 // INSTALL_VISIT_GAP_MS away counts as a new visit.
@@ -27,6 +67,8 @@ export const INSTALL_VISIT_GAP_MS = 30 * 60e3;
 export const MAX_TEXT = 2000;
 export const REFRESH_MS = 10 * 60 * 1000;
 export const HOUR = 3600e3, MIN = 60e3;
+// A saved location record is fetched again in the background after this long (01 7.4).
+export const RECORD_MAX_AGE = 24 * HOUR;
 export const LIGHT_KEYS = ['dark', 'twilight'];
 
 // Parts of the day. Edges are first light, sunset, or a local clock hour.
@@ -50,47 +92,14 @@ export const FOG = {
 // Water state: chop from wind. Wind along the straight has a long fetch and
 // counts fully; crosswind only crosses the river and counts for less. Chop
 // builds and settles over a couple of hours, so recent hours are blended in.
-// Wind blowing upstream against a strong current steepens it.
+// Wind blowing upstream against a strong current steepens it. The weight of
+// crosswind and the flow steps are the location's (water.cross, flow.against).
 export const WATER = {
   levels: [5, 9, 13],          // chop wind, mph: light chop, chop, rough
-  cross: 0.4,                  // weight of crosswind
   blend: [0.5, 0.3, 0.2],      // this hour, 1 hour ago, 2 hours ago
-  against: [[20000, 1.4], [10000, 1.25]], // flow cfs and multiplier
   debrisRise: 20,              // % flow rise in 6 hours that suggests debris
   names: ['Flat water', 'Light chop', 'Chop', 'Rough water'],
   short: ['Flat', 'Light', 'Chop', 'Rough']
-};
-
-export const GAUGE_FLOW = 'USGS-01154500';
-export const GAUGE_TEMP = 'USGS-01161280';
-// NWS river forecast point at the same North Walpole gauge (NERFC).
-export const NWS_GAUGE = 'WLPN3';
-
-export const SRC = {
-  wx: () => 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
-    latitude: LOC.lat, longitude: LOC.lon,
-    current: 'temperature_2m,apparent_temperature,dew_point_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code,visibility',
-    hourly: 'temperature_2m,apparent_temperature,dew_point_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,visibility,cape,cloud_cover,uv_index',
-    daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max',
-    wind_speed_unit: 'mph', temperature_unit: 'fahrenheit', precipitation_unit: 'inch',
-    timezone: LOC.tz, timeformat: 'unixtime', forecast_days: '7'
-  }).toString(),
-  alerts: () => `https://api.weather.gov/alerts/active?point=${LOC.lat},${LOC.lon}`,
-  obs: () => 'https://api.weather.gov/stations/KEEN/observations/latest',
-  river: () => `https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items?monitoring_location_id=${GAUGE_FLOW},${GAUGE_TEMP}&parameter_code=00060,00010&f=json`,
-  flow: () => `https://api.waterdata.usgs.gov/ogcapi/v0/collections/continuous/items?monitoring_location_id=${GAUGE_FLOW}&parameter_code=00060&time=P2D&limit=1000&properties=time,value&f=json`,
-  flowDays: () => `https://api.waterdata.usgs.gov/ogcapi/v0/collections/daily/items?monitoring_location_id=${GAUGE_FLOW}&parameter_code=00060&statistic_id=00003&time=P30D&limit=100&properties=time,value&f=json`,
-  flowFcst: () => `https://api.water.noaa.gov/nwps/v1/gauges/${NWS_GAUGE}/stageflow/forecast`,
-  aq: () => 'https://air-quality-api.open-meteo.com/v1/air-quality?' + new URLSearchParams({
-    latitude: LOC.lat, longitude: LOC.lon, hourly: 'us_aqi,pm2_5',
-    timezone: LOC.tz, timeformat: 'unixtime', forecast_days: '5'
-  }).toString(),
-  models: () => 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
-    latitude: LOC.lat, longitude: LOC.lon, hourly: 'wind_speed_10m,precipitation',
-    models: MODELS.map(x => x.id).join(','),
-    wind_speed_unit: 'mph', precipitation_unit: 'inch',
-    timezone: LOC.tz, timeformat: 'unixtime', forecast_days: '7'
-  }).toString()
 };
 
 // Forecast models compared for confidence. The main forecast is Open-Meteo's
@@ -108,8 +117,6 @@ export const CONFIDENCE = { medium: { wind: 4, rain: 0.25 }, low: { wind: 8, rai
 
 // US AQI categories, for words only. The call uses the settings.
 export const AQI = [[50, 'Good'], [100, 'Moderate'], [150, 'Unhealthy for sensitive groups'], [200, 'Unhealthy'], [300, 'Very unhealthy'], [Infinity, 'Hazardous']];
-
-export const SOURCE_NAMES = { wx: 'the forecast', alerts: 'NWS alerts', obs: 'Keene observations', river: 'USGS river gauges', flow: 'USGS flow history', flowDays: 'USGS daily flow', flowFcst: 'the NWS river forecast', aq: 'the air quality forecast', models: 'the model comparison' };
 
 // Groups of assess() reasons, one row each in the Overview detail view.
 export const FACTORS = [

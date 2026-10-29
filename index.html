@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Putney Row">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="RoWhether">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="description" content="Go, caution or stay off: rowing conditions on the Connecticut River at Putney Landing, VT.">
 <title>Putney Landing rowing conditions</title>
 <link rel="canonical" href="https://rowhether.com/">
@@ -25,10 +25,17 @@
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>Putney Landing <span class="env" id="envBadge" hidden></span></h1>
-      <p class="sub">Connecticut River at the Putney Rowing Club docks. All times Eastern.</p>
+      <div class="title-row">
+        <h1 id="title" tabindex="-1">
+          <button type="button" id="locBtn" class="loc-btn" aria-haspopup="dialog" aria-controls="picker" aria-describedby="locHint"><span id="locName">Putney Landing</span><svg class="loc-chev" viewBox="0 0 12 8" aria-hidden="true"><path d="M1.5 1.5 6 6l4.5-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <span class="env" id="envBadge" hidden></span>
+        </h1>
+        <span class="vh" id="locHint">Change location</span>
+      </div>
+      <p class="sub" id="sub">Connecticut River at the Putney Rowing Club docks. All times Eastern.</p>
+      <p class="badges" id="locBadges" hidden><span class="badge">Not confirmed on site</span></p>
     </div>
-    <div class="actions">
+    <div class="actions" id="actions">
       <span class="updated" id="updated">Loading</span>
       <button type="button" id="refreshBtn">Refresh</button>
       <button type="button" id="settingsBtn">Settings</button>
@@ -39,8 +46,15 @@
 
   <main>
     <div id="home">
+      <div class="set-nudge" id="pickNote" hidden>
+        <p>Not your water? Pick a location.</p>
+        <div class="set-nudge-actions">
+          <button type="button" id="pickNoteLater">Dismiss</button>
+          <button type="button" class="primary" id="pickNoteBtn">Pick a location</button>
+        </div>
+      </div>
       <div class="set-nudge" id="setNudge" hidden>
-        <p>Set your own limits in Settings. Until you do, Go, Caution and Stay off use starting values for wind, gusts, rain, cold water and river flow.</p>
+        <p id="setNudgeText"></p>
         <div class="set-nudge-actions">
           <button type="button" id="setNudgeLater">Dismiss</button>
           <button type="button" class="primary" id="setNudgeBtn">Open settings</button>
@@ -50,6 +64,7 @@
         <p class="verdict" id="verdict">&nbsp;</p>
         <p class="why" id="why">Loading conditions.</p>
         <p class="holds" id="holds"></p>
+        <p class="status-note" id="notChecked" hidden></p>
         <p class="status-note" id="statusNote" hidden></p>
         <p class="hero-actions"><button type="button" id="shareBtn" class="quiet">Share this forecast</button></p>
       </section>
@@ -80,6 +95,8 @@
     <section id="detail" class="detail" hidden aria-labelledby="detailTitle">
       <div id="detailBody"></div>
     </section>
+
+    <section id="notFound" class="panel" hidden aria-live="polite"></section>
   </main>
 
   <footer>
@@ -87,14 +104,14 @@
       <p class="install-row" id="installRow" hidden><button type="button" id="installBtn">Install this app</button></p>
       <p class="suggest-row" id="suggestRow" hidden><button type="button" id="suggestBtn">Suggest a change or report a bug</button></p>
     </div>
-    <p>Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (NOAA HRRR and GFS models). Alerts and Keene observations from the <a href="https://www.weather.gov/aly/" target="_blank" rel="noopener">National Weather Service, Albany</a>. River flow from USGS gauge <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01154500/" target="_blank" rel="noopener">01154500 at North Walpole</a>, water temperature from <a href="https://waterdata.usgs.gov/monitoring-location/USGS-01161280/" target="_blank" rel="noopener">01161280 near Northfield</a>. River forecast from the <a href="https://water.noaa.gov/gauges/wlpn3" target="_blank" rel="noopener">NWS Northeast River Forecast Center</a>. Air quality from Open-Meteo (Copernicus CAMS), and the model comparison from GFS, ECMWF, GEM and ICON via Open-Meteo.</p>
+    <p id="credits"></p>
     <p>Thresholds are starting points, not club rules. Lightning: off the water at the first thunder, back on 30 minutes after the last. Look at the water before you launch.</p>
   </footer>
 </div>
 
 <div class="install-bar" id="installBar" role="region" aria-label="Install the app" hidden>
-  <img src="icon-192.png" alt="" width="44" height="44">
-  <p>Add Putney Row to your home screen. It opens full screen in one tap.</p>
+  <img src="/icon-192.png" alt="" width="44" height="44">
+  <p id="installText">Add RoWhether to your home screen. It opens on Putney Landing in one tap.</p>
   <div class="install-actions">
     <button type="button" id="installNever" hidden>Don't show again</button>
     <button type="button" id="installLater">Not now</button>
@@ -102,12 +119,16 @@
   </div>
 </div>
 
+<div class="vh" id="pageAnnounce" aria-live="polite"></div>
+
+<dialog id="picker" class="sheet" aria-labelledby="pickTitle"></dialog>
+
 <dialog id="settings" aria-labelledby="setTitle">
   <form method="dialog" id="setForm">
     <!-- Focus the heading on open, not the first box, so the keyboard waits for a tap -->
     <h2 id="setTitle" tabindex="-1" autofocus>Settings</h2>
-    <p class="note">Match these to your program, boat class and coach coverage. Saved in this browser.</p>
-    <fieldset>
+    <p class="note"><span id="setIntro"></span> <a href="/privacy">How RoWhether counts app opens.</a></p>
+    <fieldset id="setCourse">
       <legend>Course</legend>
       <label>Upstream heading, degrees <input name="heading" type="number" min="0" max="359" step="1" inputmode="numeric" required></label>
     </fieldset>
@@ -125,33 +146,28 @@
     <fieldset>
       <legend>Rain chance, %</legend>
       <p class="note" style="margin:0 0 .25rem">The forecast chance of rain in an hour. Leave a box empty to turn it off.</p>
-      <label>Caution at <input name="rainCaution" type="number" min="0" max="100" step="5" inputmode="numeric" placeholder="Off"></label>
-      <label>Stay off at <input name="rainOff" type="number" min="0" max="100" step="5" inputmode="numeric" placeholder="Off"></label>
+      <label>Caution at <input name="rainCaution" type="number" min="0" max="100" step="5" inputmode="numeric"></label>
+      <label>Stay off at <input name="rainOff" type="number" min="0" max="100" step="5" inputmode="numeric"></label>
     </fieldset>
     <fieldset>
       <legend>Cold water</legend>
       <label>Caution when air plus water is under, °F <input name="coldCombined" type="number" min="0" max="200" step="1" inputmode="numeric" required></label>
       <label>Water temperature override, °F <input name="waterOverride" type="number" min="32" max="90" step="0.1" inputmode="decimal" placeholder="Use gauge"></label>
     </fieldset>
-    <fieldset>
-      <legend>River flow at North Walpole, cfs</legend>
-      <label>Caution at <input name="flowCaution" type="number" min="0" step="100" inputmode="numeric" required></label>
-      <label>Stay off at <input name="flowOff" type="number" min="0" step="100" inputmode="numeric" required></label>
-      <p class="note" style="margin:.4rem 0 0">Since 2016 the median day is about 6,900 cfs. 20,000 is roughly the top 10% of days, 28,000 the top 5%.</p>
-    </fieldset>
+    <fieldset id="setFlow" hidden></fieldset>
     <fieldset>
       <legend>Air quality, US AQI</legend>
       <p class="note" style="margin:0 0 .25rem">Wildfire smoke and haze. 151 is Unhealthy, 201 Very unhealthy. Leave a box empty to turn it off.</p>
-      <label>Caution at <input name="aqiCaution" type="number" min="0" max="500" step="1" inputmode="numeric" placeholder="Off"></label>
-      <label>Stay off at <input name="aqiOff" type="number" min="0" max="500" step="1" inputmode="numeric" placeholder="Off"></label>
+      <label>Caution at <input name="aqiCaution" type="number" min="0" max="500" step="1" inputmode="numeric"></label>
+      <label>Stay off at <input name="aqiOff" type="number" min="0" max="500" step="1" inputmode="numeric"></label>
     </fieldset>
     <fieldset id="setInstall" hidden>
       <legend>App</legend>
-      <p class="note" style="margin:0 0 .5rem">Add Putney Row to your home screen. It opens full screen in one tap.</p>
+      <p class="note" style="margin:0 0 .5rem">Add RoWhether to your home screen. It opens on your last location in one tap.</p>
       <button type="button" id="setInstallBtn">Install this app</button>
     </fieldset>
     <div class="dlg-actions">
-      <button type="button" id="resetSet">Reset defaults</button>
+      <button type="button" id="resetSet">Use location defaults</button>
       <span class="spacer"></span>
       <button value="cancel" formnovalidate>Cancel</button>
       <button value="save" class="primary">Save</button>
@@ -210,7 +226,7 @@
   <form method="dialog">
     <h2 id="insTitle">Add to your home screen</h2>
     <ol class="steps" id="insSteps"></ol>
-    <p class="note">Then open Putney Row from its icon. It opens full screen and keeps the last forecast for when you are offline.</p>
+    <p class="note">Then open RoWhether from its icon. It opens on your last location and keeps the last forecast for when you are offline. <a href="/privacy">How RoWhether counts app opens.</a></p>
     <div class="dlg-actions">
       <button class="primary">Done</button>
     </div>

@@ -1,0 +1,334 @@
+{
+  "model": {
+    "sha256": "f22d9fa55536ca4c504899240176f95e27c5ac819a6c7621618b956b646c759a",
+    "bytes": 93048
+  },
+  "text": {
+    "sha256": "b33089df5b82a3c788e0f1b2a28d8e1f0a31638d23afd6a2bdd028e36cf8b113",
+    "bytes": 20516
+  },
+  "plans": {
+    "60-any": [
+      {"key":"2026-11-04","start":1793811600000,"end":1793815200000,"score":6.651834829177304,"water":0,"wmin":5.6,"wmax":5.6,"gmax":11.2,"pop":0,"hs":[1793811600000]},
+      {"key":"2026-11-06","start":1793970000000,"end":1793973600000,"score":8.003662289381971,"water":1,"wmin":5.4,"wmax":5.4,"gmax":11,"pop":26,"hs":[1793970000000]},
+      {"key":"2026-11-05","start":1793887200000,"end":1793890800000,"score":8.302021705671173,"water":1,"wmin":7,"wmax":7,"gmax":13,"pop":9,"hs":[1793887200000]}
+    ],
+    "60-morning": [
+      {"key":"2026-11-06","start":1793970000000,"end":1793973600000,"score":8.003662289381971,"water":1,"wmin":5.4,"wmax":5.4,"gmax":11,"pop":26,"hs":[1793970000000]},
+      {"key":"2026-11-05","start":1793887200000,"end":1793890800000,"score":8.302021705671173,"water":1,"wmin":7,"wmax":7,"gmax":13,"pop":9,"hs":[1793887200000]}
+    ],
+    "60-afternoon": [
+      {"key":"2026-11-04","start":1793811600000,"end":1793815200000,"score":6.651834829177304,"water":0,"wmin":5.6,"wmax":5.6,"gmax":11.2,"pop":0,"hs":[1793811600000]},
+      {"key":"2026-11-05","start":1793905200000,"end":1793908800000,"score":12.834495029834368,"water":2,"wmin":9.3,"wmax":9.3,"gmax":17.2,"pop":10,"hs":[1793905200000]}
+    ],
+    "90-any": [
+      {"key":"2026-11-04","start":1793811600000,"end":1793817000000,"score":6.938840744050837,"water":1,"wmin":5.5,"wmax":5.6,"gmax":11.2,"pop":2,"hs":[1793811600000,1793815200000]},
+      {"key":"2026-11-06","start":1793970000000,"end":1793975400000,"score":9.265331265641693,"water":1,"wmin":5.4,"wmax":7.6,"gmax":14.8,"pop":26,"hs":[1793970000000,1793973600000]},
+      {"key":"2026-11-05","start":1793887200000,"end":1793892600000,"score":9.44054240046114,"water":1,"wmin":7,"wmax":7.8,"gmax":16,"pop":9,"hs":[1793887200000,1793890800000]}
+    ],
+    "90-morning": [
+      {"key":"2026-11-06","start":1793970000000,"end":1793975400000,"score":9.265331265641693,"water":1,"wmin":5.4,"wmax":7.6,"gmax":14.8,"pop":26,"hs":[1793970000000,1793973600000]},
+      {"key":"2026-11-05","start":1793887200000,"end":1793892600000,"score":9.44054240046114,"water":1,"wmin":7,"wmax":7.8,"gmax":16,"pop":9,"hs":[1793887200000,1793890800000]}
+    ],
+    "90-afternoon": [
+      {"key":"2026-11-04","start":1793811600000,"end":1793817000000,"score":6.938840744050837,"water":1,"wmin":5.5,"wmax":5.6,"gmax":11.2,"pop":2,"hs":[1793811600000,1793815200000]}
+    ],
+    "120-any": [
+      {"key":"2026-11-04","start":1793811600000,"end":1793818800000,"score":6.938840744050837,"water":1,"wmin":5.5,"wmax":5.6,"gmax":11.2,"pop":2,"hs":[1793811600000,1793815200000]},
+      {"key":"2026-11-06","start":1793970000000,"end":1793977200000,"score":9.265331265641693,"water":1,"wmin":5.4,"wmax":7.6,"gmax":14.8,"pop":26,"hs":[1793970000000,1793973600000]},
+      {"key":"2026-11-05","start":1793887200000,"end":1793894400000,"score":9.44054240046114,"water":1,"wmin":7,"wmax":7.8,"gmax":16,"pop":9,"hs":[1793887200000,1793890800000]}
+    ],
+    "120-morning": [
+      {"key":"2026-11-06","start":1793970000000,"end":1793977200000,"score":9.265331265641693,"water":1,"wmin":5.4,"wmax":7.6,"gmax":14.8,"pop":26,"hs":[1793970000000,1793973600000]},
+      {"key":"2026-11-05","start":1793887200000,"end":1793894400000,"score":9.44054240046114,"water":1,"wmin":7,"wmax":7.8,"gmax":16,"pop":9,"hs":[1793887200000,1793890800000]}
+    ],
+    "120-afternoon": [
+      {"key":"2026-11-04","start":1793811600000,"end":1793818800000,"score":6.938840744050837,"water":1,"wmin":5.5,"wmax":5.6,"gmax":11.2,"pop":2,"hs":[1793811600000,1793815200000]}
+    ]
+  },
+  "runs": {
+    "sha256": "3eda4649c3b746f85e2813c9407a1aac4d7cbaf9a45b7e9996e2609164b517a0",
+    "bytes": 9252
+  },
+  "parsers": {
+    "sha256": "59aeb1097401d3e5de02e81971e7ab4789fa522acd4ca4899e033d3b36adbefe",
+    "bytes": 21908
+  },
+  "views": {
+    "week": {
+      "summary": {"text":"No go period in the next 7 days.","lvl":2},
+      "days": {"null":{"day":null,"length":9654,"sha256":"1b67e8cd36c67f96265b7f01dfbec38fbf9ebff05c7b2f7a91e62356b94de32b"}}
+    },
+    "wind": {
+      "summary": {"text":"1 mph from WNW now, gusts 3.","lvl":0},
+      "days": {"null":{"day":"2026-11-03","length":14548,"sha256":"4112fcd9afe6cbf10464ef73c78f222867c3043367b8739c2791d398552d5ec6"}}
+    },
+    "river": {
+      "summary": {"text":"5,291 cfs now. Forecast to ease to about 4,300 cfs by Fri 7 AM.","lvl":0},
+      "days": {"null":{"day":null,"length":32387,"sha256":"d8adbfa8732350dc9fb5ba14b1dc46eb411c7fa2f231b5bfaf08cd86cecab506"}}
+    },
+    "storms": {
+      "summary": {"text":"No thunderstorm risk in the next 3 days.","lvl":0},
+      "days": {"null":{"day":"2026-11-03","length":12188,"sha256":"2f6247fe2a50cc4471ac5ad1b75077117a8243bd5560d216659085a48c701d1b"}}
+    },
+    "fog": {
+      "summary": {"text":"This morning: steam fog likely, lingering into late morning.","lvl":1},
+      "days": {"null":{"day":"2026-11-03","length":14475,"sha256":"a90e0b8eb242a57a01bf97782ba76795a7eb80bf541ee3cfb608907be6a86313"}}
+    },
+    "temperature": {
+      "summary": {"text":"32°F air now, 52°F water.","lvl":1},
+      "days": {"null":{"day":"2026-11-03","length":10208,"sha256":"b205952edc9bcbc6da39887f5e6186e5e8a67c2160899cde57071fe2291c2ec6"}}
+    },
+    "rain": {
+      "summary": {"text":"55% chance around 7 AM, snow.","lvl":1},
+      "days": {"null":{"day":"2026-11-03","length":11379,"sha256":"4629b180b8b1a3ed7715227ad0ed4ed8f88b7c07012fdf837324db6d8ecd0121"}}
+    },
+    "light": {
+      "summary": {"text":"Today: first light 5:58 AM, sunset 4:41 PM. 10 h 14 min of daylight.","lvl":null},
+      "days": {"null":{"day":"2026-11-03","length":32464,"sha256":"69543f7b9283d93ab8e87a5c39564a87974a894d934741d374cd37391f0df2a5"}}
+    },
+    "air": {
+      "summary": {"text":"AQI 30 now, good.","lvl":0},
+      "days": {"null":{"day":"2026-11-03","length":9014,"sha256":"91908027ce3d55dd81155910ed67aba03486181226f5b0251fce8e9ba094b8f8"}}
+    }
+  },
+  "home": {
+    "alerts": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "compass": {
+      "innerHTML": "<circle class=\"c-ring\" r=\"62\"/><text class=\"c-card\" x=\"0\" y=\"-48\" text-anchor=\"middle\">N</text><text class=\"c-card\" x=\"52\" y=\"4\" text-anchor=\"middle\">E</text><text class=\"c-card\" x=\"0\" y=\"56\" text-anchor=\"middle\">S</text><text class=\"c-card\" x=\"-52\" y=\"4\" text-anchor=\"middle\">W</text><g transform=\"rotate(15)\"><rect class=\"c-river\" x=\"-10\" y=\"-62\" width=\"20\" height=\"124\" rx=\"4\"/><path class=\"c-flow\" d=\"M-5 40 L5 40 L0 49 Z\"/></g><text class=\"c-bank\" x=\"-22.8\" y=\"-30.9\" text-anchor=\"middle\">VT</text><text class=\"c-bank\" x=\"35.2\" y=\"-15.4\" text-anchor=\"middle\">NH</text><g transform=\"rotate(301)\"><line class=\"c-wind\" x1=\"0\" y1=\"-44\" x2=\"0\" y2=\"30\"/><path class=\"c-head\" d=\"M-8 26 L8 26 L0 42 Z\"/></g>",
+      "textContent": "NESWVTNH",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "compassCap": {
+      "innerHTML": "Wind from WNW. River runs SSW, upstream heading 15°.",
+      "textContent": "Wind from WNW. River runs SSW, upstream heading 15°.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "days": {
+      "innerHTML": {"length":9444,"sha256":"f710db7b108578e07480bd998a90b2f80ae6a7307cfaebf47bdbc20a0999225f"},
+      "textContent": {"length":3753,"sha256":"3911fb61b82d91188d6e1cf131af5393101f3350894c71f87e126bb9e591e530"},
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "facts": {
+      "innerHTML": {"length":4879,"sha256":"c253271247d532dbfd6ef3231dff751427efa457746903ac371e987e98290295"},
+      "textContent": "Wind1 mph, gusts 3From WNW. Near calm on the course.Water stateFlat waterLittle wind on the water.Air32°FFeels like 32°F. Dew point 27°F.Water52°FNearest main-stem gauge, near Northfield, MA, about 19 mi downstream. 30 min ago.Air plus water84°FUnder 100. Dress for immersion and row with a launch.Visibility10+ miSteam fog likely now, lingering into late morning. Water 52°F under 32°F air.Air qualityAQI 30Good. Fine particles 5 µg/m³. A forecast, not a measurement.River flow5,291 cfs Steady over 6 hours. North Walpole gauge below Bellows Falls dam, about 16 river miles upstream. 15 min ago.Daylight6:28 AM to 4:41 PMFirst light 5:58 AM, dark by 5:11 PM. Lights required outside sunrise to sunset.Measured at Keene1 mph, 32°FLight Snow. Keene airport, 14 mi east. A check on the model. 7 min ago.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "hero": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {"lvl":1},
+      "style": {},
+      "extra": {}
+    },
+    "holds": {
+      "innerHTML": "No go period in the next 7 days.",
+      "textContent": "No go period in the next 7 days.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "nowPrecip": {
+      "innerHTML": {"length":3493,"sha256":"e34bfd08b1aaa0d22ab3da076670d2b0f0265f32fc4c97cdd34492606c1ec507"},
+      "textContent": "\n    Precipitation, now to 1 PM\n    55% chance\n    Light snow now. Most likely around 7 AM. Snow, about 0.02 in.\n    60%90%55%7 AM8 AM9 AM10 AM11 AM12 PM7 AM: 55% chance, snow, about 0.02 in.8 AM: 5% chance.9 AM: 5% chance.10 AM: 6% chance.11 AM: 5% chance.12 PM: 8% chance.\n    Tap a column for that hour.\n  ",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "nowSection": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "shareBtn": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "statusNote": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "updated": {
+      "innerHTML": "Updated 6:57 AM",
+      "textContent": "Updated 6:57 AM",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "verdict": {
+      "innerHTML": "Caution.",
+      "textContent": "Caution.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "why": {
+      "innerHTML": "Snow. Steam fog likely. Cold water, air plus water 84°F.<span class=\"cond\">Wind 1 mph from WNW, gusts 3. Flat water. 32°F air, 52°F water.</span>",
+      "textContent": "Snow. Steam fog likely. Cold water, air plus water 84°F.Wind 1 mph from WNW, gusts 3. Flat water. 32°F air, 52°F water.",
+      "hidden": false,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    },
+    "notChecked": {
+      "innerHTML": "",
+      "textContent": "",
+      "hidden": true,
+      "disabled": false,
+      "dataset": {},
+      "style": {},
+      "extra": {}
+    }
+  },
+  "forecasts": {
+    "2026-11-03-morning": {
+      "length": 8798,
+      "sha256": "06b71761e4c2a5b7d0b2361a6ca056b3371f8103f5bcfe4d5af05769f5757698"
+    },
+    "2026-11-03-midday": {
+      "length": 9345,
+      "sha256": "e0922b7e0234ce2139bac55c95475d2d537295c61aff13c83c8c89b5cfd63f17"
+    },
+    "2026-11-03-afternoon": {
+      "length": 7916,
+      "sha256": "78f614eb23e6fe49c9ba0004417f2cc06edc669302330501d0e3185b03f4f882"
+    },
+    "2026-11-04-morning": {
+      "length": 9451,
+      "sha256": "1b62373d9c75263d61e26b1730f2cfd927a4acd1da3ddc9e1f826e93826d54e0"
+    },
+    "2026-11-04-midday": {
+      "length": 9393,
+      "sha256": "70c423bac8d83aac22a1cb21253648d41bc2ba6deaeab57d4e6f55b5ce1fcf8e"
+    },
+    "2026-11-04-afternoon": {
+      "length": 7979,
+      "sha256": "3e8471facea45ac1e3f034fc0c26aa389df5c3a56900fa47e282dd26d0353ca4"
+    },
+    "2026-11-05-morning": {
+      "length": 8773,
+      "sha256": "1c2e704d805314d059f7180455595de4ab20454703193719842bcc4ad472f42e"
+    },
+    "2026-11-05-midday": {
+      "length": 9129,
+      "sha256": "f8a0a5058e43be62e538a43eeaaeff69e2b42e9344e31cefae5822dbe9ae1a37"
+    },
+    "2026-11-05-afternoon": {
+      "length": 7721,
+      "sha256": "8d636421db243f8b89bef36b62fc27cb6135d5a29adc7dccedb9fd1546e0e11a"
+    },
+    "2026-11-06-morning": {
+      "length": 8743,
+      "sha256": "345d750e1187f41ba0710febecd3fd62085285b8cacd3977ab4a5e917ec8e918"
+    },
+    "2026-11-06-midday": {
+      "length": 9204,
+      "sha256": "fc9bd4199deb0110059499b8c1e77a10a506f8e14881fd34bb80a89311f83daf"
+    },
+    "2026-11-06-afternoon": {
+      "length": 7608,
+      "sha256": "75ce9b1b5ca996fb533c74b3f9446d1ccc3f599e5110f6a6f089989f9dacfc75"
+    }
+  },
+  "status": {
+    "noDataAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","textContent":"Every data source was blocked. In-app file previews block outside connections. Open this page in Safari or Chrome, or from a hosted URL.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "noDataForecast": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "noDataQuiet": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":""},"style":{},"extra":{}},
+      "holds": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"No data.","textContent":"No data.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"The forecast did not load. Check the connection, then tap Refresh.","textContent":"The forecast did not load. Check the connection, then tap Refresh.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partial": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":1},"style":{},"extra":{}},
+      "holds": {"innerHTML":"No go period in the next 7 days.","textContent":"No go period in the next 7 days.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","textContent":"Could not reach NWS alerts, USGS river gauges. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Caution.","textContent":"Caution.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Snow. Steam fog likely. Cold water, air plus water 84°F.<span class=\"cond\">Wind 1 mph from WNW, gusts 3. Flat water. 32°F air, 52°F water.</span>","textContent":"Snow. Steam fog likely. Cold water, air plus water 84°F.Wind 1 mph from WNW, gusts 3. Flat water. 32°F air, 52°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "partialAll": {
+      "hero": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{"lvl":1},"style":{},"extra":{}},
+      "holds": {"innerHTML":"No go period in the next 7 days.","textContent":"No go period in the next 7 days.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "shareBtn": {"innerHTML":"","textContent":"","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "statusNote": {"innerHTML":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","textContent":"Could not reach the forecast, NWS alerts, Keene observations, USGS river gauges, USGS flow history, USGS daily flow, the NWS river forecast, the air quality forecast, the model comparison. Showing the last data received where available.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "verdict": {"innerHTML":"Caution.","textContent":"Caution.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "why": {"innerHTML":"Snow. Steam fog likely. Cold water, air plus water 84°F.<span class=\"cond\">Wind 1 mph from WNW, gusts 3. Flat water. 32°F air, 52°F water.</span>","textContent":"Snow. Steam fog likely. Cold water, air plus water 84°F.Wind 1 mph from WNW, gusts 3. Flat water. 32°F air, 52°F water.","hidden":false,"disabled":false,"dataset":{},"style":{},"extra":{}},
+      "notChecked": {"innerHTML":"","textContent":"","hidden":true,"disabled":false,"dataset":{},"style":{},"extra":{}}
+    },
+    "header": {
+      "loading": "Loading",
+      "notLoaded": "Not loaded",
+      "fresh": "Updated 6:57 AM",
+      "cached": "Saved 6:57 AM",
+      "failed": "Saved 6:57 AM"
+    }
+  },
+  "share": "Putney Landing rowing, 7 AM: Caution. Snow. Steam fog likely. Cold water, air plus water 84°F. Wind 1 mph from WNW, gusts 3. Flat water. 32°F air, 52°F water. No go period in the next 7 days."
+}
