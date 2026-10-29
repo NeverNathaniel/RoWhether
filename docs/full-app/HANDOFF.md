@@ -4,7 +4,7 @@ Notes for whichever agent picks this work up next. Read this first, then `CLAUDE
 
 ## The job
 
-Turn RoWhether from an app for the Putney Rowing Club into an app for all rowers: any location, check-ins and reports, accounts, clubs. The plan lives in `docs/full-app/`. The plan is finished and Phase 0 (no visible change for Putney) is built. The owner wants a full working prototype, phases 1 to 5, built on `dev-full-app` before anything goes to `dev` (2026-10-20).
+Turn RoWhether from an app for the Putney Rowing Club into an app for all rowers: any location, check-ins and reports, accounts, clubs. The plan lives in `docs/full-app/`. The plan is finished, Phase 0 (no visible change for Putney) is built and Phase 1 (seven locations) is built, awaiting its review (step 12a). The owner wants a full working prototype, phases 1 to 5, built on `dev-full-app` before anything goes to `dev` (2026-10-20).
 
 ## Standing instructions from the owner
 

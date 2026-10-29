@@ -120,7 +120,7 @@ A new version installs in the background, takes over the open page and reloads i
 
 ## Defaults
 
-Every location starts from these. A record may set its own, and Settings shows the location's value as the default. The flow row is Putney's.
+Every location starts from these. A record may set its own, and Settings shows the location's value as the default. The heading and flow rows are Putney's: every other record sets its own course and, when it has a gauge, its own flow limits.
 
 | Setting | Default | Why |
 | --- | --- | --- |
